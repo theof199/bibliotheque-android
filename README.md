@@ -106,3 +106,4 @@ de monter Kotlin, et ce sera une décision à prendre en entier, pas en passant.
 Ce qui ne se teste pas sur la JVM se vérifie sur le téléphone :
 
 - [ ] Au lancement, aucun flash clair : écran de démarrage, fenêtre et premier écran sont noirs.
+- [ ] Le titre est en Manrope, pas en Roboto : le J a une boucle nette, le a est à un étage.
