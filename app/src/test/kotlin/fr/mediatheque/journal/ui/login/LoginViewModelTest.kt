@@ -94,4 +94,18 @@ class LoginViewModelTest {
         vm.submit()
         assertTrue(vm.ui.value.retryable)
     }
+
+    @Test
+    fun `reset vide le pseudo, le mot de passe et l etat`() {
+        api.onLogin = { _, _ -> throw FakeJournalApi.refused() }
+        vm.pseudo = "alice"; vm.password = "faux"
+        vm.submit()
+        assertEquals("Pseudo ou mot de passe incorrect.", vm.ui.value.error)
+
+        vm.reset()
+
+        assertEquals("", vm.pseudo)
+        assertEquals("", vm.password)
+        assertEquals(LoginUi(), vm.ui.value)
+    }
 }

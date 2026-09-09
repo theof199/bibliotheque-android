@@ -30,6 +30,18 @@ class LoginViewModel(private val api: JournalApi, private val onSignedIn: (User)
     private val _ui = MutableStateFlow(LoginUi())
     val ui: StateFlow<LoginUi> = _ui
 
+    /**
+     * Ce `ViewModel` est indexé sur l'Activité (pas de clé dans `Root`) : sans remise à zéro
+     * explicite, la même instance revient après une déconnexion, pseudo et mot de passe encore
+     * remplis, message d'erreur compris (revue de la tâche 4). `Root` l'appelle à chaque entrée
+     * dans l'état `SignedOut`.
+     */
+    fun reset() {
+        pseudo = ""
+        password = ""
+        _ui.value = LoginUi()
+    }
+
     fun submit() {
         // Un `429` bloque le bouton pour `Retry-After` (design §5) : sans cette garde, un appel qui
         // ne passe pas par le bouton (le « Réessayer » du bloc d'erreur, par exemple) rejouerait
