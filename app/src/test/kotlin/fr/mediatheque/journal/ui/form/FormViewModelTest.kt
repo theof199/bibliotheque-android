@@ -21,11 +21,10 @@ class FormViewModelTest {
 
     private val api = FakeJournalApi()
     private val chihiro = SearchResult("tmdb", "129", "movie", "Le Voyage de Chihiro", 2001)
-    private var done: String? = null
     private var expire = 0
 
-    private fun create() = FormViewModel(api, FormMode.Create(chihiro), { expire++ }) { done = it }
-    private fun edit() = FormViewModel(api, FormMode.Edit(FakeJournalApi.item("m", "2026-01-10", 7, listOf("sympa"), "Avant")), { expire++ }) { done = it }
+    private fun create() = FormViewModel(api, FormMode.Create(chihiro)) { expire++ }
+    private fun edit() = FormViewModel(api, FormMode.Edit(FakeJournalApi.item("m", "2026-01-10", 7, listOf("sympa"), "Avant"))) { expire++ }
 
     @Test
     fun `un film nouveau — deux appels dans l ordre, tous les champs envoyes`() {
@@ -40,7 +39,7 @@ class FormViewModelTest {
 
         assertEquals(listOf("addMedia 129", "addViewing m-129"), api.calls)
         assertEquals(JournalCreateBody("m-129", "2026-09-03", 8, listOf("adore", "touche"), "Revu avec Léa."), corps)
-        assertEquals("Enregistré", done)
+        assertEquals("Enregistré", vm.ui.value.done)
     }
 
     @Test
@@ -83,7 +82,7 @@ class FormViewModelTest {
         assertEquals(listOf("addMedia 129"), api.calls)
         assertEquals(ApiError.NETWORK_MESSAGE, vm.ui.value.error?.message)
         assertNull(vm.ui.value.errorContext)
-        assertNull(done)
+        assertNull(vm.ui.value.done)
     }
 
     // Décision 3 de la tâche 6 : le brief remplaçait ici le message par une phrase fixe et posait
@@ -103,7 +102,7 @@ class FormViewModelTest {
         api.onAddViewing = { b -> FakeJournalApi.item(b.media_id, b.finished_at, b.rating, b.reactions, b.comment) }
         vm.retry()
         assertEquals(listOf("addMedia 129", "addViewing m-129", "addViewing m-129"), api.calls)
-        assertEquals("Enregistré", done)
+        assertEquals("Enregistré", vm.ui.value.done)
     }
 
     @Test
@@ -131,7 +130,7 @@ class FormViewModelTest {
         vm.save()
         assertEquals(listOf("patchViewing e-2026-01-10"), api.calls)
         assertEquals(setOf("comment", "reactions"), corps!!.keys)
-        assertEquals("Corrigé", done)
+        assertEquals("Corrigé", vm.ui.value.done)
     }
 
     @Test
@@ -163,7 +162,7 @@ class FormViewModelTest {
         val vm = edit()
         vm.delete()
         assertEquals(listOf("deleteViewing e-2026-01-10"), api.calls)
-        assertEquals("Supprimé", done)
+        assertEquals("Supprimé", vm.ui.value.done)
     }
 
     @Test
@@ -184,6 +183,44 @@ class FormViewModelTest {
         assertEquals(1, expire)
         assertNull(vm.ui.value.error)
         assertNull(vm.ui.value.errorContext)
-        assertNull(done)
+        assertNull(vm.ui.value.done)
+    }
+
+    // Correction 1 de la tâche 6, décision 2 : ce `FormViewModel` reste en vie (indexé sur le
+    // film, décision 5), donc une réouverture après un succès ressortirait sinon la note, les
+    // réactions et le commentaire de l'action qui vient de réussir.
+    @Test
+    fun `apres un enregistrement reussi, le brouillon repart a zero`() {
+        api.onAddViewing = { b -> FakeJournalApi.item(b.media_id, b.finished_at, b.rating, b.reactions, b.comment) }
+        val vm = create()
+        vm.toggleRating(8)
+        vm.toggleReaction("adore")
+        vm.setComment("Un avis.")
+        vm.save()
+
+        assertEquals("Enregistré", vm.ui.value.done)
+        assertNull(vm.ui.value.rating)
+        assertTrue(vm.ui.value.reactions.isEmpty())
+        assertEquals("", vm.ui.value.comment)
+    }
+
+    @Test
+    fun `apres un enregistrement reussi, un second enregistrement rappelle addMedia`() {
+        api.onAddViewing = { b -> FakeJournalApi.item(b.media_id, b.finished_at, b.rating, b.reactions, b.comment) }
+        val vm = create()
+        vm.save()
+        vm.save()
+        assertEquals(listOf("addMedia 129", "addViewing m-129", "addMedia 129", "addViewing m-129"), api.calls)
+    }
+
+    // C'est `FormScreen` qui appelle `doneConsumed()` une fois `nav.home(...)` fait (correction 1) ;
+    // ce test verifie seulement que l'appel efface bien le signal, sans le rejouer.
+    @Test
+    fun `doneConsumed efface le signal`() {
+        val vm = create()
+        vm.save()
+        assertEquals("Enregistré", vm.ui.value.done)
+        vm.doneConsumed()
+        assertNull(vm.ui.value.done)
     }
 }

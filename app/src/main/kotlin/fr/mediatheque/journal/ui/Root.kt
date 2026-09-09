@@ -78,9 +78,9 @@ fun Root(container: AppContainer) {
                         // le `FormViewModel` du premier film à tous les suivants ; l'identité du
                         // film dans la clé ouvre une case par film.
                         val form: FormViewModel = viewModel(key = "form:${screen.result.source}:${screen.result.external_id}") {
-                            FormViewModel(container.api, FormMode.Create(screen.result), session::expire) { message -> nav.home(message) }
+                            FormViewModel(container.api, FormMode.Create(screen.result), session::expire)
                         }
-                        FormScreen(form, onBack = nav::pop)
+                        FormScreen(form, nav = nav, onBack = nav::pop)
                     }
                     Screen.Profile -> Placeholder("Profil — tâche 7", nav::pop)
                     Screen.Films -> Placeholder("Mes films — tâche 7", nav::pop)

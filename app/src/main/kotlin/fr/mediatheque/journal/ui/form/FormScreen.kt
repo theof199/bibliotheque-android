@@ -40,6 +40,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -54,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import fr.mediatheque.journal.reactions.Reactions
 import fr.mediatheque.journal.ui.Cover
 import fr.mediatheque.journal.ui.ErrorBlock
+import fr.mediatheque.journal.ui.Navigator
 import fr.mediatheque.journal.ui.formatDate
 import fr.mediatheque.journal.ui.subtitle
 import java.time.Instant
@@ -62,11 +64,22 @@ import java.time.ZoneOffset
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun FormScreen(vm: FormViewModel, onBack: () -> Unit) {
+fun FormScreen(vm: FormViewModel, nav: Navigator, onBack: () -> Unit) {
     val ui by vm.ui.collectAsState()
     var showPicker by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     val editing = vm.mode is FormMode.Edit
+
+    // Le `ViewModel` ne connaît pas `nav` (correction 1 de la tâche 6) : indexé sur le film ou
+    // l'entrée, il survivrait à une recréation d'Activité avec une référence à un `Navigator` mort
+    // avec la composition qui l'a créé. C'est `FormScreen`, recomposé avec le `nav` du moment, qui
+    // consomme le signal et referme la boucle.
+    LaunchedEffect(ui.done) {
+        ui.done?.let {
+            nav.home(it)
+            vm.doneConsumed()
+        }
+    }
 
     val (title, coverUrl, sub) = when (val m = vm.mode) {
         is FormMode.Create -> Triple(m.result.title, m.result.cover_url, subtitle(m.result.metadata.director, m.result.year))

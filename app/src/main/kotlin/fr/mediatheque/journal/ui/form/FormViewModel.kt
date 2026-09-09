@@ -19,6 +19,17 @@ sealed interface FormMode {
     data class Edit(val item: JournalItem) : FormMode
 }
 
+/** L'état de départ du brouillon pour un mode — celui du formulaire vide, ou celui du visionnage à corriger. */
+private fun initialUi(mode: FormMode): FormUi = when (mode) {
+    is FormMode.Create -> FormUi(date = LocalDate.now())
+    is FormMode.Edit -> FormUi(
+        date = LocalDate.parse(mode.item.entry.finished_at),
+        rating = mode.item.entry.rating,
+        reactions = mode.item.carnet.reactions.toSet(),
+        comment = mode.item.carnet.comment ?: "",
+    )
+}
+
 data class FormUi(
     val date: LocalDate,
     val rating: Int? = null,
@@ -33,6 +44,15 @@ data class FormUi(
      * est bien ajouté.
      */
     val errorContext: String? = null,
+    /**
+     * Le message à montrer une fois l'action terminée (« Enregistré » /
+     * « Corrigé » / « Supprimé »). `FormScreen` le consomme par
+     * `nav.home(...)` puis appelle `doneConsumed()` : jamais le `ViewModel`
+     * lui-même, qui garderait alors une référence à un `Navigator` mort avec
+     * la composition qui l'a créé, tandis que lui survit à une recréation
+     * d'Activité (correction 1 de la tâche 6).
+     */
+    val done: String? = null,
 )
 
 /** Le contexte affiché quand le film est ajouté mais pas le visionnage (décision 3 de la tâche 6). */
@@ -60,20 +80,9 @@ class FormViewModel(
     private val api: JournalApi,
     val mode: FormMode,
     private val onUnauthenticated: () -> Unit,
-    private val onDone: (message: String) -> Unit,
 ) : ViewModel() {
 
-    private val _ui = MutableStateFlow(
-        when (mode) {
-            is FormMode.Create -> FormUi(date = LocalDate.now())
-            is FormMode.Edit -> FormUi(
-                date = LocalDate.parse(mode.item.entry.finished_at),
-                rating = mode.item.entry.rating,
-                reactions = mode.item.carnet.reactions.toSet(),
-                comment = mode.item.carnet.comment ?: "",
-            )
-        },
-    )
+    private val _ui = MutableStateFlow(initialUi(mode))
     val ui: StateFlow<FormUi> = _ui
 
     /** L'identifiant reçu de `POST /media`, gardé si `POST /me/journal` a échoué ensuite. */
@@ -101,9 +110,12 @@ class FormViewModel(
         val mode = mode as? FormMode.Edit ?: return@run
         launch {
             api.deleteViewing(mode.item.entry.id)
-            onDone("Supprimé")
+            finish("Supprimé")
         }
     }
+
+    /** `FormScreen` a affiché `ui.done` (par `nav.home(...)`) ; on efface le signal pour ne pas le rejouer. */
+    fun doneConsumed() = _ui.update { it.copy(done = null) }
 
     private suspend fun create(mode: FormMode.Create) {
         val mediaId = pendingMediaId ?: api.addMedia(mode.result).media.id.also { pendingMediaId = it }
@@ -113,12 +125,23 @@ class FormViewModel(
             if (e.isUnauthenticated) throw e
             throw ViewingFailedAfterMediaAdded(e)
         }
-        onDone("Enregistré")
+        finish("Enregistré")
     }
 
     private suspend fun edit(mode: FormMode.Edit) {
         api.patchViewing(mode.item.entry.id, patchBodyOf(mode.item, _ui.value))
-        onDone("Corrigé")
+        finish("Corrigé")
+    }
+
+    /**
+     * Ce `ViewModel` reste en vie, indexé sur le film ou l'entrée (décision 5) : sans ce retour au
+     * brouillon initial, une réouverture ressortirait la note, les réactions, le commentaire — et
+     * l'identifiant de média en attente — de l'action qui vient de réussir (correction 1 de la
+     * tâche 6).
+     */
+    private fun finish(message: String) {
+        pendingMediaId = null
+        _ui.update { initialUi(mode).copy(done = message) }
     }
 
     private fun date() = _ui.value.date.toString()
