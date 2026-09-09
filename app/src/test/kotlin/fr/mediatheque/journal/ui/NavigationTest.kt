@@ -1,6 +1,7 @@
 package fr.mediatheque.journal.ui
 
 import androidx.compose.material3.SnackbarHostState
+import fr.mediatheque.journal.api.dto.SearchResult
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
@@ -59,24 +60,29 @@ class NavigationTest {
         assertEquals(emptyList<String>(), recus)
     }
 
-    // `visitCounter` distingue une entrée depuis l'accueil (`push`) d'un retour (`pop`) : c'est ce
-    // qui garde `LaunchedEffect(nav.visitCounter)` dans `Root.kt` de rejouer `search.reset()` au
-    // retour du formulaire (mineur 8 de la vague finale). Mutation : incrémenter aussi dans `pop`,
-    // ou ne jamais incrémenter dans `push`, fait tomber respectivement la deuxième et la première
-    // assertion.
+    // `searchVisits` ne bouge que sur un `push(Screen.Search)` : c'est ce qui garde
+    // `LaunchedEffect(nav.searchVisits)` dans `Root.kt` de rejouer `search.reset()` seulement à
+    // l'entrée depuis l'accueil, jamais au retour par `pop`, jamais sur un `push` vers un autre
+    // écran (mineur 8 de la vague finale). Mutation : incrémenter sur tout `push` (pas seulement
+    // vers `Screen.Search`) fait tomber la troisième assertion ; incrémenter aussi dans `pop`, ou
+    // ne jamais incrémenter dans `push`, fait tomber respectivement la deuxième et la première.
     @Test
-    fun `push incremente le compteur de visite, jamais pop`() {
+    fun `push incremente le compteur de visite de recherche, jamais pop, jamais un autre ecran`() {
         val nav = Navigator()
 
         nav.push(Screen.Search)
-        val premiereVisite = nav.visitCounter
+        val premiereVisite = nav.searchVisits
 
         nav.pop()
-        val apresPop = nav.visitCounter
+        val apresPop = nav.searchVisits
         assertEquals("pop ne doit rien incrementer", premiereVisite, apresPop)
 
         nav.push(Screen.Search)
-        val secondeVisite = nav.visitCounter
-        assertNotEquals("un second push doit changer la valeur", premiereVisite, secondeVisite)
+        val secondeVisite = nav.searchVisits
+        assertNotEquals("un second push vers Search doit changer la valeur", premiereVisite, secondeVisite)
+
+        nav.push(Screen.Form(SearchResult("tmdb", "129", "movie", "Le Voyage de Chihiro", 2001)))
+        val apresPushForm = nav.searchVisits
+        assertEquals("un push vers un autre ecran ne doit rien incrementer", secondeVisite, apresPushForm)
     }
 }

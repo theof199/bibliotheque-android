@@ -46,20 +46,19 @@ class Navigator {
     val messages: Flow<String> = _messages.receiveAsFlow()
 
     /**
-     * Un compteur générique, incrémenté à chaque `push` — jamais à un `pop`.
-     * Il sert à distinguer deux entrées successives sur le même écran (par
-     * exemple `Screen.Search`, revue de la vague finale, mineur 8) : une clé
-     * de `LaunchedEffect` posée dessus se redéclenche à l'entrée, jamais au
-     * retour par `pop`.
+     * Compteur dédié à `Screen.Search`, incrémenté seulement quand `push` y entre — jamais à un
+     * `pop`, jamais sur un `push` vers un autre écran. Il sert à ne remettre à zéro la recherche
+     * qu'à l'entrée depuis l'accueil (revue de la vague finale, mineur 8) : voir le commentaire
+     * dans `Root.kt` pour pourquoi ce compteur vit hors du `Crossfade`.
      */
-    var visitCounter by mutableIntStateOf(0)
+    var searchVisits by mutableIntStateOf(0)
         private set
 
     val current: Screen get() = stack.last()
     val canPop: Boolean get() = stack.size > 1
 
     fun push(screen: Screen) {
-        visitCounter++
+        if (screen is Screen.Search) searchVisits++
         stack = stack + screen
     }
 

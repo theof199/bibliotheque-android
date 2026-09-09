@@ -54,6 +54,20 @@ fun Root(container: AppContainer) {
         is SessionState.SignedIn -> {
             val nav = rememberNavigator()
             BackHandler(enabled = nav.canPop) { nav.pop() }
+            // Ce `ViewModel` est indexé sur l'Activité (la clé ci-dessous ne change rien à sa
+            // portée) : sans remise à zéro, la même instance revient à chaque ouverture de
+            // l'écran, requête et résultats de la visite précédente compris — jumeau du piège
+            // réglé sur `LoginViewModel` ci-dessus (revue de la tâche 5).
+            //
+            // Obtenu ici, hors de la lambda du `Crossfade`, et pas dans la branche `Screen.Search`
+            // plus bas : `Crossfade` *dispose* la branche quittée et la recompose à neuf à chaque
+            // retour, donc un `LaunchedEffect` posé dans cette branche serait une instance neuve à
+            // chaque entrée et se rejouerait quelle que soit sa clé — y compris au retour du
+            // formulaire par `pop`, ce qu'on veut justement éviter (mineur 8 de la vague finale).
+            // Le jumeau `Screen.Films` plus bas exploite l'inverse volontairement : son
+            // `LaunchedEffect(Unit)` reste dans le `Crossfade` pour recharger à chaque entrée.
+            val search: SearchViewModel = viewModel(key = "search") { SearchViewModel(container.api, session::expire) }
+            LaunchedEffect(nav.searchVisits) { if (nav.searchVisits > 0) search.reset() }
             Crossfade(targetState = nav.current, animationSpec = tween(200), label = "ecran") { screen ->
                 when (screen) {
                     Screen.Home -> HomeScreen(
@@ -61,20 +75,7 @@ fun Root(container: AppContainer) {
                         onAdd = { nav.push(Screen.Search) },
                         onProfile = { nav.push(Screen.Profile) },
                     )
-                    Screen.Search -> {
-                        val search: SearchViewModel = viewModel(key = "search") { SearchViewModel(container.api, session::expire) }
-                        // Ce `ViewModel` est indexé sur l'Activité (la clé ci-dessus ne change rien à
-                        // sa portée) : sans remise à zéro, la même instance revient à chaque ouverture
-                        // de l'écran, requête et résultats de la visite précédente compris — jumeau du
-                        // piège réglé sur `LoginViewModel` ci-dessus (revue de la tâche 5). Keyé sur
-                        // `visitCounter` plutôt que `Unit` (revue de la vague finale, mineur 8) :
-                        // `Unit` ne se redéclenche qu'à la recomposition initiale de la branche, pas à
-                        // un retour par `push` depuis l'accueil après un `pop` — la recherche restait
-                        // celle qu'on venait de quitter. `visitCounter` change à chaque `push`, jamais
-                        // à un `pop`, donc l'effet ne se rejoue qu'en entrant depuis l'accueil.
-                        LaunchedEffect(nav.visitCounter) { search.reset() }
-                        SearchScreen(search, onBack = nav::pop, onPick = { nav.push(Screen.Form(it)) })
-                    }
+                    Screen.Search -> SearchScreen(search, onBack = nav::pop, onPick = { nav.push(Screen.Form(it)) })
                     is Screen.Form -> {
                         // Ce `ViewModel` est indexé sur l'Activité (jumeau du piège réglé sur
                         // `SearchViewModel.reset()` ci-dessus) : la clé ne donne pas de portée,
