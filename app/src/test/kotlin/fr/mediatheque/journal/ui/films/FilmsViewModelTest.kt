@@ -23,10 +23,27 @@ class FilmsViewModelTest {
     private fun page(vararg dates: String, next: String?) =
         JournalResponse(dates.map { FakeJournalApi.item("m", it, null, emptyList(), null) }, next)
 
+    // `Root.kt` declenche le premier chargement par `LaunchedEffect(Unit) { films.refresh() }` a
+    // l'entree sur l'ecran (jumeau de `ProfileScreen`) : le `ViewModel` ne doit rien charger tout
+    // seul a la construction, sous peine d'un `GET /me/journal` en double a la premiere ouverture,
+    // sans ordre garanti entre les deux reponses (revue de la vague finale, Important 3).
+    @Test
+    fun `la construction ne charge rien, seul refresh declenche le premier appel`() = runTest(dispatcher) {
+        api.onJournal = { page("2026-09-03", next = null) }
+        val vm = FilmsViewModel(api) { expire++ }
+        testScheduler.advanceUntilIdle()
+        assertEquals(emptyList<String>(), api.calls)
+
+        vm.refresh()
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf("journal null"), api.calls)
+    }
+
     @Test
     fun `charge la premiere page, puis la suivante, et s arrete sur null`() = runTest(dispatcher) {
         api.onJournal = { cursor -> if (cursor == null) page("2026-09-03", "2026-09-02", next = "c1") else page("2026-09-01", next = null) }
         val vm = FilmsViewModel(api) { expire++ }
+        vm.refresh()
         testScheduler.advanceUntilIdle()
         assertEquals(2, vm.ui.value.items.size)
         assertFalse(vm.ui.value.endReached)
@@ -46,6 +63,7 @@ class FilmsViewModelTest {
         val porte = CompletableDeferred<JournalResponse>()
         api.onJournal = { porte.await() }
         val vm = FilmsViewModel(api) { expire++ }
+        vm.refresh()
         testScheduler.advanceUntilIdle()
         vm.loadMore(); vm.loadMore()
         porte.complete(page("2026-09-03", next = null))
@@ -57,6 +75,7 @@ class FilmsViewModelTest {
     fun `refresh repart de zero`() = runTest(dispatcher) {
         api.onJournal = { page("2026-09-03", next = null) }
         val vm = FilmsViewModel(api) { expire++ }
+        vm.refresh()
         testScheduler.advanceUntilIdle()
         api.onJournal = { page("2026-09-04", "2026-09-03", next = null) }
         vm.refresh()
@@ -78,6 +97,7 @@ class FilmsViewModelTest {
             }
         }
         val vm = FilmsViewModel(api) { expire++ }
+        vm.refresh()
         testScheduler.advanceUntilIdle()
         vm.loadMore()
         testScheduler.advanceUntilIdle()
@@ -90,7 +110,8 @@ class FilmsViewModelTest {
     @Test
     fun `un 401 previent la session`() = runTest(dispatcher) {
         api.onJournal = { throw FakeJournalApi.unauthorized() }
-        FilmsViewModel(api) { expire++ }
+        val vm = FilmsViewModel(api) { expire++ }
+        vm.refresh()
         testScheduler.advanceUntilIdle()
         assertEquals(1, expire)
     }
@@ -101,6 +122,7 @@ class FilmsViewModelTest {
     fun `une erreur non 401 remonte dans ui error, la liste reste`() = runTest(dispatcher) {
         api.onJournal = { cursor -> if (cursor == null) page("2026-09-03", next = "c1") else throw FakeJournalApi.rateLimited(30) }
         val vm = FilmsViewModel(api) { expire++ }
+        vm.refresh()
         testScheduler.advanceUntilIdle()
 
         vm.loadMore()

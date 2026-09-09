@@ -32,6 +32,7 @@ import io.ktor.http.content.TextContent
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import okhttp3.CookieJar
@@ -129,8 +130,26 @@ class ApiClient(baseUrl: String, engine: HttpClientEngine) : JournalApi {
             throw ApiError.network(e)
         }
         if (!response.status.isSuccess()) throw errorOf(response)
-        @Suppress("UNCHECKED_CAST")
-        return if (T::class == Unit::class) Unit as T else response.body()
+        // Un succès au corps non-JSON (portail captif Wi-Fi, proxy en travers) fait lever
+        // `response.body()` une `JsonConvertException`/`NoTransformationFoundException` que
+        // personne n'attrapait : l'application plantait plutôt que d'afficher une erreur (revue de
+        // la vague finale, Important 2). `CancellationException` doit ressortir telle quelle, sans
+        // quoi l'annulation d'une coroutine par un `ViewModel` (un écran qui part, un `retry` qui
+        // relance) se transformerait en erreur affichée au lieu de s'éteindre en silence.
+        return try {
+            @Suppress("UNCHECKED_CAST")
+            if (T::class == Unit::class) Unit as T else response.body()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            throw ApiError(
+                code = "REPONSE_ILLISIBLE",
+                message = "L’API a répondu quelque chose d’inattendu.",
+                retryable = true,
+                status = response.status.value,
+                cause = e,
+            )
+        }
     }
 
     private suspend fun errorOf(response: HttpResponse): ApiError {

@@ -57,8 +57,7 @@ fun Root(container: AppContainer) {
             Crossfade(targetState = nav.current, animationSpec = tween(200), label = "ecran") { screen ->
                 when (screen) {
                     Screen.Home -> HomeScreen(
-                        message = nav.pendingMessage,
-                        onMessageShown = { nav.pendingMessage = null },
+                        nav = nav,
                         onAdd = { nav.push(Screen.Search) },
                         onProfile = { nav.push(Screen.Profile) },
                     )
@@ -67,8 +66,13 @@ fun Root(container: AppContainer) {
                         // Ce `ViewModel` est indexé sur l'Activité (la clé ci-dessus ne change rien à
                         // sa portée) : sans remise à zéro, la même instance revient à chaque ouverture
                         // de l'écran, requête et résultats de la visite précédente compris — jumeau du
-                        // piège réglé sur `LoginViewModel` ci-dessus (revue de la tâche 5).
-                        LaunchedEffect(Unit) { search.reset() }
+                        // piège réglé sur `LoginViewModel` ci-dessus (revue de la tâche 5). Keyé sur
+                        // `visitCounter` plutôt que `Unit` (revue de la vague finale, mineur 8) :
+                        // `Unit` ne se redéclenche qu'à la recomposition initiale de la branche, pas à
+                        // un retour par `push` depuis l'accueil après un `pop` — la recherche restait
+                        // celle qu'on venait de quitter. `visitCounter` change à chaque `push`, jamais
+                        // à un `pop`, donc l'effet ne se rejoue qu'en entrant depuis l'accueil.
+                        LaunchedEffect(nav.visitCounter) { search.reset() }
                         SearchScreen(search, onBack = nav::pop, onPick = { nav.push(Screen.Form(it)) })
                     }
                     is Screen.Form -> {

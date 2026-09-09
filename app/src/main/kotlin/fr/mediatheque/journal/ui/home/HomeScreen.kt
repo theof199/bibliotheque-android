@@ -22,17 +22,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import fr.mediatheque.journal.ui.Navigator
 import fr.mediatheque.journal.ui.showBriefly
 
 @Composable
-fun HomeScreen(message: String?, onMessageShown: () -> Unit, onAdd: () -> Unit, onProfile: () -> Unit) {
+fun HomeScreen(nav: Navigator, onAdd: () -> Unit, onProfile: () -> Unit) {
     val snackbar = remember { SnackbarHostState() }
-    LaunchedEffect(message) {
-        if (message != null) {
-            // Consommé avant l'attente, pas après : si l'écran part pendant les deux secondes de
-            // la snackbar, le message ne doit pas rester « en attente » et se rejouer au retour
-            // (revue de la tâche 5).
-            onMessageShown()
+    // Clé fixe : `nav.messages` est un événement à un coup (revue de la vague finale,
+    // Critique 1). Une clé qui bougerait à chaque message annulerait la snackbar en cours
+    // avant ses deux secondes, comme le faisait `LaunchedEffect(message)` avant elle.
+    LaunchedEffect(Unit) {
+        nav.messages.collect { message ->
             // Deux secondes (design §6), pas la durée Material par défaut : `showBriefly`
             // (décision 3 de la tâche 5) referme elle-même la snackbar après le délai.
             snackbar.showBriefly(message)

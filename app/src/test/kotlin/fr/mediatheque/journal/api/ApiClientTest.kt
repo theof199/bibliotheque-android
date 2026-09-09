@@ -92,6 +92,21 @@ class ApiClientTest {
         assertEquals("L’API a répondu 502.", e.message)
     }
 
+    // Un portail captif Wi-Fi (ou un proxy en travers) peut repondre 200 avec un corps HTML : sans
+    // ce garde, la desserialisation levait une exception que personne n'attrapait et l'application
+    // plantait (revue de la vague finale, Important 2).
+    @Test
+    fun `un 200 au corps illisible devient une ApiError REPONSE_ILLISIBLE, retryable`() = runTest {
+        val api = client {
+            respond("<html>portail captif</html>", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType to listOf("text/html")))
+        }
+        val e = erreur { api.me() }
+        assertEquals("REPONSE_ILLISIBLE", e.code)
+        assertEquals("L’API a répondu quelque chose d’inattendu.", e.message)
+        assertTrue(e.retryable)
+        assertEquals(200, e.status)
+    }
+
     @Test
     fun `une panne reseau devient une ApiError NETWORK, retryable`() = runTest {
         val api = client { throw IOException("connexion refusée") }

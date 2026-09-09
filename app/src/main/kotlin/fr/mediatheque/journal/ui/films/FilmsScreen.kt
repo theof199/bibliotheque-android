@@ -36,11 +36,9 @@ import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.formatDate
 import kotlinx.coroutines.flow.distinctUntilChanged
 
-// Pas de message en attente ici (ni `message`, ni `onMessageShown`) : cet écran en avait
-// une copie qui ne servait jamais (rien ne pousse de message vers « Mes films »,
-// `nav.pendingMessage` n'est consommé qu'à l'accueil) et divergeait déjà de `HomeScreen`
-// (durée, ordre de `onMessageShown`). Seul l'accueil affiche les messages (revue du tour
-// de correction 1).
+// Pas de snackbar ici : cet écran n'a jamais reçu `nav`, rien ne pousse de message vers
+// « Mes films ». Seul l'accueil collecte `nav.messages` (revue du tour de correction 1, et
+// Critique 1 de la vague finale pour le mécanisme lui-même).
 @Composable
 fun FilmsScreen(vm: FilmsViewModel, onBack: () -> Unit, onOpen: (JournalItem) -> Unit) {
     val ui by vm.ui.collectAsState()
@@ -82,7 +80,7 @@ fun FilmsScreen(vm: FilmsViewModel, onBack: () -> Unit, onOpen: (JournalItem) ->
                         item.entry.rating?.let { Text("$it", style = MaterialTheme.typography.titleMedium) }
                     }
                 }
-                if (ui.loading || !ui.endReached) {
+                if (ui.loading) {
                     item {
                         Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
                             CircularProgressIndicator(Modifier.size(40.dp), color = MaterialTheme.colorScheme.primary)

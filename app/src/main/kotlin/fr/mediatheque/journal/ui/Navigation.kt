@@ -4,11 +4,15 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.SearchResult
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.withTimeoutOrNull
 
 /** Les six écrans. Un écran qui a besoin d'une donnée la porte. */
@@ -29,19 +33,41 @@ class Navigator {
     var stack by mutableStateOf<List<Screen>>(listOf(Screen.Home))
         private set
 
-    /** Un message à montrer sur l'accueil, une fois — « Enregistré ». */
-    var pendingMessage by mutableStateOf<String?>(null)
+    /**
+     * Un message à montrer sur l'accueil, une fois — « Enregistré ». Un
+     * `Channel` plutôt qu'un `State` : un `State` remis à `null` après
+     * lecture change de valeur, ce qui change la clé du `LaunchedEffect` qui
+     * l'affiche et annule sa coroutine avant que la snackbar n'ait fini —
+     * elle clignote une frame (revue de la vague finale, Critique 1). Un
+     * événement à un coup ne se relit pas : `receiveAsFlow()` sur un
+     * `Channel` le rend, une fois, à qui collecte, sans jamais changer de clé.
+     */
+    private val _messages = Channel<String>(Channel.BUFFERED)
+    val messages: Flow<String> = _messages.receiveAsFlow()
+
+    /**
+     * Un compteur générique, incrémenté à chaque `push` — jamais à un `pop`.
+     * Il sert à distinguer deux entrées successives sur le même écran (par
+     * exemple `Screen.Search`, revue de la vague finale, mineur 8) : une clé
+     * de `LaunchedEffect` posée dessus se redéclenche à l'entrée, jamais au
+     * retour par `pop`.
+     */
+    var visitCounter by mutableIntStateOf(0)
+        private set
 
     val current: Screen get() = stack.last()
     val canPop: Boolean get() = stack.size > 1
 
-    fun push(screen: Screen) { stack = stack + screen }
+    fun push(screen: Screen) {
+        visitCounter++
+        stack = stack + screen
+    }
 
     fun pop() { if (canPop) stack = stack.dropLast(1) }
 
     /** Retour à l'accueil, pile vidée, avec un mot à dire. */
     fun home(message: String? = null) {
-        pendingMessage = message
+        if (message != null) _messages.trySend(message)
         stack = listOf(Screen.Home)
     }
 }

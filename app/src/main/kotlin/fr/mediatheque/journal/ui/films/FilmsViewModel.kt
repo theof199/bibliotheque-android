@@ -25,7 +25,10 @@ class FilmsViewModel(private val api: JournalApi, private val onUnauthenticated:
     private var cursor: String? = null
     private var enCours: Job? = null
 
-    init { refresh() }
+    // Pas d'`init { refresh() }` (jumeau de `ProfileViewModel`) : `Root.kt` déclenche déjà le
+    // premier chargement par `LaunchedEffect(Unit) { films.refresh() }` à l'entrée sur l'écran.
+    // Les deux ensemble lançaient deux `GET /me/journal` à la première ouverture, sans ordre
+    // garanti entre les deux réponses (revue de la vague finale, Important 3).
 
     fun refresh() {
         enCours?.cancel()
