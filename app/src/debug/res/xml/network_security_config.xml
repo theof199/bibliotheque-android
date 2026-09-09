@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Le HTTP en clair vers l'instance locale, en debug seulement : la
+     construction release n'a pas ce fichier et refuse tout http://. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
