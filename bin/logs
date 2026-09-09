@@ -9,8 +9,8 @@
 # Conséquence à connaître : sans processus, pas de pid, donc pas de journal.
 # Après un plantage, le processus est mort — le relancer sur le téléphone puis
 # rappeler `bin/logs` ne montrera plus la trace ; il faut la lire pendant que
-# l'application tourne, ou l'attraper avec `bin/dans adb -s "$ADB_DEVICE"
-# logcat -b crash`.
+# l'application tourne, ou aller la chercher dans le tampon des plantages :
+#   bin/dans sh -c 'adb connect "$ADB_DEVICE" && adb -s "$ADB_DEVICE" logcat -b crash'
 set -euo pipefail
 exec "$(dirname "$0")/dans" sh -c '
   set -e

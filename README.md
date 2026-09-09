@@ -41,7 +41,12 @@ refuse tout `http://`.
 `bin/logs` filtre `logcat` sur le pid de l'application, parce que `logcat`
 n'imprime pas le nom du paquet : il faut donc que l'application tourne au moment
 où on l'appelle. Après un plantage, le processus est mort et sa trace ne sortira
-plus par ce chemin — `bin/dans adb -s "$ADB_DEVICE" logcat -b crash` la garde.
+plus par ce chemin ; le tampon des plantages, lui, la garde :
+
+    bin/dans sh -c 'adb connect "$ADB_DEVICE" && adb -s "$ADB_DEVICE" logcat -b crash'
+
+(les guillemets simples comptent : `ADB_DEVICE` n'existe que dans le conteneur,
+le développer sur le poste ne rendrait rien.)
 
 Repli sans `adb` (téléphone trop ancien, réseau qui isole ses clients) : copier
 `app/build/outputs/apk/debug/app-debug.apk` sur le téléphone et l'ouvrir.
@@ -51,7 +56,7 @@ Repli sans `adb` (téléphone trop ancien, réseau qui isole ses clients) : copi
 `bin/build release` exige une clé de signature, décrite dans
 `signing/release.properties` (hors du dépôt, ignoré par git). Sans elle, la
 variante `release` est refusée **en entier**, en quelques secondes et avec une
-phrase qui dit quoi faire — plutôt qu'après trois minutes de compilation, sur
+phrase qui dit quoi faire — plutôt qu'une fois toute la compilation faite, sur
 le message technique d'AGP, ou pire en produisant un APK que le téléphone
 refuserait. Le prix de ce choix : on ne peut pas compiler la variante `release`
 juste pour voir, tant qu'il n'y a pas de clé. C'est voulu — aucune construction
