@@ -1,0 +1,27 @@
+services:
+  android:
+    build:
+      context: .
+      dockerfile: Dockerfile.build
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    # `adb` doit joindre le téléphone sur le Wi-Fi : le conteneur partage le
+    # réseau de l'hôte. Rien n'est publié pour autant.
+    network_mode: host
+    working_dir: /work
+    environment:
+      ADB_DEVICE: ${ADB_DEVICE:-}
+    volumes:
+      - .:/work
+      # Le cache Gradle : seule la première compilation est longue.
+      - gradle-cache:/gradle
+      # Deux choses qui ne doivent pas changer d'une exécution à l'autre : les
+      # clés adb (sinon réapparier le téléphone à chaque fois) et
+      # debug.keystore (sinon le téléphone refuse la mise à jour : « signatures
+      # do not match », et il faut désinstaller — l'appli oublie sa session).
+      - android-home:/home/build/.android
+
+volumes:
+  gradle-cache:
+  android-home:

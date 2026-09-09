@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# bin/pair ip:port — une fois par téléphone. Le port et le code sont ceux de
+# « Associer l'appareil avec un code » sur le téléphone, PAS ceux de
+# « Débogage sans fil » (qui vont dans ADB_DEVICE).
+set -euo pipefail
+[ $# -eq 1 ] || { echo "usage : bin/pair ip:port" >&2; exit 2; }
+exec "$(dirname "$0")/dans" adb pair "$1"

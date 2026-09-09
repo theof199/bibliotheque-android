@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# bin/install [debug|release] — connecte le téléphone (ADB_DEVICE dans .env)
+# et installe l'APK par-dessus la version en place.
+set -euo pipefail
+variante="${1:-debug}"
+apk="app/build/outputs/apk/${variante}/app-${variante}.apk"
+exec "$(dirname "$0")/dans" sh -c '
+  set -e
+  [ -n "$ADB_DEVICE" ] || { echo "ADB_DEVICE manque dans .env" >&2; exit 2; }
+  adb connect "$ADB_DEVICE"
+  adb -s "$ADB_DEVICE" install -r "'"$apk"'"
+'

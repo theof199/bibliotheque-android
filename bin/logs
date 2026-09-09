@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Le journal du téléphone, pour l'application seule.
+#
+# `logcat` n'imprime pas le nom du paquet : le filtrer dessus ne rendrait rien.
+# Ce qu'il sait filtrer, c'est un pid — et le pid, c'est le téléphone qui le
+# donne, par `pidof`. Le paquet est le même en debug et en release : aucun
+# `applicationIdSuffix` dans app/build.gradle.kts, donc une seule valeur ici.
+#
+# Conséquence à connaître : sans processus, pas de pid, donc pas de journal.
+# Après un plantage, le processus est mort — le relancer sur le téléphone puis
+# rappeler `bin/logs` ne montrera plus la trace ; il faut la lire pendant que
+# l'application tourne, ou l'attraper avec `bin/dans adb -s "$ADB_DEVICE"
+# logcat -b crash`.
+set -euo pipefail
+exec "$(dirname "$0")/dans" sh -c '
+  set -e
+  [ -n "$ADB_DEVICE" ] || { echo "ADB_DEVICE manque dans .env" >&2; exit 2; }
+  adb connect "$ADB_DEVICE" > /dev/null
+  pid=$(adb -s "$ADB_DEVICE" shell pidof -s fr.mediatheque.journal | tr -d "\r")
+  if [ -z "$pid" ]; then
+    echo "L application ne tourne pas sur le telephone : ouvre-la, puis relance bin/logs." >&2
+    exit 1
+  fi
+  echo "Journal de fr.mediatheque.journal, pid $pid. Ctrl-C pour arreter." >&2
+  exec adb -s "$ADB_DEVICE" logcat -v time --pid="$pid"
+'

@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# bin/build [debug|release] — l'APK sort dans app/build/outputs/apk/<variante>/.
+set -euo pipefail
+variante="${1:-debug}"
+case "$variante" in
+  debug) tache=assembleDebug ;;
+  release) tache=assembleRelease ;;
+  *) echo "variante inconnue : $variante (debug ou release)" >&2; exit 2 ;;
+esac
+exec "$(dirname "$0")/dans" ./gradlew "$tache"

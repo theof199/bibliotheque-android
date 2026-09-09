@@ -1,0 +1,61 @@
+# La chaîne de construction, entière : JDK 17 (exigé par le plugin Android
+# Gradle 8), les outils en ligne de commande du SDK, la plateforme et les
+# build-tools épinglés, Gradle. Le cache Gradle et le dossier ~/.android vivent
+# dans des volumes (voir compose.yaml) : l'image ne change que si une version
+# change.
+FROM eclipse-temurin:17-jdk
+
+ARG UID=1000
+ARG GID=1000
+ARG CMDLINE_TOOLS=11076708
+# Le Gradle de l'image ne sert qu'une fois : à écrire le wrapper
+# (`bin/dans gradle wrapper`). Tout le reste passe par `./gradlew`, donc par la
+# version de `gradle/wrapper/gradle-wrapper.properties` — **c'est ce
+# fichier-là qui fait foi**. La valeur est répétée ici uniquement pour que
+# l'image sache quelle distribution installer ; les deux doivent rester égales,
+# sinon `gradle wrapper` régénérerait un wrapper d'une autre version que celle
+# qu'on croit lire, sans rien dire.
+ARG GRADLE_VERSION=8.14.3
+# `compileSdk 36` : activity-compose 1.11.0 exige `minCompileSdk=36`. La cible
+# reste 35 (app/build.gradle.kts) : on compile contre 36, on promet 35.
+ARG PLATFORM=android-36
+ARG BUILD_TOOLS=36.0.0
+
+ENV ANDROID_HOME=/opt/android-sdk \
+    ANDROID_SDK_ROOT=/opt/android-sdk \
+    GRADLE_USER_HOME=/gradle \
+    PATH=/opt/android-sdk/cmdline-tools/latest/bin:/opt/android-sdk/platform-tools:/opt/gradle/bin:${PATH}
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends curl unzip git ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p ${ANDROID_HOME}/cmdline-tools \
+ && curl -fsSL -o /tmp/tools.zip "https://dl.google.com/android/repository/commandlinetools-linux-${CMDLINE_TOOLS}_latest.zip" \
+ && unzip -q /tmp/tools.zip -d ${ANDROID_HOME}/cmdline-tools \
+ && mv ${ANDROID_HOME}/cmdline-tools/cmdline-tools ${ANDROID_HOME}/cmdline-tools/latest \
+ && rm /tmp/tools.zip \
+ && yes | sdkmanager --licenses > /dev/null \
+ && sdkmanager "platform-tools" "platforms;${PLATFORM}" "build-tools;${BUILD_TOOLS}"
+
+RUN curl -fsSL -o /tmp/gradle.zip "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip" \
+ && unzip -q /tmp/gradle.zip -d /opt \
+ && mv /opt/gradle-${GRADLE_VERSION} /opt/gradle \
+ && rm /tmp/gradle.zip
+
+# L'hôte est un poste Linux : un fichier écrit dans le bind-mount garde l'uid
+# du conteneur. On recrée donc l'utilisateur de l'hôte ici, sinon `build/` et
+# `.gradle/` reviennent en root et ne s'effacent plus sans sudo. `-o` : l'uid
+# d'un compte de domaine peut entrer en collision avec un compte de l'image.
+#
+# Les dossiers des volumes existent dans l'image *avant* le montage : Docker
+# recopie alors leur propriétaire sur le volume. Créés à la volée, ils
+# appartiendraient à root. Le SDK lui aussi lui appartient : AGP y écrit
+# parfois (paquets manquants, fichiers de licence).
+RUN groupadd -o -g ${GID} build \
+ && useradd -o -u ${UID} -g ${GID} -m build \
+ && mkdir -p /gradle /home/build/.android /work \
+ && chown -R ${UID}:${GID} /gradle /home/build /work ${ANDROID_HOME}
+
+USER build
+WORKDIR /work
