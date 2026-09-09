@@ -19,6 +19,16 @@ private val JournalColors = darkColorScheme(
     secondaryContainer = ReactionFond,
     onSecondaryContainer = ReactionTexte,
     error = Ambre,
+    // Le design (§2) ne liste pas ces cinq jetons, laissés au défaut Material — un violet ou un
+    // gris clair qui jure sur le fond noir. Un `TextField` rempli lit `surfaceContainerHighest`,
+    // un `Snackbar` lit `inverseSurface`/`inverseOnSurface`/`inversePrimary`, un
+    // `HorizontalDivider` lit `outlineVariant` : on les pose depuis la palette déjà retenue, sans
+    // couleur nouvelle, pour que le premier écran qui les touche n'en découvre pas la couleur.
+    surfaceContainerHighest = Surface2,
+    inverseSurface = Surface2,
+    inverseOnSurface = Texte,
+    inversePrimary = Corail,
+    outlineVariant = Filet,
 )
 
 /**

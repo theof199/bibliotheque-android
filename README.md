@@ -107,3 +107,8 @@ Ce qui ne se teste pas sur la JVM se vérifie sur le téléphone :
 
 - [ ] Au lancement, aucun flash clair : écran de démarrage, fenêtre et premier écran sont noirs.
 - [ ] Le titre est en Manrope, pas en Roboto : le J a une boucle nette, le a est à un étage.
+- [ ] Un mauvais mot de passe : le message du back, tel quel, sous le bouton.
+- [ ] Dix échecs de connexion : le bouton passe à « Patiente 900 s » et décompte.
+- [ ] Une connexion réussie : « Bonjour alice ».
+- [ ] Tuer l'application, la rouvrir : « Bonjour alice » sans écran de connexion — le cookie a survécu.
+- [ ] Couper le Wi-Fi, rouvrir : le bloc « L'API est injoignable. » avec « Réessayer ».

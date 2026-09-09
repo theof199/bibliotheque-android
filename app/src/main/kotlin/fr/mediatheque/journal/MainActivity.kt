@@ -6,12 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
+import fr.mediatheque.journal.ui.Root
 import fr.mediatheque.journal.ui.theme.JournalTheme
 
 class MainActivity : ComponentActivity() {
@@ -26,9 +21,7 @@ class MainActivity : ComponentActivity() {
         )
         setContent {
             JournalTheme {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Journal", style = MaterialTheme.typography.titleLarge)
-                }
+                Root((application as App).container)
             }
         }
     }
