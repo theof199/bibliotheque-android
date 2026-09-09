@@ -90,7 +90,10 @@ contre l'instance locale). `bin/install` et `bin/logs` prennent tous deux
 `bin/logs release`.
 
 Après un tag posé sur `biblio-back` (le propriétaire décide, voir son
-`CLAUDE.md`), vérifier que le NAS a basculé avant d'installer :
+`CLAUDE.md`), recopier `docs/openapi.json` du back dans `contract/openapi.json`
+ici : rien ne garde cette copie de dériver du contrat qu'elle prétend refléter,
+et `ContractTest` continuerait de passer contre une version périmée sans le
+dire. Puis vérifier que le NAS a basculé avant d'installer :
 
     curl -s https://mini-mediatheque.fr/api/health
     curl -s -o /dev/null -w '%{http_code}\n' https://mini-mediatheque.fr/api/me/journal
@@ -138,6 +141,9 @@ de monter Kotlin, et ce sera une décision à prendre en entier, pas en passant.
 
 Ce qui ne se teste pas sur la JVM se vérifie sur le téléphone :
 
+Aucune des lignes qui suivent n'a encore été vue sur un téléphone : c'est une
+liste de contrôle à jouer, pas un journal de ce qui a déjà été vérifié.
+
 - [ ] Au lancement, aucun flash clair : écran de démarrage, fenêtre et premier écran sont noirs.
 - [ ] Le titre est en Manrope, pas en Roboto : le J a une boucle nette, le a est à un étage.
 - [ ] Un mauvais mot de passe : le message du back, tel quel, sous le bouton.
@@ -153,6 +159,7 @@ Ce qui ne se teste pas sur la JVM se vérifie sur le téléphone :
 - [ ] Chercher un film, le choisir : l'affiche 96 × 144, le titre, le réalisateur et l'année.
 - [ ] La date dit « 3 septembre 2026 » (aujourd'hui) ; toucher, choisir hier ; demain est grisé.
 - [ ] Deux rangées de cinq pastilles, atteignables au pouce ; en toucher une, elle passe au corail en 150 ms ; la retoucher la libère.
+- [ ] Les puces de réaction se touchent au pouce sans viser (cible 48 dp).
 - [ ] Cocher trois réactions : elles passent en fond brun et texte saumon.
 - [ ] Écrire un commentaire ; « Rien qu'à toi » dessous.
 - [ ] Enregistrer : le bouton garde sa taille, l'indicateur apparaît à gauche du texte, puis retour à l'accueil, « Enregistré » en snackbar deux secondes.

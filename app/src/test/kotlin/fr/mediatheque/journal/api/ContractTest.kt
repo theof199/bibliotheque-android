@@ -50,7 +50,17 @@ class ContractTest {
         assertEquals("tmdb", page.items.first().source)
     }
     @Test fun `POST media`() { lit("/media", "post", "201", AddMediaResponse.serializer()) }
-    @Test fun `GET me journal`() { lit("/me/journal", "get", "200", JournalResponse.serializer()) }
+    // Cinq valeurs de l'exemple, pas seulement sa forme : les champs que le back pourrait renommer
+    // sans que ce test bouge (revue de la vague finale, mineur 7).
+    @Test fun `GET me journal`() {
+        val page = lit("/me/journal", "get", "200", JournalResponse.serializer())
+        val item = page.items.first()
+        assertEquals(9, item.entry.rating)
+        assertEquals("https://image.tmdb.org/t/p/w500/9gk7adZmeSSuQfZBtWWLIcVcSY.jpg", item.media.cover_url)
+        assertEquals(listOf("adore", "touche"), item.carnet.reactions)
+        assertEquals("Revu avec Léa, toujours aussi fort.", item.carnet.comment)
+        assertEquals(null, page.next_cursor)
+    }
     @Test fun `POST me journal`() { lit("/me/journal", "post", "201", JournalItem.serializer()) }
     @Test fun `PATCH me journal id`() { lit("/me/journal/{id}", "patch", "200", JournalItem.serializer()) }
     @Test fun `GET stats`() {

@@ -10,7 +10,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-data class ProfileUi(val loading: Boolean = true, val total: Int? = null, val thisYear: Int? = null, val error: ApiError? = null)
+// Pas de `loading` : `ProfileScreen` ne le lit jamais (rien à l'écran ne distingue « en train de
+// charger » de « pas encore de chiffre », décision 3 de la tâche 7 déjà) — un champ mort (revue de
+// la vague finale, mineur 10).
+data class ProfileUi(val total: Int? = null, val thisYear: Int? = null, val error: ApiError? = null)
 
 /**
  * Deux chiffres, lus dans le tableau de bord existant. Rien n'est recalculé ici.
@@ -35,13 +38,13 @@ class ProfileViewModel(private val api: JournalApi, private val onUnauthenticate
         // « Réessayer » qui suit de près le précédent ne lance qu'un `GET /stats` de plus,
         // jamais deux en vol sans ordre garanti (jumeau de `FilmsViewModel`).
         enCours?.cancel()
-        _ui.value = ProfileUi(loading = true)
+        _ui.value = ProfileUi()
         enCours = viewModelScope.launch {
             try {
                 val periods = api.stats().dashboard.periods
-                _ui.value = ProfileUi(loading = false, total = periods.all.counts.movies, thisYear = periods.year.counts.movies)
+                _ui.value = ProfileUi(total = periods.all.counts.movies, thisYear = periods.year.counts.movies)
             } catch (e: ApiError) {
-                if (e.isUnauthenticated) onUnauthenticated() else _ui.value = ProfileUi(loading = false, error = e)
+                if (e.isUnauthenticated) onUnauthenticated() else _ui.value = ProfileUi(error = e)
             }
         }
     }

@@ -144,6 +144,10 @@ dependencies {
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.okhttp)
+    // `okhttp3.CookieJar` est importé directement (SessionCookieJar.kt, ApiClient.kt) : sans
+    // cette ligne, la dépendance n'existait qu'en transitif via ktor-client-okhttp, jamais
+    // déclarée (revue de la vague finale, mineur 11). Pas de version : celle que Ktor résout.
+    implementation("com.squareup.okhttp3:okhttp")
     implementation(libs.ktor.client.content.negotiation)
     implementation(libs.ktor.serialization.json)
     implementation(libs.serialization.json)

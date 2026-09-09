@@ -7,7 +7,7 @@ import fr.mediatheque.journal.api.JournalApi
 import fr.mediatheque.journal.api.PreferencesSessionStore
 import fr.mediatheque.journal.api.SessionCookieJar
 
-/** Sept dépendances, construites une fois. Un cadre d'injection serait plus gros que l'application. */
+/** Construites une fois. Un cadre d'injection serait plus gros que l'application. */
 class AppContainer(context: Context) {
     val cookieJar = SessionCookieJar(PreferencesSessionStore(context))
     val api: JournalApi = ApiClient(BuildConfig.API_BASE_URL, ApiClient.okHttpEngine(cookieJar))

@@ -3,6 +3,10 @@
 # et installe l'APK par-dessus la version en place.
 set -euo pipefail
 variante="${1:-debug}"
+case "$variante" in
+  debug|release) ;;
+  *) echo "variante inconnue : $variante (debug ou release)" >&2; exit 2 ;;
+esac
 apk="app/build/outputs/apk/${variante}/app-${variante}.apk"
 exec "$(dirname "$0")/dans" sh -c '
   set -e

@@ -134,9 +134,14 @@ fun FormScreen(vm: FormViewModel, nav: Navigator, onBack: () -> Unit) {
                         // 40 dp de haut (design §4), et une cible tactile de 48 dp par-dessus
                         // (décision 4 de la tâche 6) : les deux valeurs ne se confondent pas, la
                         // seconde ne fait qu'agrandir la zone de toucher autour de la première.
+                        // L'idiome Material va dans ce sens : `minimumInteractiveComponentSize()`
+                        // d'abord, qui réserve la zone de toucher de 48 dp autour du composant,
+                        // `height(40.dp)` ensuite, qui fixe la taille visible à l'intérieur — dans
+                        // l'autre ordre, la hauteur fixe s'appliquait à la zone de toucher elle-même
+                        // et la ramenait à 40 dp (revue de la vague finale, mineur 5).
                         modifier = Modifier
-                            .height(40.dp)
                             .minimumInteractiveComponentSize()
+                            .height(40.dp)
                             .semantics { contentDescription = Reactions.phrase(key) },
                     )
                 }

@@ -44,7 +44,10 @@ fun Cover(url: String?, title: String, width: Dp, height: Dp, modifier: Modifier
             model = url,
             contentDescription = description,
             contentScale = ContentScale.Crop,
-            loading = { initiale() },
+            // Rien au chargement d'une affiche (design §7) : le repli à l'initiale reste le geste
+            // de l'absence de jaquette, pas celui d'une attente (revue de la vague finale, mineur
+            // 9) — sinon chaque ligne d'une liste montre l'initiale une frame avant l'affiche.
+            loading = {},
             error = { initiale() },
             modifier = modifier.size(width, height).clip(shape),
         )
