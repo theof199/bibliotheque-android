@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Le journal du téléphone, pour l'application seule.
+# bin/logs [debug|release] — le journal du téléphone, pour l'application seule.
 #
 # `logcat` n'imprime pas le nom du paquet : le filtrer dessus ne rendrait rien.
 # Ce qu'il sait filtrer, c'est un pid — et le pid, c'est le téléphone qui le
-# donne, par `pidof`. Le paquet est le même en debug et en release : aucun
-# `applicationIdSuffix` dans app/build.gradle.kts, donc une seule valeur ici.
+# donne, par `pidof`. Les deux variantes cohabitent sous deux paquets distincts
+# (`applicationIdSuffix = ".debug"` dans app/build.gradle.kts) : la variante se
+# passe en argument, debug par défaut, comme pour bin/install.
 #
 # Conséquence à connaître : sans processus, pas de pid, donc pas de journal.
 # Après un plantage, le processus est mort — le relancer sur le téléphone puis
@@ -12,6 +13,12 @@
 # l'application tourne, ou aller la chercher dans le tampon des plantages :
 #   bin/dans sh -c 'adb connect "$ADB_DEVICE" && adb -s "$ADB_DEVICE" logcat -b crash'
 set -euo pipefail
+variante="${1:-debug}"
+case "$variante" in
+  debug) paquet=fr.mediatheque.journal.debug ;;
+  release) paquet=fr.mediatheque.journal ;;
+  *) echo "variante inconnue : $variante (debug ou release)" >&2; exit 2 ;;
+esac
 exec "$(dirname "$0")/dans" sh -c '
   set -e
   [ -n "$ADB_DEVICE" ] || { echo "ADB_DEVICE manque dans .env" >&2; exit 2; }
@@ -26,11 +33,11 @@ exec "$(dirname "$0")/dans" sh -c '
     *connected*) ;;
     *) echo "Telephone injoignable : verifie ADB_DEVICE dans .env et le Wi-Fi." >&2; exit 2 ;;
   esac
-  pid=$(adb -s "$ADB_DEVICE" shell pidof -s fr.mediatheque.journal | tr -d "\r")
+  pid=$(adb -s "$ADB_DEVICE" shell pidof -s '"$paquet"' | tr -d "\r")
   if [ -z "$pid" ]; then
     echo "L application ne tourne pas sur le telephone : ouvre-la, puis relance bin/logs." >&2
     exit 1
   fi
-  echo "Journal de fr.mediatheque.journal, pid $pid. Ctrl-C pour arreter." >&2
+  echo "Journal de '"$paquet"', pid $pid. Ctrl-C pour arreter." >&2
   exec adb -s "$ADB_DEVICE" logcat -v time --pid="$pid"
 '

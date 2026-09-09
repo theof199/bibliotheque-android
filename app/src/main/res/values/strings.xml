@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Journal</string>
+    <!-- app_name vient de resValue, dans app/build.gradle.kts (bloc debug et
+         bloc release) : les deux versions cohabitent sur le même téléphone
+         sous deux noms distincts, une définition ici entrerait en conflit. -->
 </resources>

@@ -59,6 +59,11 @@ android {
 
     buildTypes {
         debug {
+            // Les deux variantes cohabitent sur le même téléphone : signatures
+            // différentes, donc deux applications plutôt qu'une réinstallation
+            // qu'Android refuserait par-dessus l'autre.
+            applicationIdSuffix = ".debug"
+            resValue("string", "app_name", "Journal (dev)")
             // L'instance locale, en HTTP : le network_security_config du
             // dossier `debug` l'autorise, et lui seul.
             val url = localProperties.getProperty("api.debug.url")
@@ -66,6 +71,7 @@ android {
             buildConfigField("String", "API_BASE_URL", "\"$url\"")
         }
         release {
+            resValue("string", "app_name", "Journal")
             isMinifyEnabled = false
             signingConfig = signingConfigs.getByName("release")
             buildConfigField("String", "API_BASE_URL", "\"https://mini-mediatheque.fr/api\"")
