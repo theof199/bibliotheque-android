@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -54,46 +56,52 @@ fun ProfileScreen(user: User, vm: ProfileViewModel, onBack: () -> Unit, onFilms:
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour") }
         }
-        Column(Modifier.weight(1f).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text(user.pseudo, style = MaterialTheme.typography.titleMedium)
-            when {
-                ui.error != null -> ErrorBlock(ui.error!!.message ?: "", retryable = ui.error!!.retryable, onRetry = vm::retry)
-                ui.total != null -> Text(buildAnnotatedString {
-                    withStyle(chiffre) { append("${ui.total}") }
-                    withStyle(mots) { append(" films vus, ") }
-                    withStyle(chiffre) { append("${ui.thisYear}") }
-                    withStyle(mots) { append(" cette année") }
-                })
-                // Ni l'un ni l'autre : le premier chargement n'a pas encore répondu. Rien
-                // ne s'affiche — jamais un zéro, qui serait un compte, pas une absence de
-                // réponse (décision 3 de la tâche 7).
+        // Le reste défile en un seul bloc (jumeau de `FormScreen`) : à la taille de police
+        // maximale, les deux chiffres et la liste s'étirent, et sans ce `verticalScroll` le
+        // bouton « Se déconnecter » et la mention TMDB sortaient de l'écran (design §8,
+        // revue du tour de correction 1).
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+            Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text(user.pseudo, style = MaterialTheme.typography.titleMedium)
+                when {
+                    ui.error != null -> ErrorBlock(ui.error!!.message ?: "", retryable = ui.error!!.retryable, onRetry = vm::retry)
+                    ui.total != null -> Text(buildAnnotatedString {
+                        withStyle(chiffre) { append("${ui.total}") }
+                        withStyle(mots) { append(" films vus, ") }
+                        withStyle(chiffre) { append("${ui.thisYear}") }
+                        withStyle(mots) { append(" cette année") }
+                    })
+                    // Ni l'un ni l'autre : le premier chargement n'a pas encore répondu. Rien
+                    // ne s'affiche — jamais un zéro, qui serait un compte, pas une absence de
+                    // réponse (décision 3 de la tâche 7).
+                }
+                ListItem(
+                    headlineContent = { Text("Mes films", style = MaterialTheme.typography.titleMedium) },
+                    trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null) },
+                    colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+                    modifier = Modifier.clickable(onClick = onFilms),
+                )
+                TextButton(onClick = onSignOut) { Text("Se déconnecter", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
-            ListItem(
-                headlineContent = { Text("Mes films", style = MaterialTheme.typography.titleMedium) },
-                trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null) },
-                colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
-                modifier = Modifier.clickable(onClick = onFilms),
-            )
-            TextButton(onClick = onSignOut) { Text("Se déconnecter", color = MaterialTheme.colorScheme.onSurfaceVariant) }
-        }
-        // La mention TMDB : une condition de leurs conditions d'utilisation de l'API
-        // (§3 « Attribution », https://www.themoviedb.org/api-terms-of-use), pas une
-        // politesse. Le logo vient de leur kit de marque
-        // (https://www.themoviedb.org/about/logos-attribution, lu le 9 septembre 2026) :
-        // à cette date la page n'offre que des logos « blue » en SVG, aucune version dédiée
-        // au fond sombre ni aucun PNG — « Alt short (blue) » choisi, converti en PNG,
-        // fond transparent. La phrase ci-dessous est celle qu'imposent les conditions à
-        // cette même date, « application » remplaçant leur liste de mots-clés entre
-        // crochets ([website, program, service, application, product]).
-        Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Spacer(Modifier.height(24.dp))
-            Image(painterResource(R.drawable.tmdb_logo), contentDescription = "TMDB", modifier = Modifier.width(88.dp))
-            Text(
-                "This application uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by TMDB.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
+            // La mention TMDB : une condition de leurs conditions d'utilisation de l'API
+            // (§3 « Attribution », https://www.themoviedb.org/api-terms-of-use), pas une
+            // politesse. Le logo vient de leur kit de marque
+            // (https://www.themoviedb.org/about/logos-attribution, lu le 9 septembre 2026) :
+            // à cette date la page n'offre que des logos « blue » en SVG, aucune version dédiée
+            // au fond sombre ni aucun PNG — « Alt short (blue) » choisi, converti en PNG,
+            // fond transparent. La phrase ci-dessous est celle qu'imposent les conditions à
+            // cette même date, « application » remplaçant leur liste de mots-clés entre
+            // crochets ([website, program, service, application, product]).
+            Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Spacer(Modifier.height(24.dp))
+                Image(painterResource(R.drawable.tmdb_logo), contentDescription = "TMDB", modifier = Modifier.width(88.dp))
+                Text(
+                    "This application uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by TMDB.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+            }
         }
     }
 }

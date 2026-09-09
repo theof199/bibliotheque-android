@@ -94,13 +94,7 @@ fun Root(container: AppContainer) {
                         // resterait celle de la première visite après une correction ou une
                         // suppression faites depuis `Screen.Edit` (décision 1 de la tâche 7).
                         LaunchedEffect(Unit) { films.refresh() }
-                        FilmsScreen(
-                            films,
-                            message = nav.pendingMessage,
-                            onMessageShown = { nav.pendingMessage = null },
-                            onBack = nav::pop,
-                            onOpen = { nav.push(Screen.Edit(it)) },
-                        )
+                        FilmsScreen(films, onBack = nav::pop, onOpen = { nav.push(Screen.Edit(it)) })
                     }
                     is Screen.Edit -> {
                         // Indexé sur l'entrée corrigée (jumeau de `Screen.Form` ci-dessus) : une
@@ -111,7 +105,18 @@ fun Root(container: AppContainer) {
                         // par `nav.home(...)` — le retour à l'accueil après « Corrigé » ou
                         // « Supprimé » vient de là, pas d'ici ; « Mes films » se recharge à sa
                         // prochaine ouverture, par le `LaunchedEffect` ci-dessus.
-                        val form: FormViewModel = viewModel(key = "edit:${screen.item.entry.id}") {
+                        //
+                        // La clé porte aussi `screen.item.hashCode()` (revue du tour de
+                        // correction 1) : `JournalItem` est une `data class`, son hash change
+                        // avec la note, les réactions, le commentaire ou la date. Sans lui, la
+                        // clé ne dépendait que de l'identifiant de l'entrée — rouvrir une fiche
+                        // déjà corrigée retombait sur l'ancien `FormViewModel`, encore dans le
+                        // magasin de l'Activité avec le brouillon d'avant la correction, et
+                        // ignorait le `screen.item` frais que « Mes films » vient de fournir.
+                        // Les anciennes instances (une par version corrigée) restent dans ce
+                        // magasin pour la vie de l'Activité : négligeable pour un usage
+                        // personnel.
+                        val form: FormViewModel = viewModel(key = "edit:${screen.item.entry.id}:${screen.item.hashCode()}") {
                             FormViewModel(container.api, FormMode.Edit(screen.item), session::expire)
                         }
                         FormScreen(form, nav = nav, onBack = nav::pop)
