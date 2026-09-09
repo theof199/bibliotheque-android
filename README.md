@@ -109,6 +109,11 @@ Ce qui ne se teste pas sur la JVM se vérifie sur le téléphone :
 - [ ] Le titre est en Manrope, pas en Roboto : le J a une boucle nette, le a est à un étage.
 - [ ] Un mauvais mot de passe : le message du back, tel quel, sous le bouton.
 - [ ] Dix échecs de connexion : le bouton passe à « Patiente 900 s » et décompte.
-- [ ] Une connexion réussie : « Bonjour alice ».
-- [ ] Tuer l'application, la rouvrir : « Bonjour alice » sans écran de connexion — le cookie a survécu.
+- [ ] Une connexion réussie : l'accueil, sans écran de connexion.
+- [ ] Tuer l'application, la rouvrir : l'accueil directement — le cookie a survécu.
 - [ ] Couper le Wi-Fi, rouvrir : le bloc « L'API est injoignable. » avec « Réessayer ».
+- [ ] L'accueil : le bouton « Ajouter un film » seul, centré ; l'icône profil en haut à droite ; rien d'autre.
+- [ ] La recherche : le clavier est ouvert à l'arrivée ; taper « chihiro » ; la barre de 2 dp apparaît puis les résultats, affiche à gauche de chaque ligne ; un film sans affiche montre son initiale.
+- [ ] Une recherche sans résultat, par exemple « zzzz » : « Rien trouvé pour “zzzz”. ».
+- [ ] Le retour système depuis la recherche ramène à l'accueil.
+- [ ] Sans clé TMDB sur l'instance locale : le message `503` du back dans son bloc, avec « Réessayer ».
