@@ -5,6 +5,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.sp
 import fr.mediatheque.journal.R
 
@@ -26,6 +27,8 @@ private fun style(size: Int, lineHeight: Int, weight: FontWeight) = TextStyle(
     lineHeight = lineHeight.sp,
     fontWeight = weight,
     letterSpacing = 0.sp,
+    // Centre l'excedent d'interligne au lieu de le poser sous la ligne, comme le font les styles Material par defaut.
+    lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None),
 )
 
 // docs/design.md §3 — six styles, et l'application n'en utilise aucun autre.
