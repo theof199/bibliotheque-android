@@ -125,3 +125,9 @@ Ce qui ne se teste pas sur la JVM se vérifie sur le téléphone :
 - [ ] Enregistrer : le bouton garde sa taille, l'indicateur apparaît à gauche du texte, puis retour à l'accueil, « Enregistré » en snackbar deux secondes.
 - [ ] Sur le site, connecté avec le même compte : le film est « vu », daté, noté, **sans** le commentaire ni les réactions ; connecté avec un autre compte : idem.
 - [ ] Couper le Wi-Fi, enregistrer un autre film : le bloc « L'API est injoignable. » avec « Réessayer » ; le rallumer, Réessayer : enregistré.
+- [ ] Le profil : le pseudo, « **N** films vus, **M** cette année » avec les deux nombres en gros ; « Mes films » avec un chevron ; « Se déconnecter » ; en bas, le logo TMDB et sa phrase, centrés.
+- [ ] « Mes films » : la liste, du plus récent au plus ancien, affiche à gauche, date en toutes lettres, emojis des réactions, note à droite ; défiler jusqu'en bas quand il y a plus de quarante films charge la suite sans à-coup.
+- [ ] Toucher une ligne : le formulaire pré-rempli, « Corriger », « Supprimer ». Corriger la note : retour à l'accueil, « Corrigé » en snackbar ; rouvrir « Mes films » : la ligne à jour.
+- [ ] Supprimer : la boîte à deux boutons, puis « Supprimé » en snackbar ; rouvrir « Mes films » : la ligne partie. Sur le site, le film reste « vu ».
+- [ ] Se déconnecter depuis le profil : l'écran de connexion. Tuer l'application et la rouvrir : toujours l'écran de connexion.
+- [ ] Taille de police système au maximum sur le profil et « Mes films » : rien n'est coupé, les deux nombres restent lisibles, les réactions d'une ligne passent à la ligne (design §11).
