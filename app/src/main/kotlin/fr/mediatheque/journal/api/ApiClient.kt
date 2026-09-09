@@ -1,0 +1,171 @@
+package fr.mediatheque.journal.api
+
+import fr.mediatheque.journal.api.dto.AddMediaBody
+import fr.mediatheque.journal.api.dto.AddMediaResponse
+import fr.mediatheque.journal.api.dto.ApiErrorBody
+import fr.mediatheque.journal.api.dto.JournalCreateBody
+import fr.mediatheque.journal.api.dto.JournalItem
+import fr.mediatheque.journal.api.dto.JournalResponse
+import fr.mediatheque.journal.api.dto.LoginBody
+import fr.mediatheque.journal.api.dto.SearchResponse
+import fr.mediatheque.journal.api.dto.SearchResult
+import fr.mediatheque.journal.api.dto.SessionResponse
+import fr.mediatheque.journal.api.dto.StatsResponse
+import fr.mediatheque.journal.api.dto.User
+import io.ktor.client.HttpClient
+import io.ktor.client.call.body
+import io.ktor.client.engine.HttpClientEngine
+import io.ktor.client.engine.okhttp.OkHttp
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.plugins.defaultRequest
+import io.ktor.client.request.delete
+import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.client.request.parameter
+import io.ktor.client.request.patch
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
+import io.ktor.http.content.TextContent
+import io.ktor.http.contentType
+import io.ktor.http.isSuccess
+import io.ktor.serialization.kotlinx.json.json
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import okhttp3.CookieJar
+import java.io.IOException
+
+/**
+ * Le client, et les chemins de `Endpoints` — jamais un chemin écrit en dur
+ * ici ni ailleurs.
+ *
+ * `expectSuccess = false` : c'est nous qui lisons le statut, pour transformer
+ * l'enveloppe `{ code, message, retryable }` en `ApiError` avec `Retry-After`.
+ * Une panne réseau devient une `ApiError` aussi : les écrans n'ont qu'un type
+ * d'erreur à connaître.
+ */
+class ApiClient(baseUrl: String, engine: HttpClientEngine) : JournalApi {
+
+    private val client = HttpClient(engine) {
+        expectSuccess = false
+        install(ContentNegotiation) { json(ApiJson) }
+        defaultRequest {
+            // La base finit par `/` et les chemins ne commencent pas par `/` :
+            // c'est ce qui garde le préfixe `/api` de l'instance en ligne.
+            url(baseUrl.trimEnd('/') + "/")
+            header("X-Mediatheque-Client", "android")
+        }
+    }
+
+    override suspend fun login(pseudo: String, password: String): User =
+        call<SessionResponse> {
+            client.post(Endpoints.login) {
+                contentType(ContentType.Application.Json)
+                setBody(LoginBody(pseudo, password))
+            }
+        }.user
+
+    override suspend fun me(): User = call<SessionResponse> { client.get(Endpoints.me) }.user
+
+    override suspend fun logout() {
+        call<Unit> { client.post(Endpoints.logout) }
+    }
+
+    override suspend fun searchMovies(query: String): List<SearchResult> =
+        call<SearchResponse> {
+            client.get(Endpoints.search) {
+                parameter("type", "movie")
+                parameter("q", query)
+            }
+        }.items
+
+    override suspend fun addMedia(result: SearchResult): AddMediaResponse =
+        call {
+            client.post(Endpoints.media) {
+                contentType(ContentType.Application.Json)
+                setBody(AddMediaBody(result.source, result.external_id, result.type))
+            }
+        }
+
+    override suspend fun journal(cursor: String?): JournalResponse =
+        call {
+            client.get(Endpoints.journal) {
+                parameter("limit", 40)
+                if (cursor != null) parameter("cursor", cursor)
+            }
+        }
+
+    override suspend fun addViewing(body: JournalCreateBody): JournalItem =
+        call {
+            client.post(Endpoints.journal) {
+                contentType(ContentType.Application.Json)
+                setBody(body)
+            }
+        }
+
+    override suspend fun patchViewing(id: String, body: JsonObject): JournalItem =
+        call {
+            client.patch(Endpoints.viewing(id)) {
+                // Le corps est déjà un arbre JSON construit par l'appelant
+                // (`JsonNull` explicite compris) : on l'encode nous-mêmes et on
+                // le pose comme `TextContent`, pour ne rien laisser à la
+                // négociation de contenu réinterpréter.
+                setBody(TextContent(ApiJson.encodeToString(JsonObject.serializer(), body), ContentType.Application.Json))
+            }
+        }
+
+    override suspend fun deleteViewing(id: String) {
+        call<Unit> { client.delete(Endpoints.viewing(id)) }
+    }
+
+    override suspend fun stats(): StatsResponse = call { client.get(Endpoints.stats) }
+
+    private suspend inline fun <reified T> call(block: () -> HttpResponse): T {
+        val response = try {
+            block()
+        } catch (e: IOException) {
+            throw ApiError.network(e)
+        }
+        if (!response.status.isSuccess()) throw errorOf(response)
+        @Suppress("UNCHECKED_CAST")
+        return if (T::class == Unit::class) Unit as T else response.body()
+    }
+
+    private suspend fun errorOf(response: HttpResponse): ApiError {
+        val text = runCatching { response.bodyAsText() }.getOrDefault("")
+        val body = runCatching { ApiJson.decodeFromString<ApiErrorBody>(text) }.getOrNull()
+        return ApiError(
+            code = body?.code ?: "HTTP_${response.status.value}",
+            message = body?.message ?: "L’API a répondu ${response.status.value}.",
+            retryable = body?.retryable ?: false,
+            status = response.status.value,
+            retryAfterSeconds = response.headers["Retry-After"]?.trim()?.toIntOrNull(),
+        )
+    }
+
+    companion object {
+        /**
+         * `ignoreUnknownKeys` : les réponses sont riches, on n'en modèle qu'une
+         * partie, et le contrat a le droit de s'enrichir. `encodeDefaults` :
+         * un corps envoie ses valeurs par défaut non nulles (`reactions: []`).
+         * `explicitNulls = false` : un champ nul de valeur par défaut (comme
+         * `rating` ou `comment` de `JournalCreateBody`) est omis du corps
+         * plutôt qu'envoyé à `null` — c'est ce qui garde la garde du back sur
+         * `rating` (`if (body.rating !== undefined)`) intacte depuis l'appli.
+         * Au décodage, un champ nullable absent devient `null`, ce qui est
+         * voulu.
+         */
+        val ApiJson: Json = Json {
+            ignoreUnknownKeys = true
+            encodeDefaults = true
+            explicitNulls = false
+        }
+
+        /** Le moteur de l'application : OkHttp, avec notre cookie. Les tests passent `MockEngine`. */
+        fun okHttpEngine(cookieJar: CookieJar): HttpClientEngine = OkHttp.create {
+            config { cookieJar(cookieJar) }
+        }
+    }
+}
