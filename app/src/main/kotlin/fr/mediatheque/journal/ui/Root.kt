@@ -21,6 +21,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import fr.mediatheque.journal.AppContainer
+import fr.mediatheque.journal.ui.form.FormMode
+import fr.mediatheque.journal.ui.form.FormScreen
+import fr.mediatheque.journal.ui.form.FormViewModel
 import fr.mediatheque.journal.ui.home.HomeScreen
 import fr.mediatheque.journal.ui.login.LoginScreen
 import fr.mediatheque.journal.ui.login.LoginViewModel
@@ -68,7 +71,17 @@ fun Root(container: AppContainer) {
                         LaunchedEffect(Unit) { search.reset() }
                         SearchScreen(search, onBack = nav::pop, onPick = { nav.push(Screen.Form(it)) })
                     }
-                    is Screen.Form -> Placeholder("Formulaire — tâche 6", nav::pop)
+                    is Screen.Form -> {
+                        // Ce `ViewModel` est indexé sur l'Activité (jumeau du piège réglé sur
+                        // `SearchViewModel.reset()` ci-dessus) : la clé ne donne pas de portée,
+                        // elle nomme une case dans son magasin. Une clé fixe (`"form"`) rendrait
+                        // le `FormViewModel` du premier film à tous les suivants ; l'identité du
+                        // film dans la clé ouvre une case par film.
+                        val form: FormViewModel = viewModel(key = "form:${screen.result.source}:${screen.result.external_id}") {
+                            FormViewModel(container.api, FormMode.Create(screen.result), session::expire) { message -> nav.home(message) }
+                        }
+                        FormScreen(form, onBack = nav::pop)
+                    }
                     Screen.Profile -> Placeholder("Profil — tâche 7", nav::pop)
                     Screen.Films -> Placeholder("Mes films — tâche 7", nav::pop)
                     is Screen.Edit -> Placeholder("Correction — tâche 7", nav::pop)

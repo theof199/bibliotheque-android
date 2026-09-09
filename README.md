@@ -117,3 +117,11 @@ Ce qui ne se teste pas sur la JVM se vérifie sur le téléphone :
 - [ ] Une recherche sans résultat, par exemple « zzzz » : « Rien trouvé pour “zzzz”. ».
 - [ ] Le retour système depuis la recherche ramène à l'accueil.
 - [ ] Sans clé TMDB sur l'instance locale : le message `503` du back dans son bloc, avec « Réessayer ».
+- [ ] Chercher un film, le choisir : l'affiche 96 × 144, le titre, le réalisateur et l'année.
+- [ ] La date dit « 3 septembre 2026 » (aujourd'hui) ; toucher, choisir hier ; demain est grisé.
+- [ ] Deux rangées de cinq pastilles, atteignables au pouce ; en toucher une, elle passe au corail en 150 ms ; la retoucher la libère.
+- [ ] Cocher trois réactions : elles passent en fond brun et texte saumon.
+- [ ] Écrire un commentaire ; « Rien qu'à toi » dessous.
+- [ ] Enregistrer : le bouton garde sa taille, l'indicateur apparaît à gauche du texte, puis retour à l'accueil, « Enregistré » en snackbar deux secondes.
+- [ ] Sur le site, connecté avec le même compte : le film est « vu », daté, noté, **sans** le commentaire ni les réactions ; connecté avec un autre compte : idem.
+- [ ] Couper le Wi-Fi, enregistrer un autre film : le bloc « L'API est injoignable. » avec « Réessayer » ; le rallumer, Réessayer : enregistré.
