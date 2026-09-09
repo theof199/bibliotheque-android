@@ -3,7 +3,11 @@
 # build-tools épinglés, Gradle. Le cache Gradle et le dossier ~/.android vivent
 # dans des volumes (voir compose.yaml) : l'image ne change que si une version
 # change.
-FROM eclipse-temurin:17-jdk
+#
+# L'étiquette porte le correctif, pas seulement `17` : `17-jdk` glisse à chaque
+# sortie de Temurin, et une image reconstruite dans six mois ne serait plus
+# celle qui a compilé l'APK d'aujourd'hui, sans que rien ne l'ait dit.
+FROM eclipse-temurin:17.0.20_8-jdk
 
 ARG UID=1000
 ARG GID=1000
@@ -20,6 +24,7 @@ ARG GRADLE_VERSION=8.14.3
 # reste 35 (app/build.gradle.kts) : on compile contre 36, on promet 35.
 ARG PLATFORM=android-36
 ARG BUILD_TOOLS=36.0.0
+ARG PLATFORM_TOOLS=37.0.1
 
 ENV ANDROID_HOME=/opt/android-sdk \
     ANDROID_SDK_ROOT=/opt/android-sdk \
@@ -36,7 +41,19 @@ RUN mkdir -p ${ANDROID_HOME}/cmdline-tools \
  && mv ${ANDROID_HOME}/cmdline-tools/cmdline-tools ${ANDROID_HOME}/cmdline-tools/latest \
  && rm /tmp/tools.zip \
  && yes | sdkmanager --licenses > /dev/null \
- && sdkmanager "platform-tools" "platforms;${PLATFORM}" "build-tools;${BUILD_TOOLS}"
+ && sdkmanager "platforms;${PLATFORM}" "build-tools;${BUILD_TOOLS}"
+
+# `platform-tools` (adb, fastboot) est le seul paquet du SDK qu'on n'installe
+# pas par `sdkmanager` : son dépôt n'en publie qu'une révision à la fois, et
+# `sdkmanager "platform-tools"` n'accepte pas de version — l'image prendrait
+# celle du jour de sa construction, ce qui la rendrait irreproductible pendant
+# que tout le reste est épinglé au chiffre près. L'archive versionnée, elle,
+# reste servie. Elle contient déjà un dossier `platform-tools/` à sa racine,
+# d'où le dézippage dans `${ANDROID_HOME}` et non dedans.
+RUN curl -fsSL -o /tmp/platform-tools.zip "https://dl.google.com/android/repository/platform-tools_r${PLATFORM_TOOLS}-linux.zip" \
+ && unzip -q /tmp/platform-tools.zip -d ${ANDROID_HOME} \
+ && rm /tmp/platform-tools.zip \
+ && adb --version
 
 RUN curl -fsSL -o /tmp/gradle.zip "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip" \
  && unzip -q /tmp/gradle.zip -d /opt \

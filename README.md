@@ -73,9 +73,10 @@ exprès, jamais au fil de l'eau.
 
 | Chose | Version | Où c'est écrit |
 |---|---|---|
-| JDK | 17 | `Dockerfile.build` (`eclipse-temurin:17-jdk`) |
+| JDK | 17.0.20+8 | `Dockerfile.build` (`eclipse-temurin:17.0.20_8-jdk` — l'étiquette porte le correctif, `17-jdk` glisserait) |
 | Gradle | 8.14.3 | `gradle/wrapper/gradle-wrapper.properties`, **qui fait foi** ; `Dockerfile.build` répète la valeur pour installer la distribution qui écrit le wrapper |
 | Outils en ligne de commande Android | 11076708 | `Dockerfile.build` |
+| `platform-tools` (`adb`) | 37.0.1 | `Dockerfile.build` — par l'archive versionnée, `sdkmanager` ne sachant pas épingler ce paquet |
 | SDK | `platforms;android-36`, `build-tools;36.0.0` | `Dockerfile.build`, et `buildToolsVersion` dans `app/build.gradle.kts` — les deux doivent rester égaux, sinon AGP retélécharge sa version par défaut à **chaque** exécution, le conteneur mourant avec la commande |
 | `compileSdk` / `targetSdk` / `minSdk` | 36 / 35 / 26 | `app/build.gradle.kts` |
 | Android Gradle Plugin | 8.13.0 | `gradle/libs.versions.toml` |
