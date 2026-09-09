@@ -1,0 +1,10 @@
+.env
+local.properties
+signing/
+build/
+app/build/
+.gradle/
+.kotlin/
+*.apk
+*.aab
+.idea/

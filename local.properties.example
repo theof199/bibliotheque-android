@@ -1,0 +1,3 @@
+# Adresse de l'API de développement, vue depuis le téléphone : l'IP du poste
+# sur le Wi-Fi, port 3000. Jamais localhost, qui désignerait le téléphone.
+api.debug.url=http://192.168.1.13:3000
