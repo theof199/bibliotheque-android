@@ -14,10 +14,13 @@ import okhttp3.HttpUrl
  */
 class SessionCookieJar(private val store: SessionStore) : CookieJar {
 
+    // Un cookie retrouvé au magasin peut avoir expiré pendant que l'application ne tournait pas :
+    // sans ce filtre, `hasSession` en hériterait et répondrait vrai pour une session qui n'existe
+    // plus, comme `loadForRequest` le filtre déjà à chaque requête.
     @Volatile
     private var cached: Cookie? = store.read()?.let { saved ->
         runCatching { json.decodeFromString<StoredCookie>(saved).toCookie() }.getOrNull()
-    }
+    }?.takeIf { it.expiresAt > System.currentTimeMillis() }
 
     val hasSession: Boolean get() = cached != null
 

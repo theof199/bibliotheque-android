@@ -74,6 +74,17 @@ class SessionCookieJarTest {
     }
 
     @Test
+    fun `un cookie expire au magasin ne compte pas comme une session au demarrage`() {
+        val store = InMemorySessionStore()
+        store.write(
+            """{"name":"${SessionCookieJar.COOKIE_NAME}","value":"perime","expiresAt":1,""" +
+                """"domain":"mini-mediatheque.fr","path":"/","secure":true,"httpOnly":true,"hostOnly":true}""",
+        )
+
+        assertFalse(SessionCookieJar(store).hasSession)
+    }
+
+    @Test
     fun `clear efface la memoire et le magasin`() {
         val store = InMemorySessionStore()
         val jar = SessionCookieJar(store)
