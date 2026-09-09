@@ -40,6 +40,18 @@ class SearchViewModel(private val api: JournalApi, private val onUnauthenticated
         }
     }
 
+    /**
+     * Ce `ViewModel` est indexé sur l'Activité : la clé passée à `viewModel(key = ...)` dans
+     * `Root` ne change rien à sa portée, elle sert seulement à le distinguer d'un autre
+     * `ViewModel`. Sans remise à zéro explicite, la même instance revient à chaque ouverture de
+     * l'écran, requête et résultats de la visite précédente compris — jumeau du piège réglé sur
+     * `LoginViewModel` (revue de la tâche 5). `Root` l'appelle à chaque entrée sur `Screen.Search`.
+     */
+    fun reset() {
+        query.value = ""
+        _ui.value = SearchUi()
+    }
+
     fun onQueryChange(value: String) {
         query.value = value
         _ui.update { it.copy(query = value) }

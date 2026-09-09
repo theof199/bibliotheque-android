@@ -61,6 +61,11 @@ fun Root(container: AppContainer) {
                     )
                     Screen.Search -> {
                         val search: SearchViewModel = viewModel(key = "search") { SearchViewModel(container.api, session::expire) }
+                        // Ce `ViewModel` est indexé sur l'Activité (la clé ci-dessus ne change rien à
+                        // sa portée) : sans remise à zéro, la même instance revient à chaque ouverture
+                        // de l'écran, requête et résultats de la visite précédente compris — jumeau du
+                        // piège réglé sur `LoginViewModel` ci-dessus (revue de la tâche 5).
+                        LaunchedEffect(Unit) { search.reset() }
                         SearchScreen(search, onBack = nav::pop, onPick = { nav.push(Screen.Form(it)) })
                     }
                     is Screen.Form -> Placeholder("Formulaire — tâche 6", nav::pop)

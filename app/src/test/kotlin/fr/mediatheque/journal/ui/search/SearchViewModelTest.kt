@@ -4,11 +4,14 @@ import fr.mediatheque.journal.FakeJournalApi
 import fr.mediatheque.journal.MainDispatcherRule
 import fr.mediatheque.journal.api.ApiError
 import fr.mediatheque.journal.api.dto.SearchResult
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -52,7 +55,7 @@ class SearchViewModelTest {
     }
 
     @Test
-    fun `garde les resultats precedents pendant la requete suivante`() = runTest(dispatcher) {
+    fun `changer la requete ne vide pas les resultats avant la fin du debounce`() = runTest(dispatcher) {
         api.onSearch = { listOf(chihiro) }
         val vm = vm()
         vm.onQueryChange("chihiro")
@@ -61,6 +64,30 @@ class SearchViewModelTest {
         advanceTimeBy(150)
 
         assertEquals(listOf(chihiro), vm.ui.value.results)
+    }
+
+    @Test
+    fun `pendant le chargement de la requete suivante, les resultats precedents restent affiches`() = runTest(dispatcher) {
+        val mononoke = SearchResult("tmdb", "128", "movie", "Princesse Mononoke", 1997)
+        // La seconde requête n'aboutit que quand le test le décide : le temps virtuel peut
+        // avancer jusqu'à la fin du chargement sans que la réponse n'arrive, exactement comme un
+        // réseau lent — c'est ce qui rend « pendant » observable plutôt que supposé.
+        val secondeReponse = CompletableDeferred<List<SearchResult>>()
+        api.onSearch = { q -> if (q == "chihiro") listOf(chihiro) else secondeReponse.await() }
+        val vm = vm()
+        vm.onQueryChange("chihiro")
+        advanceTimeBy(301)
+        vm.onQueryChange("mononoke")
+        advanceTimeBy(301)
+
+        assertTrue(vm.ui.value.loading)
+        assertEquals(listOf(chihiro), vm.ui.value.results)
+
+        secondeReponse.complete(listOf(mononoke))
+        advanceUntilIdle()
+
+        assertFalse(vm.ui.value.loading)
+        assertEquals(listOf(mononoke), vm.ui.value.results)
     }
 
     @Test
@@ -83,5 +110,29 @@ class SearchViewModelTest {
 
         assertEquals(1, expire)
         assertNull(vm.ui.value.error)
+    }
+
+    @Test
+    fun `reset vide requete et resultats, et laisse la meme requete relancer une recherche`() = runTest(dispatcher) {
+        api.onSearch = { listOf(chihiro) }
+        val vm = vm()
+        vm.onQueryChange("chihiro")
+        advanceTimeBy(301)
+        assertEquals(listOf(chihiro), vm.ui.value.results)
+
+        vm.reset()
+        assertEquals(SearchUi(), vm.ui.value)
+        // Laisse le "" du reset traverser le débounce à lui seul, sinon la frappe suivante
+        // l'écraserait avant qu'il n'atteigne `distinctUntilChanged` et fausserait la suite.
+        advanceTimeBy(301)
+
+        // Une réouverture de l'écran (ViewModel indexé sur l'Activité, revue de la tâche 5) peut
+        // retaper la même requête : si `reset()` ne remettait à zéro que `ui` et pas le flux
+        // interne `query`, `distinctUntilChanged` la jugerait inchangée et ne chercherait plus.
+        vm.onQueryChange("chihiro")
+        advanceTimeBy(301)
+
+        assertEquals(listOf("search chihiro", "search chihiro"), api.calls)
+        assertEquals(listOf(chihiro), vm.ui.value.results)
     }
 }

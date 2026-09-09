@@ -29,10 +29,13 @@ fun HomeScreen(message: String?, onMessageShown: () -> Unit, onAdd: () -> Unit, 
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(message) {
         if (message != null) {
+            // Consommé avant l'attente, pas après : si l'écran part pendant les deux secondes de
+            // la snackbar, le message ne doit pas rester « en attente » et se rejouer au retour
+            // (revue de la tâche 5).
+            onMessageShown()
             // Deux secondes (design §6), pas la durée Material par défaut : `showBriefly`
             // (décision 3 de la tâche 5) referme elle-même la snackbar après le délai.
             snackbar.showBriefly(message)
-            onMessageShown()
         }
     }
     Scaffold(
