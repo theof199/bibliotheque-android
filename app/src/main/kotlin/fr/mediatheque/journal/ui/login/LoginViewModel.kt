@@ -31,6 +31,11 @@ class LoginViewModel(private val api: JournalApi, private val onSignedIn: (User)
     val ui: StateFlow<LoginUi> = _ui
 
     fun submit() {
+        // Un `429` bloque le bouton pour `Retry-After` (design §5) : sans cette garde, un appel qui
+        // ne passe pas par le bouton (le « Réessayer » du bloc d'erreur, par exemple) rejouerait
+        // `login` pendant le délai.
+        _ui.value.blockedUntilMillis?.let { if (it > System.currentTimeMillis()) return }
+
         val pseudoInvalid = pseudo.isBlank()
         val passwordInvalid = password.isEmpty()
         if (pseudoInvalid || passwordInvalid) {

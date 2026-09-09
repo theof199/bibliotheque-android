@@ -22,7 +22,9 @@ class SessionCookieJar(private val store: SessionStore) : CookieJar {
         runCatching { json.decodeFromString<StoredCookie>(saved).toCookie() }.getOrNull()
     }?.takeIf { it.expiresAt > System.currentTimeMillis() }
 
-    val hasSession: Boolean get() = cached != null
+    // Recalculée à chaque lecture, pas figée à la construction : un cookie valide au lancement
+    // mais dont l'échéance passe avant qu'on ne consulte `hasSession` ne doit pas rester vrai.
+    val hasSession: Boolean get() = cached?.let { it.expiresAt > System.currentTimeMillis() } == true
 
     override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
         val cookie = cookies.lastOrNull { it.name == COOKIE_NAME } ?: return

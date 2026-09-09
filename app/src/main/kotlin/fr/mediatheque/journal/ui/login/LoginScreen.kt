@@ -84,7 +84,8 @@ fun LoginScreen(vm: LoginViewModel) {
             Text(if (blocked) "Patiente ${((ui.blockedUntilMillis!! - now) / 1_000).coerceAtLeast(0)} s" else "Se connecter")
         }
         // Décision 1 : « Réessayer » ne s'affiche que si l'erreur du back l'autorise (panne réseau),
-        // jamais pour un pseudo ou mot de passe refusé.
-        ui.error?.let { ErrorBlock(it, retryable = ui.retryable, onRetry = vm::submit) }
+        // jamais pour un pseudo ou mot de passe refusé — et jamais non plus tant que le `429` bloque
+        // encore le bouton principal (design §5), sans quoi les deux boutons se contrediraient.
+        ui.error?.let { ErrorBlock(it, retryable = ui.retryable && !blocked, onRetry = vm::submit) }
     }
 }

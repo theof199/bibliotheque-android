@@ -50,10 +50,25 @@ class LoginViewModelTest {
         vm.pseudo = "alice"; vm.password = "x"
         val avant = System.currentTimeMillis()
         vm.submit()
+        val apres = System.currentTimeMillis()
         val jusqua = vm.ui.value.blockedUntilMillis
         assertNotNull(jusqua)
         assertTrue(jusqua!! >= avant + 900_000L - 1_000L)
+        assertTrue(jusqua <= apres + 900_000L)
         assertEquals("Trop de tentatives.", vm.ui.value.error)
+    }
+
+    @Test
+    fun `un second essai pendant le blocage du 429 n appelle pas le back`() {
+        api.onLogin = { _, _ -> throw FakeJournalApi.rateLimited(900) }
+        vm.pseudo = "alice"; vm.password = "x"
+        vm.submit()
+
+        api.onLogin = { _, _ -> FakeJournalApi.ALICE }
+        vm.submit()
+
+        assertEquals(listOf("login alice"), api.calls)
+        assertNull(connecte)
     }
 
     @Test

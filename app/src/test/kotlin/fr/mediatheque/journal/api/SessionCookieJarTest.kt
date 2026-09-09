@@ -85,6 +85,27 @@ class SessionCookieJarTest {
     }
 
     @Test
+    fun `un cookie valide au magasin compte comme une session au demarrage`() {
+        val store = InMemorySessionStore()
+        store.write(
+            """{"name":"${SessionCookieJar.COOKIE_NAME}","value":"vivant","expiresAt":${System.currentTimeMillis() + 60_000},""" +
+                """"domain":"mini-mediatheque.fr","path":"/","secure":true,"httpOnly":true,"hostOnly":true}""",
+        )
+
+        assertTrue(SessionCookieJar(store).hasSession)
+    }
+
+    @Test
+    fun `hasSession redevient faux quand le cookie expire apres la construction`() {
+        val jar = SessionCookieJar(InMemorySessionStore())
+        jar.saveFromResponse(api, listOf(cookie(expiresIn = 200)))
+        assertTrue(jar.hasSession)
+
+        Thread.sleep(300)
+        assertFalse(jar.hasSession)
+    }
+
+    @Test
     fun `clear efface la memoire et le magasin`() {
         val store = InMemorySessionStore()
         val jar = SessionCookieJar(store)
