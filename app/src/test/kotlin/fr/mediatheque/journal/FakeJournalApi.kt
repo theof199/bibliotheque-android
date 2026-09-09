@@ -27,7 +27,7 @@ class FakeJournalApi : JournalApi {
     var onAddViewing: suspend (JournalCreateBody) -> JournalItem = { b -> item(b.media_id, b.finished_at, b.rating, b.reactions, b.comment) }
     // `patchViewing` reçoit un `JsonObject` (tâche 3, décision 1) : le corps ne porte que ce qui a
     // changé, la valeur par défaut ne le lit donc pas.
-    var onPatchViewing: suspend (String, JsonObject) -> JournalItem = { id, _ -> item("m", "2026-01-01T00:00:00.000Z", null, emptyList(), null, id) }
+    var onPatchViewing: suspend (String, JsonObject) -> JournalItem = { id, _ -> item("m", "2026-01-01", null, emptyList(), null, id) }
     var onDeleteViewing: suspend (String) -> Unit = {}
     var onStats: suspend () -> StatsResponse = { error("onStats non configuré") }
 
@@ -50,8 +50,23 @@ class FakeJournalApi : JournalApi {
     companion object {
         val ALICE = User("u-alice", "alice", "#E4572E")
 
-        fun item(mediaId: String, finishedAt: String, rating: Int?, reactions: List<String>, comment: String?, id: String = "e-$finishedAt") =
-            JournalItem(LogEntry(id, mediaId, finishedAt, rating), JournalMedia(mediaId, "Un film"), Carnet(reactions, comment))
+        // `finishedAt` est une date seule ("2026-01-10"), pas un instant ISO : le contrat du back
+        // ne rend que ça, et `formatDate` (`LocalDate.parse`) lèverait sur un instant complet.
+        // `title`, `coverUrl`, `year`, `director` couvrent la fiche affichée par `FormScreen` en
+        // correction (décision 2 de la tâche 6) ; leurs défauts gardent les appels existants
+        // inchangés.
+        fun item(
+            mediaId: String,
+            finishedAt: String,
+            rating: Int?,
+            reactions: List<String>,
+            comment: String?,
+            id: String = "e-$finishedAt",
+            title: String = "Un film",
+            coverUrl: String? = null,
+            year: Int? = null,
+            director: String? = null,
+        ) = JournalItem(LogEntry(id, mediaId, finishedAt, rating), JournalMedia(mediaId, title, coverUrl, year, director), Carnet(reactions, comment))
 
         fun unauthorized() = ApiError("UNAUTHENTICATED", "Connecte-toi d’abord.", retryable = false, status = 401)
         fun rateLimited(seconds: Int) = ApiError("RATE_LIMITED", "Trop de tentatives.", retryable = true, status = 429, retryAfterSeconds = seconds)
