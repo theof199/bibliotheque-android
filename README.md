@@ -62,9 +62,42 @@ refuserait. Le prix de ce choix : on ne peut pas compiler la variante `release`
 juste pour voir, tant qu'il n'y a pas de clé. C'est voulu — aucune construction
 ne doit fabriquer une clé au passage.
 
-**Le script qui crée cette clé, `bin/keystore`, n'existe pas encore** : il
-arrive avec la mise en service. Jusque-là, seule la variante `debug` se
-construit.
+Le script qui crée cette clé, `bin/keystore`, la produit une fois : voir
+« Mettre en service » plus bas.
+
+## Mettre en service
+
+La variante `release` vise `https://mini-mediatheque.fr/api` (`buildConfigField`
+dans `app/build.gradle.kts`) et exige la clé de signature ci-dessus.
+
+    bin/keystore          # une fois ; lit le mot de passe deux fois, sans echo
+    bin/build release      # app/build/outputs/apk/release/app-release.apk
+    bin/install release    # sur le téléphone, à côté de la version « dev »
+
+`bin/keystore` écrit `signing/release.jks` et `signing/release.properties`
+(hors du dépôt, ignorés par git). **Copier aussitôt le dossier `signing/`
+ailleurs** — un gestionnaire de mots de passe, un disque chiffré, le choix du
+lieu est au propriétaire : le perdre, c'est ne plus pouvoir mettre
+l'application à jour sans la désinstaller d'abord (signature différente,
+Android refuse l'écrasement).
+
+Les deux variantes cohabitent sur le même téléphone comme deux applications
+distinctes, signatures différentes obligent : « Journal »
+(`fr.mediatheque.journal`, la version `release`, contre l'instance en ligne)
+et « Journal (dev) » (`fr.mediatheque.journal.debug`, la version `debug`,
+contre l'instance locale). `bin/install` et `bin/logs` prennent tous deux
+`debug` ou `release` en argument (`debug` par défaut) : `bin/install release`,
+`bin/logs release`.
+
+Après un tag posé sur `biblio-back` (le propriétaire décide, voir son
+`CLAUDE.md`), vérifier que le NAS a basculé avant d'installer :
+
+    curl -s https://mini-mediatheque.fr/api/health
+    curl -s -o /dev/null -w '%{http_code}\n' https://mini-mediatheque.fr/api/me/journal
+
+Attendu : `{"status":"ok",…}` puis `401` — la route existe et exige une
+session. Un `404` voudrait dire que l'API en service n'a pas encore le
+carnet.
 
 ## Les versions
 
@@ -131,3 +164,5 @@ Ce qui ne se teste pas sur la JVM se vérifie sur le téléphone :
 - [ ] Supprimer : la boîte à deux boutons, puis « Supprimé » en snackbar ; rouvrir « Mes films » : la ligne partie. Sur le site, le film reste « vu ».
 - [ ] Se déconnecter depuis le profil : l'écran de connexion. Tuer l'application et la rouvrir : toujours l'écran de connexion.
 - [ ] Taille de police système au maximum sur le profil et « Mes films » : rien n'est coupé, les deux nombres restent lisibles, les réactions d'une ligne passent à la ligne (design §11).
+- [ ] La version `debug` installée s'appelle « Journal (dev) » sur l'écran d'accueil (paquet `fr.mediatheque.journal.debug`).
+- [ ] La version `release` (`bin/install release`) installée à côté s'appelle « Journal » (paquet `fr.mediatheque.journal`) : les deux applications cohabitent, aucune n'efface l'autre.
