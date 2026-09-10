@@ -258,11 +258,18 @@ volet ouvert — le tiroir et l'écran d'accueil montrent le clap ouvert.
 propriétaire : « un clap plus actif ».) C'est la même géométrie, dans
 `ic_launcher_foreground.xml`, qui sert d'icône de l'application (tiroir,
 raccourcis) et de base à l'animation : aucune duplication de `pathData` à
-garder synchronisée. À −30°, le coin de l'extrémité du volet déborde du
-cercle de sécurité de 66 dp (et même du cadre de 72 dp) : les masques de
-lanceur le recadrent proprement, sans bord irrégulier ; c'était déjà
-(légèrement) le cas à −14°, et réduire à −26° ne le règle pas — voir le
-commentaire du fichier.
+garder synchronisée. Tout le dessin (corps et groupe « volet ») est enveloppé
+dans un groupe de mise à l'échelle centré (pivot 54,54, `scaleX`/`scaleY`
+0,8), pour que le masque du lanceur ne rogne plus la pointe du volet : sans
+lui, l'extrémité du volet au repos −30° était à ~41 du centre, hors du
+cercle de sécurité de 66 dp (rayon 33) ; à l'échelle 0,8, elle tombe à
+~32,9, dedans. Le point le plus lointain de toute l'animation, l'armement à
+−46°, reste hors du cercle même à cette échelle (~37,9, et encore ~36,0 à
+0,76, essayé pour voir) — mais il dépassait déjà le cadre de recadrage de
+72 dp avant tout changement d'échelle, donc déjà entièrement rogné,
+invisible, durant les 120 ms de l'armement : l'échelle 0,8 ne perd rien de
+plus sur ce point transitoire, et 0,76 n'aurait fait que rétrécir l'icône au
+repos sans le régler. Détail du calcul dans le commentaire du fichier.
 
 Sur l'écran de démarrage, Android 12+ seulement
 (`android:windowSplashScreenAnimatedIcon`, `values-v31/themes.xml`), le clap
