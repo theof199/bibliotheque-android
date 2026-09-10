@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Anime android:rotation du groupe "volet" de
+     res/drawable/ic_launcher_foreground.xml : ouvert a -38 deg, claque a
+     0 deg en 450 ms avec un leger rebond, puis se pose a -14 deg (le repos
+     statique de l'icone) en 250 ms. Duree totale 700 ms, sous les 800 ms du
+     brief. MainActivity.kt garde l'ecran de demarrage jusqu'a cette meme
+     duree : les deux valeurs doivent rester egales. -->
+<set xmlns:android="http://schemas.android.com/apk/res/android"
+    android:ordering="sequentially">
+    <objectAnimator
+        android:propertyName="rotation"
+        android:valueFrom="-38"
+        android:valueTo="0"
+        android:valueType="floatType"
+        android:duration="450"
+        android:interpolator="@interpolator/rebond_modere" />
+    <objectAnimator
+        android:propertyName="rotation"
+        android:valueFrom="0"
+        android:valueTo="-14"
+        android:valueType="floatType"
+        android:duration="250"
+        android:interpolator="@android:interpolator/fast_out_slow_in" />
+</set>

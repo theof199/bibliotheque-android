@@ -1,7 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Le clap, volet ferme au repos (-14 deg). Transcrit du SVG du brief du
+     10 septembre 2026 (docs/design.md §10). Les rx=3 et rx=2 des rectangles
+     sont rendus par des arcs (A) plutot que des coins droits : a 46 et 12 de
+     large la difference reste visible a la taille reelle de l'icone. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
+    <!-- Le corps, fixe. -->
     <path android:fillColor="#FF6B57"
-        android:pathData="M54,54m-22,0a22,22 0 1,1 44,0a22,22 0 1,1 -44,0" />
+        android:pathData="M34,49L74,49A3,3 0 0 1 77,52L77,73A3,3 0 0 1 74,76L34,76A3,3 0 0 1 31,73L31,52A3,3 0 0 1 34,49Z" />
+    <!-- Le volet, pivot en bas a gauche (32,48). Cible de
+         res/animator/ic_launcher_volet_claque.xml par son nom : ne pas le
+         renommer sans mettre a jour l'animateur. -->
+    <group
+        android:name="volet"
+        android:pivotX="32"
+        android:pivotY="48"
+        android:rotation="-14">
+        <path android:fillColor="#FF6B57"
+            android:pathData="M33,35L75,35A2,2 0 0 1 77,37L77,45A2,2 0 0 1 75,47L33,47A2,2 0 0 1 31,45L31,37A2,2 0 0 1 33,35Z" />
+        <path android:fillColor="#000000"
+            android:pathData="M39,35L46,35L41,47L34,47Z" />
+        <path android:fillColor="#000000"
+            android:pathData="M53,35L60,35L55,47L48,47Z" />
+        <path android:fillColor="#000000"
+            android:pathData="M67,35L74,35L69,47L62,47Z" />
+    </group>
 </vector>

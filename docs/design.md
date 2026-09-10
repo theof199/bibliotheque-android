@@ -29,7 +29,7 @@ titre, jamais une décoration, jamais une erreur.
 | **Un accent : rouge corail, esprit cinéma.** | Le choix du propriétaire parmi quatre. |
 | **Manrope, embarquée.** | Le propriétaire voulait une sans-serif avec un peu plus de caractère que Roboto. Manrope est géométrique, douce, très lisible aux petites tailles, et libre (licence OFL). |
 | **Affiches à coins arrondis discrets**, comme des vignettes. | Le choix du propriétaire. |
-| **L'icône de l'application reste à décider.** Le propriétaire y réfléchit. | Une icône provisoire est posée (§10) pour que la chaîne tourne ; on n'y passe pas de temps avant sa décision. |
+| **L'icône : un clap, volet qui claque à l'ouverture.** | Choisie par le propriétaire le 10 septembre 2026 parmi quatre pistes. Le clap s'ouvre puis claque sur l'écran de démarrage Android 12+ (§10). |
 
 ---
 
@@ -242,14 +242,33 @@ app/src/main/kotlin/fr/mediatheque/journal/ui/theme/
 app/src/main/res/
   font/        manrope_regular.ttf, _medium, _semibold, _bold, OFL.txt
   values/themes.xml      windowBackground #000000, splash background #000000
-  mipmap-anydpi-v26/ic_launcher.xml   icône adaptative provisoire
+  values-v31/themes.xml  windowSplashScreenAnimatedIcon, windowSplashScreenAnimationDuration
+  mipmap-anydpi-v26/ic_launcher.xml   icône adaptative (fond + premier plan)
+  drawable/ic_launcher_foreground.xml   le clap, statique, volet au repos (-14°)
+  drawable/ic_launcher_animated.xml     le même clap, animé (AnimatedVectorDrawable)
+  animator/ic_launcher_volet_claque.xml la rotation du groupe « volet »
+  interpolator/rebond_modere.xml        l'overshoot du claquement
 ```
 
-**L'icône provisoire** : fond `#000000`, premier plan un disque corail
-`#FF6B57` centré, sans lettre ni symbole. C'est ce qu'on voit sur l'écran de
-démarrage et dans le tiroir jusqu'à la décision du propriétaire, et ça
-demande dix lignes de XML. Quand il aura choisi, le remplacer est une tâche
-à part.
+**L'icône : le clap.** Fond `#000000` (`ic_launcher_background.xml`), premier
+plan corail `#FF6B57` : le corps fixe et le volet, un `<group
+android:name="volet">` pivoté en bas à gauche (32,48), au repos à −14°. C'est
+la même géométrie, dans `ic_launcher_foreground.xml`, qui sert d'icône de
+l'application (tiroir, raccourcis) et de base à l'animation : aucune
+duplication de `pathData` à garder synchronisée.
+
+Sur l'écran de démarrage, Android 12+ seulement
+(`android:windowSplashScreenAnimatedIcon`, `values-v31/themes.xml`), le clap
+s'anime : ouvert à −38°, il claque à 0° en 450 ms avec un léger rebond
+(`overshootInterpolator`, tension 1,5), puis se pose à −14°, la position de
+l'icône statique, en 250 ms. 700 ms au total, sous les 800 ms voulus.
+`MainActivity` garde l'écran de démarrage affiché jusqu'à cette même durée
+(`Activity.getSplashScreen().setOnExitAnimationListener`, l'API du
+framework, sans dépendance ajoutée), sans retarder l'accueil au-delà :
+l'accueil est déjà composé derrière, seule la vue de démarrage reste posée
+dessus le temps que le clap termine. Sous Android 12, pas d'écran de
+démarrage animé : l'icône statique suffit, rien à faire. Les deux variantes
+(`debug`, `release`) reçoivent la même icône.
 
 Aucune couleur en dur dans un écran : un écran dit `MaterialTheme.colorScheme.primary`,
 jamais `#FF6B57`. Aucune taille de texte en dur : un écran dit
@@ -283,10 +302,9 @@ d'API hors de `Endpoints.kt` », pour la même raison.
 ## 12. Ce qui est laissé de côté, et pourquoi
 
 - **Un thème clair, la couleur dynamique.** Décidés contre, §1.
-- **L'icône définitive.** En attente du propriétaire ; une provisoire suffit
-  à un seul téléphone.
 - **Des illustrations d'états vides, des animations décoratives, un retour
-  haptique.** Contraires à « sobre ».
+  haptique.** Contraires à « sobre » — l'animation du clap (§10) est l'icône
+  elle-même, pas une décoration d'écran.
 - **Une police pour les titres différente de celle du corps.** Manrope en
   600 et 700 fait le travail ; deux familles pour six écrans, c'est une de
   trop.

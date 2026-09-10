@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- L'icone animee de l'ecran de demarrage (Android 12+ uniquement, voir
+     values-v31/themes.xml). Anime le groupe "volet" du meme drawable
+     statique que l'icone de l'application : une seule geometrie, pas de
+     doublon a garder synchronise. -->
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/ic_launcher_foreground">
+    <target
+        android:name="volet"
+        android:animation="@animator/ic_launcher_volet_claque" />
+</animated-vector>

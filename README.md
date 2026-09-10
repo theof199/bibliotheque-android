@@ -151,6 +151,7 @@ Aucune des lignes qui suivent n'a encore été vue sur un téléphone : c'est un
 liste de contrôle à jouer, pas un journal de ce qui a déjà été vérifié.
 
 - [ ] Au lancement, aucun flash clair : écran de démarrage, fenêtre et premier écran sont noirs.
+- [ ] Au lancement, le clap s'ouvre et claque sur l'écran de démarrage, puis l'accueil.
 - [ ] Le titre est en Manrope, pas en Roboto : le J a une boucle nette, le a est à un étage.
 - [ ] Un mauvais mot de passe : le message du back, tel quel, sous le bouton.
 - [ ] Dix échecs de connexion : le bouton passe à « Patiente 900 s » et décompte.
