@@ -23290,7 +23290,7 @@
                         "status": "pending"
                       },
                       "token": "k3Jq8vN2pR7wX1yZ4aB6cD9eF0gH5iL8mN3oP6qR9sT",
-                      "url": "https://mediatheque.example/inscription?token=k3Jq8vN2pR7wX1yZ4aB6cD9eF0gH5iL8mN3oP6qR9sT"
+                      "url": "https://mediatheque.example/invitation/k3Jq8vN2pR7wX1yZ4aB6cD9eF0gH5iL8mN3oP6qR9sT"
                     }
                   }
                 }
@@ -24215,7 +24215,7 @@
                         "status": "pending"
                       },
                       "token": "k3Jq8vN2pR7wX1yZ4aB6cD9eF0gH5iL8mN3oP6qR9sT",
-                      "url": "https://mediatheque.example/inscription?token=k3Jq8vN2pR7wX1yZ4aB6cD9eF0gH5iL8mN3oP6qR9sT"
+                      "url": "https://mediatheque.example/invitation/k3Jq8vN2pR7wX1yZ4aB6cD9eF0gH5iL8mN3oP6qR9sT"
                     }
                   }
                 }
