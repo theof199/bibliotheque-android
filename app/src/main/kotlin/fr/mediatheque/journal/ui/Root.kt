@@ -70,11 +70,23 @@ fun Root(container: AppContainer) {
             LaunchedEffect(nav.searchVisits) { if (nav.searchVisits > 0) search.reset() }
             Crossfade(targetState = nav.current, animationSpec = tween(200), label = "ecran") { screen ->
                 when (screen) {
-                    Screen.Home -> HomeScreen(
-                        nav = nav,
-                        onAdd = { nav.push(Screen.Search) },
-                        onProfile = { nav.push(Screen.Profile) },
-                    )
+                    Screen.Home -> {
+                        // Même `FilmsViewModel` que `Screen.Films` plus bas (même clé `"films"`) :
+                        // l'accueil et « Mes films » sont deux présentations d'une seule source
+                        // (brief du 10 septembre 2026). Même piège, même remède que `Screen.Films`
+                        // juste en dessous : ce `ViewModel` est indexé sur l'Activité, donc sans ce
+                        // rechargement à chaque entrée, la grille resterait celle de la première
+                        // visite après l'ajout d'un film depuis `Screen.Search`.
+                        val films: FilmsViewModel = viewModel(key = "films") { FilmsViewModel(container.api, session::expire) }
+                        LaunchedEffect(Unit) { films.refresh() }
+                        HomeScreen(
+                            vm = films,
+                            nav = nav,
+                            onAdd = { nav.push(Screen.Search) },
+                            onProfile = { nav.push(Screen.Profile) },
+                            onOpen = { nav.push(Screen.Edit(it)) },
+                        )
+                    }
                     Screen.Search -> SearchScreen(search, onBack = nav::pop, onPick = { nav.push(Screen.Form(it)) })
                     is Screen.Form -> {
                         // Ce `ViewModel` est indexé sur l'Activité (jumeau du piège réglé sur

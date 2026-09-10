@@ -38,6 +38,11 @@ seul `app/src/debug/res/xml/network_security_config.xml` autorise : la version
 `release`, qui vise `https://mini-mediatheque.fr/api`, n'a pas ce fichier et
 refuse tout `http://`.
 
+Une instance locale doit aussi mettre `STORAGE_PUBLIC_URL=http://<ip du
+poste>:3000/covers` dans le `.env` de `biblio-back` : sans ce réglage, les
+jaquettes de « Mes films » sortent en `http://localhost:3000/…` et c'est sur
+lui-même que le téléphone va les chercher (constaté le 10 septembre 2026).
+
 `bin/logs` filtre `logcat` sur le pid de l'application, parce que `logcat`
 n'imprime pas le nom du paquet : il faut donc que l'application tourne au moment
 où on l'appelle. Après un plantage, le processus est mort et sa trace ne sortira
@@ -151,7 +156,7 @@ liste de contrôle à jouer, pas un journal de ce qui a déjà été vérifié.
 - [ ] Une connexion réussie : l'accueil, sans écran de connexion.
 - [ ] Tuer l'application, la rouvrir : l'accueil directement — le cookie a survécu.
 - [ ] Couper le Wi-Fi, rouvrir : le bloc « L'API est injoignable. » avec « Réessayer ».
-- [ ] L'accueil : le bouton « Ajouter un film » seul, centré ; l'icône profil en haut à droite ; rien d'autre.
+- [ ] L'accueil : une grille de jaquettes, trois colonnes, du plus récent au plus ancien, la note en pastille en bas à droite de chacune quand elle existe ; le bouton « Ajouter un film » en bas, pleine largeur ; l'icône profil en haut à droite.
 - [ ] La recherche : le clavier est ouvert à l'arrivée ; taper « chihiro » ; la barre de 2 dp apparaît puis les résultats, affiche à gauche de chaque ligne ; un film sans affiche montre son initiale.
 - [ ] Une recherche sans résultat, par exemple « zzzz » : « Rien trouvé pour “zzzz”. ».
 - [ ] Le retour système depuis la recherche ramène à l'accueil.
@@ -163,6 +168,7 @@ liste de contrôle à jouer, pas un journal de ce qui a déjà été vérifié.
 - [ ] Cocher trois réactions : elles passent en fond brun et texte saumon.
 - [ ] Écrire un commentaire ; « Rien qu'à toi » dessous.
 - [ ] Enregistrer : le bouton garde sa taille, l'indicateur apparaît à gauche du texte, puis retour à l'accueil, « Enregistré » en snackbar deux secondes.
+- [ ] Après avoir enregistré un film, sa jaquette est en tête de la grille de l'accueil, avec sa note.
 - [ ] Sur le site, connecté avec le même compte : le film est « vu », daté, noté, **sans** le commentaire ni les réactions ; connecté avec un autre compte : idem.
 - [ ] Couper le Wi-Fi, enregistrer un autre film : le bloc « L'API est injoignable. » avec « Réessayer » ; le rallumer, Réessayer : enregistré.
 - [ ] Le profil : le pseudo, « **N** films vus, **M** cette année » avec les deux nombres en gros ; « Mes films » avec un chevron ; « Se déconnecter » ; en bas, le logo TMDB et sa phrase, centrés.
