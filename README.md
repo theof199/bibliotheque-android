@@ -87,6 +87,18 @@ lieu est au propriétaire : le perdre, c'est ne plus pouvoir mettre
 l'application à jour sans la désinstaller d'abord (signature différente,
 Android refuse l'écrasement).
 
+Il suffit de sauvegarder `release.jks` et le mot de passe : `release.properties`
+ne contient que ce mot de passe en clair, et se réécrit. Sur un poste neuf,
+dans ce dépôt :
+
+    mkdir -p signing && cp <la copie> signing/release.jks
+    printf 'keystore.path=signing/release.jks\nkeystore.password=%s\nkey.alias=journal\nkey.password=%s\n' \
+      'MOT_DE_PASSE' 'MOT_DE_PASSE' > signing/release.properties
+    chmod 600 signing/release.jks signing/release.properties
+
+L'alias est `journal`, et le même mot de passe protège le trousseau et la clé :
+c'est ainsi que `bin/keystore` la crée. (Sauvegarde faite le 10 septembre 2026.)
+
 Les deux variantes cohabitent sur le même téléphone comme deux applications
 distinctes, signatures différentes obligent : « Journal »
 (`fr.mediatheque.journal`, la version `release`, contre l'instance en ligne)
