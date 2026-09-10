@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -100,7 +99,15 @@ fun HomeScreen(vm: FilmsViewModel, nav: Navigator, onAdd: () -> Unit, onProfile:
             val largeurJaquette = (maxWidth - ecart * 2) / 3
             val hauteurJaquette = largeurJaquette * 1.5f
 
-            Column(Modifier.fillMaxSize()) {
+            Column(
+                // 48 dp en tête : la place de l'`IconButton` profil, dessiné par-dessus (aligné
+                // `TopEnd` plus bas). Sur la `Column` elle-même, pas sur la seule grille : sans
+                // cette marge ici, l'`ErrorBlock` et le texte « Aucun film pour l'instant. », qui
+                // partagent la `Column` avec la grille, démarraient eux aussi à y = 0 et
+                // passaient sous l'icône, qui les recouvre — elle est déclarée après dans le
+                // `Box`, donc dessinée et touchée en premier (relecture, correction 1 puis 3).
+                Modifier.fillMaxSize().padding(top = 48.dp),
+            ) {
                 ui.error?.let {
                     ErrorBlock(
                         it.message ?: "",
@@ -124,12 +131,6 @@ fun HomeScreen(vm: FilmsViewModel, nav: Navigator, onAdd: () -> Unit, onProfile:
                         modifier = Modifier.weight(1f).fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(ecart),
                         verticalArrangement = Arrangement.spacedBy(ecart),
-                        // 48 dp en tête : la place de l'`IconButton` profil, dessiné par-dessus
-                        // (aligné `TopEnd` plus bas). Sans cette marge, la grille démarre à y = 0
-                        // sous l'icône, qui recouvre alors la troisième jaquette de la première
-                        // rangée et intercepte ses touches — elle est déclarée après dans le
-                        // `Box`, donc dessinée et touchée en premier (relecture, correction 1).
-                        contentPadding = PaddingValues(top = 48.dp),
                     ) {
                         items(ui.items, key = { it.entry.id }) { item ->
                             Box(Modifier.clickable { onOpen(item) }) {

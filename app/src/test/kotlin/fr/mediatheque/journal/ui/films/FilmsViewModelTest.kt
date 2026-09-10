@@ -183,4 +183,33 @@ class FilmsViewModelTest {
         porte.complete(page("2026-09-05", next = null))
         testScheduler.advanceUntilIdle()
     }
+
+    // Le Wi-Fi tombe pendant un refresh() qui garde les jaquettes affichees (correction 5) : sa
+    // page 1 echoue, puis "Reessayer" (onRetry = vm::loadMore) relance le meme cursor null. Un
+    // premier correctif se fiait a un drapeau plutot qu'a `cursor`, deja retombe a ce moment-la :
+    // cette page 1 s'ajoutait aux jaquettes gardees au lieu de les remplacer, meme film deux
+    // fois, meme cle deux fois, LazyVerticalGrid plantait sur "Key was already used" (relecture
+    // du 10 septembre 2026).
+    @Test
+    fun `reessayer apres l echec de la page 1 d un refresh remplace, il ne double pas les jaquettes`() = runTest(dispatcher) {
+        val page1 = page("2026-09-03", next = null)
+        api.onJournal = { page1 }
+        val vm = FilmsViewModel(api) { expire++ }
+        vm.refresh()
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf("2026-09-03"), vm.ui.value.items.map { it.entry.finished_at })
+
+        api.onJournal = { throw FakeJournalApi.network() }
+        vm.refresh()
+        testScheduler.advanceUntilIdle()
+        assertTrue(vm.ui.value.error?.retryable == true)
+
+        // "Reessayer" relance directement loadMore(), pas refresh() : cursor est reste a null,
+        // la meme page 1 revient.
+        api.onJournal = { page1 }
+        vm.loadMore()
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(listOf("2026-09-03"), vm.ui.value.items.map { it.entry.finished_at })
+    }
 }
