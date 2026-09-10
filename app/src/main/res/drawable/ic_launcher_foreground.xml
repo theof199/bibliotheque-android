@@ -1,8 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Le clap, volet ferme au repos (-14 deg). Transcrit du SVG du brief du
-     10 septembre 2026 (docs/design.md §10). Les rx=3 et rx=2 des rectangles
-     sont rendus par des arcs (A) plutot que des coins droits : a 46 et 12 de
-     large la difference reste visible a la taille reelle de l'icone. -->
+<!-- Le clap, volet OUVERT au repos (-30 deg). Transcrit du SVG du brief du
+     10 septembre 2026 (docs/design.md §10) ; le repos est passe de -14 a
+     -30 le meme jour, sur demande du proprietaire ("un clap plus actif").
+     Les rx=3 et rx=2 des rectangles sont rendus par des arcs (A) plutot que
+     des coins droits : a 46 et 12 de large la difference reste visible a la
+     taille reelle de l'icone.
+     A -30 deg, le coin superieur droit du volet (l'extremite arrondie
+     apres la derniere dent) deborde legerement du cercle de securite de
+     66 dp (33 de rayon, centre 54,54) : environ 41 de distance au centre,
+     mesure a la main (deja ~35 a l'ancien repos -14 deg, qui depassait
+     aussi). Il deborde meme du cadre de 72 dp (rayon 36) : les masques de
+     lanceur le recadrent donc proprement, sans bord irregulier. Une
+     reduction a -26 deg ne regle rien (~39, toujours hors des deux cercles)
+     et ouvre moins le clap ; garde a -30 comme demande. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
@@ -16,7 +26,7 @@
         android:name="volet"
         android:pivotX="32"
         android:pivotY="48"
-        android:rotation="-14">
+        android:rotation="-30">
         <path android:fillColor="#FF6B57"
             android:pathData="M33,35L75,35A2,2 0 0 1 77,37L77,45A2,2 0 0 1 75,47L33,47A2,2 0 0 1 31,45L31,37A2,2 0 0 1 33,35Z" />
         <path android:fillColor="#000000"

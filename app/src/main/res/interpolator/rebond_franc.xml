@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Le rebond du volet qui claque : tension franche (2,5), pour depasser
+     nettement le 0 deg puis y revenir exactement a la fin de l'anim
+     (comportement standard d'OvershootInterpolator). Remplace
+     rebond_modere.xml (tension 1,5) le 10 septembre 2026, sur demande du
+     proprietaire d'un clap plus actif. Utilise par
+     res/animator/ic_launcher_volet_claque.xml. -->
+<overshootInterpolator xmlns:android="http://schemas.android.com/apk/res/android"
+    android:tension="2.5" />

@@ -14,8 +14,8 @@ import java.time.Instant
 
 // Plafond du temps qu'on attend avant de retirer l'ecran de demarrage,
 // egal a la duree totale du clap : la somme des deux `objectAnimator` de
-// res/animator/ic_launcher_volet_claque.xml (450 + 250 ms).
-private const val SPLASH_ICON_ANIMATION_DURATION_MS = 700L
+// res/animator/ic_launcher_volet_claque.xml (120 + 260 ms).
+private const val SPLASH_ICON_ANIMATION_DURATION_MS = 380L
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -23,11 +23,11 @@ class MainActivity : ComponentActivity() {
         // Sur Android 12+, l'ecran de demarrage systeme se retire des que le
         // premier contenu (l'accueil, deja compose derriere) est pret : sur
         // un demarrage a froid, ca peut arriver bien apres la fin des
-        // 700 ms de l'animation du clap (l'accueil met plus longtemps a se
+        // 380 ms de l'animation du clap (l'accueil met plus longtemps a se
         // preparer), et sur un demarrage tiede, bien avant. Le but n'est pas
-        // de garder l'ecran 700 ms : c'est de ne jamais couper l'animation,
+        // de garder l'ecran 380 ms : c'est de ne jamais couper l'animation,
         // sans jamais retarder l'accueil au-dela d'elle. On calcule donc le
-        // temps qui reste a jouer, borne a [0, 700] ms. API du framework
+        // temps qui reste a jouer, borne a [0, 380] ms. API du framework
         // (`Activity.getSplashScreen()`, API 31), pas de dependance ajoutee.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             splashScreen.setOnExitAnimationListener { splashScreenView ->

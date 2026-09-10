@@ -244,31 +244,41 @@ app/src/main/res/
   values/themes.xml      windowBackground #000000, splash background #000000
   values-v31/themes.xml  windowSplashScreenAnimatedIcon, windowSplashScreenAnimationDuration
   mipmap-anydpi-v26/ic_launcher.xml   icône adaptative (fond + premier plan)
-  drawable/ic_launcher_foreground.xml   le clap, statique, volet au repos (-14°)
+  drawable/ic_launcher_foreground.xml   le clap, statique, volet au repos (-30°, ouvert)
   drawable/ic_launcher_animated.xml     le même clap, animé (AnimatedVectorDrawable)
   animator/ic_launcher_volet_claque.xml la rotation du groupe « volet »
-  interpolator/rebond_modere.xml        l'overshoot du claquement
+  interpolator/rebond_franc.xml         l'overshoot du claquement
 ```
 
 **L'icône : le clap.** Fond `#000000` (`ic_launcher_background.xml`), premier
 plan corail `#FF6B57` : le corps fixe et le volet, un `<group
-android:name="volet">` pivoté en bas à gauche (32,48), au repos à −14°. C'est
-la même géométrie, dans `ic_launcher_foreground.xml`, qui sert d'icône de
-l'application (tiroir, raccourcis) et de base à l'animation : aucune
-duplication de `pathData` à garder synchronisée.
+android:name="volet">` pivoté en bas à gauche (32,48), au repos à −30°,
+volet ouvert — le tiroir et l'écran d'accueil montrent le clap ouvert.
+(Repos à −14° jusqu'au 10 septembre 2026, changé le même jour sur demande du
+propriétaire : « un clap plus actif ».) C'est la même géométrie, dans
+`ic_launcher_foreground.xml`, qui sert d'icône de l'application (tiroir,
+raccourcis) et de base à l'animation : aucune duplication de `pathData` à
+garder synchronisée. À −30°, le coin de l'extrémité du volet déborde du
+cercle de sécurité de 66 dp (et même du cadre de 72 dp) : les masques de
+lanceur le recadrent proprement, sans bord irrégulier ; c'était déjà
+(légèrement) le cas à −14°, et réduire à −26° ne le règle pas — voir le
+commentaire du fichier.
 
 Sur l'écran de démarrage, Android 12+ seulement
 (`android:windowSplashScreenAnimatedIcon`, `values-v31/themes.xml`), le clap
-s'anime : ouvert à −38°, il claque à 0° en 450 ms avec un léger rebond
-(`overshootInterpolator`, tension 1,5), puis se pose à −14°, la position de
-l'icône statique, en 250 ms. 700 ms au total, sous les 800 ms voulus.
-`MainActivity` garde l'écran de démarrage affiché jusqu'à cette même durée
-(`Activity.getSplashScreen().setOnExitAnimationListener`, l'API du
-framework, sans dépendance ajoutée), sans retarder l'accueil au-delà :
-l'accueil est déjà composé derrière, seule la vue de démarrage reste posée
-dessus le temps que le clap termine. Sous Android 12, pas d'écran de
-démarrage animé : l'icône statique suffit, rien à faire. Les deux variantes
-(`debug`, `release`) reçoivent la même icône.
+s'anime en deux temps puis reste fermé : ouvert au repos (−30°), il s'arme
+à −46° en 120 ms (`fast_out_linear_in`), puis claque à 0° en 260 ms avec un
+rebond franc (`overshootInterpolator`, tension 2,5) — et reste à 0°, fermé,
+jusqu'à la fin de l'écran de démarrage. 380 ms au total. `MainActivity`
+attend le temps qui reste à jouer — pas une durée fixe — borné à [0, 380] ms
+via `SplashScreenView.getIconAnimationStart()` /
+`.getIconAnimationDuration()` (`Activity.getSplashScreen()`, l'API du
+framework, sans dépendance ajoutée) : sur un démarrage à froid plus lent que
+l'animation, elle joue jusqu'au bout sans retarder l'accueil au-delà ; sur
+un démarrage tiède plus rapide, l'écran ne s'attarde pas. Sous Android 12,
+pas d'écran de démarrage animé : l'icône statique (ouverte, −30°) suffit,
+rien à faire. Les deux variantes (`debug`, `release`) reçoivent la même
+icône.
 
 Aucune couleur en dur dans un écran : un écran dit `MaterialTheme.colorScheme.primary`,
 jamais `#FF6B57`. Aucune taille de texte en dur : un écran dit
