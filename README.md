@@ -40,8 +40,9 @@ refuse tout `http://`.
 
 Une instance locale doit aussi mettre `STORAGE_PUBLIC_URL=http://<ip du
 poste>:3000/covers` dans le `.env` de `biblio-back` : sans ce réglage, les
-jaquettes de « Mes films » sortent en `http://localhost:3000/…` et c'est sur
-lui-même que le téléphone va les chercher (constaté le 10 septembre 2026).
+jaquettes de l'accueil et de « Mes films » sortent en
+`http://localhost:3000/…` et c'est sur lui-même que le téléphone va les
+chercher (constaté le 10 septembre 2026).
 
 `bin/logs` filtre `logcat` sur le pid de l'application, parce que `logcat`
 n'imprime pas le nom du paquet : il faut donc que l'application tourne au moment
@@ -157,6 +158,7 @@ liste de contrôle à jouer, pas un journal de ce qui a déjà été vérifié.
 - [ ] Tuer l'application, la rouvrir : l'accueil directement — le cookie a survécu.
 - [ ] Couper le Wi-Fi, rouvrir : le bloc « L'API est injoignable. » avec « Réessayer ».
 - [ ] L'accueil : une grille de jaquettes, trois colonnes, du plus récent au plus ancien, la note en pastille en bas à droite de chacune quand elle existe ; le bouton « Ajouter un film » en bas, pleine largeur ; l'icône profil en haut à droite.
+- [ ] Toucher une jaquette de l'accueil ouvre le formulaire pré-rempli.
 - [ ] La recherche : le clavier est ouvert à l'arrivée ; taper « chihiro » ; la barre de 2 dp apparaît puis les résultats, affiche à gauche de chaque ligne ; un film sans affiche montre son initiale.
 - [ ] Une recherche sans résultat, par exemple « zzzz » : « Rien trouvé pour “zzzz”. ».
 - [ ] Le retour système depuis la recherche ramène à l'accueil.
@@ -168,7 +170,7 @@ liste de contrôle à jouer, pas un journal de ce qui a déjà été vérifié.
 - [ ] Cocher trois réactions : elles passent en fond brun et texte saumon.
 - [ ] Écrire un commentaire ; « Rien qu'à toi » dessous.
 - [ ] Enregistrer : le bouton garde sa taille, l'indicateur apparaît à gauche du texte, puis retour à l'accueil, « Enregistré » en snackbar deux secondes.
-- [ ] Après avoir enregistré un film, sa jaquette est en tête de la grille de l'accueil, avec sa note.
+- [ ] Après avoir enregistré un film, sa jaquette est dans la grille de l'accueil, parmi les films de sa date, avec sa note.
 - [ ] Sur le site, connecté avec le même compte : le film est « vu », daté, noté, **sans** le commentaire ni les réactions ; connecté avec un autre compte : idem.
 - [ ] Couper le Wi-Fi, enregistrer un autre film : le bloc « L'API est injoignable. » avec « Réessayer » ; le rallumer, Réessayer : enregistré.
 - [ ] Le profil : le pseudo, « **N** films vus, **M** cette année » avec les deux nombres en gros ; « Mes films » avec un chevron ; « Se déconnecter » ; en bas, le logo TMDB et sa phrase, centrés.
@@ -176,6 +178,6 @@ liste de contrôle à jouer, pas un journal de ce qui a déjà été vérifié.
 - [ ] Toucher une ligne : le formulaire pré-rempli, « Corriger », « Supprimer ». Corriger la note : retour à l'accueil, « Corrigé » en snackbar ; rouvrir « Mes films » : la ligne à jour.
 - [ ] Supprimer : la boîte à deux boutons, puis « Supprimé » en snackbar ; rouvrir « Mes films » : la ligne partie. Sur le site, le film reste « vu ».
 - [ ] Se déconnecter depuis le profil : l'écran de connexion. Tuer l'application et la rouvrir : toujours l'écran de connexion.
-- [ ] Taille de police système au maximum sur le profil et « Mes films » : rien n'est coupé, les deux nombres restent lisibles, les réactions d'une ligne passent à la ligne (design §11).
+- [ ] Taille de police système au maximum sur l'accueil, le profil et « Mes films » : rien n'est coupé, les deux nombres restent lisibles, les réactions d'une ligne passent à la ligne (design §11).
 - [ ] La version `debug` installée s'appelle « Journal (dev) » sur l'écran d'accueil (paquet `fr.mediatheque.journal.debug`).
 - [ ] La version `release` (`bin/install release`) installée à côté s'appelle « Journal » (paquet `fr.mediatheque.journal`) : les deux applications cohabitent, aucune n'efface l'autre.

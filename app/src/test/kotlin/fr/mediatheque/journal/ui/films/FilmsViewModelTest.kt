@@ -133,4 +133,54 @@ class FilmsViewModelTest {
         assertTrue(vm.ui.value.error?.retryable == true)
         assertEquals(0, expire)
     }
+
+    // `FilmsViewModel` est partage entre l'accueil et "Mes films" (meme cle "films" dans
+    // Root.kt) : chacun rappelle refresh() a chaque entree sur son ecran. Un refresh() qui vide
+    // l'etat d'un coup (`_ui.value = FilmsUi()`) montrait donc un ecran vide et le rond de
+    // chargement a chaque retour, meme quand rien n'avait change (revue de la branche "l'accueil
+    // montre les films vus", correction 5).
+    @Test
+    fun `refresh garde les jaquettes affichees, remplacees seulement a l arrivee de la premiere page`() = runTest(dispatcher) {
+        api.onJournal = { page("2026-09-03", next = null) }
+        val vm = FilmsViewModel(api) { expire++ }
+        vm.refresh()
+        testScheduler.advanceUntilIdle()
+
+        val porte = CompletableDeferred<JournalResponse>()
+        api.onJournal = { porte.await() }
+        vm.refresh()
+
+        // L'ancienne jaquette reste affichee pendant l'aller-retour, avant meme que la nouvelle
+        // page ne soit arrivee.
+        assertEquals(listOf("2026-09-03"), vm.ui.value.items.map { it.entry.finished_at })
+
+        porte.complete(page("2026-09-05", next = null))
+        testScheduler.advanceUntilIdle()
+
+        // La page arrivee remplace la liste, elle ne s'ajoute pas a l'ancienne.
+        assertEquals(listOf("2026-09-05"), vm.ui.value.items.map { it.entry.finished_at })
+    }
+
+    // Jumeau du test ci-dessus, sur `endReached` plutot que sur les jaquettes : une liste deja
+    // entierement chargee ne doit pas empecher un refresh() de relancer un appel.
+    @Test
+    fun `refresh relance meme si la liste precedente avait atteint sa fin`() = runTest(dispatcher) {
+        api.onJournal = { page("2026-09-03", next = null) }
+        val vm = FilmsViewModel(api) { expire++ }
+        vm.refresh()
+        testScheduler.advanceUntilIdle()
+
+        val porte = CompletableDeferred<JournalResponse>()
+        api.onJournal = { porte.await() }
+        vm.refresh()
+        testScheduler.advanceUntilIdle()
+
+        // Un appel a bien ete relance (la garde de loadMore() n'a pas bloque sur l'ancien
+        // endReached), et le chargement reste vrai le temps qu'il aboutisse.
+        assertEquals(listOf("journal null", "journal null"), api.calls)
+        assertTrue(vm.ui.value.loading)
+
+        porte.complete(page("2026-09-05", next = null))
+        testScheduler.advanceUntilIdle()
+    }
 }

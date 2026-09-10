@@ -25,6 +25,16 @@ class FilmsViewModel(private val api: JournalApi, private val onUnauthenticated:
     private var cursor: String? = null
     private var enCours: Job? = null
 
+    // Vrai entre `refresh()` et l'arrivée de sa première page : distingue, dans `loadMore()`,
+    // un rechargement (qui doit REMPLACER la liste affichée) d'une pagination normale (qui
+    // l'ÉTEND). `refresh()` ne vide plus l'état d'un coup (`_ui.value = FilmsUi()`) : partagé
+    // entre l'accueil et « Mes films » (même clé `"films"` dans `Root.kt`), ce `ViewModel` se
+    // fait rappeler `refresh()` à chaque entrée sur l'un ou l'autre écran, et vider les
+    // jaquettes déjà affichées à chaque retour montrait un écran vide et le rond de chargement
+    // le temps de l'aller-retour, « Enregistré » compris (relecture de la branche « l'accueil
+    // montre les films vus », correction 5).
+    private var rafraichissement = false
+
     // Pas d'`init { refresh() }` (jumeau de `ProfileViewModel`) : `Root.kt` déclenche déjà le
     // premier chargement par `LaunchedEffect(Unit) { films.refresh() }` à l'entrée sur l'écran.
     // Les deux ensemble lançaient deux `GET /me/journal` à la première ouverture, sans ordre
@@ -33,18 +43,34 @@ class FilmsViewModel(private val api: JournalApi, private val onUnauthenticated:
     fun refresh() {
         enCours?.cancel()
         cursor = null
-        _ui.value = FilmsUi()
+        rafraichissement = true
+        // `endReached` doit retomber à faux ici, avant `loadMore()` : sa garde refuserait sinon
+        // de relancer une liste déjà entièrement chargée. Les jaquettes et l'erreur, eux,
+        // restent en l'état jusqu'à ce que `loadMore()` les traite lui-même juste en dessous.
+        _ui.update { it.copy(endReached = false) }
         loadMore()
     }
 
     fun loadMore() {
         if (enCours?.isActive == true || _ui.value.endReached) return
         _ui.update { it.copy(loading = true, error = null) }
+        // Capturé avant le lancement de la coroutine, pas à sa reprise : `rafraichissement` doit
+        // valoir pour LA page que cet appel s'apprête à charger, pas pour celle d'un `refresh()`
+        // qui arriverait entre-temps (empêché ici par la garde ci-dessus, mais pas par elle
+        // seule si l'ordre changeait un jour).
+        val remplace = rafraichissement
+        rafraichissement = false
         enCours = viewModelScope.launch {
             try {
                 val page = api.journal(cursor)
                 cursor = page.next_cursor
-                _ui.update { it.copy(items = it.items + page.items, loading = false, endReached = page.next_cursor == null) }
+                _ui.update {
+                    it.copy(
+                        items = if (remplace) page.items else it.items + page.items,
+                        loading = false,
+                        endReached = page.next_cursor == null,
+                    )
+                }
             } catch (e: ApiError) {
                 _ui.update { it.copy(loading = false, error = if (e.isUnauthenticated) null else e) }
                 if (e.isUnauthenticated) onUnauthenticated()

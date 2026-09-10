@@ -125,11 +125,13 @@ seuls, sans leur phrase.
 | Cibles tactiles | 48 dp au minimum, sans exception. |
 | Affiche, coins | 8 dp. |
 | Champs, boutons, blocs de message | 12 dp. |
-| Pastilles de note | Cercles pleins, 48 dp. |
+| Pastilles de note (formulaire) | Cercles pleins, 48 dp. |
+| Pastille de note (accueil) | Pilule pleine, ~22 dp de haut, posée en bas à droite de la jaquette. |
 | Réactions | Bords entièrement ronds, hauteur 40 dp, cible 48 dp par le padding. |
 | Bouton principal | Pleine largeur, hauteur 52 dp. |
 | Affiche dans une liste | 56 × 84 dp (ratio 2 : 3). |
 | Affiche en tête du formulaire | 96 × 144 dp, à gauche du titre. |
+| Affiche à l'accueil | Calculée : un tiers de la largeur d'écran moins les écarts (ratio 2 : 3). |
 
 **Les pastilles de note tiennent sur deux rangées de cinq**, pas une de dix.
 Sur 360 dp de large moins les marges, dix cercles de 48 dp ne rentrent pas ;
@@ -152,7 +154,7 @@ ci-dessus, sans style ajouté.
 | Écran | Composants |
 |---|---|
 | **Connexion** | Deux `OutlinedTextField` (pseudo, mot de passe avec bascule de visibilité), bordure `outline` au repos et `primary` au focus. Un `Button` plein corail « Se connecter ». Le message du back sous le bouton, dans son bloc. Sur `429`, le bouton passe en désactivé (opacité 38 %, standard Material) le temps de `Retry-After`. Contenu centré verticalement. |
-| **Accueil** | Une grille de jaquettes sur trois colonnes (`LazyVerticalGrid`), du visionnage le plus récent au plus ancien, chacune avec sa note en pastille `surfaceContainerHigh` en bas à droite quand elle existe. Le `Button` plein « Ajouter un film », pleine largeur, est descendu en bas de l'écran ; la grille occupe tout l'espace au-dessus. Un `IconButton` profil en haut à droite, icône de personne en `onSurface`, cible 48 dp. Demandé par le propriétaire le 10 septembre 2026, après le premier essai sur téléphone. |
+| **Accueil** | Une grille de jaquettes sur trois colonnes (`LazyVerticalGrid`), du visionnage le plus récent au plus ancien, chacune avec sa note en pastille `surfaceContainerHigh` en bas à droite quand elle existe. Toucher une jaquette ouvre le formulaire de correction, pré-rempli, comme une ligne de « Mes films ». Le `Button` plein « Ajouter un film », pleine largeur, est descendu en bas de l'écran, hors du défilement de la grille. Un `IconButton` profil en haut à droite, icône de personne en `onSurface`, cible 48 dp. Demandé par le propriétaire le 10 septembre 2026, après le premier essai sur téléphone. |
 | **Recherche** | Une barre en haut : `IconButton` retour, puis un `TextField` sans bordure sur `surfaceContainer`, pleine largeur, focus et clavier ouverts à l'arrivée, croix d'effacement quand il y a du texte. Dessous, une `LazyColumn` de lignes : affiche, titre, réalisateur et année. Pendant une requête, un `LinearProgressIndicator` de 2 dp en corail, juste sous la barre. |
 | **Formulaire** | En tête, l'affiche et le titre en `titleLarge`. La date : un champ tactile qui affiche « 3 septembre 2026 » et ouvre un `DatePickerDialog` limité à aujourd'hui inclus. La note : deux rangées de cinq pastilles. Les réactions : des `FilterChip` dans un `FlowRow`, emoji puis phrase, qui passent à la ligne. Le commentaire : `OutlinedTextField`, trois lignes au minimum, qui grandit, avec « Rien qu'à toi » en `supportingText`. Le bouton « Enregistrer » plein, corail, pleine largeur, collé en bas de l'écran au-dessus du clavier. En correction, il dit « Corriger », et un `TextButton` « Supprimer » en `onSurfaceVariant` se tient sous lui ; il ouvre un `AlertDialog` à deux boutons, « Annuler » et « Supprimer ». |
 | **Profil** | Le pseudo en `titleMedium`. Puis la phrase en une ligne, où seuls les deux nombres sont en `displaySmall onSurface` et le reste en `bodyLarge onSurfaceVariant` : **87** films vus, **12** cette année. Un `ListItem` « Mes films » avec chevron à droite. Un `TextButton` « Se déconnecter » en `onSurfaceVariant`. En bas, la mention TMDB (§9). |
@@ -170,7 +172,7 @@ plusieurs, ce sont des états sélectionnés, pas des boutons, et un seul bouton
 | **Chargement** d'une recherche | La barre linéaire de 2 dp sous le champ. Les résultats précédents restent affichés jusqu'aux nouveaux. |
 | **Chargement** d'une liste | Un indicateur circulaire corail, 40 dp, centré dans l'espace vide ; en pagination, le même en fin de liste. |
 | **Enregistrement** en cours | Le bouton reste en place, garde son texte, passe en désactivé, et un indicateur circulaire de 20 dp en `onPrimary` apparaît à gauche du texte. Il ne change pas de taille. |
-| **Vide**, « Mes films » | « Aucun film pour l'instant. » en `bodyLarge onSurfaceVariant`, centré. |
+| **Vide**, l'accueil et « Mes films » | « Aucun film pour l'instant. » en `bodyLarge onSurfaceVariant`, centré. |
 | **Vide**, recherche sans résultat | « Rien trouvé pour “…”. » sous la barre, même style. Champ vide : rien du tout. |
 | **Erreur**, toutes | Le `message` du back tel quel, `bodyLarge onSurface`, dans un bloc `surfaceContainer` à coins 12 dp, marge 16 dp. Si `retryable`, un `TextButton` « Réessayer » corail, aligné à droite dans le bloc. Panne réseau : le même bloc avec « L'API est injoignable. » |
 | **Erreur**, second appel du geste | Le même bloc, avec « Le film est ajouté, mais pas ton visionnage. » et « Réessayer », qui ne relance que `POST /me/journal`. |

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -38,6 +39,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.ui.Cover
@@ -78,7 +81,9 @@ fun HomeScreen(vm: FilmsViewModel, nav: Navigator, onAdd: () -> Unit, onProfile:
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = {
-            SnackbarHost(snackbar) { data ->
+            // 68 dp : le bouton (52 dp) plus sa marge (16 dp), pour que la snackbar ne tombe pas
+            // dessus (relecture, correction 6).
+            SnackbarHost(snackbar, modifier = Modifier.padding(bottom = 68.dp)) { data ->
                 Snackbar(
                     snackbarData = data,
                     containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -105,7 +110,7 @@ fun HomeScreen(vm: FilmsViewModel, nav: Navigator, onAdd: () -> Unit, onProfile:
                     )
                 }
                 if (ui.items.isEmpty() && ui.endReached) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                         Text(
                             "Aucun film pour l’instant.",
                             style = MaterialTheme.typography.bodyLarge,
@@ -116,10 +121,15 @@ fun HomeScreen(vm: FilmsViewModel, nav: Navigator, onAdd: () -> Unit, onProfile:
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(3),
                         state = grille,
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(ecart),
                         verticalArrangement = Arrangement.spacedBy(ecart),
-                        // 52 dp de bouton, 16 dp d'écart au-dessus : la grille ne défile jamais dessous.
-                        contentPadding = PaddingValues(bottom = 68.dp),
+                        // 48 dp en tête : la place de l'`IconButton` profil, dessiné par-dessus
+                        // (aligné `TopEnd` plus bas). Sans cette marge, la grille démarre à y = 0
+                        // sous l'icône, qui recouvre alors la troisième jaquette de la première
+                        // rangée et intercepte ses touches — elle est déclarée après dans le
+                        // `Box`, donc dessinée et touchée en premier (relecture, correction 1).
+                        contentPadding = PaddingValues(top = 48.dp),
                     ) {
                         items(ui.items, key = { it.entry.id }) { item ->
                             Box(Modifier.clickable { onOpen(item) }) {
@@ -130,7 +140,11 @@ fun HomeScreen(vm: FilmsViewModel, nav: Navigator, onAdd: () -> Unit, onProfile:
                                             .align(Alignment.BottomEnd)
                                             .padding(4.dp)
                                             .background(MaterialTheme.colorScheme.surfaceContainerHigh, CircleShape)
-                                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                            // Design §8 : une pastille dit « Note {n} sur 10 », pas
+                                            // le chiffre nu que `Text` donnerait seul à TalkBack
+                                            // (relecture, correction 3).
+                                            .clearAndSetSemantics { contentDescription = "Note $note sur 10" },
                                     ) {
                                         Text(
                                             "$note",
@@ -150,16 +164,22 @@ fun HomeScreen(vm: FilmsViewModel, nav: Navigator, onAdd: () -> Unit, onProfile:
                         }
                     }
                 }
+                Spacer(Modifier.height(16.dp))
+                // Le bouton est ici un enfant du `Column`, après la grille, plutôt qu'un enfant du
+                // `Box` aligné en bas : hors du flux de défilement, aucune jaquette ne peut passer
+                // dessous en défilant, contrairement à un `contentPadding` sur la grille, qui ne
+                // fixe que sa position au repos (relecture, correction 2 — le commentaire qu'elle
+                // remplace était faux).
+                Button(
+                    onClick = onAdd,
+                    shape = MaterialTheme.shapes.medium,
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                ) { Text("Ajouter un film") }
             }
 
             IconButton(onClick = onProfile, modifier = Modifier.align(Alignment.TopEnd)) {
                 Icon(Icons.Filled.Person, contentDescription = "Profil", tint = MaterialTheme.colorScheme.onSurface)
             }
-            Button(
-                onClick = onAdd,
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(52.dp),
-            ) { Text("Ajouter un film") }
         }
     }
 }

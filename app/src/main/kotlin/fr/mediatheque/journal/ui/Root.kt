@@ -77,6 +77,13 @@ fun Root(container: AppContainer) {
                         // juste en dessous : ce `ViewModel` est indexé sur l'Activité, donc sans ce
                         // rechargement à chaque entrée, la grille resterait celle de la première
                         // visite après l'ajout d'un film depuis `Screen.Search`.
+                        //
+                        // `Screen.Home` et `Screen.Films` ne sont jamais voisins dans la pile : on
+                        // n'empile `Screen.Films` que depuis `Screen.Profile`, et seul `FormScreen`
+                        // appelle `nav.home(...)`, qui vide la pile plutôt que de faire un `pop` vers
+                        // `Screen.Home`. Leurs deux `refresh()` sur la même instance ne se croisent
+                        // donc jamais dans un même `Crossfade` — mais rien dans la pile ne l'interdit
+                        // si un futur chemin de navigation les rapproche.
                         val films: FilmsViewModel = viewModel(key = "films") { FilmsViewModel(container.api, session::expire) }
                         LaunchedEffect(Unit) { films.refresh() }
                         HomeScreen(
