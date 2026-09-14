@@ -222,6 +222,10 @@ fun FormScreen(vm: FormViewModel, nav: Navigator, onBack: () -> Unit) {
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Annuler") } },
         )
     }
+
+    ui.pendingSensCritiqueChoice?.let { pending ->
+        SensCritiqueChoiceSheet(pending.candidates, onChoose = vm::chooseSensCritiqueCandidate)
+    }
 }
 
 /** Une pastille de note : un cercle de 48 dp, corail quand elle est choisie — design §4, §7. */

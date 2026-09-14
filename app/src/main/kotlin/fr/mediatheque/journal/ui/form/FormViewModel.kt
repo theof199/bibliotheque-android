@@ -6,8 +6,13 @@ import fr.mediatheque.journal.api.ApiError
 import fr.mediatheque.journal.api.JournalApi
 import fr.mediatheque.journal.api.dto.JournalCreateBody
 import fr.mediatheque.journal.api.dto.JournalItem
+import fr.mediatheque.journal.api.dto.JournalMedia
 import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.reactions.Reactions
+import fr.mediatheque.journal.senscritique.ExternalCandidate
+import fr.mediatheque.journal.senscritique.GestureSyncResult
+import fr.mediatheque.journal.senscritique.MatchableFilm
+import fr.mediatheque.journal.senscritique.SensCritiqueSync
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -29,6 +34,21 @@ private fun initialUi(mode: FormMode): FormUi = when (mode) {
         comment = mode.item.carnet.comment ?: "",
     )
 }
+
+/**
+ * Une feuille de choix SensCritique en attente : le geste local a déjà réussi, mais la résolution a
+ * rendu zéro ou plusieurs candidats (brief du 14 septembre 2026). `ui.done` n'est posé qu'une fois
+ * le choix fait — c'est ce qui garde l'utilisateur sur cet écran, feuille ouverte, plutôt que de
+ * repartir à l'accueil avant qu'il ait tranché.
+ */
+data class PendingSensCritiqueChoice(
+    val mediaId: String,
+    val film: MatchableFilm,
+    val rating: Int,
+    val watchedOn: String,
+    val baseMessage: String,
+    val candidates: List<ExternalCandidate>,
+)
 
 data class FormUi(
     val date: LocalDate,
@@ -53,6 +73,8 @@ data class FormUi(
      * d'Activité (correction 1 de la tâche 6).
      */
     val done: String? = null,
+    /** Non nul le temps que la feuille « Lequel sur SensCritique ? » attende une réponse — voir `PendingSensCritiqueChoice`. */
+    val pendingSensCritiqueChoice: PendingSensCritiqueChoice? = null,
 )
 
 /** Le contexte affiché quand le film est ajouté mais pas le visionnage (décision 3 de la tâche 6). */
@@ -75,10 +97,15 @@ private class ViewingFailedAfterMediaAdded(val error: ApiError) : Exception(erro
  * autres. Si le second échoue, l'identifiant reçu est gardé et « Réessayer »
  * ne relance que lui : le premier est idempotent, mais un client qui relance
  * tout est un client qu'on ne comprend plus.
+ *
+ * Après un succès local avec une note non nulle, `sensCritique.syncAfterSave` tente la poussée
+ * SensCritique (brief du 14 septembre 2026) — jamais avant : un échec SensCritique ne doit jamais
+ * faire échouer le geste local, ni le retarder (`launch`/`create`/`edit` gardent leur forme).
  */
 class FormViewModel(
     private val api: JournalApi,
     val mode: FormMode,
+    private val sensCritique: SensCritiqueSync,
     private val onUnauthenticated: () -> Unit,
 ) : ViewModel() {
 
@@ -117,6 +144,20 @@ class FormViewModel(
     /** `FormScreen` a affiché `ui.done` (par `nav.home(...)`) ; on efface le signal pour ne pas le rejouer. */
     fun doneConsumed() = _ui.update { it.copy(done = null) }
 
+    /**
+     * La feuille « Lequel sur SensCritique ? » a rendu son choix — `productId` du candidat touché,
+     * ou `null` pour « Aucun de ceux-là ». Mémorisé par `sensCritique.choose` : ne sera plus
+     * redemandé pour ce film (brief §2).
+     */
+    fun chooseSensCritiqueCandidate(productId: Long?) {
+        val pending = _ui.value.pendingSensCritiqueChoice ?: return
+        _ui.update { it.copy(pendingSensCritiqueChoice = null, busy = true) }
+        viewModelScope.launch {
+            val resultat = sensCritique.choose(pending.mediaId, pending.film, pending.rating, pending.watchedOn, productId)
+            finish(pending.baseMessage + suffixFor(resultat))
+        }
+    }
+
     private suspend fun create(mode: FormMode.Create) {
         val mediaId = pendingMediaId ?: api.addMedia(mode.result).media.id.also { pendingMediaId = it }
         try {
@@ -125,13 +166,44 @@ class FormViewModel(
             if (e.isUnauthenticated) throw e
             throw ViewingFailedAfterMediaAdded(e)
         }
-        finish("Enregistré")
+        syncSensCritique(mediaId, filmOf(mode.result), "Enregistré")
     }
 
     private suspend fun edit(mode: FormMode.Edit) {
         api.patchViewing(mode.item.entry.id, patchBodyOf(mode.item, _ui.value))
-        finish("Corrigé")
+        syncSensCritique(mode.item.media.id, filmOf(mode.item.media), "Corrigé")
     }
+
+    /**
+     * Résout et pousse la note vers SensCritique si connecté et noté (brief §2 et §3) ; sinon
+     * termine tout de suite, message inchangé. Une résolution ambiguë (`ChoiceNeeded`) ne termine
+     * pas le geste : elle pose `pendingSensCritiqueChoice`, et c'est `chooseSensCritiqueCandidate`
+     * qui appelle `finish` ensuite, une fois la feuille répondue.
+     */
+    private suspend fun syncSensCritique(mediaId: String, film: MatchableFilm, baseMessage: String) {
+        when (val resultat = sensCritique.syncAfterSave(mediaId, film, rating(), date())) {
+            is GestureSyncResult.ChoiceNeeded -> _ui.update {
+                // `syncAfterSave` ne rend `ChoiceNeeded` que lorsqu'il a d'abord vérifié `rating() != null`
+                // (sinon il rend `Skipped` sans même chercher) : le `!!` porte cet invariant, pas un pari.
+                it.copy(
+                    busy = false,
+                    pendingSensCritiqueChoice = PendingSensCritiqueChoice(mediaId, film, rating()!!, date(), baseMessage, resultat.candidates),
+                )
+            }
+            else -> finish(baseMessage + suffixFor(resultat))
+        }
+    }
+
+    private fun suffixFor(resultat: GestureSyncResult): String = when (resultat) {
+        GestureSyncResult.Skipped -> ""
+        GestureSyncResult.Pushed -> " · SensCritique ✓"
+        GestureSyncResult.QueuedForRetry -> " · SensCritique : réessai au prochain lancement"
+        GestureSyncResult.ReconnectNeeded -> " · SensCritique : reconnecte-toi"
+        is GestureSyncResult.ChoiceNeeded -> "" // n'arrive jamais ici : traité à part dans `syncSensCritique`
+    }
+
+    private fun filmOf(result: SearchResult) = MatchableFilm(result.title, result.original_title, result.year)
+    private fun filmOf(media: JournalMedia) = MatchableFilm(media.title, null, media.year)
 
     /**
      * Ce `ViewModel` reste en vie, indexé sur le film ou l'entrée (décision 5) : sans ce retour au
@@ -150,7 +222,7 @@ class FormViewModel(
     private fun comment() = _ui.value.comment.trim().ifEmpty { null }
 
     private fun launch(block: suspend () -> Unit) {
-        _ui.update { it.copy(busy = true, error = null, errorContext = null) }
+        _ui.update { it.copy(busy = true, error = null, errorContext = null, pendingSensCritiqueChoice = null) }
         viewModelScope.launch {
             try {
                 block()

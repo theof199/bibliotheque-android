@@ -6,6 +6,7 @@ import fr.mediatheque.journal.api.ApiError
 import fr.mediatheque.journal.api.JournalApi
 import fr.mediatheque.journal.api.SessionCookieJar
 import fr.mediatheque.journal.api.dto.User
+import fr.mediatheque.journal.senscritique.SensCritiqueSync
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -22,9 +23,16 @@ sealed interface SessionState {
  * déranger le back ; un cookie, donc `GET /auth/me`, qui tranche. Un `401`
  * n'importe où plus tard ramène ici par `expire()`.
  */
-class SessionViewModel(private val api: JournalApi, private val cookieJar: SessionCookieJar) : ViewModel() {
+class SessionViewModel(
+    private val api: JournalApi,
+    private val cookieJar: SessionCookieJar,
+    private val sensCritique: SensCritiqueSync,
+) : ViewModel() {
     private val _state = MutableStateFlow<SessionState>(SessionState.Checking)
     val state: StateFlow<SessionState> = _state
+
+    /** Rejouée une fois par lancement (brief §5), pas à chaque `retry()` qui suivrait une panne. */
+    private var filesRejoueeUneFois = false
 
     init { check() }
 
@@ -56,9 +64,23 @@ class SessionViewModel(private val api: JournalApi, private val cookieJar: Sessi
         viewModelScope.launch {
             try {
                 _state.value = SessionState.SignedIn(api.me())
+                replaySensCritiqueQueueOnce()
             } catch (e: ApiError) {
                 if (e.isUnauthenticated) expire() else _state.value = SessionState.Unreachable(e.message ?: ApiError.NETWORK_MESSAGE)
             }
         }
+    }
+
+    /**
+     * « Au lancement … la file se rejoue une fois, silencieusement » (brief §5) : `sensCritique`
+     * ne fait rien elle-même si SensCritique n'est pas connecté ou si la file est vide, donc
+     * l'appeler ici à chaque connexion réussie ne coûte rien de plus qu'un aller-retour au magasin
+     * — le garde `filesRejoueeUneFois` évite seulement de la relancer en double si `retry()` repasse
+     * par `check()` plusieurs fois pendant la même vie du `ViewModel`.
+     */
+    private fun replaySensCritiqueQueueOnce() {
+        if (filesRejoueeUneFois) return
+        filesRejoueeUneFois = true
+        viewModelScope.launch { sensCritique.replayQueue() }
     }
 }

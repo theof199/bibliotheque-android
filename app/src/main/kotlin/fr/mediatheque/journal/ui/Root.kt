@@ -27,12 +27,16 @@ import fr.mediatheque.journal.ui.login.LoginScreen
 import fr.mediatheque.journal.ui.login.LoginViewModel
 import fr.mediatheque.journal.ui.profile.ProfileScreen
 import fr.mediatheque.journal.ui.profile.ProfileViewModel
+import fr.mediatheque.journal.ui.profile.SensCritiqueScreen
+import fr.mediatheque.journal.ui.profile.SensCritiqueViewModel
 import fr.mediatheque.journal.ui.search.SearchScreen
 import fr.mediatheque.journal.ui.search.SearchViewModel
 
 @Composable
 fun Root(container: AppContainer) {
-    val session: SessionViewModel = viewModel { SessionViewModel(container.api, container.cookieJar) }
+    val session: SessionViewModel = viewModel {
+        SessionViewModel(container.api, container.cookieJar, container.sensCritiqueSync)
+    }
     val state by session.state.collectAsState()
 
     when (val s = state) {
@@ -102,13 +106,26 @@ fun Root(container: AppContainer) {
                         // le `FormViewModel` du premier film à tous les suivants ; l'identité du
                         // film dans la clé ouvre une case par film.
                         val form: FormViewModel = viewModel(key = "form:${screen.result.source}:${screen.result.external_id}") {
-                            FormViewModel(container.api, FormMode.Create(screen.result), session::expire)
+                            FormViewModel(container.api, FormMode.Create(screen.result), container.sensCritiqueSync, session::expire)
                         }
                         FormScreen(form, nav = nav, onBack = nav::pop)
                     }
                     Screen.Profile -> {
                         val profile: ProfileViewModel = viewModel(key = "profile") { ProfileViewModel(container.api, session::expire) }
-                        ProfileScreen(s.user, profile, onBack = nav::pop, onFilms = { nav.push(Screen.Films) }, onSignOut = session::signOut)
+                        // Même instance (même clé) que `Screen.SensCritique` plus bas : un aller-retour vers cet
+                        // écran doit revenir sur le pseudo qu'on vient d'y lire, pas en repartir à zéro.
+                        val senscritique: SensCritiqueViewModel = viewModel(key = "senscritique") {
+                            SensCritiqueViewModel(container.sensCritiqueStore, container.sensCritiqueAuthClient)
+                        }
+                        ProfileScreen(
+                            s.user,
+                            profile,
+                            senscritique,
+                            onBack = nav::pop,
+                            onFilms = { nav.push(Screen.Films) },
+                            onSensCritique = { nav.push(Screen.SensCritique) },
+                            onSignOut = session::signOut,
+                        )
                     }
                     Screen.Films -> {
                         val films: FilmsViewModel = viewModel(key = "films") { FilmsViewModel(container.api, session::expire) }
@@ -141,9 +158,15 @@ fun Root(container: AppContainer) {
                         // magasin pour la vie de l'Activité : négligeable pour un usage
                         // personnel.
                         val form: FormViewModel = viewModel(key = "edit:${screen.item.entry.id}:${screen.item.hashCode()}") {
-                            FormViewModel(container.api, FormMode.Edit(screen.item), session::expire)
+                            FormViewModel(container.api, FormMode.Edit(screen.item), container.sensCritiqueSync, session::expire)
                         }
                         FormScreen(form, nav = nav, onBack = nav::pop)
+                    }
+                    Screen.SensCritique -> {
+                        val senscritique: SensCritiqueViewModel = viewModel(key = "senscritique") {
+                            SensCritiqueViewModel(container.sensCritiqueStore, container.sensCritiqueAuthClient)
+                        }
+                        SensCritiqueScreen(senscritique, onBack = nav::pop)
                     }
                 }
             }

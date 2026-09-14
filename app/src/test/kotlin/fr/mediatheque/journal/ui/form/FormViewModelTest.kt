@@ -5,6 +5,14 @@ import fr.mediatheque.journal.MainDispatcherRule
 import fr.mediatheque.journal.api.ApiError
 import fr.mediatheque.journal.api.dto.JournalCreateBody
 import fr.mediatheque.journal.api.dto.SearchResult
+import fr.mediatheque.journal.senscritique.ExternalCandidate
+import fr.mediatheque.journal.senscritique.ExternalPushOutcome
+import fr.mediatheque.journal.senscritique.ExternalSearchOutcome
+import fr.mediatheque.journal.senscritique.FakeExternalRatingService
+import fr.mediatheque.journal.senscritique.InMemorySensCritiqueStore
+import fr.mediatheque.journal.senscritique.SensCritiqueAuth
+import fr.mediatheque.journal.senscritique.SensCritiqueStore
+import fr.mediatheque.journal.senscritique.SensCritiqueSync
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -23,8 +31,18 @@ class FormViewModelTest {
     private val chihiro = SearchResult("tmdb", "129", "movie", "Le Voyage de Chihiro", 2001)
     private var expire = 0
 
-    private fun create() = FormViewModel(api, FormMode.Create(chihiro)) { expire++ }
-    private fun edit() = FormViewModel(api, FormMode.Edit(FakeJournalApi.item("m", "2026-01-10", 7, listOf("sympa"), "Avant"))) { expire++ }
+    // Magasin SensCritique vide (non connecté) par défaut : `SensCritiqueSync.syncAfterSave` rend
+    // `Skipped` tout de suite (`isConnected()` faux), donc aucun des tests existants ci-dessous —
+    // qui ne parlent pas de SensCritique — n'a besoin de programmer ce double. Les tests
+    // SensCritique, en bas de fichier, passent leur propre `sync` connecté.
+    private fun create(sync: SensCritiqueSync = disconnectedSync()) = FormViewModel(api, FormMode.Create(chihiro), sync) { expire++ }
+    private fun edit(sync: SensCritiqueSync = disconnectedSync()) =
+        FormViewModel(api, FormMode.Edit(FakeJournalApi.item("m", "2026-01-10", 7, listOf("sympa"), "Avant")), sync) { expire++ }
+
+    private fun disconnectedSync() = SensCritiqueSync(FakeExternalRatingService(), InMemorySensCritiqueStore())
+
+    private fun connectedSync(store: SensCritiqueStore, service: FakeExternalRatingService) =
+        SensCritiqueSync(service, store.apply { writeAuth(SensCritiqueAuth("refresh", "TheofB")) })
 
     @Test
     fun `un film nouveau — deux appels dans l ordre, tous les champs envoyes`() {
@@ -222,5 +240,102 @@ class FormViewModelTest {
         assertEquals("Enregistré", vm.ui.value.done)
         vm.doneConsumed()
         assertNull(vm.ui.value.done)
+    }
+
+    // ---------------------------------------------------------------------------
+    // SensCritique (brief du 14 septembre 2026), avec un faux `ExternalRatingService`.
+    // ---------------------------------------------------------------------------
+
+    private fun candidat(id: Long, title: String = "Le Voyage de Chihiro", year: Int? = 2001) =
+        ExternalCandidate(id, title, originalTitle = null, year = year)
+
+    @Test
+    fun `note nulle, connecte — aucun appel SensCritique, message sans suffixe`() {
+        val service = FakeExternalRatingService()
+        val vm = create(connectedSync(InMemorySensCritiqueStore(), service))
+        vm.save() // brouillon par defaut : pas de note
+        assertEquals("Enregistré", vm.ui.value.done)
+        assertTrue(service.searchCalls.isEmpty())
+        assertTrue(service.pushCalls.isEmpty())
+    }
+
+    @Test
+    fun `note posee, non connecte — aucun appel SensCritique, message sans suffixe`() {
+        val service = FakeExternalRatingService()
+        val vm = create(disconnectedSync())
+        vm.toggleRating(8)
+        vm.save()
+        assertEquals("Enregistré", vm.ui.value.done)
+        assertTrue(service.searchCalls.isEmpty())
+        assertTrue(service.pushCalls.isEmpty())
+    }
+
+    @Test
+    fun `candidat net — pousse et le message porte la coche`() {
+        val service = FakeExternalRatingService(onSearch = { ExternalSearchOutcome.Success(listOf(candidat(42))) })
+        val vm = create(connectedSync(InMemorySensCritiqueStore(), service))
+        vm.toggleRating(8)
+        vm.save()
+        assertEquals("Enregistré · SensCritique ✓", vm.ui.value.done)
+        assertEquals(listOf(Triple(42L, 8, LocalDate.now())), service.pushCalls)
+    }
+
+    // Mutation : rendre `ExternalPushOutcome.Failed` sans jamais appeler `enqueue` dans
+    // `SensCritiqueSync.pushAndRecord` fait echouer la seconde assertion (file vide) ; renvoyer le
+    // message avec la coche malgre l'echec fait echouer la premiere.
+    @Test
+    fun `poussee echouee — message de reessai et poussee mise en file`() {
+        val store = InMemorySensCritiqueStore()
+        val service = FakeExternalRatingService(
+            onSearch = { ExternalSearchOutcome.Success(listOf(candidat(42))) },
+            onPush = { _, _, _ -> ExternalPushOutcome.Failed },
+        )
+        val vm = create(connectedSync(store, service))
+        vm.toggleRating(8)
+        vm.save()
+        assertEquals("Enregistré · SensCritique : réessai au prochain lancement", vm.ui.value.done)
+        val queued = store.readQueue()["m-129"]
+        assertEquals(42L, queued?.productId)
+        assertEquals(8, queued?.rating)
+    }
+
+    // Mutation : rendre `Appariement.Ambigu` en `Apparie` (premier candidat) dans `apparierCandidat`
+    // fait echouer la premiere assertion (`pendingSensCritiqueChoice` resterait nul, `done` serait
+    // deja pose). Ne jamais poser `pendingSensCritiqueChoice` fait echouer la meme assertion.
+    @Test
+    fun `candidats ambigus — l etat choix demandé precede done, puis le choix pousse`() {
+        val store = InMemorySensCritiqueStore()
+        val service = FakeExternalRatingService(
+            onSearch = { ExternalSearchOutcome.Success(listOf(candidat(1), candidat(2))) },
+        )
+        val vm = create(connectedSync(store, service))
+        vm.toggleRating(8)
+        vm.save()
+
+        assertNull("le geste ne doit pas etre termine tant que le choix n'est pas fait", vm.ui.value.done)
+        val pending = vm.ui.value.pendingSensCritiqueChoice
+        assertEquals(listOf(1L, 2L), pending?.candidates?.map { it.productId })
+
+        vm.chooseSensCritiqueCandidate(2L)
+        assertNull(vm.ui.value.pendingSensCritiqueChoice)
+        assertEquals("Enregistré · SensCritique ✓", vm.ui.value.done)
+        assertEquals(listOf(Triple(2L, 8, LocalDate.now())), service.pushCalls)
+    }
+
+    // Le choix « Aucun de ceux-là » (productId nul) est memorise (brief §2) : une seconde
+    // correction du meme film ne redemande plus, et ne pousse rien.
+    @Test
+    fun `Aucun de ceux-la memorise la decision et ne pousse rien`() {
+        val store = InMemorySensCritiqueStore()
+        val service = FakeExternalRatingService(onSearch = { ExternalSearchOutcome.Success(listOf(candidat(1), candidat(2))) })
+        val vm = create(connectedSync(store, service))
+        vm.toggleRating(8)
+        vm.save()
+        vm.chooseSensCritiqueCandidate(null)
+
+        assertEquals("Enregistré", vm.ui.value.done)
+        assertTrue(service.pushCalls.isEmpty())
+        assertTrue("m-129" in store.readDecisions())
+        assertNull(store.readDecisions()["m-129"])
     }
 }
