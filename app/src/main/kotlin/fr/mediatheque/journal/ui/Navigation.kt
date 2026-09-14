@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.withTimeoutOrNull
 
-/** Les six écrans. Un écran qui a besoin d'une donnée la porte. */
+/** Les sept écrans. Un écran qui a besoin d'une donnée la porte. */
 sealed interface Screen {
     data object Home : Screen
     data object Search : Screen
@@ -23,6 +23,8 @@ sealed interface Screen {
     data object Profile : Screen
     data object Films : Screen
     data class Edit(val item: JournalItem) : Screen
+    /** La connexion SensCritique, depuis le profil (brief du 14 septembre 2026). */
+    data object SensCritique : Screen
 }
 
 /**

@@ -40,8 +40,22 @@ import fr.mediatheque.journal.api.dto.User
 import fr.mediatheque.journal.ui.ErrorBlock
 
 @Composable
-fun ProfileScreen(user: User, vm: ProfileViewModel, onBack: () -> Unit, onFilms: () -> Unit, onSignOut: () -> Unit) {
+fun ProfileScreen(
+    user: User,
+    vm: ProfileViewModel,
+    senscritique: SensCritiqueViewModel,
+    onBack: () -> Unit,
+    onFilms: () -> Unit,
+    onSensCritique: () -> Unit,
+    onSignOut: () -> Unit,
+) {
     val ui by vm.ui.collectAsState()
+    val senscritiqueUi by senscritique.ui.collectAsState()
+
+    // Jumeau du `LaunchedEffect(Unit) { vm.retry() }` ci-dessous : ce `ViewModel` est lui aussi
+    // indexé sur l'Activité, clé fixe — sans ce rafraîchissement, revenir du profil depuis l'écran
+    // SensCritique (connexion ou déconnexion) laisserait la ligne affichée avant le changement.
+    LaunchedEffect(Unit) { senscritique.refresh() }
     val chiffre = MaterialTheme.typography.displaySmall.toSpanStyle().copy(color = MaterialTheme.colorScheme.onSurface)
     val mots = MaterialTheme.typography.bodyLarge.toSpanStyle().copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
 
@@ -80,6 +94,16 @@ fun ProfileScreen(user: User, vm: ProfileViewModel, onBack: () -> Unit, onFilms:
                     trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null) },
                     colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
                     modifier = Modifier.clickable(onClick = onFilms),
+                )
+                ListItem(
+                    headlineContent = { Text("SensCritique", style = MaterialTheme.typography.titleMedium) },
+                    supportingContent = {
+                        val pseudo = senscritiqueUi.connectedPseudo
+                        Text(if (pseudo != null) "Connecté : $pseudo" else "Non connecté")
+                    },
+                    trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null) },
+                    colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+                    modifier = Modifier.clickable(onClick = onSensCritique),
                 )
                 TextButton(onClick = onSignOut) { Text("Se déconnecter", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
