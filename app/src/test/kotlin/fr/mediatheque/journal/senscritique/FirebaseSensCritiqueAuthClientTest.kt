@@ -4,6 +4,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
 import io.ktor.client.engine.mock.respond
+import io.ktor.client.engine.mock.toByteArray
 import io.ktor.client.request.HttpRequestData
 import io.ktor.client.request.HttpResponseData
 import io.ktor.http.HttpHeaders
@@ -53,6 +54,45 @@ class FirebaseSensCritiqueAuthClientTest {
         }
         val outcome = api.signIn("theo@example.com", "secret") as SignInOutcome.Success
         assertNull(outcome.pseudo)
+    }
+
+    // Deuxieme essai reel (revue du 14 septembre 2026) : SignInBody.returnSecureToken avait une
+    // valeur par defaut (`= true`), que kotlinx.serialization n'encode jamais quand elle egale le
+    // defaut declare (`encodeDefaults` vaut faux) — le champ ne partait pas, et Firebase repondait
+    // sans refreshToken ni expiresIn. Mutation : remettre `= true` sur `returnSecureToken` (et
+    // laisser la construction sans l'argument) fait disparaitre `"returnSecureToken":true` du
+    // corps envoye, cette assertion echoue.
+    @Test
+    fun `le corps envoye a signInWithPassword porte returnSecureToken vrai`() = runTest {
+        var corps = ""
+        val api = client { request ->
+            corps = String(request.body.toByteArray())
+            respond("""{"idToken":"id-1","refreshToken":"refresh-1","expiresIn":"3600"}""", HttpStatusCode.OK, json)
+        }
+        api.signIn("theo@example.com", "secret")
+        assertTrue("le corps envoye doit porter returnSecureToken:true, etait : $corps", corps.contains(""""returnSecureToken":true"""))
+    }
+
+    // La reponse reelle constatee (deuxieme essai) : 200, displayName present, mais sans
+    // refreshToken ni expiresIn — consequence directe du bug ci-dessus. Le journal doit nommer la
+    // cause plutot que dire juste « illisible », pour que la prochaine anomalie de ce genre se lise
+    // sans deviner. Mutation : revenir a un seul message ("illisible", clefsSeulement) pour ce cas
+    // fait echouer cette assertion.
+    @Test
+    fun `une reponse sans refreshToken journalise la cause precise, pas illisible`() = runTest {
+        val api = client {
+            respond(
+                """{"kind":"x","localId":"1","email":"theo@example.com","displayName":"TheofB","idToken":"id-1","registered":true}""",
+                HttpStatusCode.OK,
+                json,
+            )
+        }
+        api.signIn("theo@example.com", "secret")
+        assertTrue(
+            "attendu une ligne 'sans refreshToken', lignes : ${logger.lines}",
+            logger.lines.any { it.contains("reponse de connexion sans refreshToken") },
+        )
+        assertTrue(logger.lines.none { it.contains("reponse de connexion illisible") })
     }
 
     // Revue du 14 septembre 2026, point 2 : tout 4xx Firebase devient un `Refused` portant son

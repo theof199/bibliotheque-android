@@ -53,8 +53,17 @@ interface SensCritiqueAuthClient {
     suspend fun refresh(refreshToken: String): RefreshOutcome
 }
 
+/**
+ * `returnSecureToken` sans valeur par défaut, à dessein (revue du 14 septembre 2026, deuxième
+ * essai réel) : kotlinx.serialization n'encode pas un champ qui vaut sa valeur par défaut
+ * (`encodeDefaults` vaut faux par défaut, et ni `Json` ni `firebaseJson` ne le changent) — un
+ * `= true` ici serait parti muet du corps envoyé à Firebase, qui répond alors sans `refreshToken`
+ * ni `expiresIn` (constaté : `idToken`, `displayName`, `kind`, `localId`, `email`, `registered`
+ * seulement). Un champ obligatoire, toujours passé explicitement à la construction, ne peut plus se
+ * taire de cette façon.
+ */
 @Serializable
-private data class SignInBody(val email: String, val password: String, val returnSecureToken: Boolean = true)
+private data class SignInBody(val email: String, val password: String, val returnSecureToken: Boolean)
 
 @Serializable
 private data class SignInResponse(
@@ -88,10 +97,10 @@ private val firebaseJson = Json { ignoreUnknownKeys = true }
  * 14 septembre 2026, critique 1). Un corps illisible n'a rien à cacher, mais on ne le répète pas
  * non plus : il peut être partiellement valide.
  */
-private fun clefsSeulement(corps: String): String {
-    val objet = runCatching { firebaseJson.parseToJsonElement(corps) }.getOrNull() as? JsonObject
-    return objet?.keys?.sorted()?.joinToString(", ") ?: "illisible"
-}
+private fun clefs(corps: String): List<String>? =
+    (runCatching { firebaseJson.parseToJsonElement(corps) }.getOrNull() as? JsonObject)?.keys?.sorted()
+
+private fun clefsSeulement(corps: String): String = clefs(corps)?.joinToString(", ") ?: "illisible"
 
 /**
  * `error.message` d'un corps d'erreur Firebase : une constante fixe du fournisseur
@@ -147,7 +156,7 @@ class FirebaseSensCritiqueAuthClient(
         val outcome = try {
             val response = client.post(SIGN_IN_URL) {
                 contentType(ContentType.Application.Json)
-                setBody(Json.encodeToString(SignInBody.serializer(), SignInBody(email, password)))
+                setBody(Json.encodeToString(SignInBody.serializer(), SignInBody(email, password, returnSecureToken = true)))
             }
             val body = response.bodyAsText()
             if (!response.status.isSuccess()) {
@@ -172,7 +181,16 @@ class FirebaseSensCritiqueAuthClient(
 
         val parsed = runCatching { firebaseJson.decodeFromString(SignInResponse.serializer(), text) }.getOrNull()
         if (parsed == null) {
-            logger.d("reponse de connexion illisible, clefs : ${clefsSeulement(text)}")
+            // Distingue « la reponse ne contient pas refreshToken » (constate en reel : Firebase
+            // repond sans lui quand returnSecureToken n'est pas transmis) d'un corps vraiment
+            // illisible — pour que le journal dise la cause plutot qu'un « illisible » generique
+            // (revue du 14 septembre 2026, deuxieme essai reel).
+            val clesPresentes = clefs(text)
+            if (clesPresentes != null && "refreshToken" !in clesPresentes) {
+                logger.d("reponse de connexion sans refreshToken, clefs : ${clesPresentes.joinToString(", ")}")
+            } else {
+                logger.d("reponse de connexion illisible, clefs : ${clefsSeulement(text)}")
+            }
             return SignInOutcome.Unreachable
         }
         val expiresIn = parsed.expiresIn.toLongOrNull() ?: 3600L
