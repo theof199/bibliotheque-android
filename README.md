@@ -155,9 +155,10 @@ de monter Kotlin, et ce sera une décision à prendre en entier, pas en passant.
 
 ## SensCritique
 
-Décision du propriétaire du 14 septembre 2026 : quand il note un film dans l'appli, la note et la
-date de visionnage partent aussi sur son compte SensCritique. Tout vit dans l'appli, rien ne change
-au back.
+Décision du propriétaire du 14 septembre 2026 : quand il note un film dans l'appli, la note part
+aussi sur son compte SensCritique — l'intention porte aussi la date de visionnage, mais elle ne part
+pas encore (voir plus bas, l'argument de date de `productDone` reste inconnu). Tout vit dans
+l'appli, rien ne change au back.
 
 - **Le mot de passe SensCritique n'est jamais stocké.** Seuls le `refreshToken` (renouvelé toutes
   les heures) et le pseudo le sont, chiffrés par une clé AES-GCM du `AndroidKeyStore` — jamais
@@ -169,9 +170,12 @@ au back.
   `senscritique/SensCritiqueAuthClient.kt`) est celle de l'application web de SensCritique, publique
   par nature (toute page de leur site la charge), lue sur leur site le 14 septembre 2026 ; elle est
   à eux et peut changer sans préavis.
-- **La forme de deux réponses GraphQL n'est pas connue** (l'argument de date de `productDone`, les
-  champs exacts de `searchResult`) : la première connexion réelle sert de sonde, l'erreur de
-  validation GraphQL sort telle quelle dans `bin/logs` (`Log.d("SensCritique", …)`).
+- **La forme de deux réponses GraphQL n'est pas connue.** `productDone` n'est donc appelé qu'avec
+  `productId` : sans savoir si un argument de date existe ni comment il s'appelle, l'appli marque
+  « vu » sans date pour l'instant (le paramètre `watchedOn` de `SensCritiqueRatingService.push`
+  est gardé, commenté, pour le jour où cet argument sera connu). Les champs exacts de `searchResult`
+  ne sont pas connus non plus. La première connexion réelle sert de sonde pour les deux : l'erreur
+  de validation GraphQL sort telle quelle dans `bin/logs` (`Log.d("SensCritique", …)`).
 
 ## Vérifier
 
@@ -220,5 +224,6 @@ liste de contrôle à jouer, pas un journal de ce qui a déjà été vérifié.
 - [ ] Corriger la note d'un film déjà poussé : « Corrigé · SensCritique ✓ » ; la note change aussi sur SensCritique.
 - [ ] Un film sans correspondance nette sur SensCritique (titre ambigu, ou absent de leur catalogue) : la feuille « Lequel sur SensCritique ? » s'ouvre avant le retour à l'accueil ; toucher un candidat ou « Aucun de ceux-là » referme la feuille et termine le geste.
 - [ ] Rouvrir ce même film et le corriger de nouveau : la feuille ne redemande plus (le choix est mémorisé).
-- [ ] Couper le Wi-Fi, noter un film connecté à SensCritique : « Enregistré · SensCritique : réessai au prochain lancement » ; rallumer le Wi-Fi, tuer et rouvrir l'application : le film apparaît noté sur SensCritique sans autre geste.
+- [ ] Sur un film ambigu, quitter la feuille par le retour système plutôt que par un choix : le geste se termine quand même, « Enregistré · SensCritique : réessai au prochain lancement » ; tuer l'application et la rouvrir : le film apparaît noté sur SensCritique sans autre geste (la résolution, puis la poussée, se sont rejouées au lancement).
+- [ ] Après une note poussée avec succès (✓), se déconnecter depuis l'écran SensCritique, puis noter un autre film : « Enregistré », sans aucun suffixe SensCritique — rien n'est tenté tant qu'on n'est pas reconnecté.
 - [ ] Se déconnecter depuis l'écran SensCritique : la ligne du profil repasse à « Non connecté » ; noter un film ensuite ne montre plus aucun suffixe SensCritique.
