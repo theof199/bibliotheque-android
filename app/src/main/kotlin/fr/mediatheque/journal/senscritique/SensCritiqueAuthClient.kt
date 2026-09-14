@@ -94,7 +94,9 @@ class GraphQlSensCritiqueAuthClient(
             val code = codeDeLaPremiereErreur(errors)
             // Le code n'est pas un secret (une constante fixe du fournisseur, brief §1) : il se
             // journalise en clair, à la difference du mot de passe qui n'atteint jamais ce point.
-            logger.d("connexion refusee : ${code ?: errors}")
+            // Jamais le tableau `errors` entier : une erreur de validation GraphQL peut y recopier
+            // une variable envoyee (le mot de passe, par exemple), dans `message`.
+            logger.d("connexion refusee : ${code ?: "${errors.size} erreur(s) sans code"}")
             return SignInOutcome.Refused(code)
         }
 

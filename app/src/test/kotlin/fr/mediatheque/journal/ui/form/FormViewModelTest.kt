@@ -300,6 +300,28 @@ class FormViewModelTest {
         assertEquals(8, queued?.rating)
     }
 
+    // Revue du 14 septembre 2026, important 2 : le message « reconnecte-toi » ne doit jamais
+    // s'afficher pendant que le magasin croit encore etre connecte, sinon le profil dirait
+    // toujours « Connecté : … » alors que la prochaine poussee echouera pareil.
+    // `SensCritiqueSync.pushAndRecord` deconnecte deja le magasin (`store.writeAuth(null)`) sur
+    // `ExternalPushOutcome.Unauthenticated` : ce test l'interdit d'un cote (le store) comme de
+    // l'autre (le message). Mutation : dans `pushAndRecord`, ne plus appeler `store.writeAuth(null)`
+    // sur cette branche fait echouer la seconde assertion (le store resterait connecte).
+    @Test
+    fun `poussee non authentifiee — message de reconnexion et magasin deconnecte`() {
+        val store = InMemorySensCritiqueStore()
+        val service = FakeExternalRatingService(
+            onSearch = { ExternalSearchOutcome.Success(listOf(candidat(42))) },
+            onPush = { _, _, _ -> ExternalPushOutcome.Unauthenticated },
+        )
+        val vm = create(connectedSync(store, service))
+        vm.toggleRating(8)
+        vm.save()
+
+        assertEquals("Enregistré · SensCritique : reconnecte-toi", vm.ui.value.done)
+        assertNull("la poussee non authentifiee doit deconnecter le magasin", store.readAuth())
+    }
+
     // Mutation : rendre `Appariement.Ambigu` en `Apparie` (premier candidat) dans `apparierCandidat`
     // fait echouer la premiere assertion (`pendingSensCritiqueChoice` resterait nul, `done` serait
     // deja pose). Ne jamais poser `pendingSensCritiqueChoice` fait echouer la meme assertion.

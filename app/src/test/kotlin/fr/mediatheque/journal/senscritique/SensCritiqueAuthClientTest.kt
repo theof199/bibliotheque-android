@@ -121,6 +121,12 @@ class SensCritiqueAuthClientTest {
     // branches qui journalisent quelque chose. Mutation : journaliser le corps de la requete
     // envoyee (`"connexion tentee : $corps"`, par exemple) dans le bloc `try` de `signIn` fait
     // echouer cette assertion.
+    //
+    // Revue du 14 septembre 2026, important 4 : le dernier appel simule une erreur GraphQL sans
+    // `code` (ni racine ni `extensions`) dont le `message` recopie le mot de passe — le cas ou une
+    // erreur de validation du fournisseur reproduirait une variable envoyee. Mutation : revenir a
+    // `logger.d("connexion refusee : ${'$'}{code ?: errors}")` (le tableau `errors` entier plutot
+    // que le compte) fait echouer cette assertion, le `message` de l'erreur portant le mot de passe.
     @Test
     fun `aucune ligne journalisee ne porte le mot de passe, quelle que soit l issue`() = runTest {
         val motDePasse = "mot-de-passe-tres-secret"
@@ -129,6 +135,8 @@ class SensCritiqueAuthClientTest {
         client { respond("ceci n est pas du json", HttpStatusCode.OK, json) }
             .signIn("theo@example.com", motDePasse)
         client { respond("""{"data":{"signInWithEmailAndPassword":{"me":{},"userCookie":{}}}}""", HttpStatusCode.OK, json) }
+            .signIn("theo@example.com", motDePasse)
+        client { respond("""{"errors":[{"message":"Variable invalide : $motDePasse"}]}""", HttpStatusCode.OK, json) }
             .signIn("theo@example.com", motDePasse)
 
         assertTrue(logger.lines.isNotEmpty())

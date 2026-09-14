@@ -51,14 +51,17 @@ class SensCritiqueSync(
      */
     suspend fun syncAfterSave(mediaId: String, film: MatchableFilm, rating: Int?, watchedOn: String): GestureSyncResult {
         if (rating == null) return GestureSyncResult.Skipped
-        if (!isConnected()) return GestureSyncResult.Skipped
         return try {
-            when (val resolution = resolve(mediaId, film)) {
-                is SyncResolution.Matched -> finishPush(mediaId, resolution.productId, rating, watchedOn, film)
-                SyncResolution.Ignored -> GestureSyncResult.Skipped
-                is SyncResolution.NeedsChoice -> GestureSyncResult.ChoiceNeeded(resolution.candidates)
-                SyncResolution.Failed -> { enqueueUnresolved(mediaId, film, rating, watchedOn); GestureSyncResult.QueuedForRetry }
-                SyncResolution.Unauthenticated -> { enqueueUnresolved(mediaId, film, rating, watchedOn); GestureSyncResult.ReconnectNeeded }
+            if (!isConnected()) {
+                GestureSyncResult.Skipped
+            } else {
+                when (val resolution = resolve(mediaId, film)) {
+                    is SyncResolution.Matched -> finishPush(mediaId, resolution.productId, rating, watchedOn, film)
+                    SyncResolution.Ignored -> GestureSyncResult.Skipped
+                    is SyncResolution.NeedsChoice -> GestureSyncResult.ChoiceNeeded(resolution.candidates)
+                    SyncResolution.Failed -> { enqueueUnresolved(mediaId, film, rating, watchedOn); GestureSyncResult.QueuedForRetry }
+                    SyncResolution.Unauthenticated -> { enqueueUnresolved(mediaId, film, rating, watchedOn); GestureSyncResult.ReconnectNeeded }
+                }
             }
         } catch (e: CancellationException) {
             throw e
@@ -100,7 +103,15 @@ class SensCritiqueSync(
      * file plutôt que de bloquer les suivantes.
      */
     suspend fun replayQueue() {
-        if (!isConnected()) return
+        val connecte = try {
+            isConnected()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            logger.d("replayQueue a leve une exception a la lecture de la connexion : ${e.message}")
+            false
+        }
+        if (!connecte) return
         for ((mediaId, queued) in store.readQueue()) {
             try {
                 val film = MatchableFilm(queued.title, queued.originalTitle, queued.year)
