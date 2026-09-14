@@ -1,6 +1,5 @@
 package fr.mediatheque.journal.senscritique
 
-import android.util.Log
 import io.ktor.client.HttpClient
 import io.ktor.client.request.forms.FormDataContent
 import io.ktor.client.request.post
@@ -13,6 +12,7 @@ import io.ktor.http.isSuccess
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 
 /**
  * La clé de l'application web de SensCritique, lue sur leur site le 14 septembre 2026 — elle est à
@@ -33,7 +33,10 @@ sealed interface SignInOutcome {
 
 sealed interface RefreshOutcome {
     data class Success(val idToken: String, val refreshToken: String, val expiresInSeconds: Long) : RefreshOutcome
+    /** 400/401/403 avec un corps d'erreur Firebase : le `refreshToken` n'est plus valable, déconnexion méritée. */
     data object Refused : RefreshOutcome
+    /** Réseau, 5xx, corps illisible : transitoire, ne doit jamais déconnecter (revue du 14 septembre 2026, important 3). */
+    data object Unreachable : RefreshOutcome
 }
 
 /** La connexion Firebase Auth de SensCritique — REST, jamais un SDK (brief du 14 septembre 2026). */
@@ -70,6 +73,19 @@ private data class RefreshResponse(
 private val firebaseJson = Json { ignoreUnknownKeys = true }
 
 /**
+ * Les noms des clefs JSON présentes au premier niveau, jamais les valeurs. Un corps de réponse
+ * Firebase porte `idToken` et `refreshToken` en clair — y compris sur la branche attendue
+ * (`displayName` absent) — et le `release` n'est pas minifié : le journaliser tel quel les ferait
+ * sortir sur le téléphone du propriétaire, que le README invite justement à lire (revue du
+ * 14 septembre 2026, critique 1). Un corps illisible n'a rien à cacher, mais on ne le répète pas
+ * non plus : il peut être partiellement valide.
+ */
+private fun clefsSeulement(corps: String): String {
+    val objet = runCatching { firebaseJson.parseToJsonElement(corps) }.getOrNull() as? JsonObject
+    return objet?.keys?.sorted()?.joinToString(", ") ?: "illisible"
+}
+
+/**
  * Trois issues distinctes pour le corps HTTP de la connexion (succès, refusé, autre échec) :
  * aucune ambiguïté sur ce que `body` veut dire une fois sorti du bloc `try`.
  */
@@ -77,6 +93,15 @@ private sealed interface SignInHttpOutcome {
     data class Body(val text: String) : SignInHttpOutcome
     data object InvalidCredentials : SignInHttpOutcome
     data object OtherFailure : SignInHttpOutcome
+}
+
+/** Même idée pour le renouvellement — `Refused` seulement sur les statuts d'un vrai refus Firebase. */
+private val REFUS_STATUS_CODES = setOf(400, 401, 403)
+
+private sealed interface RefreshHttpOutcome {
+    data class Body(val text: String) : RefreshHttpOutcome
+    data object Refused : RefreshHttpOutcome
+    data object Unreachable : RefreshHttpOutcome
 }
 
 /**
@@ -94,6 +119,7 @@ private sealed interface SignInHttpOutcome {
 class FirebaseSensCritiqueAuthClient(
     private val client: HttpClient,
     private val graphql: SensCritiqueGraphQLClient,
+    private val logger: SensCritiqueLogger = AndroidSensCritiqueLogger,
 ) : SensCritiqueAuthClient {
 
     override suspend fun signIn(email: String, password: String): SignInOutcome {
@@ -104,7 +130,7 @@ class FirebaseSensCritiqueAuthClient(
             }
             val body = response.bodyAsText()
             if (!response.status.isSuccess()) {
-                Log.d(TAG_SENSCRITIQUE, "connexion refusee (${response.status.value}) : $body")
+                logger.d("connexion refusee (${response.status.value}), clefs : ${clefsSeulement(body)}")
                 val code = runCatching { firebaseJson.decodeFromString(FirebaseErrorEnvelope.serializer(), body).error.message }.getOrNull()
                 if (code == "INVALID_LOGIN_CREDENTIALS") SignInHttpOutcome.InvalidCredentials else SignInHttpOutcome.OtherFailure
             } else {
@@ -113,7 +139,7 @@ class FirebaseSensCritiqueAuthClient(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
-            Log.d(TAG_SENSCRITIQUE, "connexion injoignable : ${e.message}")
+            logger.d("connexion injoignable : ${e.message}")
             return SignInOutcome.Unreachable
         }
 
@@ -125,25 +151,28 @@ class FirebaseSensCritiqueAuthClient(
 
         val parsed = runCatching { firebaseJson.decodeFromString(SignInResponse.serializer(), text) }.getOrNull()
         if (parsed == null) {
-            Log.d(TAG_SENSCRITIQUE, "reponse de connexion illisible : $text")
+            logger.d("reponse de connexion illisible, clefs : ${clefsSeulement(text)}")
             return SignInOutcome.Unreachable
         }
         val expiresIn = parsed.expiresIn.toLongOrNull() ?: 3600L
         val pseudo = parsed.displayName
         if (pseudo == null) {
-            Log.d(TAG_SENSCRITIQUE, "connexion reussie mais displayName absent de la reponse Firebase : $text")
+            logger.d("connexion reussie mais displayName absent, clefs : ${clefsSeulement(text)}")
         } else {
             // Best-effort : une verification GraphQL qui echoue ne doit jamais faire echouer une
             // connexion Firebase qui, elle, a reussi (brief : jamais un plantage, jamais un blocage
             // sur une hypothese de forme non verifiee).
             val ok = graphql.whoAmI(parsed.idToken, pseudo)
-            if (!ok) Log.d(TAG_SENSCRITIQUE, "verification GraphQL du pseudo echouee pour $pseudo (connexion gardee)")
+            if (!ok) logger.d("verification GraphQL du pseudo echouee pour $pseudo (connexion gardee)")
         }
         return SignInOutcome.Success(parsed.idToken, parsed.refreshToken, expiresIn, pseudo)
     }
 
     override suspend fun refresh(refreshToken: String): RefreshOutcome {
-        val text = try {
+        // Seuls 400/401/403 avec un corps d'erreur Firebase valent un vrai refus (le refreshToken
+        // n'est plus bon) : tout le reste (reseau, 5xx, corps illisible) est transitoire et ne doit
+        // jamais deconnecter le compte (revue du 14 septembre 2026, important 3).
+        val outcome = try {
             val response = client.post(REFRESH_URL) {
                 setBody(FormDataContent(Parameters.build {
                     append("grant_type", "refresh_token")
@@ -151,23 +180,34 @@ class FirebaseSensCritiqueAuthClient(
                 }))
             }
             val body = response.bodyAsText()
-            if (!response.status.isSuccess()) {
-                Log.d(TAG_SENSCRITIQUE, "renouvellement refuse (${response.status.value}) : $body")
-                null
-            } else {
-                body
+            when {
+                response.status.isSuccess() -> RefreshHttpOutcome.Body(body)
+                response.status.value in REFUS_STATUS_CODES -> {
+                    logger.d("renouvellement refuse (${response.status.value}), clefs : ${clefsSeulement(body)}")
+                    RefreshHttpOutcome.Refused
+                }
+                else -> {
+                    logger.d("renouvellement injoignable (${response.status.value}), clefs : ${clefsSeulement(body)}")
+                    RefreshHttpOutcome.Unreachable
+                }
             }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
-            Log.d(TAG_SENSCRITIQUE, "renouvellement injoignable : ${e.message}")
-            null
+            logger.d("renouvellement injoignable : ${e.message}")
+            RefreshHttpOutcome.Unreachable
         }
-        if (text == null) return RefreshOutcome.Refused
+
+        val text = when (outcome) {
+            RefreshHttpOutcome.Refused -> return RefreshOutcome.Refused
+            RefreshHttpOutcome.Unreachable -> return RefreshOutcome.Unreachable
+            is RefreshHttpOutcome.Body -> outcome.text
+        }
+
         val parsed = runCatching { firebaseJson.decodeFromString(RefreshResponse.serializer(), text) }.getOrNull()
         if (parsed == null) {
-            Log.d(TAG_SENSCRITIQUE, "reponse de renouvellement illisible : $text")
-            return RefreshOutcome.Refused
+            logger.d("reponse de renouvellement illisible, clefs : ${clefsSeulement(text)}")
+            return RefreshOutcome.Unreachable
         }
         val expiresIn = parsed.expires_in.toLongOrNull() ?: 3600L
         return RefreshOutcome.Success(parsed.id_token, parsed.refresh_token, expiresIn)

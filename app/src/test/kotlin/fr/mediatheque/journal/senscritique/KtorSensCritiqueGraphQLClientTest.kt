@@ -106,10 +106,24 @@ class KtorSensCritiqueGraphQLClientTest {
     }
 
     @Test
-    fun `rate et markDone reussis rendent Success`() = runTest {
-        val api = client { respond("""{"data":{}}""", HttpStatusCode.OK, json) }
+    fun `rate et markDone reussis (champ attendu present) rendent Success`() = runTest {
+        val api = client { respond("""{"data":{"productRate":{"__typename":"Rating"},"productDone":{"__typename":"DoneResult"}}}""", HttpStatusCode.OK, json) }
         assertEquals(ExternalPushOutcome.Success, api.rate("id-1", 42, 8))
         assertEquals(ExternalPushOutcome.Success, api.markDone("id-1", 42))
+    }
+
+    // Mineur b de la revue du 14 septembre 2026 : un `200` avec `data` mais sans le champ attendu
+    // (ou nul) valait `Success` — un serveur qui refuse la mutation sans lever d'`errors[]` faisait
+    // croire a une poussee reussie. Mutation : retirer la verification de `champAttendu` dans
+    // `toPushOutcome` (revenir a `is RawOutcome.Ok -> ExternalPushOutcome.Success`) fait echouer
+    // les deux assertions ci-dessous.
+    @Test
+    fun `rate et markDone sans le champ attendu rendent Failed, pas Success`() = runTest {
+        val sansChamp = client { respond("""{"data":{}}""", HttpStatusCode.OK, json) }
+        assertEquals(ExternalPushOutcome.Failed, sansChamp.rate("id-1", 42, 8))
+
+        val champNul = client { respond("""{"data":{"productDone":null}}""", HttpStatusCode.OK, json) }
+        assertEquals(ExternalPushOutcome.Failed, champNul.markDone("id-1", 42))
     }
 
     @Test

@@ -1,6 +1,5 @@
 package fr.mediatheque.journal.senscritique
 
-import android.util.Log
 import io.ktor.client.HttpClient
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -88,7 +87,10 @@ private sealed interface RawOutcome {
 }
 
 /** Implémentation réelle, par le client Ktor partagé (`ApiClient.okHttpEngine`, sans cookie jar). */
-class KtorSensCritiqueGraphQLClient(private val client: HttpClient) : SensCritiqueGraphQLClient {
+class KtorSensCritiqueGraphQLClient(
+    private val client: HttpClient,
+    private val logger: SensCritiqueLogger = AndroidSensCritiqueLogger,
+) : SensCritiqueGraphQLClient {
 
     override suspend fun search(idToken: String, keywords: String): ExternalSearchOutcome {
         val variables = buildJsonObject { put("mots", keywords) }
@@ -99,7 +101,7 @@ class KtorSensCritiqueGraphQLClient(private val client: HttpClient) : SensCritiq
                 null, is JsonNull -> ExternalSearchOutcome.Success(emptyList())
                 is JsonArray -> ExternalSearchOutcome.Success(element.mapNotNull { (it as? JsonObject)?.let(::candidateFrom) })
                 else -> {
-                    Log.d(TAG_SENSCRITIQUE, "forme de searchResult inattendue : $element")
+                    logger.d("forme de searchResult inattendue : $element")
                     ExternalSearchOutcome.Failed
                 }
             }
@@ -108,12 +110,12 @@ class KtorSensCritiqueGraphQLClient(private val client: HttpClient) : SensCritiq
 
     override suspend fun rate(idToken: String, productId: Long, rating: Int): ExternalPushOutcome {
         val variables = buildJsonObject { put("id", productId); put("note", rating) }
-        return execute(idToken, RATE_MUTATION, variables).toPushOutcome()
+        return execute(idToken, RATE_MUTATION, variables).toPushOutcome("productRate")
     }
 
     override suspend fun markDone(idToken: String, productId: Long): ExternalPushOutcome {
         val variables = buildJsonObject { put("id", productId) }
-        return execute(idToken, DONE_MUTATION, variables).toPushOutcome()
+        return execute(idToken, DONE_MUTATION, variables).toPushOutcome("productDone")
     }
 
     override suspend fun whoAmI(idToken: String, pseudo: String): Boolean {
@@ -121,10 +123,25 @@ class KtorSensCritiqueGraphQLClient(private val client: HttpClient) : SensCritiq
         return execute(idToken, WHOAMI_QUERY, variables) is RawOutcome.Ok
     }
 
-    private fun RawOutcome.toPushOutcome(): ExternalPushOutcome = when (this) {
+    /**
+     * `data` présent ne suffit pas : un `data.<champAttendu>` absent ou nul (GraphQL peut répondre
+     * `200` avec `{"data":{"productRate":null}}` sans lever d'erreur, un serveur qui a refusé la
+     * mutation sans le dire par une `errors[]`) valait `Success` — corrigé (revue du 14 septembre
+     * 2026, mineur b). Le corps journalisé ne porte jamais le jeton (transmis en en-tête, jamais
+     * dans `data`).
+     */
+    private fun RawOutcome.toPushOutcome(champAttendu: String): ExternalPushOutcome = when (this) {
         RawOutcome.Unauthenticated -> ExternalPushOutcome.Unauthenticated
         RawOutcome.Failed -> ExternalPushOutcome.Failed
-        is RawOutcome.Ok -> ExternalPushOutcome.Success
+        is RawOutcome.Ok -> {
+            val champ = data[champAttendu]
+            if (champ != null && champ !is JsonNull) {
+                ExternalPushOutcome.Success
+            } else {
+                logger.d("mutation sans resultat pour $champAttendu : $data")
+                ExternalPushOutcome.Failed
+            }
+        }
     }
 
     private suspend fun execute(idToken: String, query: String, variables: JsonObject): RawOutcome {
@@ -140,24 +157,24 @@ class KtorSensCritiqueGraphQLClient(private val client: HttpClient) : SensCritiq
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
-            Log.d(TAG_SENSCRITIQUE, "GraphQL injoignable : ${e.message}")
+            logger.d("GraphQL injoignable : ${e.message}")
             return RawOutcome.Failed
         }
 
         if (reponse.status == 401 || reponse.status == 403) {
-            Log.d(TAG_SENSCRITIQUE, "GraphQL non authentifie (${reponse.status}) : ${reponse.body}")
+            logger.d("GraphQL non authentifie (${reponse.status}) : ${reponse.body}")
             return RawOutcome.Unauthenticated
         }
 
         val root = runCatching { Json.parseToJsonElement(reponse.body) }.getOrNull() as? JsonObject
         if (root == null) {
-            Log.d(TAG_SENSCRITIQUE, "reponse GraphQL illisible (${reponse.status}) : ${reponse.body}")
+            logger.d("reponse GraphQL illisible (${reponse.status}) : ${reponse.body}")
             return RawOutcome.Failed
         }
 
         val errors = root["errors"] as? JsonArray
         if (errors != null && errors.isNotEmpty()) {
-            Log.d(TAG_SENSCRITIQUE, "erreur GraphQL : $errors")
+            logger.d("erreur GraphQL : $errors")
             val texte = errors.joinToString(" ") { erreur ->
                 ((erreur as? JsonObject)?.get("message") as? JsonPrimitive)?.contentOrNull.orEmpty()
             }
@@ -170,7 +187,7 @@ class KtorSensCritiqueGraphQLClient(private val client: HttpClient) : SensCritiq
 
         val data = root["data"] as? JsonObject
         if (data == null) {
-            Log.d(TAG_SENSCRITIQUE, "reponse GraphQL sans donnees : ${reponse.body}")
+            logger.d("reponse GraphQL sans donnees : ${reponse.body}")
             return RawOutcome.Failed
         }
         return RawOutcome.Ok(data)

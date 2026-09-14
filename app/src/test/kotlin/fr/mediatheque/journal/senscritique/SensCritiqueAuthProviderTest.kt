@@ -9,7 +9,8 @@ import java.time.Instant
 
 /**
  * La décision de jeton (brief du 14 septembre 2026) : un `idToken` frais réutilisé, expiré →
- * renouvelé, renouvellement refusé → déconnexion.
+ * renouvelé, renouvellement refusé → déconnexion. Renouvellement injoignable (important 3 de la
+ * revue du même jour) → ni l'un ni l'autre : le magasin n'est pas touché.
  */
 class SensCritiqueAuthProviderTest {
     private var maintenant = Instant.parse("2026-09-14T10:00:00Z")
@@ -41,7 +42,7 @@ class SensCritiqueAuthProviderTest {
     @Test
     fun `sans jeton stocke, aucun appel reseau`() = runTest {
         val provider = SensCritiqueAuthProvider(client, InMemorySensCritiqueStore()) { maintenant }
-        assertNull(provider.idToken())
+        assertEquals(TokenOutcome.Unauthenticated, provider.idToken())
         assertTrue(client.refreshCalls.isEmpty())
     }
 
@@ -51,9 +52,9 @@ class SensCritiqueAuthProviderTest {
         client.onRefresh = { RefreshOutcome.Success("id-1", "refresh-1", expiresInSeconds = 3600) }
         val provider = SensCritiqueAuthProvider(client, store) { maintenant }
 
-        assertEquals("id-1", provider.idToken())
+        assertEquals(TokenOutcome.Available("id-1"), provider.idToken())
         maintenant = maintenant.plusSeconds(60)
-        assertEquals("id-1", provider.idToken())
+        assertEquals(TokenOutcome.Available("id-1"), provider.idToken())
         assertEquals(1, client.refreshCalls.size)
     }
 
@@ -65,24 +66,41 @@ class SensCritiqueAuthProviderTest {
         val store = InMemorySensCritiqueStore().apply { writeAuth(SensCritiqueAuth("refresh-1", "TheofB")) }
         client.onRefresh = { RefreshOutcome.Success("id-1", "refresh-1", expiresInSeconds = 3600) }
         val provider = SensCritiqueAuthProvider(client, store) { maintenant }
-        assertEquals("id-1", provider.idToken())
+        assertEquals(TokenOutcome.Available("id-1"), provider.idToken())
 
         maintenant = maintenant.plusSeconds(3600)
         client.onRefresh = { RefreshOutcome.Success("id-2", "refresh-1", expiresInSeconds = 3600) }
-        assertEquals("id-2", provider.idToken())
+        assertEquals(TokenOutcome.Available("id-2"), provider.idToken())
         assertEquals(2, client.refreshCalls.size)
     }
 
     // Mutation : ne pas appeler `store.writeAuth(null)` sur un `Refused` fait echouer la deuxieme
-    // assertion (le magasin garderait l'ancien `refreshToken`, jamais deconnecte).
+    // assertion (le magasin garderait l'ancien `refreshToken`, jamais deconnecte). Rendre
+    // `Unauthenticated` alors que le resultat devrait etre `Available`/`Unreachable` fait echouer
+    // la premiere.
     @Test
     fun `un renouvellement refuse deconnecte`() = runTest {
         val store = InMemorySensCritiqueStore().apply { writeAuth(SensCritiqueAuth("refresh-1", "TheofB")) }
         client.onRefresh = { RefreshOutcome.Refused }
         val provider = SensCritiqueAuthProvider(client, store) { maintenant }
 
-        assertNull(provider.idToken())
+        assertEquals(TokenOutcome.Unauthenticated, provider.idToken())
         assertNull(store.readAuth())
+    }
+
+    // Important 3 de la revue du 14 septembre 2026 : une panne transitoire du renouvellement (reseau,
+    // 5xx, corps illisible — deja triee en `RefreshOutcome.Unreachable` par `FirebaseSensCritiqueAuthClient`)
+    // ne doit jamais deconnecter. Mutation : router `RefreshOutcome.Unreachable` sur la meme branche
+    // que `Refused` (donc `store.writeAuth(null)`) fait echouer la deuxieme assertion ; rendre
+    // `TokenOutcome.Unauthenticated` au lieu d'`Unreachable` fait echouer la premiere.
+    @Test
+    fun `un renouvellement injoignable ne deconnecte pas`() = runTest {
+        val store = InMemorySensCritiqueStore().apply { writeAuth(SensCritiqueAuth("refresh-1", "TheofB")) }
+        client.onRefresh = { RefreshOutcome.Unreachable }
+        val provider = SensCritiqueAuthProvider(client, store) { maintenant }
+
+        assertEquals(TokenOutcome.Unreachable, provider.idToken())
+        assertEquals(SensCritiqueAuth("refresh-1", "TheofB"), store.readAuth())
     }
 
     // Un `refreshToken` renvoye different (rotation) doit remplacer l'ancien dans le magasin —

@@ -11,6 +11,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -22,9 +23,12 @@ import org.junit.Test
  */
 class FirebaseSensCritiqueAuthClientTest {
     private val json = headersOf(HttpHeaders.ContentType, "application/json")
+    // Frais a chaque test (JUnit4 recree l'instance de la classe par methode) : les assertions de
+    // non-fuite ci-dessous lisent ses lignes sans jamais les melanger entre deux tests.
+    private val logger = FakeSensCritiqueLogger()
 
     private fun client(graphql: SensCritiqueGraphQLClient = FakeSensCritiqueGraphQLClient(), handler: suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData) =
-        FirebaseSensCritiqueAuthClient(HttpClient(MockEngine(handler)) { expectSuccess = false }, graphql)
+        FirebaseSensCritiqueAuthClient(HttpClient(MockEngine(handler)) { expectSuccess = false }, graphql, logger)
 
     @Test
     fun `une connexion reussie rend l idToken, le refreshToken, l expiration et le pseudo`() = runTest {
@@ -109,9 +113,75 @@ class FirebaseSensCritiqueAuthClientTest {
         assertEquals("refresh-2", outcome.refreshToken)
     }
 
+    // Important 3 de la revue du 14 septembre 2026 : seuls 400/401/403 avec un corps d'erreur
+    // Firebase valent un vrai refus (le refreshToken n'est plus bon). Mutation : elargir
+    // `REFUS_STATUS_CODES` a tous les statuts d'erreur ferait echouer les trois tests suivants
+    // (tout deviendrait `Refused`) ; le retrecir a un ensemble vide ferait echouer celui-ci
+    // (401 deviendrait `Unreachable`).
     @Test
-    fun `un renouvellement refuse par le serveur devient Refused`() = runTest {
-        val api = client { respond("""{"error":{"message":"INVALID_REFRESH_TOKEN"}}""", HttpStatusCode.BadRequest, json) }
-        assertEquals(RefreshOutcome.Refused, api.refresh("refresh-1"))
+    fun `un renouvellement refuse par le serveur devient Refused (400 et 401)`() = runTest {
+        val api400 = client { respond("""{"error":{"message":"INVALID_REFRESH_TOKEN"}}""", HttpStatusCode.BadRequest, json) }
+        assertEquals(RefreshOutcome.Refused, api400.refresh("refresh-1"))
+
+        val api401 = client { respond("""{"error":{"message":"INVALID_REFRESH_TOKEN"}}""", HttpStatusCode.Unauthorized, json) }
+        assertEquals(RefreshOutcome.Refused, api401.refresh("refresh-1"))
+    }
+
+    // Le coeur de l'important 3 : une panne serveur transitoire ne doit jamais se lire comme un
+    // refus (qui deconnecterait le compte cote `SensCritiqueAuthProvider`).
+    @Test
+    fun `une panne serveur (5xx) du renouvellement devient Unreachable, pas Refused`() = runTest {
+        val api = client { respond("""{"error":"panne"}""", HttpStatusCode.ServiceUnavailable, json) }
+        assertEquals(RefreshOutcome.Unreachable, api.refresh("refresh-1"))
+    }
+
+    @Test
+    fun `une panne reseau du renouvellement devient Unreachable, pas Refused`() = runTest {
+        val api = client { throw java.io.IOException("hors ligne") }
+        assertEquals(RefreshOutcome.Unreachable, api.refresh("refresh-1"))
+    }
+
+    @Test
+    fun `une reponse de renouvellement illisible devient Unreachable, pas Refused`() = runTest {
+        val api = client { respond("ceci n est pas du json", HttpStatusCode.OK, json) }
+        assertEquals(RefreshOutcome.Unreachable, api.refresh("refresh-1"))
+    }
+
+    // Critique 1 de la revue du 14 septembre 2026 : la branche attendue (`displayName` absent, la
+    // vraie connexion SensCritique) journalisait le corps entier de la reponse Firebase, jeton
+    // compris — sur un `release` non minifie, lisible par `bin/logs`. Mutation : remettre
+    // `"... : $text"` (le corps brut) a la place de `clefsSeulement(text)` dans le message de cette
+    // branche fait echouer cette assertion (la ligne contiendrait "id-secret-1").
+    @Test
+    fun `aucune ligne journalisee ne porte l idToken ou le refreshToken (displayName absent)`() = runTest {
+        val api = client {
+            respond("""{"idToken":"id-secret-1","refreshToken":"refresh-secret-1","expiresIn":"3600"}""", HttpStatusCode.OK, json)
+        }
+        api.signIn("theo@example.com", "secret")
+
+        assertTrue("au moins une ligne journalisee sur cette branche", logger.lines.isNotEmpty())
+        for (ligne in logger.lines) {
+            assertFalse("une ligne journalisee porte l'idToken : $ligne", ligne.contains("id-secret-1"))
+            assertFalse("une ligne journalisee porte le refreshToken : $ligne", ligne.contains("refresh-secret-1"))
+        }
+    }
+
+    // Même preuve sur les autres branches qui lisent un corps de réponse Firebase : refus de
+    // connexion, réponse de connexion illisible, refus de renouvellement — aucune ne doit jamais
+    // réciter le corps. `secret-marker` figure ici à la place où un jeton ou un détail sensible du
+    // corps pourrait fuiter si l'une de ces branches revenait à `$body`/`$text` brut.
+    @Test
+    fun `aucune ligne journalisee ne porte le corps de la reponse sur les autres branches`() = runTest {
+        client { respond("""{"error":{"code":400,"message":"INVALID_LOGIN_CREDENTIALS","details":"secret-marker"}}""", HttpStatusCode.BadRequest, json) }
+            .signIn("theo@example.com", "faux")
+        client { respond("""{"idToken":"secret-marker"}""", HttpStatusCode.OK, json) }
+            .signIn("theo@example.com", "secret")
+        client { respond("""{"error":{"message":"secret-marker"}}""", HttpStatusCode.BadRequest, json) }
+            .refresh("refresh-1")
+
+        assertTrue(logger.lines.isNotEmpty())
+        for (ligne in logger.lines) {
+            assertFalse("une ligne journalisee porte le corps brut : $ligne", ligne.contains("secret-marker"))
+        }
     }
 }
