@@ -200,7 +200,7 @@ liste de contrôle à jouer, pas un journal de ce qui a déjà été vérifié.
 - [ ] Une connexion réussie : l'accueil, sans écran de connexion.
 - [ ] Tuer l'application, la rouvrir : l'accueil directement — le cookie a survécu.
 - [ ] Couper le Wi-Fi, rouvrir : le bloc « L'API est injoignable. » avec « Réessayer ».
-- [ ] L'accueil : une grille de jaquettes, trois colonnes, du plus récent au plus ancien, la note en pastille en bas à droite de chacune quand elle existe ; le bouton « Ajouter un film » en bas, pleine largeur ; l'icône profil en haut à droite.
+- [ ] L'accueil : une grille de jaquettes, trois colonnes, du plus récent au plus ancien, la note en pastille en bas à droite de chacune quand elle existe ; le bouton « Ajouter un film » au-dessus de la barre du bas, pleine largeur.
 - [ ] La barre de navigation du bas (Accueil, Profil) est visible sur l'accueil, « Mes films » et le profil, jamais sur le formulaire, la recherche ou SensCritique ; « Profil » y est sélectionnée sur « Mes films » ; toucher l'entrée déjà sélectionnée ne fait rien ; le bouton « Ajouter un film » reste visible au-dessus d'elle.
 - [ ] Toucher une jaquette de l'accueil ouvre le formulaire pré-rempli.
 - [ ] La recherche : le clavier est ouvert à l'arrivée ; taper « chihiro » ; la barre de 2 dp apparaît puis les résultats, affiche à gauche de chaque ligne ; un film sans affiche montre son initiale.

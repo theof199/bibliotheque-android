@@ -56,7 +56,8 @@ fun Screen.bottomBarTab(): BottomTab? = when (this) {
  * La barre de navigation du bas (Material 3), visible sur l'accueil, « Mes films » et le profil ;
  * cachée sur le formulaire, la recherche et l'écran SensCritique (décision du propriétaire du
  * 14 septembre 2026, en remplacement de l'`IconButton` profil de l'accueil, jugé inaccessible).
- * Toucher l'entrée déjà sélectionnée ne fait rien. Couleurs du thème : aucune couleur posée ici,
+ * Toucher l’écran où l’on est déjà ne fait rien ; depuis « Mes films », « Profil » est surlignée
+ * mais reste touchable et ramène au profil (`Root.kt` lui passe un `pop`).
  * `NavigationBar` les prend de `MaterialTheme.colorScheme`.
  */
 @Composable
@@ -65,13 +66,13 @@ fun JournalBottomBar(current: Screen, onHome: () -> Unit, onProfile: () -> Unit)
     NavigationBar {
         NavigationBarItem(
             selected = selected == BottomTab.Home,
-            onClick = { if (selected != BottomTab.Home) onHome() },
+            onClick = { if (current != Screen.Home) onHome() },
             icon = { Icon(Icons.Filled.Home, contentDescription = null) },
             label = { Text("Accueil") },
         )
         NavigationBarItem(
             selected = selected == BottomTab.Profile,
-            onClick = { if (selected != BottomTab.Profile) onProfile() },
+            onClick = { if (current != Screen.Profile) onProfile() },
             icon = { Icon(Icons.Filled.Person, contentDescription = null) },
             label = { Text("Profil") },
         )

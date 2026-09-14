@@ -153,7 +153,9 @@ fun Root(container: AppContainer) {
                             films,
                             onBack = nav::pop,
                             onOpen = { nav.push(Screen.Edit(it)) },
-                            bottomBar = { JournalBottomBar(screen, onHome = { nav.home() }, onProfile = { nav.push(Screen.Profile) }) },
+                            // « Profil » est surlignée ici mais ramène au profil par un `pop`, pas
+                            // un `push` : cet écran ne s'empile que depuis lui.
+                            bottomBar = { JournalBottomBar(screen, onHome = { nav.home() }, onProfile = nav::pop) },
                         )
                     }
                     is Screen.Edit -> {
