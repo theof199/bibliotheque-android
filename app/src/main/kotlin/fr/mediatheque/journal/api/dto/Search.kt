@@ -15,6 +15,12 @@ data class SearchResult(
     val year: Int? = null,
     val cover_url: String? = null,
     val metadata: SearchMetadata = SearchMetadata(),
+    /**
+     * Le back le porte déjà (`packages/shared/src/search.ts`), inutilisé jusqu'ici : la résolution
+     * SensCritique (brief du 14 septembre 2026) rejoue la recherche avec ce titre quand celle par
+     * `title` échoue, exactement comme l'importateur SensCritique du back.
+     */
+    val original_title: String? = null,
 )
 
 @Serializable
