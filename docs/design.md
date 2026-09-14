@@ -183,7 +183,7 @@ plusieurs, ce sont des états sélectionnés, pas des boutons, et un seul bouton
 | **Succès, poussé sur SensCritique** (brief du 14 septembre 2026) | Le même `Snackbar`, avec « · SensCritique ✓ » à la suite : « Enregistré · SensCritique ✓ » ou « Corrigé · SensCritique ✓ ». |
 | **Poussée SensCritique échouée** | « Enregistré · SensCritique : réessai au prochain lancement » — le geste local, lui, a réussi ; rien ne change à son `Snackbar` habituel à part cette fin. |
 | **Jeton SensCritique refusé** | « Enregistré · SensCritique : reconnecte-toi » ; l'écran Profil affiche « Non connecté » au prochain passage. |
-| **Connexion SensCritique refusée** (revue du 14 septembre 2026, après un premier essai réel) | Le code Firebase choisit la phrase, sous le bouton « Connecter », dans le même bloc que les autres erreurs : « Aucun compte SensCritique avec cet e-mail. » (`EMAIL_NOT_FOUND`), « Identifiants refusés. » (`INVALID_PASSWORD`, `INVALID_LOGIN_CREDENTIALS`), « Ce compte SensCritique est désactivé. » (`USER_DISABLED`), « Trop d’essais, réessaie plus tard. » (`TOO_MANY_ATTEMPTS_TRY_LATER`, avec « Réessayer ») ; un autre code Firebase encore non catalogué se lit tel quel : « SensCritique a refusé la connexion (CODE). » ; sans code lisible, ou pour toute panne (réseau, 5xx) : « SensCritique est injoignable. », avec « Réessayer ». |
+| **Connexion SensCritique refusée** (revue du 14 septembre 2026, après un premier essai réel : la connexion n'est pas Firebase, l'API GraphQL de SensCritique refusait l'`idToken`) | Sous le bouton « Connecter », dans le même bloc que les autres erreurs : « Identifiants refusés. » pour toute erreur GraphQL de la mutation de connexion, quel que soit son code (SensCritique ne rend pas de code catalogué comme le faisait Firebase — le code, lui, va au journal) ; pour toute panne (réseau, réponse illisible) : « SensCritique est injoignable. », avec « Réessayer ». |
 
 Une erreur dit ce qui s'est passé et ce qu'on peut faire, jamais « oups »,
 jamais d'excuse ; c'est déjà le ton des messages du back, on le garde.
@@ -266,13 +266,17 @@ senscritique/
   TitleMatcher.kt                l'appariement des titres, porté de l'importateur SensCritique du
                                   back (normaliserTitre, apparierCandidat, fautRepliOriginalTitle)
   SensCritiqueStore.kt            l'interface, InMemorySensCritiqueStore (tests),
-                                   KeystoreSensCritiqueStore (AES-GCM AndroidKeyStore, réel)
-  SensCritiqueAuthClient.kt       Firebase Auth REST : connexion, renouvellement
-  SensCritiqueAuthProvider.kt     la décision de jeton (frais réutilisé / renouvelé / refusé)
-  SensCritiqueGraphQLClient.kt    les cinq appels GraphQL, documents du site SensCritique lui-même
-                                   (vérifiés le 14 septembre 2026) : searchProductExplorer (chercher),
-                                   productRate (noter), productDone (marquer vu), setProductDateDone
-                                   (poser la date, après productDone), user (vérifier la connexion)
+                                   KeystoreSensCritiqueStore (AES-GCM AndroidKeyStore, réel),
+                                   charge utile versionnée (2 : cookieRef, dateExpiration ; une
+                                   version 1, Firebase, relue déconnectée)
+  SensCritiqueAuthClient.kt       la connexion : une mutation GraphQL (signInWithEmailAndPassword),
+                                   jamais Firebase (revue du 14 septembre 2026, après un premier
+                                   essai réel — l'API GraphQL n'accepte que son propre cookieRef)
+  SensCritiqueGraphQLClient.kt    les quatre appels GraphQL authentifiés, documents du site
+                                   SensCritique lui-même (vérifiés le 14 septembre 2026) :
+                                   searchProductExplorer (chercher), productRate (noter),
+                                   productDone (marquer vu), setProductDateDone (poser la date,
+                                   après productDone) — cookieRef en en-tête Authorization, brut
   SensCritiqueRatingService.kt    l'implémentation SensCritique de ExternalRatingService
   SensCritiqueSync.kt             l'orchestration : résoudre, pousser, la file, le rejeu
 ui/profile/

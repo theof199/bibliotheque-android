@@ -159,22 +159,29 @@ Décision du propriétaire du 14 septembre 2026 : quand il note un film dans l'a
 date de visionnage partent aussi sur son compte SensCritique. Tout vit dans l'appli, rien ne change
 au back.
 
-- **Le mot de passe SensCritique n'est jamais stocké.** Seuls le `refreshToken` (renouvelé toutes
-  les heures) et le pseudo le sont, chiffrés par une clé AES-GCM du `AndroidKeyStore` — jamais
-  `EncryptedSharedPreferences`, dépréciée — dans les `SharedPreferences` `senscritique` de
-  l'application (`senscritique/SensCritiqueStore.kt`). Le même fichier chiffré garde aussi les choix
-  faits sur la feuille « Lequel sur SensCritique ? » (`media_id → productId` ou « aucun ») et la file
-  des poussées qui ont échoué : « Déconnecter » efface tout, file comprise.
-- **La clé Firebase** (`AIzaSyDW8Pil_nhRW4Toww5JvUOO5XGgAxHNVMY`,
-  `senscritique/SensCritiqueAuthClient.kt`) est celle de l'application web de SensCritique, publique
-  par nature (toute page de leur site la charge), lue sur leur site le 14 septembre 2026 ; elle est
-  à eux et peut changer sans préavis.
+- **La connexion n'est pas Firebase.** Un premier essai réel (14 septembre 2026) a montré que l'API
+  GraphQL de SensCritique refuse un `idToken` Firebase (`auth/unauthenticated-user`) : la connexion
+  est une mutation GraphQL comme les autres (`signInWithEmailAndPassword`, sur le même point
+  d'entrée), qui rend un `cookieRef` — posé tel quel, sans le mot « Bearer », en en-tête
+  `Authorization` de chaque appel authentifié (`senscritique/SensCritiqueAuthClient.kt`,
+  `senscritique/SensCritiqueGraphQLClient.kt`).
+- **Le mot de passe SensCritique n'est jamais stocké, ni journalisé.** Seuls `cookieRef`,
+  `dateExpiration` (tel que SensCritique le rend, jamais reformaté) et le pseudo le sont, chiffrés
+  par une clé AES-GCM du `AndroidKeyStore` — jamais `EncryptedSharedPreferences`, dépréciée — dans
+  les `SharedPreferences` `senscritique` de l'application (`senscritique/SensCritiqueStore.kt`). Le
+  même fichier chiffré garde aussi les choix faits sur la feuille « Lequel sur SensCritique ? »
+  (`media_id → productId` ou « aucun ») et la file des poussées qui ont échoué : « Déconnecter »
+  efface tout, file comprise. La charge utile est versionnée (2) : une ancienne charge utile
+  Firebase (version 1, `refreshToken`) se relit déconnectée, mais garde sa file et ses choix.
+  Avant une poussée, `dateExpiration` dépassée vaut refus : déconnexion sans appel réseau.
 - **La recherche et les trois mutations de la poussée** (`senscritique/SensCritiqueGraphQLClient.kt`)
   viennent des documents GraphQL du site SensCritique lui-même, lus et vérifiés le 14 septembre 2026 :
   `searchProductExplorer` (avec un repli sans filtre univers si le serveur le refuse — `BAD_USER_INPUT`
   — et un filtre `universe == 1` côté appli dans tous les cas), puis `productRate`, `productDone` et
   `setProductDateDone` dans cet ordre. Un échec de cette dernière seule (la date) ne défait pas la
-  poussée : la note et le « vu » sont déjà acquis, seule la date manque — journalisé.
+  poussée : la note et le « vu » sont déjà acquis, seule la date manque — journalisé. Un refus de
+  session (codes `auth/unauthenticated-user`, `api/invalid-token`, `api/missing-token`) déconnecte,
+  comme un 401/403 HTTP ; toute autre erreur part en file, réessayée au prochain lancement.
 
 ## Vérifier
 
