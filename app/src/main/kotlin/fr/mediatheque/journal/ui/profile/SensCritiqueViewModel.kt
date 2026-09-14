@@ -53,7 +53,10 @@ class SensCritiqueViewModel(
                     password = ""
                     _ui.value = SensCritiqueUi(connectedPseudo = outcome.pseudo)
                 }
-                SignInOutcome.InvalidCredentials -> _ui.value = SensCritiqueUi(error = "Identifiants refusés.")
+                is SignInOutcome.Refused -> {
+                    val (message, retryable) = messageForRefus(outcome.code)
+                    _ui.value = SensCritiqueUi(error = message, retryable = retryable)
+                }
                 SignInOutcome.Unreachable -> _ui.value = SensCritiqueUi(error = "SensCritique est injoignable.", retryable = true)
             }
         }
@@ -77,4 +80,21 @@ class SensCritiqueViewModel(
         password = ""
         _ui.update { it.copy(busy = false, error = null, retryable = false) }
     }
+}
+
+/**
+ * Le message affiché pour un `SignInOutcome.Refused(code)`, et si « Réessayer » a un sens (revue du
+ * 14 septembre 2026, point 2). Le premier essai réel a montré `EMAIL_NOT_FOUND` (Firebase renvoie
+ * les codes classiques sur ce projet) : les cinq codes connus ont chacun leur phrase, tout autre
+ * code lisible se lit tel quel, et un `code` nul (corps de refus illisible) se replie sur le
+ * message générique d'injoignabilité — même phrase qu'un 5xx ou une panne réseau
+ * (`SignInOutcome.Unreachable`), la distinction ne changerait rien à l'écran.
+ */
+internal fun messageForRefus(code: String?): Pair<String, Boolean> = when (code) {
+    "EMAIL_NOT_FOUND" -> "Aucun compte SensCritique avec cet e-mail." to false
+    "INVALID_PASSWORD", "INVALID_LOGIN_CREDENTIALS" -> "Identifiants refusés." to false
+    "USER_DISABLED" -> "Ce compte SensCritique est désactivé." to false
+    "TOO_MANY_ATTEMPTS_TRY_LATER" -> "Trop d’essais, réessaie plus tard." to true
+    null -> "SensCritique est injoignable." to true
+    else -> "SensCritique a refusé la connexion ($code)." to false
 }

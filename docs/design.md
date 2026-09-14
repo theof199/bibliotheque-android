@@ -183,6 +183,7 @@ plusieurs, ce sont des états sélectionnés, pas des boutons, et un seul bouton
 | **Succès, poussé sur SensCritique** (brief du 14 septembre 2026) | Le même `Snackbar`, avec « · SensCritique ✓ » à la suite : « Enregistré · SensCritique ✓ » ou « Corrigé · SensCritique ✓ ». |
 | **Poussée SensCritique échouée** | « Enregistré · SensCritique : réessai au prochain lancement » — le geste local, lui, a réussi ; rien ne change à son `Snackbar` habituel à part cette fin. |
 | **Jeton SensCritique refusé** | « Enregistré · SensCritique : reconnecte-toi » ; l'écran Profil affiche « Non connecté » au prochain passage. |
+| **Connexion SensCritique refusée** (revue du 14 septembre 2026, après un premier essai réel) | Le code Firebase choisit la phrase, sous le bouton « Connecter », dans le même bloc que les autres erreurs : « Aucun compte SensCritique avec cet e-mail. » (`EMAIL_NOT_FOUND`), « Identifiants refusés. » (`INVALID_PASSWORD`, `INVALID_LOGIN_CREDENTIALS`), « Ce compte SensCritique est désactivé. » (`USER_DISABLED`), « Trop d’essais, réessaie plus tard. » (`TOO_MANY_ATTEMPTS_TRY_LATER`, avec « Réessayer ») ; un autre code Firebase encore non catalogué se lit tel quel : « SensCritique a refusé la connexion (CODE). » ; sans code lisible, ou pour toute panne (réseau, 5xx) : « SensCritique est injoignable. », avec « Réessayer ». |
 
 Une erreur dit ce qui s'est passé et ce qu'on peut faire, jamais « oups »,
 jamais d'excuse ; c'est déjà le ton des messages du back, on le garde.

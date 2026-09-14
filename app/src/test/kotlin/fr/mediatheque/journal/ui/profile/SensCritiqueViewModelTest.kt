@@ -45,9 +45,13 @@ class SensCritiqueViewModelTest {
         assertEquals("TheofB", vm.ui.value.connectedPseudo)
     }
 
+    // Le premier essai reel (revue du 14 septembre 2026, point 2) : ce projet Firebase rend les
+    // codes classiques, pas INVALID_LOGIN_CREDENTIALS. Le detail des cinq codes connus et du repli
+    // generique est prouve a part, sur la fonction pure `messageForRefus` (MessageForRefusTest) ;
+    // ce test verifie seulement que `connect()` transmet bien le code au bon endroit.
     @Test
-    fun `identifiants refuses — message dedie, sans reessai`() {
-        client.onSignIn = { _, _ -> SignInOutcome.InvalidCredentials }
+    fun `un refus transmet le code au message, sans reessai pour un mot de passe errone`() {
+        client.onSignIn = { _, _ -> SignInOutcome.Refused("INVALID_PASSWORD") }
         vm.email = "theo@example.com"
         vm.password = "faux"
         vm.connect()
@@ -102,7 +106,7 @@ class SensCritiqueViewModelTest {
     // vider que `email` (oublier `password`, ou l'erreur) fait echouer l'assertion correspondante.
     @Test
     fun `clearCredentials efface l email, le mot de passe et l erreur d une tentative refusee`() {
-        client.onSignIn = { _, _ -> SignInOutcome.InvalidCredentials }
+        client.onSignIn = { _, _ -> SignInOutcome.Refused("INVALID_PASSWORD") }
         vm.email = "theo@example.com"
         vm.password = "secret"
         vm.connect()

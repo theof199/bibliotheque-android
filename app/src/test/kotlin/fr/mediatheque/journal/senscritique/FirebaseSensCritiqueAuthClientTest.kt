@@ -55,22 +55,44 @@ class FirebaseSensCritiqueAuthClientTest {
         assertNull(outcome.pseudo)
     }
 
-    // Mutation : comparer a une autre chaine que "INVALID_LOGIN_CREDENTIALS" (par exemple la chaine
-    // vide) ferait passer ce test en `Unreachable` au lieu d'`InvalidCredentials`.
+    // Revue du 14 septembre 2026, point 2 : tout 4xx Firebase devient un `Refused` portant son
+    // code (jamais un `Unreachable`, quel que soit le code) — c'est `messageForRefus`, cote
+    // `SensCritiqueViewModel`, qui choisit le message. Mutation : comparer `code` a une chaine fixe
+    // (par exemple "INVALID_LOGIN_CREDENTIALS") au lieu de le transmettre tel quel ferait echouer
+    // ce test avec un autre code Firebase que celui-la, EMAIL_NOT_FOUND par exemple.
     @Test
-    fun `INVALID_LOGIN_CREDENTIALS devient des identifiants refuses`() = runTest {
+    fun `un 4xx Firebase devient Refused avec son code, quel qu il soit`() = runTest {
         val api = client {
-            respond("""{"error":{"code":400,"message":"INVALID_LOGIN_CREDENTIALS"}}""", HttpStatusCode.BadRequest, json)
+            respond("""{"error":{"code":400,"message":"EMAIL_NOT_FOUND"}}""", HttpStatusCode.BadRequest, json)
         }
-        assertEquals(SignInOutcome.InvalidCredentials, api.signIn("theo@example.com", "faux"))
+        assertEquals(SignInOutcome.Refused("EMAIL_NOT_FOUND"), api.signIn("theo@example.com", "faux"))
     }
 
     @Test
-    fun `une autre erreur Firebase devient injoignable, pas des identifiants refuses`() = runTest {
+    fun `un 4xx sans code Firebase lisible devient Refused avec un code nul`() = runTest {
+        val api = client { respond("ceci n est pas du json Firebase", HttpStatusCode.BadRequest, json) }
+        assertEquals(SignInOutcome.Refused(null), api.signIn("theo@example.com", "x"))
+    }
+
+    // Mutation : elargir `REFUS_STATUS_RANGE` au-dela de 400..499 (par exemple 400..599) ferait
+    // echouer cette assertion — un 5xx deviendrait `Refused` au lieu d'`Unreachable`.
+    @Test
+    fun `un 5xx devient injoignable, jamais un refus`() = runTest {
         val api = client {
-            respond("""{"error":{"code":400,"message":"TOO_MANY_ATTEMPTS_TRY_LATER"}}""", HttpStatusCode.BadRequest, json)
+            respond("""{"error":{"code":503,"message":"SERVICE_UNAVAILABLE"}}""", HttpStatusCode.ServiceUnavailable, json)
         }
         assertEquals(SignInOutcome.Unreachable, api.signIn("theo@example.com", "x"))
+    }
+
+    // Point 1 de la revue du 14 septembre 2026 : le code Firebase n'est pas un secret, il se
+    // journalise en clair (a la difference du corps d'une reponse reussie). Mutation : revenir a
+    // `clefsSeulement(body)` dans ce message ferait echouer cette assertion (la ligne porterait
+    // "message" au lieu de "EMAIL_NOT_FOUND").
+    @Test
+    fun `le journal de connexion refusee porte le code Firebase, pas des noms de clefs`() = runTest {
+        val api = client { respond("""{"error":{"code":400,"message":"EMAIL_NOT_FOUND"}}""", HttpStatusCode.BadRequest, json) }
+        api.signIn("theo@example.com", "x")
+        assertTrue(logger.lines.any { it.contains("EMAIL_NOT_FOUND") })
     }
 
     @Test
@@ -147,6 +169,14 @@ class FirebaseSensCritiqueAuthClientTest {
         assertEquals(RefreshOutcome.Unreachable, api.refresh("refresh-1"))
     }
 
+    // Point 1 de la revue du 14 septembre 2026, meme preuve que pour la connexion.
+    @Test
+    fun `le journal de renouvellement refuse porte le code Firebase, pas des noms de clefs`() = runTest {
+        val api = client { respond("""{"error":{"message":"TOKEN_EXPIRED"}}""", HttpStatusCode.BadRequest, json) }
+        api.refresh("refresh-1")
+        assertTrue(logger.lines.any { it.contains("TOKEN_EXPIRED") })
+    }
+
     // Critique 1 de la revue du 14 septembre 2026 : la branche attendue (`displayName` absent, la
     // vraie connexion SensCritique) journalisait le corps entier de la reponse Firebase, jeton
     // compris — sur un `release` non minifie, lisible par `bin/logs`. Mutation : remettre
@@ -168,15 +198,17 @@ class FirebaseSensCritiqueAuthClientTest {
 
     // Même preuve sur les autres branches qui lisent un corps de réponse Firebase : refus de
     // connexion, réponse de connexion illisible, refus de renouvellement — aucune ne doit jamais
-    // réciter le corps. `secret-marker` figure ici à la place où un jeton ou un détail sensible du
-    // corps pourrait fuiter si l'une de ces branches revenait à `$body`/`$text` brut.
+    // réciter le corps *en dehors* du code lui-même. `secret-marker` figure ici dans un champ que
+    // le code ne lit jamais (`error.message`, lui, est *censé* sortir depuis le point 1 — les
+    // tests dédiés du code plus haut le prouvent) : il resterait invisible si l'une de ces branches
+    // revenait à `$body`/`$text` brut.
     @Test
-    fun `aucune ligne journalisee ne porte le corps de la reponse sur les autres branches`() = runTest {
+    fun `aucune ligne journalisee ne porte le corps de la reponse en dehors du code`() = runTest {
         client { respond("""{"error":{"code":400,"message":"INVALID_LOGIN_CREDENTIALS","details":"secret-marker"}}""", HttpStatusCode.BadRequest, json) }
             .signIn("theo@example.com", "faux")
         client { respond("""{"idToken":"secret-marker"}""", HttpStatusCode.OK, json) }
             .signIn("theo@example.com", "secret")
-        client { respond("""{"error":{"message":"secret-marker"}}""", HttpStatusCode.BadRequest, json) }
+        client { respond("""{"error":{"code":400,"message":"INVALID_REFRESH_TOKEN","details":"secret-marker"}}""", HttpStatusCode.BadRequest, json) }
             .refresh("refresh-1")
 
         assertTrue(logger.lines.isNotEmpty())

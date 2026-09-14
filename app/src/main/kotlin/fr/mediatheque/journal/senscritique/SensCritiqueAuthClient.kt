@@ -27,7 +27,15 @@ private const val REFRESH_URL = "https://securetoken.googleapis.com/v1/token?key
 
 sealed interface SignInOutcome {
     data class Success(val idToken: String, val refreshToken: String, val expiresInSeconds: Long, val pseudo: String?) : SignInOutcome
-    data object InvalidCredentials : SignInOutcome
+    /**
+     * Un 4xx Firebase — un vrai refus, pour une raison ou une autre. `code` porte la constante
+     * Firebase telle quelle (`EMAIL_NOT_FOUND`, `INVALID_PASSWORD`, `USER_DISABLED`… — pas un
+     * secret, une chaîne fixe du fournisseur) quand le corps s'est laissé lire, `null` sinon :
+     * c'est `SensCritiqueViewModel` qui choisit le message affiché à partir de ce code (revue du
+     * 14 septembre 2026 : le premier essai réel a montré `EMAIL_NOT_FOUND`, pas
+     * `INVALID_LOGIN_CREDENTIALS`, le seul code reconnu jusque-là).
+     */
+    data class Refused(val code: String?) : SignInOutcome
     data object Unreachable : SignInOutcome
 }
 
@@ -86,17 +94,30 @@ private fun clefsSeulement(corps: String): String {
 }
 
 /**
+ * `error.message` d'un corps d'erreur Firebase : une constante fixe du fournisseur
+ * (`EMAIL_NOT_FOUND`, `INVALID_PASSWORD`, `TOKEN_EXPIRED`…), jamais un secret — à la différence du
+ * corps entier d'une réponse *réussie* (`clefsSeulement`, ci-dessus), elle se journalise telle
+ * quelle (revue du 14 septembre 2026, point 1 : le premier essai réel a servi de sonde justement
+ * parce que ce code était lisible dans `bin/logs`).
+ */
+private fun codeFirebase(corps: String): String? =
+    runCatching { firebaseJson.decodeFromString(FirebaseErrorEnvelope.serializer(), corps).error.message }.getOrNull()
+
+/**
  * Trois issues distinctes pour le corps HTTP de la connexion (succès, refusé, autre échec) :
  * aucune ambiguïté sur ce que `body` veut dire une fois sorti du bloc `try`.
  */
 private sealed interface SignInHttpOutcome {
     data class Body(val text: String) : SignInHttpOutcome
-    data object InvalidCredentials : SignInHttpOutcome
+    data class Refused(val code: String?) : SignInHttpOutcome
     data object OtherFailure : SignInHttpOutcome
 }
 
 /** Même idée pour le renouvellement — `Refused` seulement sur les statuts d'un vrai refus Firebase. */
 private val REFUS_STATUS_CODES = setOf(400, 401, 403)
+
+/** Tout 4xx est un refus Firebase (revue du 14 septembre 2026) — la raison précise vit dans `code`, pas dans le statut. */
+private val REFUS_STATUS_RANGE = 400..499
 
 private sealed interface RefreshHttpOutcome {
     data class Body(val text: String) : RefreshHttpOutcome
@@ -130,9 +151,9 @@ class FirebaseSensCritiqueAuthClient(
             }
             val body = response.bodyAsText()
             if (!response.status.isSuccess()) {
-                logger.d("connexion refusee (${response.status.value}), clefs : ${clefsSeulement(body)}")
-                val code = runCatching { firebaseJson.decodeFromString(FirebaseErrorEnvelope.serializer(), body).error.message }.getOrNull()
-                if (code == "INVALID_LOGIN_CREDENTIALS") SignInHttpOutcome.InvalidCredentials else SignInHttpOutcome.OtherFailure
+                val code = codeFirebase(body)
+                logger.d("connexion refusee (${response.status.value}) : ${code ?: "code illisible"}")
+                if (response.status.value in REFUS_STATUS_RANGE) SignInHttpOutcome.Refused(code) else SignInHttpOutcome.OtherFailure
             } else {
                 SignInHttpOutcome.Body(body)
             }
@@ -144,7 +165,7 @@ class FirebaseSensCritiqueAuthClient(
         }
 
         val text = when (outcome) {
-            SignInHttpOutcome.InvalidCredentials -> return SignInOutcome.InvalidCredentials
+            is SignInHttpOutcome.Refused -> return SignInOutcome.Refused(outcome.code)
             SignInHttpOutcome.OtherFailure -> return SignInOutcome.Unreachable
             is SignInHttpOutcome.Body -> outcome.text
         }
@@ -183,7 +204,7 @@ class FirebaseSensCritiqueAuthClient(
             when {
                 response.status.isSuccess() -> RefreshHttpOutcome.Body(body)
                 response.status.value in REFUS_STATUS_CODES -> {
-                    logger.d("renouvellement refuse (${response.status.value}), clefs : ${clefsSeulement(body)}")
+                    logger.d("renouvellement refuse (${response.status.value}) : ${codeFirebase(body) ?: "code illisible"}")
                     RefreshHttpOutcome.Refused
                 }
                 else -> {
