@@ -157,8 +157,10 @@ ci-dessus, sans style ajouté.
 | **Accueil** | Une grille de jaquettes sur trois colonnes (`LazyVerticalGrid`), du visionnage le plus récent au plus ancien, chacune avec sa note en pastille `surfaceContainerHigh` en bas à droite quand elle existe. Toucher une jaquette ouvre le formulaire de correction, pré-rempli, comme une ligne de « Mes films ». Le `Button` plein « Ajouter un film », pleine largeur, est descendu en bas de l'écran, hors du défilement de la grille. Un `IconButton` profil en haut à droite, icône de personne en `onSurface`, cible 48 dp. Demandé par le propriétaire le 10 septembre 2026, après le premier essai sur téléphone. |
 | **Recherche** | Une barre en haut : `IconButton` retour, puis un `TextField` sans bordure sur `surfaceContainer`, pleine largeur, focus et clavier ouverts à l'arrivée, croix d'effacement quand il y a du texte. Dessous, une `LazyColumn` de lignes : affiche, titre, réalisateur et année. Pendant une requête, un `LinearProgressIndicator` de 2 dp en corail, juste sous la barre. |
 | **Formulaire** | En tête, l'affiche et le titre en `titleLarge`. La date : un champ tactile qui affiche « 3 septembre 2026 » et ouvre un `DatePickerDialog` limité à aujourd'hui inclus. La note : deux rangées de cinq pastilles. Les réactions : des `FilterChip` dans un `FlowRow`, emoji puis phrase, qui passent à la ligne. Le commentaire : `OutlinedTextField`, trois lignes au minimum, qui grandit, avec « Rien qu'à toi » en `supportingText`. Le bouton « Enregistrer » plein, corail, pleine largeur, collé en bas de l'écran au-dessus du clavier. En correction, il dit « Corriger », et un `TextButton` « Supprimer » en `onSurfaceVariant` se tient sous lui ; il ouvre un `AlertDialog` à deux boutons, « Annuler » et « Supprimer ». |
-| **Profil** | Le pseudo en `titleMedium`. Puis la phrase en une ligne, où seuls les deux nombres sont en `displaySmall onSurface` et le reste en `bodyLarge onSurfaceVariant` : **87** films vus, **12** cette année. Un `ListItem` « Mes films » avec chevron à droite. Un `TextButton` « Se déconnecter » en `onSurfaceVariant`. En bas, la mention TMDB (§9). |
+| **Profil** | Le pseudo en `titleMedium`. Puis la phrase en une ligne, où seuls les deux nombres sont en `displaySmall onSurface` et le reste en `bodyLarge onSurfaceVariant` : **87** films vus, **12** cette année. Un `ListItem` « Mes films » avec chevron à droite, puis un `ListItem` « SensCritique » (chevron aussi), sous-titré « Non connecté » ou « Connecté : TheofB » (brief du 14 septembre 2026). Un `TextButton` « Se déconnecter » en `onSurfaceVariant`. En bas, la mention TMDB (§9). |
 | **Mes films** | Une `LazyColumn` de lignes : affiche, titre, date, emojis des réactions, note à droite. Un `CircularProgressIndicator` corail en fin de liste tant qu'un `next_cursor` reste à charger. |
+| **Connexion SensCritique** (brief du 14 septembre 2026) | Jumeau de l'écran « Connexion » : deux `OutlinedTextField` (e-mail, mot de passe avec bascule de visibilité), un `Button` plein corail « Connecter », le message du back — ici celui de SensCritique — sous le bouton. Connecté : le pseudo en `bodyLarge`, et un `TextButton` « Déconnecter ». |
+| **Feuille « Lequel sur SensCritique ? »** (brief du 14 septembre 2026) | Un `ModalBottomSheet` sans dismiss par le scrim ni le retour système — un choix explicite est le seul moyen d'en sortir. Une ligne par candidat : affiche 56×84, titre, année (et réalisateur si un jour SensCritique le rend), puis un `TextButton` « Aucun de ceux-là » en bas. |
 
 Un écran a au plus un élément corail plein. Quand le formulaire en montre
 plusieurs, ce sont des états sélectionnés, pas des boutons, et un seul bouton.
@@ -178,6 +180,9 @@ plusieurs, ce sont des états sélectionnés, pas des boutons, et un seul bouton
 | **Erreur**, second appel du geste | Le même bloc, avec « Le film est ajouté, mais pas ton visionnage. » et « Réessayer », qui ne relance que `POST /me/journal`. |
 | **Succès** | Un `Snackbar` « Enregistré », fond `surfaceContainerHigh`, texte `onSurface`, deux secondes, sans action. Pas de flash clair : la version inversée de Material n'est pas utilisée. |
 | **Désactivé** | Opacité 38 %, valeur de Material, rien de spécifique. |
+| **Succès, poussé sur SensCritique** (brief du 14 septembre 2026) | Le même `Snackbar`, avec « · SensCritique ✓ » à la suite : « Enregistré · SensCritique ✓ » ou « Corrigé · SensCritique ✓ ». |
+| **Poussée SensCritique échouée** | « Enregistré · SensCritique : réessai au prochain lancement » — le geste local, lui, a réussi ; rien ne change à son `Snackbar` habituel à part cette fin. |
+| **Jeton SensCritique refusé** | « Enregistré · SensCritique : reconnecte-toi » ; l'écran Profil affiche « Non connecté » au prochain passage. |
 
 Une erreur dit ce qui s'est passé et ce qu'on peut faire, jamais « oups »,
 jamais d'excuse ; c'est déjà le ton des messages du back, on le garde.
@@ -248,6 +253,28 @@ app/src/main/res/
   drawable/ic_launcher_animated.xml     le même clap, animé (AnimatedVectorDrawable)
   animator/ic_launcher_volet_claque.xml la rotation du groupe « volet »
   interpolator/rebond_franc.xml         l'overshoot du claquement
+```
+
+**SensCritique** (brief du 14 septembre 2026), sous
+`app/src/main/kotlin/fr/mediatheque/journal/` :
+
+```
+senscritique/
+  ExternalRatingService.kt      l'interface générique (brief : « séparable » pour Cinoche demain),
+                                 MatchableFilm, ExternalCandidate, les issues de recherche/poussée
+  TitleMatcher.kt                l'appariement des titres, porté de l'importateur SensCritique du
+                                  back (normaliserTitre, apparierCandidat, fautRepliOriginalTitle)
+  SensCritiqueStore.kt            l'interface, InMemorySensCritiqueStore (tests),
+                                   KeystoreSensCritiqueStore (AES-GCM AndroidKeyStore, réel)
+  SensCritiqueAuthClient.kt       Firebase Auth REST : connexion, renouvellement
+  SensCritiqueAuthProvider.kt     la décision de jeton (frais réutilisé / renouvelé / refusé)
+  SensCritiqueGraphQLClient.kt    les quatre appels GraphQL (chercher, noter, marquer vu, vérifier)
+  SensCritiqueRatingService.kt    l'implémentation SensCritique de ExternalRatingService
+  SensCritiqueSync.kt             l'orchestration : résoudre, pousser, la file, le rejeu
+ui/profile/
+  SensCritiqueScreen.kt, SensCritiqueViewModel.kt   l'écran de connexion, jumeau de LoginScreen
+ui/form/
+  SensCritiqueChoiceSheet.kt      la feuille « Lequel sur SensCritique ? »
 ```
 
 **L'icône : le clap.** Fond `#000000` (`ic_launcher_background.xml`), premier

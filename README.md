@@ -153,6 +153,26 @@ contraintes se croisent :
 Reste la 3.4.0 : Kotlin 2.3.10, `minCompileSdk=35`. Monter Coil demandera donc
 de monter Kotlin, et ce sera une décision à prendre en entier, pas en passant.
 
+## SensCritique
+
+Décision du propriétaire du 14 septembre 2026 : quand il note un film dans l'appli, la note et la
+date de visionnage partent aussi sur son compte SensCritique. Tout vit dans l'appli, rien ne change
+au back.
+
+- **Le mot de passe SensCritique n'est jamais stocké.** Seuls le `refreshToken` (renouvelé toutes
+  les heures) et le pseudo le sont, chiffrés par une clé AES-GCM du `AndroidKeyStore` — jamais
+  `EncryptedSharedPreferences`, dépréciée — dans les `SharedPreferences` `senscritique` de
+  l'application (`senscritique/SensCritiqueStore.kt`). Le même fichier chiffré garde aussi les choix
+  faits sur la feuille « Lequel sur SensCritique ? » (`media_id → productId` ou « aucun ») et la file
+  des poussées qui ont échoué : « Déconnecter » efface tout, file comprise.
+- **La clé Firebase** (`AIzaSyDW8Pil_nhRW4Toww5JvUOO5XGgAxHNVMY`,
+  `senscritique/SensCritiqueAuthClient.kt`) est celle de l'application web de SensCritique, publique
+  par nature (toute page de leur site la charge), lue sur leur site le 14 septembre 2026 ; elle est
+  à eux et peut changer sans préavis.
+- **La forme de deux réponses GraphQL n'est pas connue** (l'argument de date de `productDone`, les
+  champs exacts de `searchResult`) : la première connexion réelle sert de sonde, l'erreur de
+  validation GraphQL sort telle quelle dans `bin/logs` (`Log.d("SensCritique", …)`).
+
 ## Vérifier
 
     bin/dans ./gradlew testDebugUnitTest
@@ -194,3 +214,11 @@ liste de contrôle à jouer, pas un journal de ce qui a déjà été vérifié.
 - [ ] Taille de police système au maximum sur l'accueil, le profil et « Mes films » : rien n'est coupé, les deux nombres restent lisibles, les réactions d'une ligne passent à la ligne (design §11).
 - [ ] La version `debug` installée s'appelle « Journal (dev) » sur l'écran d'accueil (paquet `fr.mediatheque.journal.debug`).
 - [ ] La version `release` (`bin/install release`) installée à côté s'appelle « Journal » (paquet `fr.mediatheque.journal`) : les deux applications cohabitent, aucune n'efface l'autre.
+- [ ] Profil, ligne « SensCritique » : « Non connecté ». La toucher ouvre l'écran de connexion ; un mauvais mot de passe dit « Identifiants refusés. » sous le bouton.
+- [ ] Une connexion réussie : le pseudo affiché, retour au profil, la ligne dit « Connecté : … ».
+- [ ] Noter un premier film (note non nulle) une fois connecté : « Enregistré · SensCritique ✓ » en snackbar ; le film apparaît noté et « vu » sur SensCritique, à la bonne date si `bin/logs` a confirmé l'argument de date de `productDone`, sans date sinon.
+- [ ] Corriger la note d'un film déjà poussé : « Corrigé · SensCritique ✓ » ; la note change aussi sur SensCritique.
+- [ ] Un film sans correspondance nette sur SensCritique (titre ambigu, ou absent de leur catalogue) : la feuille « Lequel sur SensCritique ? » s'ouvre avant le retour à l'accueil ; toucher un candidat ou « Aucun de ceux-là » referme la feuille et termine le geste.
+- [ ] Rouvrir ce même film et le corriger de nouveau : la feuille ne redemande plus (le choix est mémorisé).
+- [ ] Couper le Wi-Fi, noter un film connecté à SensCritique : « Enregistré · SensCritique : réessai au prochain lancement » ; rallumer le Wi-Fi, tuer et rouvrir l'application : le film apparaît noté sur SensCritique sans autre geste.
+- [ ] Se déconnecter depuis l'écran SensCritique : la ligne du profil repasse à « Non connecté » ; noter un film ensuite ne montre plus aucun suffixe SensCritique.
