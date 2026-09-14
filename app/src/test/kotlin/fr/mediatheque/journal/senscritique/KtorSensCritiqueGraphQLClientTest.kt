@@ -12,7 +12,6 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -123,12 +122,46 @@ class KtorSensCritiqueGraphQLClientTest {
         assertEquals(ExternalSearchOutcome.Unauthenticated, api.search("id-1", "x"))
     }
 
-    // Mutation : chercher "unauthenticated" seul (sans le variant "auth/") laisserait passer ce
-    // message precis sous `Failed` au lieu d'`Unauthenticated`.
+    // L'exemple reel (brief du 14 septembre 2026, apres un premier essai reel) : `productRate` a
+    // repondu `{"message":"Unauthenticated Users Not Allowed","code":"auth/unauthenticated-user"}`,
+    // `code` au premier niveau de l'erreur. Mutation : ne lire que `extensions.code` (jamais `code`
+    // direct) laisserait passer ce message precis sous `Failed` au lieu d'`Unauthenticated`.
     @Test
-    fun `une erreur GraphQL auth slash unauthenticated-user devient Unauthenticated, meme en 200`() = runTest {
-        val api = client { respond("""{"errors":[{"message":"auth/unauthenticated-user"}]}""", HttpStatusCode.OK, json) }
+    fun `une erreur GraphQL avec le code auth slash unauthenticated-user devient Unauthenticated, meme en 200`() = runTest {
+        val api = client {
+            respond("""{"errors":[{"message":"Unauthenticated Users Not Allowed","code":"auth/unauthenticated-user"}]}""", HttpStatusCode.OK, json)
+        }
         assertEquals(ExternalSearchOutcome.Unauthenticated, api.search("id-1", "x"))
+    }
+
+    // Les deux autres codes de refus catalogues (brief) : jamais vus en reel, mais le meme
+    // traitement que ci-dessus.
+    @Test
+    fun `les codes api slash invalid-token et api slash missing-token deviennent aussi Unauthenticated`() = runTest {
+        val invalide = client { respond("""{"errors":[{"message":"x","code":"api/invalid-token"}]}""", HttpStatusCode.OK, json) }
+        assertEquals(ExternalSearchOutcome.Unauthenticated, invalide.search("id-1", "x"))
+
+        val manquant = client { respond("""{"errors":[{"message":"x","code":"api/missing-token"}]}""", HttpStatusCode.OK, json) }
+        assertEquals(ExternalSearchOutcome.Unauthenticated, manquant.search("id-1", "x"))
+    }
+
+    // Le code peut aussi arriver sous `extensions.code` (forme decrite par le brief, jamais
+    // observee en reel sur cette mutation precise) : meme traitement.
+    @Test
+    fun `un code de refus sous extensions code devient aussi Unauthenticated`() = runTest {
+        val api = client {
+            respond("""{"errors":[{"message":"x","extensions":{"code":"auth/unauthenticated-user"}}]}""", HttpStatusCode.OK, json)
+        }
+        assertEquals(ExternalSearchOutcome.Unauthenticated, api.search("id-1", "x"))
+    }
+
+    // Mutation : comparer le code a une simple presence (`code != null`) plutot qu'a l'ensemble des
+    // trois codes catalogues ferait passer n'importe quelle erreur GraphQL porteuse d'un `code` sous
+    // `Unauthenticated`, y compris celle-ci.
+    @Test
+    fun `un code d erreur GraphQL hors catalogue reste Failed, pas Unauthenticated`() = runTest {
+        val api = client { respond("""{"errors":[{"message":"x","code":"api/rate-limited"}]}""", HttpStatusCode.OK, json) }
+        assertEquals(ExternalSearchOutcome.Failed, api.search("id-1", "x"))
     }
 
     @Test
@@ -207,26 +240,18 @@ class KtorSensCritiqueGraphQLClientTest {
         assertEquals(ExternalPushOutcome.Failed, api.setDate("id-1", 42, "2026-09-10"))
     }
 
+    // Mutation : ecrire l'en-tete avec "Bearer " (comme pour un idToken Firebase) romprait
+    // l'authentification aupres de SensCritique — brief du 14 septembre 2026, apres un premier
+    // essai reel : l'API GraphQL de SensCritique n'accepte que son propre `cookieRef`, brut.
     @Test
-    fun `whoAmI reussi rend vrai, une erreur GraphQL rend faux`() = runTest {
-        val ok = client { respond("""{"data":{"user":{}}}""", HttpStatusCode.OK, json) }
-        assertTrue(ok.whoAmI("id-1", "TheofB"))
-
-        val ko = client { respond("""{"errors":[{"message":"nope"}]}""", HttpStatusCode.OK, json) }
-        assertFalse(ko.whoAmI("id-1", "TheofB"))
-    }
-
-    // Mutation : oublier l'en-tete `Authorization` (ou l'ecrire sans "Bearer ") romprait
-    // l'authentification aupres de SensCritique sans qu'aucune reponse ne le signale explicitement.
-    @Test
-    fun `pose le jeton en en-tete Authorization Bearer`() = runTest {
+    fun `pose le cookieRef en en-tete Authorization, brut, sans Bearer`() = runTest {
         var entete: String? = null
         val api = client { request ->
             entete = request.headers[HttpHeaders.Authorization]
             respond("""{"data":{"searchProductExplorer":{"items":[]}}}""", HttpStatusCode.OK, json)
         }
-        api.search("mon-jeton", "x")
-        assertEquals("Bearer mon-jeton", entete)
+        api.search("mon-cookieRef", "x")
+        assertEquals("mon-cookieRef", entete)
     }
 
     @Test

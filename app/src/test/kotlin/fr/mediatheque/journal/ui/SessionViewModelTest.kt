@@ -101,7 +101,7 @@ class SessionViewModelTest {
     @Test
     fun `une connexion reussie rejoue la file SensCritique`() {
         val store = InMemorySensCritiqueStore().apply {
-            writeAuth(SensCritiqueAuth("refresh", "TheofB"))
+            writeAuth(SensCritiqueAuth("cookie-1", "2099-01-01T00:00:00Z", "TheofB"))
             writeQueue(mapOf("m1" to QueuedPush("m1", "Chihiro", null, 2001, 8, "2026-09-10", productId = 42L)))
         }
         val service = FakeExternalRatingService(onPush = { _, _, _ -> ExternalPushOutcome.Success })

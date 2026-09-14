@@ -16,7 +16,7 @@ class SensCritiqueSyncTest {
     private fun candidat(id: Long) = ExternalCandidate(id, "Le Voyage de Chihiro", null, 2001)
 
     private fun connecte(store: SensCritiqueStore) {
-        store.writeAuth(SensCritiqueAuth("refresh", "TheofB"))
+        store.writeAuth(SensCritiqueAuth("cookie-1", "2099-01-01T00:00:00Z", "TheofB"))
     }
 
     // --- resolve() via syncAfterSave(), et la mémorisation des choix ---

@@ -5,8 +5,8 @@ import java.time.LocalDate
 /**
  * Ce qu'un service externe (SensCritique, demain Cinoche — brief du 14 septembre 2026) sait faire
  * avec un visionnage noté : chercher un produit chez lui, y pousser une note et une date. Rien ici
- * n'est spécifique à SensCritique : GraphQL, Firebase et l'appariement des titres vivent dans les
- * classes qui l'implémentent (`SensCritiqueRatingService`) ou s'en servent (`SensCritiqueSync`).
+ * n'est spécifique à SensCritique : GraphQL, la connexion et l'appariement des titres vivent dans
+ * les classes qui l'implémentent (`SensCritiqueRatingService`) ou s'en servent (`SensCritiqueSync`).
  */
 interface ExternalRatingService {
     val name: String

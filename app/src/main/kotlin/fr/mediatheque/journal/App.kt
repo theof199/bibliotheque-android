@@ -6,11 +6,10 @@ import fr.mediatheque.journal.api.ApiClient
 import fr.mediatheque.journal.api.JournalApi
 import fr.mediatheque.journal.api.PreferencesSessionStore
 import fr.mediatheque.journal.api.SessionCookieJar
-import fr.mediatheque.journal.senscritique.FirebaseSensCritiqueAuthClient
+import fr.mediatheque.journal.senscritique.GraphQlSensCritiqueAuthClient
 import fr.mediatheque.journal.senscritique.KeystoreSensCritiqueStore
 import fr.mediatheque.journal.senscritique.KtorSensCritiqueGraphQLClient
 import fr.mediatheque.journal.senscritique.SensCritiqueAuthClient
-import fr.mediatheque.journal.senscritique.SensCritiqueAuthProvider
 import fr.mediatheque.journal.senscritique.SensCritiqueRatingService
 import fr.mediatheque.journal.senscritique.SensCritiqueStore
 import fr.mediatheque.journal.senscritique.SensCritiqueSync
@@ -28,8 +27,9 @@ class AppContainer(context: Context) {
     // SensCritique (brief du 14 septembre 2026) : le client Ktor existant, réutilisé avec un
     // client sans cookie jar (`CookieJar.NO_COOKIES`) — jamais celui de la médiathèque, dont le
     // cookie n'a rien à faire vers SensCritique. Le délai de 10 s (brief §6) est posé ici, une
-    // fois pour tous les appels SensCritique (Firebase et GraphQL) — jamais par un `withTimeout`
-    // local à chaque appel, qui se comporte mal sous une horloge de test virtuelle.
+    // fois pour tous les appels SensCritique (connexion et GraphQL, le même point d'entrée) —
+    // jamais par un `withTimeout` local à chaque appel, qui se comporte mal sous une horloge de
+    // test virtuelle.
     private val sensCritiqueHttp = HttpClient(ApiClient.okHttpEngine(CookieJar.NO_COOKIES)) {
         expectSuccess = false
         install(ContentNegotiation) { json(ApiClient.ApiJson) }
@@ -37,9 +37,8 @@ class AppContainer(context: Context) {
     }
     val sensCritiqueStore: SensCritiqueStore = KeystoreSensCritiqueStore(context)
     private val sensCritiqueGraphQL = KtorSensCritiqueGraphQLClient(sensCritiqueHttp)
-    val sensCritiqueAuthClient: SensCritiqueAuthClient = FirebaseSensCritiqueAuthClient(sensCritiqueHttp, sensCritiqueGraphQL)
-    private val sensCritiqueTokens = SensCritiqueAuthProvider(sensCritiqueAuthClient, sensCritiqueStore)
-    private val sensCritiqueService = SensCritiqueRatingService(sensCritiqueTokens, sensCritiqueGraphQL)
+    val sensCritiqueAuthClient: SensCritiqueAuthClient = GraphQlSensCritiqueAuthClient(sensCritiqueHttp)
+    private val sensCritiqueService = SensCritiqueRatingService(sensCritiqueStore, sensCritiqueGraphQL)
     val sensCritiqueSync = SensCritiqueSync(sensCritiqueService, sensCritiqueStore)
 }
 

@@ -23,14 +23,16 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 
-private const val GRAPHQL_URL = "https://apollo.senscritique.com/graphql"
+// Pas `private` : `SensCritiqueAuthClient.kt` (la connexion, elle aussi une mutation GraphQL sur
+// ce même point d'entrée) les réutilise plutôt que de les dupliquer.
+const val GRAPHQL_URL = "https://apollo.senscritique.com/graphql"
 // Le délai de 10 s (brief §6) vit sur `client` (`HttpTimeout`, posé une fois dans `AppContainer`),
 // pas ici : un `withTimeout` local, combiné à `runTest` (horloge virtuelle), abandonnait
 // immédiatement avant que le `MockEngine` des tests ne réponde (constaté en les écrivant).
 
 // User-Agent de navigateur (brief §6) : l'API GraphQL n'est documentée nulle part, on se présente
 // comme le ferait leur propre site.
-private const val BROWSER_USER_AGENT =
+const val BROWSER_USER_AGENT =
     "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
 
 /**
@@ -82,19 +84,18 @@ mutation Date(${'$'}id: Int!, ${'$'}d: String!) {
 }
 """
 
-private const val WHOAMI_QUERY = """
-query QuiSuisJe(${'$'}pseudo: String!) {
-  user(username: ${'$'}pseudo) { __typename }
-}
-"""
-
-/** Les cinq appels GraphQL du brief : chercher, noter, marquer vu, poser la date, vérifier la connexion. */
+/**
+ * Les quatre appels GraphQL authentifiés du brief : chercher, noter, marquer vu, poser la date.
+ * `cookieRef` (rendu par `SensCritiqueAuthClient.signIn`, brief du 14 septembre 2026 après un
+ * premier essai réel) part en en-tête `Authorization`, brut, sans le mot « Bearer » — la
+ * vérification séparée du pseudo (`user(username:)`) a disparu avec Firebase : le pseudo vient
+ * directement de la réponse de connexion (`me.username`).
+ */
 interface SensCritiqueGraphQLClient {
-    suspend fun search(idToken: String, keywords: String): ExternalSearchOutcome
-    suspend fun rate(idToken: String, productId: Long, rating: Int): ExternalPushOutcome
-    suspend fun markDone(idToken: String, productId: Long): ExternalPushOutcome
-    suspend fun setDate(idToken: String, productId: Long, date: String): ExternalPushOutcome
-    suspend fun whoAmI(idToken: String, pseudo: String): Boolean
+    suspend fun search(cookieRef: String, keywords: String): ExternalSearchOutcome
+    suspend fun rate(cookieRef: String, productId: Long, rating: Int): ExternalPushOutcome
+    suspend fun markDone(cookieRef: String, productId: Long): ExternalPushOutcome
+    suspend fun setDate(cookieRef: String, productId: Long, date: String): ExternalPushOutcome
 }
 
 private sealed interface RawOutcome {
@@ -110,7 +111,7 @@ class KtorSensCritiqueGraphQLClient(
     private val logger: SensCritiqueLogger = AndroidSensCritiqueLogger,
 ) : SensCritiqueGraphQLClient {
 
-    override suspend fun search(idToken: String, keywords: String): ExternalSearchOutcome {
+    override suspend fun search(cookieRef: String, keywords: String): ExternalSearchOutcome {
         val avecFiltre = buildJsonObject {
             put("q", keywords)
             put(
@@ -125,14 +126,14 @@ class KtorSensCritiqueGraphQLClient(
                 },
             )
         }
-        return when (val premier = execute(idToken, SEARCH_QUERY, avecFiltre)) {
+        return when (val premier = execute(cookieRef, SEARCH_QUERY, avecFiltre)) {
             is RawOutcome.Ok -> itemsFrom(premier.data)
             RawOutcome.Unauthenticated -> ExternalSearchOutcome.Unauthenticated
             is RawOutcome.Failed -> {
                 if (premier.errors?.estBadUserInput() == true) {
                     logger.d("recherche avec filtre univers refusee (BAD_USER_INPUT), repli sans filtre")
                     val sansFiltre = buildJsonObject { put("q", keywords); put("f", JsonNull) }
-                    when (val second = execute(idToken, SEARCH_QUERY, sansFiltre)) {
+                    when (val second = execute(cookieRef, SEARCH_QUERY, sansFiltre)) {
                         is RawOutcome.Ok -> itemsFrom(second.data)
                         RawOutcome.Unauthenticated -> ExternalSearchOutcome.Unauthenticated
                         is RawOutcome.Failed -> ExternalSearchOutcome.Failed
@@ -144,24 +145,19 @@ class KtorSensCritiqueGraphQLClient(
         }
     }
 
-    override suspend fun rate(idToken: String, productId: Long, rating: Int): ExternalPushOutcome {
+    override suspend fun rate(cookieRef: String, productId: Long, rating: Int): ExternalPushOutcome {
         val variables = buildJsonObject { put("id", productId); put("note", rating) }
-        return execute(idToken, RATE_MUTATION, variables).toPushOutcome("productRate", "id")
+        return execute(cookieRef, RATE_MUTATION, variables).toPushOutcome("productRate", "id")
     }
 
-    override suspend fun markDone(idToken: String, productId: Long): ExternalPushOutcome {
+    override suspend fun markDone(cookieRef: String, productId: Long): ExternalPushOutcome {
         val variables = buildJsonObject { put("id", productId) }
-        return execute(idToken, DONE_MUTATION, variables).toDoneOutcome()
+        return execute(cookieRef, DONE_MUTATION, variables).toDoneOutcome()
     }
 
-    override suspend fun setDate(idToken: String, productId: Long, date: String): ExternalPushOutcome {
+    override suspend fun setDate(cookieRef: String, productId: Long, date: String): ExternalPushOutcome {
         val variables = buildJsonObject { put("id", productId); put("d", date) }
-        return execute(idToken, DATE_MUTATION, variables).toPushOutcome("setProductDateDone", "id")
-    }
-
-    override suspend fun whoAmI(idToken: String, pseudo: String): Boolean {
-        val variables = buildJsonObject { put("pseudo", pseudo) }
-        return execute(idToken, WHOAMI_QUERY, variables) is RawOutcome.Ok
+        return execute(cookieRef, DATE_MUTATION, variables).toPushOutcome("setProductDateDone", "id")
     }
 
     /**
@@ -202,11 +198,14 @@ class KtorSensCritiqueGraphQLClient(
         }
     }
 
-    private suspend fun execute(idToken: String, query: String, variables: JsonObject): RawOutcome {
+    private suspend fun execute(cookieRef: String, query: String, variables: JsonObject): RawOutcome {
         data class Reponse(val status: Int, val body: String)
         val reponse = try {
             val r = client.post(GRAPHQL_URL) {
-                header(HttpHeaders.Authorization, "Bearer $idToken")
+                // Brut, sans "Bearer " (brief du 14 septembre 2026, après un premier essai reel :
+                // l'API GraphQL de SensCritique n'accepte que son propre cookieRef, pas un jeton
+                // porteur Firebase, et le pose sans prefixe).
+                header(HttpHeaders.Authorization, cookieRef)
                 header(HttpHeaders.UserAgent, BROWSER_USER_AGENT)
                 contentType(ContentType.Application.Json)
                 setBody(buildJsonObject { put("query", query); put("variables", variables) }.toString())
@@ -233,14 +232,7 @@ class KtorSensCritiqueGraphQLClient(
         val errors = root["errors"] as? JsonArray
         if (errors != null && errors.isNotEmpty()) {
             logger.d("erreur GraphQL : $errors")
-            val texte = errors.joinToString(" ") { erreur ->
-                ((erreur as? JsonObject)?.get("message") as? JsonPrimitive)?.contentOrNull.orEmpty()
-            }
-            return if (texte.contains("unauthenticated", ignoreCase = true) || texte.contains("auth/", ignoreCase = true)) {
-                RawOutcome.Unauthenticated
-            } else {
-                RawOutcome.Failed(errors)
-            }
+            return if (errors.estRefusDeSession()) RawOutcome.Unauthenticated else RawOutcome.Failed(errors)
         }
 
         val data = root["data"] as? JsonObject
@@ -258,6 +250,21 @@ private fun JsonArray.estBadUserInput(): Boolean = any { erreur ->
     val code = ((objet["extensions"] as? JsonObject)?.get("code") as? JsonPrimitive)?.contentOrNull
     val message = (objet["message"] as? JsonPrimitive)?.contentOrNull
     code == "BAD_USER_INPUT" || message?.contains("BAD_USER_INPUT") == true
+}
+
+/**
+ * Les trois codes de refus de session observés (brief du 14 septembre 2026, après un premier essai
+ * réel — `productRate` a répondu `{"message":"Unauthenticated Users Not Allowed","code":"auth/unauthenticated-user"}`,
+ * `code` au premier niveau de l'erreur, pas seulement sous `extensions.code`) : jeton refusé, comme
+ * un 401/403 HTTP — `SensCritiqueRatingService` en aval déconnecte le compte.
+ */
+private val CODES_REFUS_SESSION = setOf("auth/unauthenticated-user", "api/invalid-token", "api/missing-token")
+
+private fun JsonArray.estRefusDeSession(): Boolean = any { erreur ->
+    val objet = erreur as? JsonObject ?: return@any false
+    val code = (objet["code"] as? JsonPrimitive)?.contentOrNull
+        ?: ((objet["extensions"] as? JsonObject)?.get("code") as? JsonPrimitive)?.contentOrNull
+    code in CODES_REFUS_SESSION
 }
 
 private fun itemsFrom(data: JsonObject): ExternalSearchOutcome {

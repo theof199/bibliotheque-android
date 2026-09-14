@@ -5,16 +5,28 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.nullable
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.intOrNull
 import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-/** Ce que le mot de passe SensCritique ne devient jamais : `refreshToken` (1 h à renouveler) et le pseudo. */
+/**
+ * Ce que le mot de passe SensCritique ne devient jamais : `cookieRef` (rendu par la mutation de
+ * connexion, brief du 14 septembre 2026 après un premier essai réel — jamais un jeton Firebase) et
+ * `dateExpiration`, tel que SensCritique le rend (une chaîne ISO, jamais reformatée), plus le
+ * pseudo.
+ */
 @Serializable
-data class SensCritiqueAuth(val refreshToken: String, val pseudo: String?)
+data class SensCritiqueAuth(val cookieRef: String, val dateExpiration: String, val pseudo: String?)
 
 /** Une poussée qui a échoué, en attente d'un rejeu — brief §5. */
 @Serializable
@@ -30,7 +42,7 @@ data class QueuedPush(
 )
 
 /**
- * Où le jeton SensCritique (le `refreshToken`, jamais le mot de passe), le pseudo, les choix de la
+ * Où le jeton SensCritique (le `cookieRef`, jamais le mot de passe), le pseudo, les choix de la
  * feuille et la file des poussées échouées dorment entre deux lancements — jumeau de `SessionStore`
  * (brief du 14 septembre 2026).
  *
@@ -68,14 +80,45 @@ class InMemorySensCritiqueStore : SensCritiqueStore {
     override fun clear() { auth = null; decisions = emptyMap(); queue = emptyMap() }
 }
 
+/**
+ * Version 2 (brief du 14 septembre 2026, étape 2) : `SensCritiqueAuth` porte `cookieRef` et
+ * `dateExpiration`, plus le pseudo — la version 1 (Firebase, `refreshToken`) ne s'y décode plus,
+ * voir `decodePayload`.
+ */
+const val PAYLOAD_VERSION = 2
+
 @Serializable
-private data class Payload(
-    /** Pour l'avenir (mineur e de la revue du 14 septembre 2026) : rien ne le lit encore. */
-    val version: Int = 1,
+data class Payload(
+    val version: Int = PAYLOAD_VERSION,
     val auth: SensCritiqueAuth? = null,
     val decisions: Map<String, Long?> = emptyMap(),
     val queue: Map<String, QueuedPush> = emptyMap(),
 )
+
+private val DECISIONS_SERIALIZER = MapSerializer(String.serializer(), Long.serializer().nullable)
+private val QUEUE_SERIALIZER = MapSerializer(String.serializer(), QueuedPush.serializer())
+
+/**
+ * Une charge utile en version 1 (Firebase — `SensCritiqueAuth(refreshToken, pseudo)`) ne se décode
+ * plus dans la forme actuelle de `SensCritiqueAuth` (`cookieRef`, `dateExpiration`) : un champ requis
+ * manquerait, et `Payload.serializer()` entier échouerait, y compris `decisions` et `queue` —
+ * inchangées par cette migration, alors qu'elles n'ont aucune raison d'être perdues. Lue
+ * déconnectée (`auth = null`), en gardant tout le reste, plutôt que rejetée en bloc.
+ */
+fun decodePayload(json: Json, texte: String): Payload {
+    val racine = json.parseToJsonElement(texte) as JsonObject
+    val version = (racine["version"] as? JsonPrimitive)?.intOrNull ?: 1
+    if (version >= PAYLOAD_VERSION) {
+        return json.decodeFromJsonElement(Payload.serializer(), racine)
+    }
+    val decisions = (racine["decisions"] as? JsonObject)?.let {
+        runCatching { json.decodeFromJsonElement(DECISIONS_SERIALIZER, it) }.getOrNull()
+    } ?: emptyMap()
+    val queue = (racine["queue"] as? JsonObject)?.let {
+        runCatching { json.decodeFromJsonElement(QUEUE_SERIALIZER, it) }.getOrNull()
+    } ?: emptyMap()
+    return Payload(version = PAYLOAD_VERSION, auth = null, decisions = decisions, queue = queue)
+}
 
 /**
  * Le magasin réel : un unique blob JSON chiffré AES-GCM par une clé du `AndroidKeyStore` (jamais
@@ -124,7 +167,7 @@ class KeystoreSensCritiqueStore(
             val chiffre = Base64.decode(raw.substring(separateur + 1), Base64.NO_WRAP)
             val cipher = Cipher.getInstance(TRANSFORMATION)
             cipher.init(Cipher.DECRYPT_MODE, secretKey(), GCMParameterSpec(128, iv))
-            json.decodeFromString(Payload.serializer(), String(cipher.doFinal(chiffre), Charsets.UTF_8))
+            decodePayload(json, String(cipher.doFinal(chiffre), Charsets.UTF_8))
         }.getOrElse {
             // Jamais le contenu (mineur e) : seule la lecture illisible compte, pas ce qu'elle cachait.
             logger.d("magasin SensCritique illisible, repart de zero pour cette session")

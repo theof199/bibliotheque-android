@@ -45,7 +45,7 @@ class FormViewModelSensCritiqueTimeoutTest {
     // (le geste serait deja termine, `done` non nul, avant les 5999 ms testes ici).
     @Test
     fun `sous 6s, le geste attend encore — busy vrai, done encore nul`() = runTest(dispatcher) {
-        val store = InMemorySensCritiqueStore().apply { writeAuth(SensCritiqueAuth("refresh-1", "TheofB")) }
+        val store = InMemorySensCritiqueStore().apply { writeAuth(SensCritiqueAuth("cookie-1", "2099-01-01T00:00:00Z", "TheofB")) }
         val vm = vmQuiNeReponJamais(store)
         vm.toggleRating(8)
         vm.save()
@@ -62,7 +62,7 @@ class FormViewModelSensCritiqueTimeoutTest {
     // echouer cette assertion — `done` resterait nul indefiniment, le service ne repondant jamais.
     @Test
     fun `au dela de 6s, la poussee part en file et le message dit reessai`() = runTest(dispatcher) {
-        val store = InMemorySensCritiqueStore().apply { writeAuth(SensCritiqueAuth("refresh-1", "TheofB")) }
+        val store = InMemorySensCritiqueStore().apply { writeAuth(SensCritiqueAuth("cookie-1", "2099-01-01T00:00:00Z", "TheofB")) }
         val vm = vmQuiNeReponJamais(store)
         vm.toggleRating(8)
         vm.save()

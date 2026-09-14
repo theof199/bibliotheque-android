@@ -24,8 +24,8 @@ data class SensCritiqueUi(
 
 /**
  * La connexion SensCritique du profil (brief du 14 septembre 2026) — jumeau de `LoginViewModel`.
- * Le mot de passe ne survit jamais au-delà de `connect()` : seul `refreshToken` (et le pseudo)
- * partent dans `SensCritiqueStore`, chiffrés.
+ * Le mot de passe ne survit jamais au-delà de `connect()` : seuls `cookieRef`, `dateExpiration` et
+ * le pseudo partent dans `SensCritiqueStore`, chiffrés.
  */
 class SensCritiqueViewModel(
     private val store: SensCritiqueStore,
@@ -48,15 +48,16 @@ class SensCritiqueViewModel(
         viewModelScope.launch {
             when (val outcome = authClient.signIn(email.trim(), password)) {
                 is SignInOutcome.Success -> {
-                    store.writeAuth(SensCritiqueAuth(outcome.refreshToken, outcome.pseudo))
+                    store.writeAuth(SensCritiqueAuth(outcome.cookieRef, outcome.dateExpiration, outcome.pseudo))
                     email = ""
                     password = ""
                     _ui.value = SensCritiqueUi(connectedPseudo = outcome.pseudo)
                 }
-                is SignInOutcome.Refused -> {
-                    val (message, retryable) = messageForRefus(outcome.code)
-                    _ui.value = SensCritiqueUi(error = message, retryable = retryable)
-                }
+                // Toute erreur GraphQL de cette mutation affiche le même message (brief du
+                // 14 septembre 2026 : contrairement à Firebase, l'API GraphQL de SensCritique ne
+                // rend pas de code catalogué) — `outcome.code` n'a déjà servi qu'au journal, côté
+                // `GraphQlSensCritiqueAuthClient`.
+                is SignInOutcome.Refused -> _ui.value = SensCritiqueUi(error = "Identifiants refusés.", retryable = false)
                 SignInOutcome.Unreachable -> _ui.value = SensCritiqueUi(error = "SensCritique est injoignable.", retryable = true)
             }
         }
@@ -80,21 +81,4 @@ class SensCritiqueViewModel(
         password = ""
         _ui.update { it.copy(busy = false, error = null, retryable = false) }
     }
-}
-
-/**
- * Le message affiché pour un `SignInOutcome.Refused(code)`, et si « Réessayer » a un sens (revue du
- * 14 septembre 2026, point 2). Le premier essai réel a montré `EMAIL_NOT_FOUND` (Firebase renvoie
- * les codes classiques sur ce projet) : les cinq codes connus ont chacun leur phrase, tout autre
- * code lisible se lit tel quel, et un `code` nul (corps de refus illisible) se replie sur le
- * message générique d'injoignabilité — même phrase qu'un 5xx ou une panne réseau
- * (`SignInOutcome.Unreachable`), la distinction ne changerait rien à l'écran.
- */
-internal fun messageForRefus(code: String?): Pair<String, Boolean> = when (code) {
-    "EMAIL_NOT_FOUND" -> "Aucun compte SensCritique avec cet e-mail." to false
-    "INVALID_PASSWORD", "INVALID_LOGIN_CREDENTIALS" -> "Identifiants refusés." to false
-    "USER_DISABLED" -> "Ce compte SensCritique est désactivé." to false
-    "TOO_MANY_ATTEMPTS_TRY_LATER" -> "Trop d’essais, réessaie plus tard." to true
-    null -> "SensCritique est injoignable." to true
-    else -> "SensCritique a refusé la connexion ($code)." to false
 }

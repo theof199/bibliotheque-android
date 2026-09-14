@@ -31,7 +31,7 @@ sealed interface GestureSyncResult {
  * L'orchestration SensCritique du brief du 14 septembre 2026 : résoudre un film (en relisant
  * d'abord les choix déjà mémorisés), pousser note + date, tenir la file des poussées échouées, la
  * rejouer au lancement. Ne dépend que de `ExternalRatingService` (l'interface générique) et de
- * `SensCritiqueStore` : aucun détail GraphQL ou Firebase ici.
+ * `SensCritiqueStore` : aucun détail GraphQL ni de connexion ici.
  *
  * Chaque point d'entrée public attrape toute exception inattendue (revue du 14 septembre 2026,
  * important 5) : ni `FormViewModel` ni `SessionViewModel` ne doivent jamais planter parce que cette

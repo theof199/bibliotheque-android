@@ -43,7 +43,7 @@ class FormViewModelTest {
     private fun disconnectedSync() = SensCritiqueSync(FakeExternalRatingService(), InMemorySensCritiqueStore())
 
     private fun connectedSync(store: SensCritiqueStore, service: FakeExternalRatingService) =
-        SensCritiqueSync(service, store.apply { writeAuth(SensCritiqueAuth("refresh", "TheofB")) })
+        SensCritiqueSync(service, store.apply { writeAuth(SensCritiqueAuth("cookie-1", "2099-01-01T00:00:00Z", "TheofB")) })
 
     @Test
     fun `un film nouveau — deux appels dans l ordre, tous les champs envoyes`() {

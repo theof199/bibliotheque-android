@@ -2,6 +2,8 @@ package fr.mediatheque.journal.senscritique
 
 import android.util.Log
 
+const val TAG_SENSCRITIQUE = "SensCritique"
+
 /**
  * Le seul point d'entrée vers `Log.d` pour tout le paquet `senscritique` — remplaçable par un faux
  * en test (revue du 14 septembre 2026, critique 1) : c'est ce qui permet d'affirmer, par une

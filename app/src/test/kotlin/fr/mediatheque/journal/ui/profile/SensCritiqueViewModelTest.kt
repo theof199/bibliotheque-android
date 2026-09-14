@@ -22,14 +22,14 @@ class SensCritiqueViewModelTest {
     private val vm = SensCritiqueViewModel(store, client)
 
     @Test
-    fun `une connexion reussie stocke le refreshToken et le pseudo, jamais le mot de passe`() {
-        client.onSignIn = { _, _ -> SignInOutcome.Success("id", "refresh-1", 3600, "TheofB") }
+    fun `une connexion reussie stocke le cookieRef, la dateExpiration et le pseudo, jamais le mot de passe`() {
+        client.onSignIn = { _, _ -> SignInOutcome.Success("cookie-1", "2026-10-14T10:00:00Z", "TheofB") }
         vm.email = "theo@example.com"
         vm.password = "secret"
         vm.connect()
 
         assertEquals("TheofB", vm.ui.value.connectedPseudo)
-        assertEquals(SensCritiqueAuth("refresh-1", "TheofB"), store.readAuth())
+        assertEquals(SensCritiqueAuth("cookie-1", "2026-10-14T10:00:00Z", "TheofB"), store.readAuth())
         assertEquals("", vm.email)
         assertEquals("", vm.password)
     }
@@ -38,20 +38,36 @@ class SensCritiqueViewModelTest {
     // echouer cette assertion des qu'un espace traine (copier-coller frequent d'un clavier mobile).
     @Test
     fun `l email est nettoye des espaces avant l envoi`() {
-        client.onSignIn = { email, _ -> if (email == "theo@example.com") SignInOutcome.Success("id", "r", 3600, "TheofB") else SignInOutcome.Unreachable }
+        client.onSignIn = { email, _ ->
+            if (email == "theo@example.com") SignInOutcome.Success("cookie-1", "2026-10-14T10:00:00Z", "TheofB")
+            else SignInOutcome.Unreachable
+        }
         vm.email = "  theo@example.com  "
         vm.password = "secret"
         vm.connect()
         assertEquals("TheofB", vm.ui.value.connectedPseudo)
     }
 
-    // Le premier essai reel (revue du 14 septembre 2026, point 2) : ce projet Firebase rend les
-    // codes classiques, pas INVALID_LOGIN_CREDENTIALS. Le detail des cinq codes connus et du repli
-    // generique est prouve a part, sur la fonction pure `messageForRefus` (MessageForRefusTest) ;
-    // ce test verifie seulement que `connect()` transmet bien le code au bon endroit.
+    // Brief du 14 septembre 2026, apres un premier essai reel : contrairement a Firebase, l'API
+    // GraphQL de SensCritique ne rend pas de code catalogue pour la mutation de connexion — le
+    // meme message s'affiche quel que soit le code, y compris nul (corps de refus illisible).
+    // Mutation : afficher `outcome.code` dans le message (au lieu du texte fixe) ferait echouer ces
+    // deux assertions des que le code change.
     @Test
-    fun `un refus transmet le code au message, sans reessai pour un mot de passe errone`() {
-        client.onSignIn = { _, _ -> SignInOutcome.Refused("INVALID_PASSWORD") }
+    fun `un refus GraphQL affiche Identifiants refuses, quel que soit le code, sans reessai`() {
+        client.onSignIn = { _, _ -> SignInOutcome.Refused("auth/wrong-password") }
+        vm.email = "theo@example.com"
+        vm.password = "faux"
+        vm.connect()
+
+        assertEquals("Identifiants refusés.", vm.ui.value.error)
+        assertFalse(vm.ui.value.retryable)
+        assertNull(store.readAuth())
+    }
+
+    @Test
+    fun `un refus GraphQL sans code lisible affiche le meme message`() {
+        client.onSignIn = { _, _ -> SignInOutcome.Refused(null) }
         vm.email = "theo@example.com"
         vm.password = "faux"
         vm.connect()
@@ -77,7 +93,7 @@ class SensCritiqueViewModelTest {
     // « Non connecte » alors que le jeton et la file resteraient stockes.
     @Test
     fun `deconnecter efface le magasin en entier, file comprise`() {
-        store.writeAuth(SensCritiqueAuth("refresh-1", "TheofB"))
+        store.writeAuth(SensCritiqueAuth("cookie-1", "2026-10-14T10:00:00Z", "TheofB"))
         store.writeQueue(mapOf("m1" to QueuedPush("m1", "Chihiro", null, 2001, 8, "2026-09-10", 42L)))
         store.writeDecisions(mapOf("m2" to null))
 
@@ -91,7 +107,7 @@ class SensCritiqueViewModelTest {
 
     @Test
     fun `refresh relit le magasin — utile apres une deconnexion par le rejeu de la file`() {
-        store.writeAuth(SensCritiqueAuth("refresh-1", "TheofB"))
+        store.writeAuth(SensCritiqueAuth("cookie-1", "2026-10-14T10:00:00Z", "TheofB"))
         val vmFraiche = SensCritiqueViewModel(store, client) // lu a la construction
         assertEquals("TheofB", vmFraiche.ui.value.connectedPseudo)
 
@@ -106,7 +122,7 @@ class SensCritiqueViewModelTest {
     // vider que `email` (oublier `password`, ou l'erreur) fait echouer l'assertion correspondante.
     @Test
     fun `clearCredentials efface l email, le mot de passe et l erreur d une tentative refusee`() {
-        client.onSignIn = { _, _ -> SignInOutcome.Refused("INVALID_PASSWORD") }
+        client.onSignIn = { _, _ -> SignInOutcome.Refused("auth/wrong-password") }
         vm.email = "theo@example.com"
         vm.password = "secret"
         vm.connect()
@@ -124,7 +140,7 @@ class SensCritiqueViewModelTest {
     // de lire hors visite de l'ecran SensCritique.
     @Test
     fun `clearCredentials ne touche pas au pseudo connecte`() {
-        store.writeAuth(SensCritiqueAuth("refresh-1", "TheofB"))
+        store.writeAuth(SensCritiqueAuth("cookie-1", "2026-10-14T10:00:00Z", "TheofB"))
         val vmConnecte = SensCritiqueViewModel(store, client)
         assertEquals("TheofB", vmConnecte.ui.value.connectedPseudo)
 
