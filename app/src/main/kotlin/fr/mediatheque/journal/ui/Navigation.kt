@@ -4,11 +4,19 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.material3.NavigationBarDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -58,24 +66,30 @@ fun Screen.bottomBarTab(): BottomTab? = when (this) {
  * 14 septembre 2026, en remplacement de l'`IconButton` profil de l'accueil, jugé inaccessible).
  * Toucher l’écran où l’on est déjà ne fait rien ; depuis « Mes films », « Profil » est surlignée
  * mais reste touchable et ramène au profil (`Root.kt` lui passe un `pop`).
- * `NavigationBar` les prend de `MaterialTheme.colorScheme`.
+ * Hauteur 56 dp, icônes seules (le `NavigationBar` de Material fait 80 dp avec ses libellés,
+ * jugé trop haut par le propriétaire le 14 septembre 2026) : un `Row` sous les mêmes insets et
+ * la même couleur que `NavigationBar`, avec les `NavigationBarItem` de Material dedans. Le
+ * libellé passe en `contentDescription` pour le lecteur d’écran.
  */
 @Composable
 fun JournalBottomBar(current: Screen, onHome: () -> Unit, onProfile: () -> Unit) {
     val selected = current.bottomBarTab()
-    NavigationBar {
-        NavigationBarItem(
-            selected = selected == BottomTab.Home,
-            onClick = { if (current != Screen.Home) onHome() },
-            icon = { Icon(Icons.Filled.Home, contentDescription = null) },
-            label = { Text("Accueil") },
-        )
-        NavigationBarItem(
-            selected = selected == BottomTab.Profile,
-            onClick = { if (current != Screen.Profile) onProfile() },
-            icon = { Icon(Icons.Filled.Person, contentDescription = null) },
-            label = { Text("Profil") },
-        )
+    Surface(color = NavigationBarDefaults.containerColor) {
+        Row(
+            Modifier.fillMaxWidth().windowInsetsPadding(NavigationBarDefaults.windowInsets).height(56.dp).selectableGroup(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+        ) {
+            NavigationBarItem(
+                selected = selected == BottomTab.Home,
+                onClick = { if (current != Screen.Home) onHome() },
+                icon = { Icon(Icons.Filled.Home, contentDescription = "Accueil") },
+            )
+            NavigationBarItem(
+                selected = selected == BottomTab.Profile,
+                onClick = { if (current != Screen.Profile) onProfile() },
+                icon = { Icon(Icons.Filled.Person, contentDescription = "Profil") },
+            )
+        }
     }
 }
 
