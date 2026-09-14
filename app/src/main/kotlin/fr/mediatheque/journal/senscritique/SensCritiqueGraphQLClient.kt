@@ -14,6 +14,9 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
@@ -30,39 +33,52 @@ private const val GRAPHQL_URL = "https://apollo.senscritique.com/graphql"
 private const val BROWSER_USER_AGENT =
     "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
 
-// La forme exacte de `SearchResult` (le champ enveloppant ou une liste directe ?) et celle de
-// `DoneResult` ne sont pas connues (brief) : `searchResult` est interrogé comme une liste directe
-// d'objets `{ id title originalTitle yearOfProduction medias { picture } }` — la lecture la plus
-// probable du brief (« rend des produits avec … ») — et les deux mutations ne demandent que
-// `__typename`, seul champ qu'on puisse réclamer sans connaître le schéma. Si l'une de ces
-// hypothèses est fausse, l'appel échoue proprement (`Failed`, jamais un plantage) et l'erreur de
-// validation GraphQL est journalisée telle quelle par `execute` : le premier essai connecté sert de
-// sonde, comme demandé.
+/**
+ * Vérifiée (revue du 14 septembre 2026, troisième essai réel — la recherche a été lue dans les
+ * documents GraphQL du site SensCritique lui-même, puis confirmée en lecture seule) :
+ * `searchProductExplorer(query:, limit:, filters:)` rend `{ items { ... } }`, pas une liste directe.
+ * `filters` porte `[{identifier:"universe", termValues:["movie"]}]` sur leur site ; si le serveur le
+ * refuse (`BAD_USER_INPUT`), `search` rejoue sans filtre — et filtre `universe == 1` côté appli dans
+ * tous les cas, ceinture et bretelles (« Voyage dans la Lune » a un homonyme livre en universe 2).
+ */
 private const val SEARCH_QUERY = """
-query Rechercher(${'$'}mots: String!) {
-  searchResult(keywords: ${'$'}mots, universe: "movie", limit: 10) {
-    id
-    title
-    originalTitle
-    yearOfProduction
-    medias { picture }
+query Rechercher(${'$'}q: String, ${'$'}f: [SearchFilter]) {
+  searchProductExplorer(query: ${'$'}q, limit: 10, filters: ${'$'}f) {
+    items {
+      id
+      title
+      originalTitle
+      yearOfProduction
+      universe
+      directors { name }
+      medias { picture }
+    }
   }
 }
 """
 
+/** Le champ `id` non nul vaut succès (document du site SensCritique, revue du 14 septembre 2026). */
 private const val RATE_MUTATION = """
 mutation Noter(${'$'}id: Int!, ${'$'}note: Int!) {
-  productRate(productId: ${'$'}id, rating: ${'$'}note) { __typename }
+  productRate(productId: ${'$'}id, rating: ${'$'}note) { id }
 }
 """
 
-// `productDone` n'accepte peut-être pas d'autre argument que `productId` (brief : « si aucun
-// argument de date n'existe, on marque vu sans date ») — c'est ce qui est envoyé ici. Si un
-// argument de date existe et est requis, l'erreur de validation GraphQL le nommera, journalisée par
-// `execute` (voir le rapport de la tâche : inconnue à lever sur le téléphone du propriétaire).
+/** `success` vrai vaut succès ; pas d'argument de date (document du site, revue du 14 septembre 2026). */
 private const val DONE_MUTATION = """
 mutation Vu(${'$'}id: Int!) {
-  productDone(productId: ${'$'}id) { __typename }
+  productDone(productId: ${'$'}id) { success }
+}
+"""
+
+/**
+ * La mutation de date manquante (document du site, revue du 14 septembre 2026) — appelée après
+ * `productDone`, jamais à sa place : `productDone` marque « vu », `setProductDateDone` pose la date.
+ * Un échec ici seul ne défait pas la poussée (`SensCritiqueRatingService.push`).
+ */
+private const val DATE_MUTATION = """
+mutation Date(${'$'}id: Int!, ${'$'}d: String!) {
+  setProductDateDone(productId: ${'$'}id, date: ${'$'}d) { id }
 }
 """
 
@@ -72,18 +88,20 @@ query QuiSuisJe(${'$'}pseudo: String!) {
 }
 """
 
-/** Les quatre appels GraphQL du brief : chercher, noter, marquer vu, vérifier la connexion. */
+/** Les cinq appels GraphQL du brief : chercher, noter, marquer vu, poser la date, vérifier la connexion. */
 interface SensCritiqueGraphQLClient {
     suspend fun search(idToken: String, keywords: String): ExternalSearchOutcome
     suspend fun rate(idToken: String, productId: Long, rating: Int): ExternalPushOutcome
     suspend fun markDone(idToken: String, productId: Long): ExternalPushOutcome
+    suspend fun setDate(idToken: String, productId: Long, date: String): ExternalPushOutcome
     suspend fun whoAmI(idToken: String, pseudo: String): Boolean
 }
 
 private sealed interface RawOutcome {
     data class Ok(val data: JsonObject) : RawOutcome
     data object Unauthenticated : RawOutcome
-    data object Failed : RawOutcome
+    /** `errors` porte le tableau GraphQL brut quand il existe — `search` s'en sert pour détecter `BAD_USER_INPUT`. */
+    data class Failed(val errors: JsonArray? = null) : RawOutcome
 }
 
 /** Implémentation réelle, par le client Ktor partagé (`ApiClient.okHttpEngine`, sans cookie jar). */
@@ -93,15 +111,33 @@ class KtorSensCritiqueGraphQLClient(
 ) : SensCritiqueGraphQLClient {
 
     override suspend fun search(idToken: String, keywords: String): ExternalSearchOutcome {
-        val variables = buildJsonObject { put("mots", keywords) }
-        return when (val outcome = execute(idToken, SEARCH_QUERY, variables)) {
+        val avecFiltre = buildJsonObject {
+            put("q", keywords)
+            put(
+                "f",
+                buildJsonArray {
+                    add(
+                        buildJsonObject {
+                            put("identifier", "universe")
+                            put("termValues", buildJsonArray { add(JsonPrimitive("movie")) })
+                        },
+                    )
+                },
+            )
+        }
+        return when (val premier = execute(idToken, SEARCH_QUERY, avecFiltre)) {
+            is RawOutcome.Ok -> itemsFrom(premier.data)
             RawOutcome.Unauthenticated -> ExternalSearchOutcome.Unauthenticated
-            RawOutcome.Failed -> ExternalSearchOutcome.Failed
-            is RawOutcome.Ok -> when (val element = outcome.data["searchResult"]) {
-                null, is JsonNull -> ExternalSearchOutcome.Success(emptyList())
-                is JsonArray -> ExternalSearchOutcome.Success(element.mapNotNull { (it as? JsonObject)?.let(::candidateFrom) })
-                else -> {
-                    logger.d("forme de searchResult inattendue : $element")
+            is RawOutcome.Failed -> {
+                if (premier.errors?.estBadUserInput() == true) {
+                    logger.d("recherche avec filtre univers refusee (BAD_USER_INPUT), repli sans filtre")
+                    val sansFiltre = buildJsonObject { put("q", keywords); put("f", JsonNull) }
+                    when (val second = execute(idToken, SEARCH_QUERY, sansFiltre)) {
+                        is RawOutcome.Ok -> itemsFrom(second.data)
+                        RawOutcome.Unauthenticated -> ExternalSearchOutcome.Unauthenticated
+                        is RawOutcome.Failed -> ExternalSearchOutcome.Failed
+                    }
+                } else {
                     ExternalSearchOutcome.Failed
                 }
             }
@@ -110,12 +146,17 @@ class KtorSensCritiqueGraphQLClient(
 
     override suspend fun rate(idToken: String, productId: Long, rating: Int): ExternalPushOutcome {
         val variables = buildJsonObject { put("id", productId); put("note", rating) }
-        return execute(idToken, RATE_MUTATION, variables).toPushOutcome("productRate")
+        return execute(idToken, RATE_MUTATION, variables).toPushOutcome("productRate", "id")
     }
 
     override suspend fun markDone(idToken: String, productId: Long): ExternalPushOutcome {
         val variables = buildJsonObject { put("id", productId) }
-        return execute(idToken, DONE_MUTATION, variables).toPushOutcome("productDone")
+        return execute(idToken, DONE_MUTATION, variables).toDoneOutcome()
+    }
+
+    override suspend fun setDate(idToken: String, productId: Long, date: String): ExternalPushOutcome {
+        val variables = buildJsonObject { put("id", productId); put("d", date) }
+        return execute(idToken, DATE_MUTATION, variables).toPushOutcome("setProductDateDone", "id")
     }
 
     override suspend fun whoAmI(idToken: String, pseudo: String): Boolean {
@@ -127,18 +168,35 @@ class KtorSensCritiqueGraphQLClient(
      * `data` présent ne suffit pas : un `data.<champAttendu>` absent ou nul (GraphQL peut répondre
      * `200` avec `{"data":{"productRate":null}}` sans lever d'erreur, un serveur qui a refusé la
      * mutation sans le dire par une `errors[]`) valait `Success` — corrigé (revue du 14 septembre
-     * 2026, mineur b). Le corps journalisé ne porte jamais le jeton (transmis en en-tête, jamais
+     * 2026, mineur b). Depuis le troisième essai réel, le champ attendu est précisément celui que
+     * le document du site nomme (`productRate.id`, `setProductDateDone.id`) — plus un `__typename`
+     * de circonstance. Le corps journalisé ne porte jamais le jeton (transmis en en-tête, jamais
      * dans `data`).
      */
-    private fun RawOutcome.toPushOutcome(champAttendu: String): ExternalPushOutcome = when (this) {
+    private fun RawOutcome.toPushOutcome(champAttendu: String, sousChamp: String): ExternalPushOutcome = when (this) {
         RawOutcome.Unauthenticated -> ExternalPushOutcome.Unauthenticated
-        RawOutcome.Failed -> ExternalPushOutcome.Failed
+        is RawOutcome.Failed -> ExternalPushOutcome.Failed
         is RawOutcome.Ok -> {
-            val champ = data[champAttendu]
-            if (champ != null && champ !is JsonNull) {
+            val valeur = (data[champAttendu] as? JsonObject)?.get(sousChamp)
+            if (valeur != null && valeur !is JsonNull) {
                 ExternalPushOutcome.Success
             } else {
-                logger.d("mutation sans resultat pour $champAttendu : $data")
+                logger.d("mutation sans resultat pour $champAttendu.$sousChamp : $data")
+                ExternalPushOutcome.Failed
+            }
+        }
+    }
+
+    /** `productDone` : succès seulement si `success` vaut vrai — pas juste présent (document du site). */
+    private fun RawOutcome.toDoneOutcome(): ExternalPushOutcome = when (this) {
+        RawOutcome.Unauthenticated -> ExternalPushOutcome.Unauthenticated
+        is RawOutcome.Failed -> ExternalPushOutcome.Failed
+        is RawOutcome.Ok -> {
+            val succes = ((data["productDone"] as? JsonObject)?.get("success") as? JsonPrimitive)?.booleanOrNull
+            if (succes == true) {
+                ExternalPushOutcome.Success
+            } else {
+                logger.d("productDone sans succes : $data")
                 ExternalPushOutcome.Failed
             }
         }
@@ -158,7 +216,7 @@ class KtorSensCritiqueGraphQLClient(
             throw e
         } catch (e: Throwable) {
             logger.d("GraphQL injoignable : ${e.message}")
-            return RawOutcome.Failed
+            return RawOutcome.Failed()
         }
 
         if (reponse.status == 401 || reponse.status == 403) {
@@ -169,7 +227,7 @@ class KtorSensCritiqueGraphQLClient(
         val root = runCatching { Json.parseToJsonElement(reponse.body) }.getOrNull() as? JsonObject
         if (root == null) {
             logger.d("reponse GraphQL illisible (${reponse.status}) : ${reponse.body}")
-            return RawOutcome.Failed
+            return RawOutcome.Failed()
         }
 
         val errors = root["errors"] as? JsonArray
@@ -181,25 +239,55 @@ class KtorSensCritiqueGraphQLClient(
             return if (texte.contains("unauthenticated", ignoreCase = true) || texte.contains("auth/", ignoreCase = true)) {
                 RawOutcome.Unauthenticated
             } else {
-                RawOutcome.Failed
+                RawOutcome.Failed(errors)
             }
         }
 
         val data = root["data"] as? JsonObject
         if (data == null) {
             logger.d("reponse GraphQL sans donnees : ${reponse.body}")
-            return RawOutcome.Failed
+            return RawOutcome.Failed()
         }
         return RawOutcome.Ok(data)
     }
 }
+
+/** `code == "BAD_USER_INPUT"` (convention `extensions.code`), ou le mot dans le message à défaut. */
+private fun JsonArray.estBadUserInput(): Boolean = any { erreur ->
+    val objet = erreur as? JsonObject ?: return@any false
+    val code = ((objet["extensions"] as? JsonObject)?.get("code") as? JsonPrimitive)?.contentOrNull
+    val message = (objet["message"] as? JsonPrimitive)?.contentOrNull
+    code == "BAD_USER_INPUT" || message?.contains("BAD_USER_INPUT") == true
+}
+
+private fun itemsFrom(data: JsonObject): ExternalSearchOutcome {
+    val items = (data["searchProductExplorer"] as? JsonObject)?.get("items") as? JsonArray
+    if (items == null) {
+        return ExternalSearchOutcome.Failed
+    }
+    val candidats = items
+        .mapNotNull { it as? JsonObject }
+        .filter { estUnFilm(it) }
+        .mapNotNull(::candidateFrom)
+    return ExternalSearchOutcome.Success(candidats)
+}
+
+/**
+ * `universe == 1` pour un film (revue du 14 septembre 2026, point 1) : ceinture et bretelles, même
+ * quand le filtre côté serveur a été accepté — « Le Voyage dans la Lune » partage son titre avec un
+ * recueil de lettres en `universe 2` (livre), que le filtre serveur seul ne suffit pas à écarter à
+ * coup sûr.
+ */
+private fun estUnFilm(item: JsonObject): Boolean = (item["universe"] as? JsonPrimitive)?.intOrNull == 1
 
 private fun candidateFrom(item: JsonObject): ExternalCandidate? {
     val id = (item["id"] as? JsonPrimitive)?.longOrNull ?: return null
     val title = (item["title"] as? JsonPrimitive)?.contentOrNull ?: return null
     val originalTitle = (item["originalTitle"] as? JsonPrimitive)?.contentOrNull
     val year = (item["yearOfProduction"] as? JsonPrimitive)?.intOrNull
-    return ExternalCandidate(id, title, originalTitle, year, pictureUrl = extractPicture(item))
+    val director = ((item["directors"] as? JsonArray)?.firstOrNull() as? JsonObject)?.get("name")
+        ?.let { it as? JsonPrimitive }?.contentOrNull
+    return ExternalCandidate(id, title, originalTitle, year, pictureUrl = extractPicture(item), director = director)
 }
 
 /** `medias` peut être une liste ou un objet unique (forme non vérifiée) — on prend la première image trouvée. */

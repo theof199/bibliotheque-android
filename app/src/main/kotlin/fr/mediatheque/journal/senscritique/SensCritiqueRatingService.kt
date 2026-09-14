@@ -6,6 +6,7 @@ import java.time.LocalDate
 class SensCritiqueRatingService(
     private val tokens: SensCritiqueAuthProvider,
     private val graphql: SensCritiqueGraphQLClient,
+    private val logger: SensCritiqueLogger = AndroidSensCritiqueLogger,
 ) : ExternalRatingService {
     override val name: String = "SensCritique"
 
@@ -19,15 +20,13 @@ class SensCritiqueRatingService(
         }
 
     /**
-     * `productRate` puis `productDone` (brief §3) — une suppression ou une note retirée n'appelle
-     * jamais cette fonction.
-     *
-     * `watchedOn` n'est pas encore transmis à `productDone` (important 7 de la revue du
-     * 14 septembre 2026, README « SensCritique ») : son argument de date, s'il existe, n'est pas
-     * connu (brief) — `DONE_MUTATION`, dans `SensCritiqueGraphQLClient`, n'envoie que `productId`.
-     * Le paramètre reste dans cette signature pour le jour où cet argument sera découvert (le
-     * premier essai connecté du propriétaire, journalisé par `bin/logs`), plutôt que de devoir
-     * changer la forme de `ExternalRatingService` à ce moment-là.
+     * `productRate`, puis `productDone`, puis `setProductDateDone` — dans cet ordre (revue du
+     * 14 septembre 2026, troisième essai réel, point 5) : `productDone` marque « vu », la date se
+     * pose ensuite, jamais avant. Un échec de `productRate` ou `productDone` arrête tout (la note ou
+     * le « vu » ne sont pas posés, la poussée échoue). Un échec de `setProductDateDone` *seul* ne
+     * défait pas la poussée (point 4) : la note et le « vu » sont déjà acquis, seule la date manque
+     * — journalisé (par `KtorSensCritiqueGraphQLClient`, jamais le jeton) mais la poussée compte
+     * comme réussie.
      */
     override suspend fun push(productId: Long, rating: Int, watchedOn: LocalDate): ExternalPushOutcome {
         val token = when (val t = tokens.idToken()) {
@@ -37,6 +36,12 @@ class SensCritiqueRatingService(
         }
         val rated = graphql.rate(token, productId, rating)
         if (rated !is ExternalPushOutcome.Success) return rated
-        return graphql.markDone(token, productId)
+        val marque = graphql.markDone(token, productId)
+        if (marque !is ExternalPushOutcome.Success) return marque
+
+        if (graphql.setDate(token, productId, watchedOn.toString()) !is ExternalPushOutcome.Success) {
+            logger.d("date non posee pour $productId (setProductDateDone a echoue) : poussee comptee reussie quand meme")
+        }
+        return ExternalPushOutcome.Success
     }
 }

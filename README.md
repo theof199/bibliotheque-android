@@ -155,10 +155,9 @@ de monter Kotlin, et ce sera une décision à prendre en entier, pas en passant.
 
 ## SensCritique
 
-Décision du propriétaire du 14 septembre 2026 : quand il note un film dans l'appli, la note part
-aussi sur son compte SensCritique — l'intention porte aussi la date de visionnage, mais elle ne part
-pas encore (voir plus bas, l'argument de date de `productDone` reste inconnu). Tout vit dans
-l'appli, rien ne change au back.
+Décision du propriétaire du 14 septembre 2026 : quand il note un film dans l'appli, la note et la
+date de visionnage partent aussi sur son compte SensCritique. Tout vit dans l'appli, rien ne change
+au back.
 
 - **Le mot de passe SensCritique n'est jamais stocké.** Seuls le `refreshToken` (renouvelé toutes
   les heures) et le pseudo le sont, chiffrés par une clé AES-GCM du `AndroidKeyStore` — jamais
@@ -170,12 +169,12 @@ l'appli, rien ne change au back.
   `senscritique/SensCritiqueAuthClient.kt`) est celle de l'application web de SensCritique, publique
   par nature (toute page de leur site la charge), lue sur leur site le 14 septembre 2026 ; elle est
   à eux et peut changer sans préavis.
-- **La forme de deux réponses GraphQL n'est pas connue.** `productDone` n'est donc appelé qu'avec
-  `productId` : sans savoir si un argument de date existe ni comment il s'appelle, l'appli marque
-  « vu » sans date pour l'instant (le paramètre `watchedOn` de `SensCritiqueRatingService.push`
-  est gardé, commenté, pour le jour où cet argument sera connu). Les champs exacts de `searchResult`
-  ne sont pas connus non plus. La première connexion réelle sert de sonde pour les deux : l'erreur
-  de validation GraphQL sort telle quelle dans `bin/logs` (`Log.d("SensCritique", …)`).
+- **La recherche et les trois mutations de la poussée** (`senscritique/SensCritiqueGraphQLClient.kt`)
+  viennent des documents GraphQL du site SensCritique lui-même, lus et vérifiés le 14 septembre 2026 :
+  `searchProductExplorer` (avec un repli sans filtre univers si le serveur le refuse — `BAD_USER_INPUT`
+  — et un filtre `universe == 1` côté appli dans tous les cas), puis `productRate`, `productDone` et
+  `setProductDateDone` dans cet ordre. Un échec de cette dernière seule (la date) ne défait pas la
+  poussée : la note et le « vu » sont déjà acquis, seule la date manque — journalisé.
 
 ## Vérifier
 
@@ -220,7 +219,7 @@ liste de contrôle à jouer, pas un journal de ce qui a déjà été vérifié.
 - [ ] La version `release` (`bin/install release`) installée à côté s'appelle « Journal » (paquet `fr.mediatheque.journal`) : les deux applications cohabitent, aucune n'efface l'autre.
 - [ ] Profil, ligne « SensCritique » : « Non connecté ». La toucher ouvre l'écran de connexion ; un mauvais mot de passe dit « Identifiants refusés. » sous le bouton.
 - [ ] Une connexion réussie : le pseudo affiché, retour au profil, la ligne dit « Connecté : … ».
-- [ ] Noter un premier film (note non nulle) une fois connecté : « Enregistré · SensCritique ✓ » en snackbar ; le film apparaît noté et « vu » sur SensCritique, à la bonne date si `bin/logs` a confirmé l'argument de date de `productDone`, sans date sinon.
+- [ ] Noter un premier film (note non nulle) une fois connecté : « Enregistré · SensCritique ✓ » en snackbar ; le film apparaît noté, « vu » et daté (la date du journal) sur SensCritique.
 - [ ] Corriger la note d'un film déjà poussé : « Corrigé · SensCritique ✓ » ; la note change aussi sur SensCritique.
 - [ ] Un film sans correspondance nette sur SensCritique (titre ambigu, ou absent de leur catalogue) : la feuille « Lequel sur SensCritique ? » s'ouvre avant le retour à l'accueil ; toucher un candidat ou « Aucun de ceux-là » referme la feuille et termine le geste.
 - [ ] Rouvrir ce même film et le corriger de nouveau : la feuille ne redemande plus (le choix est mémorisé).

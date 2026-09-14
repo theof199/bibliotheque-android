@@ -24,7 +24,7 @@ data class ExternalCandidate(
     val originalTitle: String?,
     val year: Int?,
     val pictureUrl: String? = null,
-    /** Jamais renseigné par SensCritique à ce jour (champ non vérifié) — gardé pour l'affichage si un jour il l'est. */
+    /** `directors[0].name` (revue du 14 septembre 2026, troisième essai réel — vérifié, ex. « Georges Méliès »). */
     val director: String? = null,
 )
 

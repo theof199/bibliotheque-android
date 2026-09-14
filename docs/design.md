@@ -269,7 +269,10 @@ senscritique/
                                    KeystoreSensCritiqueStore (AES-GCM AndroidKeyStore, réel)
   SensCritiqueAuthClient.kt       Firebase Auth REST : connexion, renouvellement
   SensCritiqueAuthProvider.kt     la décision de jeton (frais réutilisé / renouvelé / refusé)
-  SensCritiqueGraphQLClient.kt    les quatre appels GraphQL (chercher, noter, marquer vu, vérifier)
+  SensCritiqueGraphQLClient.kt    les cinq appels GraphQL, documents du site SensCritique lui-même
+                                   (vérifiés le 14 septembre 2026) : searchProductExplorer (chercher),
+                                   productRate (noter), productDone (marquer vu), setProductDateDone
+                                   (poser la date, après productDone), user (vérifier la connexion)
   SensCritiqueRatingService.kt    l'implémentation SensCritique de ExternalRatingService
   SensCritiqueSync.kt             l'orchestration : résoudre, pousser, la file, le rejeu
 ui/profile/

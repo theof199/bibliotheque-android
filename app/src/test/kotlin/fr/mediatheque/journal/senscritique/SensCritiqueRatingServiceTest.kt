@@ -54,6 +54,7 @@ class SensCritiqueRatingServiceTest {
         service.push(42, 8, LocalDate.parse("2026-09-10"))
         assertEquals(listOf(Triple("id-1", 42L, 8)), graphql.rateCalls)
         assertEquals(listOf("id-1" to 42L), graphql.markDoneCalls)
+        assertEquals(listOf(Triple("id-1", 42L, "2026-09-10")), graphql.setDateCalls)
     }
 
     @Test
@@ -65,5 +66,33 @@ class SensCritiqueRatingServiceTest {
 
         assertEquals(ExternalPushOutcome.Failed, service.push(42, 8, LocalDate.parse("2026-09-10")))
         assertTrue(graphql.markDoneCalls.isEmpty())
+    }
+
+    // Mutation : arreter push() a markDone (ne jamais appeler setDate) fait echouer la premiere
+    // assertion du test precedent (setDateCalls vide) — celui-ci verifie en plus que markDone en
+    // echec arrete tout avant setDate, jumeau du test productRate ci-dessus.
+    @Test
+    fun `push s arrete a productDone si celui-ci echoue, setDate n est jamais appele`() = runTest {
+        val store = InMemorySensCritiqueStore().apply { writeAuth(SensCritiqueAuth("refresh-1", "TheofB")) }
+        authClient.onRefresh = { RefreshOutcome.Success("id-1", "refresh-1", 3600) }
+        graphql.onMarkDone = { _, _ -> ExternalPushOutcome.Failed }
+        val service = service(store)
+
+        assertEquals(ExternalPushOutcome.Failed, service.push(42, 8, LocalDate.parse("2026-09-10")))
+        assertTrue(graphql.setDateCalls.isEmpty())
+    }
+
+    // Point 4 de la revue du 14 septembre 2026 : un echec de setProductDateDone seul ne defait pas
+    // la poussee — note et « vu » sont deja acquis. Mutation : propager l'echec de setDate en
+    // `ExternalPushOutcome.Failed` fait echouer cette assertion (elle attend `Success`).
+    @Test
+    fun `un echec de setDate seul ne fait pas echouer la poussee`() = runTest {
+        val store = InMemorySensCritiqueStore().apply { writeAuth(SensCritiqueAuth("refresh-1", "TheofB")) }
+        authClient.onRefresh = { RefreshOutcome.Success("id-1", "refresh-1", 3600) }
+        graphql.onSetDate = { _, _, _ -> ExternalPushOutcome.Failed }
+        val service = service(store)
+
+        assertEquals(ExternalPushOutcome.Success, service.push(42, 8, LocalDate.parse("2026-09-10")))
+        assertEquals(listOf(Triple("id-1", 42L, "2026-09-10")), graphql.setDateCalls)
     }
 }
