@@ -90,18 +90,19 @@ class NavigationTest {
         assertEquals("un push vers un autre ecran ne doit rien incrementer", secondeVisite, apresPushForm)
     }
 
-    // `bottomBarTab()` fixe la matrice des sept écrans pour la barre de navigation du bas
-    // (décision du propriétaire du 14 septembre 2026) : visible sur l'accueil, « Mes films » et
-    // le profil — « Mes films » affichant « Profil » sélectionnée, puisqu'elle ne s'empile que
-    // depuis `Screen.Profile` dans `Root.kt`, jamais depuis l'accueil — cachée sur la recherche,
-    // le formulaire (création ou correction) et l'écran SensCritique. Mutation : faire retourner
-    // `BottomTab.Home` pour `Screen.Films` casse l'assertion sur `visibles` ; rendre non nul le
-    // résultat pour l'un des quatre écrans cachés, ou nul pour l'un des trois visibles, casse la
-    // boucle correspondante.
+    // `bottomBarTab()` fixe la matrice des huit écrans pour la barre de navigation du bas
+    // (décision du propriétaire du 14 septembre 2026, troisième entrée « Au ciné » ajoutée le
+    // même jour) : visible sur l'accueil, « Au ciné », « Mes films » et le profil — « Mes films »
+    // affichant « Profil » sélectionnée, puisqu'elle ne s'empile que depuis `Screen.Profile` dans
+    // `Root.kt`, jamais depuis l'accueil — cachée sur la recherche, le formulaire (création ou
+    // correction) et l'écran SensCritique. Mutation : faire retourner `BottomTab.Home` pour
+    // `Screen.Films` casse l'assertion sur `visibles` ; rendre non nul le résultat pour l'un des
+    // quatre écrans cachés, ou nul pour l'un des quatre visibles, casse la boucle correspondante.
     @Test
-    fun `bottomBarTab fixe la visibilite et la selection des sept ecrans`() {
+    fun `bottomBarTab fixe la visibilite et la selection des huit ecrans`() {
         val visibles = mapOf(
             Screen.Home to BottomTab.Home,
+            Screen.Cinema to BottomTab.Cinema,
             Screen.Profile to BottomTab.Profile,
             Screen.Films to BottomTab.Profile,
         )

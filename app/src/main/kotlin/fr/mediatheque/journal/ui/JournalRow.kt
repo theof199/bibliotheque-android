@@ -1,0 +1,46 @@
+package fr.mediatheque.journal.ui
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import fr.mediatheque.journal.api.dto.JournalItem
+import fr.mediatheque.journal.reactions.Reactions
+
+/**
+ * Une ligne de journal : affiche, titre, date, emojis des réactions, note à
+ * droite. Celle de « Mes films » (`FilmsScreen.kt`) — et, depuis le brief du
+ * 14 septembre 2026, celle de « Tes séances » sur l'écran « Au ciné »
+ * (`ui/cinema/AuCineScreen.kt`), qui doit rester « même ligne que Mes films »
+ * à la lettre, pas seulement à l'œil. Un seul endroit, pour que les deux ne
+ * divergent jamais.
+ */
+@Composable
+fun JournalRow(item: JournalItem, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier.fillMaxWidth().clickable(onClick = onClick),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Cover(item.media.cover_url, item.media.title, 56.dp, 84.dp)
+        Column(Modifier.weight(1f)) {
+            Text(item.media.title, style = MaterialTheme.typography.titleMedium)
+            Text(
+                formatDate(item.entry.finished_at),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (item.carnet.reactions.isNotEmpty()) {
+                Text(item.carnet.reactions.joinToString(" ") { Reactions.emoji(it) }, style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+        item.entry.rating?.let { Text("$it", style = MaterialTheme.typography.titleMedium) }
+    }
+}

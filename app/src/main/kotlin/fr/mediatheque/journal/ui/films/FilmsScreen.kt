@@ -1,6 +1,5 @@
 package fr.mediatheque.journal.ui.films
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,10 +29,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import fr.mediatheque.journal.api.dto.JournalItem
-import fr.mediatheque.journal.reactions.Reactions
-import fr.mediatheque.journal.ui.Cover
 import fr.mediatheque.journal.ui.ErrorBlock
-import fr.mediatheque.journal.ui.formatDate
+import fr.mediatheque.journal.ui.JournalRow
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 // Pas de snackbar ici : cet écran n'a jamais reçu `nav`, rien ne pousse de message vers
@@ -69,21 +66,7 @@ fun FilmsScreen(vm: FilmsViewModel, onBack: () -> Unit, onOpen: (JournalItem) ->
             } else {
                 LazyColumn(state = liste, contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     items(ui.items, key = { it.entry.id }) { item ->
-                        Row(
-                            Modifier.fillMaxWidth().clickable { onOpen(item) },
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Cover(item.media.cover_url, item.media.title, 56.dp, 84.dp)
-                            Column(Modifier.weight(1f)) {
-                                Text(item.media.title, style = MaterialTheme.typography.titleMedium)
-                                Text(formatDate(item.entry.finished_at), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                if (item.carnet.reactions.isNotEmpty()) {
-                                    Text(item.carnet.reactions.joinToString(" ") { Reactions.emoji(it) }, style = MaterialTheme.typography.bodyMedium)
-                                }
-                            }
-                            item.entry.rating?.let { Text("$it", style = MaterialTheme.typography.titleMedium) }
-                        }
+                        JournalRow(item, onClick = { onOpen(item) })
                     }
                     if (ui.loading) {
                         item {

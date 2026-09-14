@@ -20,6 +20,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import fr.mediatheque.journal.AppContainer
+import fr.mediatheque.journal.ui.cinema.AuCineScreen
+import fr.mediatheque.journal.ui.cinema.AuCineViewModel
+import fr.mediatheque.journal.ui.cinema.toSearchResult
 import fr.mediatheque.journal.ui.films.FilmsScreen
 import fr.mediatheque.journal.ui.films.FilmsViewModel
 import fr.mediatheque.journal.ui.form.FormMode
@@ -113,7 +116,14 @@ fun Root(container: AppContainer) {
                             nav = nav,
                             onAdd = { nav.push(Screen.Search) },
                             onOpen = { nav.push(Screen.Edit(it)) },
-                            bottomBar = { JournalBottomBar(screen, onHome = { nav.home() }, onProfile = { nav.push(Screen.Profile) }) },
+                            bottomBar = {
+                                JournalBottomBar(
+                                    screen,
+                                    onHome = { nav.home() },
+                                    onCinema = { nav.push(Screen.Cinema) },
+                                    onProfile = { nav.push(Screen.Profile) },
+                                )
+                            },
                         )
                     }
                     Screen.Search -> SearchScreen(search, onBack = nav::pop, onPick = { nav.push(Screen.Form(it)) })
@@ -138,7 +148,14 @@ fun Root(container: AppContainer) {
                             onFilms = { nav.push(Screen.Films) },
                             onSensCritique = { nav.push(Screen.SensCritique) },
                             onSignOut = session::signOut,
-                            bottomBar = { JournalBottomBar(screen, onHome = { nav.home() }, onProfile = { nav.push(Screen.Profile) }) },
+                            bottomBar = {
+                                JournalBottomBar(
+                                    screen,
+                                    onHome = { nav.home() },
+                                    onCinema = { nav.push(Screen.Cinema) },
+                                    onProfile = { nav.push(Screen.Profile) },
+                                )
+                            },
                         )
                     }
                     Screen.Films -> {
@@ -155,7 +172,14 @@ fun Root(container: AppContainer) {
                             onOpen = { nav.push(Screen.Edit(it)) },
                             // « Profil » est surlignée ici mais ramène au profil par un `pop`, pas
                             // un `push` : cet écran ne s'empile que depuis lui.
-                            bottomBar = { JournalBottomBar(screen, onHome = { nav.home() }, onProfile = nav::pop) },
+                            bottomBar = {
+                                JournalBottomBar(
+                                    screen,
+                                    onHome = { nav.home() },
+                                    onCinema = { nav.push(Screen.Cinema) },
+                                    onProfile = nav::pop,
+                                )
+                            },
                         )
                     }
                     is Screen.Edit -> {
@@ -184,6 +208,27 @@ fun Root(container: AppContainer) {
                         FormScreen(form, nav = nav, onBack = nav::pop)
                     }
                     Screen.SensCritique -> SensCritiqueScreen(senscritique, onBack = nav::pop)
+                    Screen.Cinema -> {
+                        // Nouveau `ViewModel`, indexé sur l'Activité comme les autres (jumeau de
+                        // `films`/`search` ci-dessus) : sans ce rechargement à chaque entrée, « Tes
+                        // séances » et les grilles de sorties resteraient celles de la première
+                        // visite après l'ajout d'une séance depuis ce même écran.
+                        val cinema: AuCineViewModel = viewModel(key = "cinema") { AuCineViewModel(container.api, session::expire) }
+                        LaunchedEffect(Unit) { cinema.refresh() }
+                        AuCineScreen(
+                            cinema,
+                            onOpenSortie = { nav.push(Screen.Form(it.toSearchResult())) },
+                            onOpenSeance = { nav.push(Screen.Edit(it)) },
+                            bottomBar = {
+                                JournalBottomBar(
+                                    screen,
+                                    onHome = { nav.home() },
+                                    onCinema = { nav.push(Screen.Cinema) },
+                                    onProfile = { nav.push(Screen.Profile) },
+                                )
+                            },
+                        )
+                    }
                 }
             }
         }

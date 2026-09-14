@@ -31,6 +31,11 @@ data class JournalMedia(
     val cover_url: String? = null,
     val year: Int? = null,
     val director: String? = null,
+    // Le `tmdb_id` du film (le carnet ne connaît que des films) — depuis le
+    // 14 septembre 2026, sert à « Au ciné » à rapprocher une affiche de
+    // `SortieFilm.tmdb_id` d'une entrée déjà journalisée. Défaut vide plutôt
+    // que nullable : le champ est toujours présent côté back.
+    val external_id: String = "",
 )
 
 @Serializable

@@ -24,4 +24,11 @@ class ReactionsTest {
 
     @Test fun `ordered rend le catalogue d abord, puis les cles orphelines`() =
         assertEquals(listOf("adore", "sympa", "disparue"), Reactions.ordered(setOf("sympa", "disparue", "adore")))
+
+    // Au ciné (brief du 14 septembre 2026) filtre le journal par `?reaction=en_salle` : la
+    // constante et l'entrée du catalogue doivent rester la même clé.
+    @Test fun `en_salle est au catalogue, avec un clap`() {
+        assertEquals("en_salle", Reactions.EN_SALLE)
+        assertEquals("🎬 En salle", Reactions.label(Reactions.EN_SALLE))
+    }
 }

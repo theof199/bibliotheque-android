@@ -14,5 +14,6 @@ object Endpoints {
     const val media = "media"
     const val journal = "me/journal"
     const val stats = "stats"
+    const val sorties = "reference/sorties"
     fun viewing(id: String): String = "me/journal/$id"
 }

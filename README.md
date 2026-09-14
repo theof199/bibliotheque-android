@@ -233,3 +233,6 @@ liste de contrôle à jouer, pas un journal de ce qui a déjà été vérifié.
 - [ ] Rouvrir ce même film et le corriger de nouveau : la feuille ne redemande plus (le choix est mémorisé).
 - [ ] Sur un film ambigu, quitter la feuille par le retour système plutôt que par un choix : le geste se termine quand même, « Enregistré · SensCritique : réessai au prochain lancement » ; la poussée reste en file sans être résolue — corriger ce même film plus tard rouvre la feuille « Lequel sur SensCritique ? ».
 - [ ] Se déconnecter depuis l'écran SensCritique : la ligne du profil repasse à « Non connecté » ; noter un film ensuite : « Enregistré », sans aucun suffixe SensCritique — rien n'est tenté tant qu'on n'est pas reconnecté.
+- [ ] Dans le formulaire, la réaction « 🎬 En salle » est proposée parmi les autres puces.
+- [ ] « Au ciné » (troisième icône de la barre du bas, entre Accueil et Profil) : « Cette semaine » et « La semaine prochaine » montrent des affiches de sorties, une coche corail sur celles déjà dans le journal ; toucher une affiche ouvre le formulaire pré-rempli.
+- [ ] « Tes séances » liste les films marqués « En salle », du plus récent au plus ancien, même ligne que « Mes films » ; toucher une ligne ouvre la correction, et « N séances cette année » en tête reflète bien ce qui est journalisé.

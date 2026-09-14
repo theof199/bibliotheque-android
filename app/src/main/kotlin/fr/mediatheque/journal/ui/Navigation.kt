@@ -1,6 +1,7 @@
 package fr.mediatheque.journal.ui
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
@@ -30,7 +31,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.withTimeoutOrNull
 
-/** Les sept écrans. Un écran qui a besoin d'une donnée la porte. */
+/** Les huit écrans. Un écran qui a besoin d'une donnée la porte. */
 sealed interface Screen {
     data object Home : Screen
     data object Search : Screen
@@ -40,15 +41,17 @@ sealed interface Screen {
     data class Edit(val item: JournalItem) : Screen
     /** La connexion SensCritique, depuis le profil (brief du 14 septembre 2026). */
     data object SensCritique : Screen
+    /** « Au ciné » : mes séances et les sorties en salle (brief du 14 septembre 2026). */
+    data object Cinema : Screen
 }
 
-/** Les deux entrées de la barre de navigation du bas (décision du propriétaire du 14 septembre 2026). */
-enum class BottomTab { Home, Profile }
+/** Les trois entrées de la barre de navigation du bas (décision du propriétaire du 14 septembre 2026 ; Cinema ajoutée le même jour, entre Home et Profile). */
+enum class BottomTab { Home, Cinema, Profile }
 
 /**
  * Décide, pour un écran donné, si la barre du bas est visible et laquelle de ses entrées est
  * sélectionnée : `null` la cache. Fonction pure, sans dépendance à Compose, testée en JVM
- * (`NavigationTest.kt`) — c'est elle, et elle seule, qui fixe la matrice des sept écrans, plutôt
+ * (`NavigationTest.kt`) — c'est elle, et elle seule, qui fixe la matrice des huit écrans, plutôt
  * que de la reposer à chaque site d'appel.
  *
  * « Mes films » affiche « Profil » sélectionnée, pas « Accueil » : dans `Root.kt`, cet écran ne
@@ -56,14 +59,17 @@ enum class BottomTab { Home, Profile }
  */
 fun Screen.bottomBarTab(): BottomTab? = when (this) {
     Screen.Home -> BottomTab.Home
+    Screen.Cinema -> BottomTab.Cinema
     Screen.Profile, Screen.Films -> BottomTab.Profile
     Screen.Search, is Screen.Form, is Screen.Edit, Screen.SensCritique -> null
 }
 
 /**
- * La barre de navigation du bas (Material 3), visible sur l'accueil, « Mes films » et le profil ;
- * cachée sur le formulaire, la recherche et l'écran SensCritique (décision du propriétaire du
- * 14 septembre 2026, en remplacement de l'`IconButton` profil de l'accueil, jugé inaccessible).
+ * La barre de navigation du bas (Material 3), visible sur l'accueil, « Au ciné », « Mes films »
+ * et le profil ; cachée sur le formulaire, la recherche et l'écran SensCritique (décision du
+ * propriétaire du 14 septembre 2026, en remplacement de l'`IconButton` profil de l'accueil, jugé
+ * inaccessible ; troisième entrée « Au ciné » ajoutée le même jour, entre « Accueil » et
+ * « Profil »).
  * Toucher l’écran où l’on est déjà ne fait rien ; depuis « Mes films », « Profil » est surlignée
  * mais reste touchable et ramène au profil (`Root.kt` lui passe un `pop`).
  * Hauteur 56 dp, icônes seules (le `NavigationBar` de Material fait 80 dp avec ses libellés,
@@ -72,7 +78,7 @@ fun Screen.bottomBarTab(): BottomTab? = when (this) {
  * libellé passe en `contentDescription` pour le lecteur d’écran.
  */
 @Composable
-fun JournalBottomBar(current: Screen, onHome: () -> Unit, onProfile: () -> Unit) {
+fun JournalBottomBar(current: Screen, onHome: () -> Unit, onCinema: () -> Unit, onProfile: () -> Unit) {
     val selected = current.bottomBarTab()
     Surface(color = NavigationBarDefaults.containerColor) {
         Row(
@@ -83,6 +89,11 @@ fun JournalBottomBar(current: Screen, onHome: () -> Unit, onProfile: () -> Unit)
                 selected = selected == BottomTab.Home,
                 onClick = { if (current != Screen.Home) onHome() },
                 icon = { Icon(Icons.Filled.Home, contentDescription = "Accueil") },
+            )
+            NavigationBarItem(
+                selected = selected == BottomTab.Cinema,
+                onClick = { if (current != Screen.Cinema) onCinema() },
+                icon = { Icon(Icons.Filled.ConfirmationNumber, contentDescription = "Au ciné") },
             )
             NavigationBarItem(
                 selected = selected == BottomTab.Profile,

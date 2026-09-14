@@ -17062,6 +17062,309 @@
         }
       }
     },
+    "/reference/sorties": {
+      "get": {
+        "summary": "Sorties en salle, semaine en cours et semaine prochaine",
+        "tags": [
+          "système"
+        ],
+        "description": "Pour l’écran « Au ciné » : les films qui sortent en salle cette semaine et la semaine prochaine, dans le pays de l’instance (`WATCH_REGION`, `FR` par défaut) — la même donnée d’instance que `GET /media/{id}/availability`.\n\nChaque groupe (`en_cours`, `prochaine`) porte ses bornes `du` / `au`, lundi et dimanche inclus, dans le fuseau Europe/Paris. Un film y figure une fois, quel que soit le nombre de types de sortie salle qu’il cumule (limitée, large).\n\n`directors` peut être vide : TMDB ne crédite pas toujours de réalisateur sur une fiche encore incomplète, et ce n’est pas une panne.\n\nRéponse mise en cache 6 h, tous membres confondus — les sorties en salle ne dépendent d’aucun compte.",
+        "responses": {
+          "200": {
+            "description": "Sorties en salle en France : semaine en cours et semaine prochaine",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "en_cours": {
+                      "type": "object",
+                      "properties": {
+                        "du": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                          "description": "Lundi de la semaine, inclus"
+                        },
+                        "au": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                          "description": "Dimanche de la semaine, inclus"
+                        },
+                        "films": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "tmdb_id": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991,
+                                "description": "Identifiant du film chez TMDB"
+                              },
+                              "title": {
+                                "type": "string",
+                                "description": "Titre en français, avec repli sur le titre original"
+                              },
+                              "original_title": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "year": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "Année de sortie, nulle si TMDB ne la donne pas"
+                              },
+                              "release_date": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "date",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "Date de sortie en salle en France, `AAAA-MM-JJ`"
+                              },
+                              "cover_url": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "uri"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "Affiche en URL absolue"
+                              },
+                              "directors": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "description": "Réalisateurs, dans l’ordre du générique — vide si TMDB n’en crédite aucun"
+                              }
+                            },
+                            "required": [
+                              "tmdb_id",
+                              "title",
+                              "original_title",
+                              "year",
+                              "release_date",
+                              "cover_url",
+                              "directors"
+                            ],
+                            "additionalProperties": false,
+                            "description": "Un film qui sort en salle en France cette semaine-là"
+                          }
+                        }
+                      },
+                      "required": [
+                        "du",
+                        "au",
+                        "films"
+                      ],
+                      "additionalProperties": false,
+                      "description": "La semaine en cours"
+                    },
+                    "prochaine": {
+                      "type": "object",
+                      "properties": {
+                        "du": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                          "description": "Lundi de la semaine, inclus"
+                        },
+                        "au": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                          "description": "Dimanche de la semaine, inclus"
+                        },
+                        "films": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "tmdb_id": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991,
+                                "description": "Identifiant du film chez TMDB"
+                              },
+                              "title": {
+                                "type": "string",
+                                "description": "Titre en français, avec repli sur le titre original"
+                              },
+                              "original_title": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "year": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "Année de sortie, nulle si TMDB ne la donne pas"
+                              },
+                              "release_date": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "date",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "Date de sortie en salle en France, `AAAA-MM-JJ`"
+                              },
+                              "cover_url": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "uri"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "Affiche en URL absolue"
+                              },
+                              "directors": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "description": "Réalisateurs, dans l’ordre du générique — vide si TMDB n’en crédite aucun"
+                              }
+                            },
+                            "required": [
+                              "tmdb_id",
+                              "title",
+                              "original_title",
+                              "year",
+                              "release_date",
+                              "cover_url",
+                              "directors"
+                            ],
+                            "additionalProperties": false,
+                            "description": "Un film qui sort en salle en France cette semaine-là"
+                          }
+                        }
+                      },
+                      "required": [
+                        "du",
+                        "au",
+                        "films"
+                      ],
+                      "additionalProperties": false,
+                      "description": "La semaine prochaine"
+                    }
+                  },
+                  "required": [
+                    "en_cours",
+                    "prochaine"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Sorties en salle en France : semaine en cours et semaine prochaine"
+                },
+                "examples": {
+                  "Réponse type": {
+                    "value": {
+                      "en_cours": {
+                        "du": "2026-09-14",
+                        "au": "2026-09-20",
+                        "films": [
+                          {
+                            "tmdb_id": 912649,
+                            "title": "Les Gardiens de la nuit",
+                            "original_title": "Les Gardiens de la nuit",
+                            "year": 2026,
+                            "release_date": "2026-09-16",
+                            "cover_url": "https://image.tmdb.org/t/p/w500/9gk7adZmeSSuQfZBtWWLIcVcSY.jpg",
+                            "directors": [
+                              "Alice Fontaine"
+                            ]
+                          }
+                        ]
+                      },
+                      "prochaine": {
+                        "du": "2026-09-21",
+                        "au": "2026-09-27",
+                        "films": [
+                          {
+                            "tmdb_id": 1022789,
+                            "title": "Marée basse",
+                            "original_title": "Marée basse",
+                            "year": 2026,
+                            "release_date": "2026-09-23",
+                            "cover_url": null,
+                            "directors": []
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/auth/login": {
       "post": {
         "summary": "Ouvrir une session",
@@ -26489,7 +26792,7 @@
         "tags": [
           "carnet"
         ],
-        "description": "Mes visionnages, de la plus récente à la plus ancienne date de fin, l’identifiant départageant deux entrées du même jour. C’est la route qui manquait : le journal se lisait film par film (`GET /media/:id/log`), jamais en une liste.\n\nChaque élément joint la fiche réduite de l’œuvre — les champs de `media`, décrits ci-dessous — et la partie privée : absente, elle se lit `{ reactions: [], comment: null }`, le journal partagé et le carnet ayant toujours la même liste d’entrées.\n\n**Films seulement, comme le `POST`.** Le site journalise aussi les livres, les jeux, la musique, les séries et les BD : ces entrées-là existent, et cette liste ne les rend pas.\n\n**Aucun `user_id`.** Cette route ne parle que de toi ; le journal des autres se lit sur `GET /media/:id/log?user_id=`, sans leur carnet.\n\n**Pagination** — `limit` et `cursor`, comme partout.",
+        "description": "Mes visionnages, de la plus récente à la plus ancienne date de fin, l’identifiant départageant deux entrées du même jour. C’est la route qui manquait : le journal se lisait film par film (`GET /media/:id/log`), jamais en une liste.\n\nChaque élément joint la fiche réduite de l’œuvre — les champs de `media`, décrits ci-dessous — et la partie privée : absente, elle se lit `{ reactions: [], comment: null }`, le journal partagé et le carnet ayant toujours la même liste d’entrées.\n\n**Films seulement, comme le `POST`.** Le site journalise aussi les livres, les jeux, la musique, les séries et les BD : ces entrées-là existent, et cette liste ne les rend pas.\n\n**Aucun `user_id`.** Cette route ne parle que de toi ; le journal des autres se lit sur `GET /media/:id/log?user_id=`, sans leur carnet.\n\n**`?reaction=`** ne rend que les entrées dont le carnet porte cette réaction — utile pour « Au ciné », qui filtre sur `en_salle`. Le back ne connaît pas le sens de la clé, seulement sa forme.\n\n**Pagination** — `limit` et `cursor`, comme partout.",
         "parameters": [
           {
             "schema": {
@@ -26511,6 +26814,16 @@
             "name": "cursor",
             "required": false,
             "description": "Curseur opaque renvoyé par la page précédente dans `next_cursor`"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9_]{1,32}$"
+            },
+            "in": "query",
+            "name": "reaction",
+            "required": false,
+            "description": "Ne rend que les entrées dont le carnet porte cette réaction"
           }
         ],
         "responses": {
@@ -26673,6 +26986,10 @@
                                   }
                                 ],
                                 "description": "`metadata.director` de la fiche"
+                              },
+                              "external_id": {
+                                "type": "string",
+                                "description": "Identifiant chez la source — le `tmdb_id` du film"
                               }
                             },
                             "required": [
@@ -26682,7 +26999,8 @@
                               "title",
                               "cover_url",
                               "year",
-                              "director"
+                              "director",
+                              "external_id"
                             ],
                             "additionalProperties": false,
                             "description": "L’œuvre, réduite à ce que le journal affiche"
@@ -26765,6 +27083,7 @@
                             "id": "d0000000-0000-4000-8000-000000000013",
                             "type": "movie",
                             "source": "tmdb",
+                            "external_id": "27205",
                             "title": "Inception",
                             "cover_url": "https://image.tmdb.org/t/p/w500/9gk7adZmeSSuQfZBtWWLIcVcSY.jpg",
                             "year": 2010,
@@ -27035,6 +27354,10 @@
                             }
                           ],
                           "description": "`metadata.director` de la fiche"
+                        },
+                        "external_id": {
+                          "type": "string",
+                          "description": "Identifiant chez la source — le `tmdb_id` du film"
                         }
                       },
                       "required": [
@@ -27044,7 +27367,8 @@
                         "title",
                         "cover_url",
                         "year",
-                        "director"
+                        "director",
+                        "external_id"
                       ],
                       "additionalProperties": false,
                       "description": "L’œuvre, réduite à ce que le journal affiche"
@@ -27105,6 +27429,7 @@
                         "id": "d0000000-0000-4000-8000-000000000013",
                         "type": "movie",
                         "source": "tmdb",
+                        "external_id": "27205",
                         "title": "Inception",
                         "cover_url": "https://image.tmdb.org/t/p/w500/9gk7adZmeSSuQfZBtWWLIcVcSY.jpg",
                         "year": 2010,
@@ -27277,6 +27602,10 @@
                             }
                           ],
                           "description": "`metadata.director` de la fiche"
+                        },
+                        "external_id": {
+                          "type": "string",
+                          "description": "Identifiant chez la source — le `tmdb_id` du film"
                         }
                       },
                       "required": [
@@ -27286,7 +27615,8 @@
                         "title",
                         "cover_url",
                         "year",
-                        "director"
+                        "director",
+                        "external_id"
                       ],
                       "additionalProperties": false,
                       "description": "L’œuvre, réduite à ce que le journal affiche"
@@ -27347,6 +27677,7 @@
                         "id": "d0000000-0000-4000-8000-000000000013",
                         "type": "movie",
                         "source": "tmdb",
+                        "external_id": "27205",
                         "title": "Inception",
                         "cover_url": "https://image.tmdb.org/t/p/w500/9gk7adZmeSSuQfZBtWWLIcVcSY.jpg",
                         "year": 2010,
@@ -27627,6 +27958,10 @@
                             }
                           ],
                           "description": "`metadata.director` de la fiche"
+                        },
+                        "external_id": {
+                          "type": "string",
+                          "description": "Identifiant chez la source — le `tmdb_id` du film"
                         }
                       },
                       "required": [
@@ -27636,7 +27971,8 @@
                         "title",
                         "cover_url",
                         "year",
-                        "director"
+                        "director",
+                        "external_id"
                       ],
                       "additionalProperties": false,
                       "description": "L’œuvre, réduite à ce que le journal affiche"
@@ -27697,6 +28033,7 @@
                         "id": "d0000000-0000-4000-8000-000000000013",
                         "type": "movie",
                         "source": "tmdb",
+                        "external_id": "27205",
                         "title": "Inception",
                         "cover_url": "https://image.tmdb.org/t/p/w500/9gk7adZmeSSuQfZBtWWLIcVcSY.jpg",
                         "year": 2010,

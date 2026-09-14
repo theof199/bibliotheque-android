@@ -9,6 +9,13 @@ data class Reaction(val key: String, val emoji: String, val phrase: String)
  * comme sa clé nue, jamais comme une erreur.
  */
 object Reactions {
+    /**
+     * La clé de « Au ciné » (brief du 14 septembre 2026) : c'est elle que filtre
+     * `JournalApi.seances()` (`?reaction=`), et le back ne lui donne aucun sens
+     * particulier — comme toute autre réaction, seule la forme compte.
+     */
+    const val EN_SALLE = "en_salle"
+
     val all: List<Reaction> = listOf(
         Reaction("adore", "❤️", "J’ai adoré"),
         Reaction("sympa", "👍", "Sympa"),
@@ -22,6 +29,7 @@ object Reactions {
         Reaction("reflechir", "🤔", "Ça fait réfléchir"),
         Reaction("confus", "🌀", "Trop confus"),
         Reaction("a_revoir", "🔁", "À revoir"),
+        Reaction(EN_SALLE, "🎬", "En salle"),
     )
 
     /** Ce que le back accepte au plus par visionnage. */

@@ -10,8 +10,10 @@ import fr.mediatheque.journal.api.dto.LoginBody
 import fr.mediatheque.journal.api.dto.SearchResponse
 import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.api.dto.SessionResponse
+import fr.mediatheque.journal.api.dto.SortiesResponse
 import fr.mediatheque.journal.api.dto.StatsResponse
 import fr.mediatheque.journal.api.dto.User
+import fr.mediatheque.journal.reactions.Reactions
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.HttpClientEngine
@@ -122,6 +124,17 @@ class ApiClient(baseUrl: String, engine: HttpClientEngine) : JournalApi {
     }
 
     override suspend fun stats(): StatsResponse = call { client.get(Endpoints.stats) }
+
+    override suspend fun seances(cursor: String?): JournalResponse =
+        call {
+            client.get(Endpoints.journal) {
+                parameter("limit", 40)
+                if (cursor != null) parameter("cursor", cursor)
+                parameter("reaction", Reactions.EN_SALLE)
+            }
+        }
+
+    override suspend fun sorties(): SortiesResponse = call { client.get(Endpoints.sorties) }
 
     private suspend inline fun <reified T> call(block: () -> HttpResponse): T {
         val response = try {

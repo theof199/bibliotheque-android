@@ -11,6 +11,8 @@ import fr.mediatheque.journal.api.dto.JournalMedia
 import fr.mediatheque.journal.api.dto.JournalResponse
 import fr.mediatheque.journal.api.dto.LogEntry
 import fr.mediatheque.journal.api.dto.SearchResult
+import fr.mediatheque.journal.api.dto.SortiesResponse
+import fr.mediatheque.journal.api.dto.SortieSemaine
 import fr.mediatheque.journal.api.dto.StatsResponse
 import fr.mediatheque.journal.api.dto.User
 import kotlinx.serialization.json.JsonObject
@@ -30,6 +32,10 @@ class FakeJournalApi : JournalApi {
     var onPatchViewing: suspend (String, JsonObject) -> JournalItem = { id, _ -> item("m", "2026-01-01", null, emptyList(), null, id) }
     var onDeleteViewing: suspend (String) -> Unit = {}
     var onStats: suspend () -> StatsResponse = { error("onStats non configuré") }
+    var onSeances: suspend (String?) -> JournalResponse = { JournalResponse(emptyList(), null) }
+    var onSorties: suspend () -> SortiesResponse = {
+        SortiesResponse(SortieSemaine("2026-09-14", "2026-09-20"), SortieSemaine("2026-09-21", "2026-09-27"))
+    }
 
     override suspend fun login(pseudo: String, password: String) = track("login $pseudo") { onLogin(pseudo, password) }
     override suspend fun me() = track("me") { onMe() }
@@ -41,6 +47,8 @@ class FakeJournalApi : JournalApi {
     override suspend fun patchViewing(id: String, body: JsonObject) = track("patchViewing $id") { onPatchViewing(id, body) }
     override suspend fun deleteViewing(id: String) = track("deleteViewing $id") { onDeleteViewing(id) }
     override suspend fun stats() = track("stats") { onStats() }
+    override suspend fun seances(cursor: String?) = track("seances $cursor") { onSeances(cursor) }
+    override suspend fun sorties() = track("sorties") { onSorties() }
 
     private suspend fun <T> track(name: String, block: suspend () -> T): T {
         calls += name
@@ -66,7 +74,12 @@ class FakeJournalApi : JournalApi {
             coverUrl: String? = null,
             year: Int? = null,
             director: String? = null,
-        ) = JournalItem(LogEntry(id, mediaId, finishedAt, rating), JournalMedia(mediaId, title, coverUrl, year, director), Carnet(reactions, comment))
+            externalId: String = "",
+        ) = JournalItem(
+            LogEntry(id, mediaId, finishedAt, rating),
+            JournalMedia(mediaId, title, coverUrl, year, director, externalId),
+            Carnet(reactions, comment),
+        )
 
         fun unauthorized() = ApiError("UNAUTHENTICATED", "Connecte-toi d’abord.", retryable = false, status = 401)
         fun rateLimited(seconds: Int) = ApiError("RATE_LIMITED", "Trop de tentatives.", retryable = true, status = 429, retryAfterSeconds = seconds)
