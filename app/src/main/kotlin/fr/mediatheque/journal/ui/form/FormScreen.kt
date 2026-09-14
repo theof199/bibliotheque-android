@@ -224,7 +224,7 @@ fun FormScreen(vm: FormViewModel, nav: Navigator, onBack: () -> Unit) {
     }
 
     ui.pendingSensCritiqueChoice?.let { pending ->
-        SensCritiqueChoiceSheet(pending.candidates, onChoose = vm::chooseSensCritiqueCandidate)
+        SensCritiqueChoiceSheet(pending.candidates, onChoose = vm::chooseSensCritiqueCandidate, onDismiss = vm::abandonSensCritiqueChoice)
     }
 }
 

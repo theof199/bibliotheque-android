@@ -10,44 +10,18 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * La file (brief §5) : remplacement par `media_id`, sérialisation aller-retour — le format que
- * `KeystoreSensCritiqueStore` chiffre est celui-ci, mêmes types, même config `Json`
- * (`ignoreUnknownKeys`).
+ * La sérialisation de la file (brief §5) — le format que `KeystoreSensCritiqueStore` chiffre est
+ * celui-ci, mêmes types, même config `Json` (`ignoreUnknownKeys`). Le remplacement par `media_id`
+ * (l'autre moitié du brief §5) est prouvé par du vrai code de production, pas rejoué ici : voir
+ * `SensCritiqueSyncTest` (« abandon remplace une entrée déjà en file… » pour le remplacement,
+ * « une nouvelle poussée en échec s'ajoute à la file sans effacer les autres » pour l'ajout) — mineur
+ * d de la revue du 14 septembre 2026, deux tests qui rejouaient la fusion à la main plutôt que
+ * d'appeler `SensCritiqueSync` ont été retirés d'ici.
  */
 class SensCritiqueQueueCodecTest {
     private val json = Json { ignoreUnknownKeys = true }
     private val queueSerializer = MapSerializer(String.serializer(), QueuedPush.serializer())
     private val decisionsSerializer = MapSerializer(String.serializer(), Long.serializer().nullable)
-
-    // Mutation : passer par une carte tenue à la main (`mutableMapOf` modifié en place puis
-    // recopiée) plutôt que `readQueue() + (id to push)` peut oublier l'ancienne entrée en cas
-    // d'ordre différent — ce test compare le résultat final, pas la mécanique. Le remplacer par
-    // `readQueue() + (autreId to push)` (mauvaise clé) fait échouer les deux assertions de taille
-    // et de contenu.
-    @Test
-    fun `une nouvelle poussee pour le meme media_id remplace l ancienne, jamais ne s ajoute`() {
-        val store = InMemorySensCritiqueStore()
-        val premiere = QueuedPush("m1", "Chihiro", null, 2001, 6, "2026-09-10", productId = null)
-        val seconde = QueuedPush("m1", "Chihiro", null, 2001, 9, "2026-09-11", productId = 42L)
-
-        store.writeQueue(store.readQueue() + (premiere.mediaId to premiere))
-        store.writeQueue(store.readQueue() + (seconde.mediaId to seconde))
-
-        assertEquals(1, store.readQueue().size)
-        assertEquals(seconde, store.readQueue()["m1"])
-    }
-
-    @Test
-    fun `une poussee pour un autre media_id s ajoute a cote, sans remplacer`() {
-        val store = InMemorySensCritiqueStore()
-        val chihiro = QueuedPush("m1", "Chihiro", null, 2001, 6, "2026-09-10")
-        val perfectBlue = QueuedPush("m2", "Perfect Blue", null, 1997, 8, "2026-09-11")
-
-        store.writeQueue(store.readQueue() + (chihiro.mediaId to chihiro))
-        store.writeQueue(store.readQueue() + (perfectBlue.mediaId to perfectBlue))
-
-        assertEquals(setOf("m1", "m2"), store.readQueue().keys)
-    }
 
     @Test
     fun `une QueuedPush complete survit a un aller-retour JSON, champ par champ`() {

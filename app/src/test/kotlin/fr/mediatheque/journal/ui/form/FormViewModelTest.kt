@@ -18,6 +18,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -337,5 +338,44 @@ class FormViewModelTest {
         assertTrue(service.pushCalls.isEmpty())
         assertTrue("m-129" in store.readDecisions())
         assertNull(store.readDecisions()["m-129"])
+    }
+
+    // Critique 2 de la revue du 14 septembre 2026 : le retour systeme referme la feuille quoi qu'il
+    // arrive (Material 3 ne peut pas l'en empecher) — sans abandonSensCritiqueChoice(),
+    // pendingSensCritiqueChoice restait non nul et done n'etait jamais pose, alors que l'entree
+    // etait deja ecrite au back : le geste restait bloque, invisible, la feuille disparue.
+    // Mutation : ne rien faire dans `abandonSensCritiqueChoice` (juste effacer
+    // `pendingSensCritiqueChoice`, sans appeler `sensCritique.abandon`) fait echouer les deux
+    // dernieres assertions (file vide, aucun message).
+    @Test
+    fun `abandonner la feuille (retour systeme) met la poussee en file et termine le geste`() {
+        val store = InMemorySensCritiqueStore()
+        val service = FakeExternalRatingService(onSearch = { ExternalSearchOutcome.Success(listOf(candidat(1), candidat(2))) })
+        val vm = create(connectedSync(store, service))
+        vm.toggleRating(8)
+        vm.save()
+        assertNotNull("la feuille doit etre affichee avant l'abandon", vm.ui.value.pendingSensCritiqueChoice)
+
+        vm.abandonSensCritiqueChoice()
+
+        assertNull(vm.ui.value.pendingSensCritiqueChoice)
+        assertEquals("Enregistré · SensCritique : réessai au prochain lancement", vm.ui.value.done)
+        assertTrue(service.pushCalls.isEmpty())
+        val queued = store.readQueue()["m-129"]
+        assertEquals(8, queued?.rating)
+        assertNull("pas de productId : la resolution redemandera a la prochaine correction", queued?.productId)
+        // Aucune decision memorisee — a la difference de « Aucun de ceux-la » : la prochaine
+        // correction du film redemande.
+        assertFalse("m-129" in store.readDecisions())
+    }
+
+    // abandonSensCritiqueChoice() sans feuille en attente (deja consommee, ou jamais posee) ne doit
+    // rien faire : ni exception, ni double poussee en file.
+    @Test
+    fun `abandonner sans feuille en attente ne fait rien`() {
+        val vm = create(disconnectedSync())
+        vm.abandonSensCritiqueChoice()
+        assertNull(vm.ui.value.done)
+        assertNull(vm.ui.value.pendingSensCritiqueChoice)
     }
 }

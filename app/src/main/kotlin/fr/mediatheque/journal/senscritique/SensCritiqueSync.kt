@@ -1,5 +1,6 @@
 package fr.mediatheque.journal.senscritique
 
+import kotlinx.coroutines.CancellationException
 import java.time.LocalDate
 
 sealed interface SyncResolution {
@@ -31,10 +32,16 @@ sealed interface GestureSyncResult {
  * d'abord les choix déjà mémorisés), pousser note + date, tenir la file des poussées échouées, la
  * rejouer au lancement. Ne dépend que de `ExternalRatingService` (l'interface générique) et de
  * `SensCritiqueStore` : aucun détail GraphQL ou Firebase ici.
+ *
+ * Chaque point d'entrée public attrape toute exception inattendue (revue du 14 septembre 2026,
+ * important 5) : ni `FormViewModel` ni `SessionViewModel` ne doivent jamais planter parce que cette
+ * couche a levé — une exception s'y lit comme un échec ordinaire, mise en file et message
+ * « réessai » compris.
  */
 class SensCritiqueSync(
     private val service: ExternalRatingService,
     private val store: SensCritiqueStore,
+    private val logger: SensCritiqueLogger = AndroidSensCritiqueLogger,
 ) {
     suspend fun isConnected(): Boolean = store.readAuth() != null
 
@@ -45,37 +52,75 @@ class SensCritiqueSync(
     suspend fun syncAfterSave(mediaId: String, film: MatchableFilm, rating: Int?, watchedOn: String): GestureSyncResult {
         if (rating == null) return GestureSyncResult.Skipped
         if (!isConnected()) return GestureSyncResult.Skipped
-        return when (val resolution = resolve(mediaId, film)) {
-            is SyncResolution.Matched -> finishPush(mediaId, resolution.productId, rating, watchedOn, film)
-            SyncResolution.Ignored -> GestureSyncResult.Skipped
-            is SyncResolution.NeedsChoice -> GestureSyncResult.ChoiceNeeded(resolution.candidates)
-            SyncResolution.Failed -> { enqueueUnresolved(mediaId, film, rating, watchedOn); GestureSyncResult.QueuedForRetry }
-            SyncResolution.Unauthenticated -> { enqueueUnresolved(mediaId, film, rating, watchedOn); GestureSyncResult.ReconnectNeeded }
+        return try {
+            when (val resolution = resolve(mediaId, film)) {
+                is SyncResolution.Matched -> finishPush(mediaId, resolution.productId, rating, watchedOn, film)
+                SyncResolution.Ignored -> GestureSyncResult.Skipped
+                is SyncResolution.NeedsChoice -> GestureSyncResult.ChoiceNeeded(resolution.candidates)
+                SyncResolution.Failed -> { enqueueUnresolved(mediaId, film, rating, watchedOn); GestureSyncResult.QueuedForRetry }
+                SyncResolution.Unauthenticated -> { enqueueUnresolved(mediaId, film, rating, watchedOn); GestureSyncResult.ReconnectNeeded }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            logger.d("syncAfterSave a leve une exception pour $mediaId, mise en file : ${e.message}")
+            runCatching { enqueueUnresolved(mediaId, film, rating, watchedOn) }
+            GestureSyncResult.QueuedForRetry
         }
     }
 
     /** Après la feuille : `productId` choisi, ou `null` pour « Aucun de ceux-là ». Le choix est mémorisé, redemandé jamais. */
-    suspend fun choose(mediaId: String, film: MatchableFilm, rating: Int, watchedOn: String, productId: Long?): GestureSyncResult {
-        recordChoice(mediaId, productId)
-        return if (productId == null) GestureSyncResult.Skipped else finishPush(mediaId, productId, rating, watchedOn, film)
+    suspend fun choose(mediaId: String, film: MatchableFilm, rating: Int, watchedOn: String, productId: Long?): GestureSyncResult =
+        try {
+            recordChoice(mediaId, productId)
+            if (productId == null) GestureSyncResult.Skipped else finishPush(mediaId, productId, rating, watchedOn, film)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            logger.d("choose a leve une exception pour $mediaId, mise en file : ${e.message}")
+            runCatching { enqueue(mediaId, film, rating, watchedOn, productId) }
+            GestureSyncResult.QueuedForRetry
+        }
+
+    /**
+     * Renonce à résoudre ou pousser tout de suite — la feuille de choix quittée sans réponse
+     * (retour système, critique 2 de la revue du 14 septembre 2026) ou le délai de synchronisation
+     * dépassé (important 4) : aucun choix n'est mémorisé, la poussée part en file sans `productId`
+     * — elle sera redemandée à la prochaine correction du film, exactement comme une résolution
+     * restée `NeedsChoice` au rejeu (`replayQueue`, plus bas).
+     */
+    suspend fun abandon(mediaId: String, film: MatchableFilm, rating: Int, watchedOn: String): GestureSyncResult {
+        runCatching { enqueueUnresolved(mediaId, film, rating, watchedOn) }
+        return GestureSyncResult.QueuedForRetry
     }
 
-    /** Rejoué au lancement, une fois, silencieusement (brief §5) : ce qui redemande un choix est sauté. */
+    /**
+     * Rejoué au lancement, une fois, silencieusement (brief §5) : ce qui redemande un choix est
+     * sauté. Une entrée illisible (important 5 — une date corrompue, par exemple) est retirée de la
+     * file plutôt que de bloquer les suivantes.
+     */
     suspend fun replayQueue() {
         if (!isConnected()) return
         for ((mediaId, queued) in store.readQueue()) {
-            val film = MatchableFilm(queued.title, queued.originalTitle, queued.year)
-            val productId = queued.productId
-            if (productId != null) {
-                if (pushAndRecord(mediaId, productId, queued.rating, queued.watchedOn, film) == SyncPushResult.Unauthenticated) return
-                continue
-            }
-            when (val resolution = resolve(mediaId, film)) {
-                is SyncResolution.Matched -> pushAndRecord(mediaId, resolution.productId, queued.rating, queued.watchedOn, film)
-                SyncResolution.Ignored -> store.writeQueue(store.readQueue() - mediaId)
-                is SyncResolution.NeedsChoice -> Unit // sauté : attend une correction manuelle du film
-                SyncResolution.Failed -> Unit // reste en file, retentera au prochain lancement
-                SyncResolution.Unauthenticated -> return // plus connecté : inutile de continuer la file
+            try {
+                val film = MatchableFilm(queued.title, queued.originalTitle, queued.year)
+                val productId = queued.productId
+                if (productId != null) {
+                    if (pushAndRecord(mediaId, productId, queued.rating, queued.watchedOn, film) == SyncPushResult.Unauthenticated) return
+                    continue
+                }
+                when (val resolution = resolve(mediaId, film)) {
+                    is SyncResolution.Matched -> pushAndRecord(mediaId, resolution.productId, queued.rating, queued.watchedOn, film)
+                    SyncResolution.Ignored -> store.writeQueue(store.readQueue() - mediaId)
+                    is SyncResolution.NeedsChoice -> Unit // sauté : attend une correction manuelle du film
+                    SyncResolution.Failed -> Unit // reste en file, retentera au prochain lancement
+                    SyncResolution.Unauthenticated -> return // plus connecté : inutile de continuer la file
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                logger.d("entree de file illisible pour $mediaId, retiree : ${e.message}")
+                runCatching { store.writeQueue(store.readQueue() - mediaId) }
             }
         }
     }
@@ -123,8 +168,19 @@ class SensCritiqueSync(
         store.writeDecisions(store.readDecisions() + (mediaId to productId))
     }
 
+    /**
+     * `watchedOn` vient toujours d'un `LocalDate` frais côté `FormViewModel` — sauf ici, relu
+     * depuis la file (important 5) : une entrée corrompue (format de date change, blob partiel) ne
+     * doit ni planter ni bloquer les autres, elle est retirée.
+     */
     private suspend fun pushAndRecord(mediaId: String, productId: Long, rating: Int, watchedOn: String, film: MatchableFilm): SyncPushResult {
-        val outcome = service.push(productId, rating, LocalDate.parse(watchedOn))
+        val date = runCatching { LocalDate.parse(watchedOn) }.getOrNull()
+        if (date == null) {
+            logger.d("date illisible en file pour $mediaId, entree retiree")
+            runCatching { store.writeQueue(store.readQueue() - mediaId) }
+            return SyncPushResult.Failed
+        }
+        val outcome = service.push(productId, rating, date)
         when (outcome) {
             ExternalPushOutcome.Success -> store.writeQueue(store.readQueue() - mediaId)
             ExternalPushOutcome.Failed -> enqueue(mediaId, film, rating, watchedOn, productId)

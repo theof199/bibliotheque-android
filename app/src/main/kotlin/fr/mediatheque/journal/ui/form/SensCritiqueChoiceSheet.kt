@@ -24,15 +24,18 @@ import fr.mediatheque.journal.ui.subtitle
 
 /**
  * « Lequel sur SensCritique ? » (brief du 14 septembre 2026) : la résolution a rendu zéro ou
- * plusieurs candidats, on demande. Pas de dismiss par le scrim ou le retour système — un geste
- * explicite (un candidat, ou « Aucun de ceux-là ») est le seul moyen d'en sortir, le geste local
- * attend cette réponse avant de finir (`FormViewModel.syncSensCritique`).
+ * plusieurs candidats, on demande. Le retour système ferme la feuille comme n'importe quelle autre
+ * (Material 3 ne peut pas l'en empêcher) : `onDismiss` couvre ce cas au même titre qu'un choix —
+ * la poussée part en file, sans décision mémorisée, et le geste se termine avec le message
+ * « réessai au prochain lancement » (revue du 14 septembre 2026, critique 2 : `onDismissRequest =
+ * {}` ne bloquait rien, la feuille disparaissait quand même et le geste restait bloqué, la note
+ * déjà écrite au back).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SensCritiqueChoiceSheet(candidates: List<ExternalCandidate>, onChoose: (productId: Long?) -> Unit) {
+fun SensCritiqueChoiceSheet(candidates: List<ExternalCandidate>, onChoose: (productId: Long?) -> Unit, onDismiss: () -> Unit) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    ModalBottomSheet(onDismissRequest = {}, sheetState = sheetState) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
                 "Lequel sur SensCritique ?",
@@ -47,7 +50,11 @@ fun SensCritiqueChoiceSheet(candidates: List<ExternalCandidate>, onChoose: (prod
                     modifier = Modifier.padding(bottom = 8.dp),
                 )
             } else {
-                LazyColumn {
+                // `weight(1f, fill = false)` (mineur c de la revue du 14 septembre 2026) : la liste
+                // prend l'espace disponible sans jamais le forcer — sans lui, une dizaine de
+                // candidats poussait « Aucun de ceux-là » hors de l'écran, la Column n'étant pas
+                // défilante (seule la LazyColumn l'est).
+                LazyColumn(Modifier.weight(1f, fill = false)) {
                     items(candidates, key = { it.productId }) { candidat ->
                         Row(
                             Modifier

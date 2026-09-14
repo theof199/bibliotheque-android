@@ -13,11 +13,16 @@ import fr.mediatheque.journal.senscritique.ExternalCandidate
 import fr.mediatheque.journal.senscritique.GestureSyncResult
 import fr.mediatheque.journal.senscritique.MatchableFilm
 import fr.mediatheque.journal.senscritique.SensCritiqueSync
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import java.time.LocalDate
+
+/** Le plafond de la synchronisation SensCritique (important 4 de la revue du 14 septembre 2026). */
+private const val SENSCRITIQUE_SYNC_TIMEOUT_MS = 6_000L
 
 sealed interface FormMode {
     data class Create(val result: SearchResult) : FormMode
@@ -153,10 +158,45 @@ class FormViewModel(
         val pending = _ui.value.pendingSensCritiqueChoice ?: return
         _ui.update { it.copy(pendingSensCritiqueChoice = null, busy = true) }
         viewModelScope.launch {
-            val resultat = sensCritique.choose(pending.mediaId, pending.film, pending.rating, pending.watchedOn, productId)
+            val resultat = filetDeSecurite {
+                withTimeoutOrNull(SENSCRITIQUE_SYNC_TIMEOUT_MS) {
+                    sensCritique.choose(pending.mediaId, pending.film, pending.rating, pending.watchedOn, productId)
+                } ?: sensCritique.abandon(pending.mediaId, pending.film, pending.rating, pending.watchedOn)
+            }
             finish(pending.baseMessage + suffixFor(resultat))
         }
     }
+
+    /**
+     * La feuille a été quittée sans réponse (retour système — revue du 14 septembre 2026,
+     * critique 2) : `ModalBottomSheet` la referme quoi qu'il arrive, `onDismissRequest` ne peut pas
+     * l'en empêcher. Sans ce chemin, `pendingSensCritiqueChoice` restait non nul, `done` n'était
+     * jamais posé, et le geste restait bloqué alors que l'entrée était déjà écrite au back. La
+     * poussée part en file (sans `productId`, elle redemandera un choix à la prochaine correction).
+     */
+    fun abandonSensCritiqueChoice() {
+        val pending = _ui.value.pendingSensCritiqueChoice ?: return
+        _ui.update { it.copy(pendingSensCritiqueChoice = null, busy = true) }
+        viewModelScope.launch {
+            val resultat = filetDeSecurite { sensCritique.abandon(pending.mediaId, pending.film, pending.rating, pending.watchedOn) }
+            finish(pending.baseMessage + suffixFor(resultat))
+        }
+    }
+
+    /**
+     * Filet de sécurité (important 5 de la revue du 14 septembre 2026) : `SensCritiqueSync` n'est
+     * plus censé laisser fuiter d'exception, mais si l'une le faisait quand même, aucun appelant ne
+     * doit planter — le geste finit avec le message de réessai habituel plutôt que de laisser
+     * `pendingSensCritiqueChoice` déjà effacé sans jamais poser `done`.
+     */
+    private suspend fun filetDeSecurite(bloc: suspend () -> GestureSyncResult): GestureSyncResult =
+        try {
+            bloc()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            GestureSyncResult.QueuedForRetry
+        }
 
     private suspend fun create(mode: FormMode.Create) {
         val mediaId = pendingMediaId ?: api.addMedia(mode.result).media.id.also { pendingMediaId = it }
@@ -179,15 +219,29 @@ class FormViewModel(
      * termine tout de suite, message inchangé. Une résolution ambiguë (`ChoiceNeeded`) ne termine
      * pas le geste : elle pose `pendingSensCritiqueChoice`, et c'est `chooseSensCritiqueCandidate`
      * qui appelle `finish` ensuite, une fois la feuille répondue.
+     *
+     * Plafonné à 6 s (important 4 de la revue du 14 septembre 2026) : jusqu'à quatre allers-retours
+     * réseau à 10 s chacun (recherche, repli sur l'originalTitle, note, « vu ») tenaient `busy` vrai
+     * bien au-delà de ce qu'un geste d'enregistrement doit attendre. Au-delà du délai, la poussée
+     * part en file — `SensCritiqueSync` respecte l'annulation (`CancellationException` y est
+     * toujours relancée), donc `withTimeoutOrNull` rend bien `null` plutôt que de laisser le réseau
+     * continuer en arrière-plan sans que personne ne l'attende.
      */
     private suspend fun syncSensCritique(mediaId: String, film: MatchableFilm, baseMessage: String) {
-        when (val resultat = sensCritique.syncAfterSave(mediaId, film, rating(), date())) {
+        val note = rating()
+        val quand = date()
+        val resultat = filetDeSecurite {
+            withTimeoutOrNull(SENSCRITIQUE_SYNC_TIMEOUT_MS) { sensCritique.syncAfterSave(mediaId, film, note, quand) }
+                // `syncAfterSave` ne prend plus de 6 s que lorsqu'il a d'abord vérifié `note != null`
+                // (sinon il rend `Skipped` sans réseau, bien avant le délai) : ce `!!` porte cet
+                // ordre, pas un pari — jumeau de celui plus bas sur `PendingSensCritiqueChoice`.
+                ?: sensCritique.abandon(mediaId, film, note!!, quand)
+        }
+        when (resultat) {
             is GestureSyncResult.ChoiceNeeded -> _ui.update {
-                // `syncAfterSave` ne rend `ChoiceNeeded` que lorsqu'il a d'abord vérifié `rating() != null`
-                // (sinon il rend `Skipped` sans même chercher) : le `!!` porte cet invariant, pas un pari.
                 it.copy(
                     busy = false,
-                    pendingSensCritiqueChoice = PendingSensCritiqueChoice(mediaId, film, rating()!!, date(), baseMessage, resultat.candidates),
+                    pendingSensCritiqueChoice = PendingSensCritiqueChoice(mediaId, film, note!!, quand, baseMessage, resultat.candidates),
                 )
             }
             else -> finish(baseMessage + suffixFor(resultat))

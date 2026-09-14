@@ -70,6 +70,8 @@ class InMemorySensCritiqueStore : SensCritiqueStore {
 
 @Serializable
 private data class Payload(
+    /** Pour l'avenir (mineur e de la revue du 14 septembre 2026) : rien ne le lit encore. */
+    val version: Int = 1,
     val auth: SensCritiqueAuth? = null,
     val decisions: Map<String, Long?> = emptyMap(),
     val queue: Map<String, QueuedPush> = emptyMap(),
@@ -81,13 +83,23 @@ private data class Payload(
  * Une seule clé matérielle, un seul blob : pas de nonce à faire coïncider entre plusieurs champs
  * chiffrés séparément. Non exercé par les tests JVM (pas d'`AndroidKeyStore` hors du téléphone),
  * comme `PreferencesSessionStore`.
+ *
+ * `cache` (important 5 de la revue du 14 septembre 2026) : une fois lu, l'état vit en mémoire pour
+ * le reste de la session — une écriture chiffrée qui échoue (Keystore verrouillé, `SharedPreferences`
+ * en panne) reste alors visible aux lectures suivantes de *cette* session, même si le disque, lui,
+ * est resté en retard ; seule une nouvelle session repartirait du dernier blob écrit avec succès.
  */
-class KeystoreSensCritiqueStore(context: Context) : SensCritiqueStore {
+class KeystoreSensCritiqueStore(
+    context: Context,
+    private val logger: SensCritiqueLogger = AndroidSensCritiqueLogger,
+) : SensCritiqueStore {
     private val prefs = context.getSharedPreferences("senscritique", Context.MODE_PRIVATE)
 
     // `ignoreUnknownKeys` : un champ ajouté à `Payload` dans une version future ne doit pas faire
     // échouer la lecture d'un blob écrit par une version plus ancienne — jumeau de `ApiClient.ApiJson`.
     private val json = Json { ignoreUnknownKeys = true }
+
+    private var cache: Payload? = null
 
     private fun secretKey(): SecretKey {
         val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
@@ -104,24 +116,38 @@ class KeystoreSensCritiqueStore(context: Context) : SensCritiqueStore {
     }
 
     private fun readPayload(): Payload {
-        val raw = prefs.getString(KEY_DATA, null) ?: return Payload()
-        return runCatching {
+        cache?.let { return it }
+        val raw = prefs.getString(KEY_DATA, null) ?: return Payload().also { cache = it }
+        val payload = runCatching {
             val separateur = raw.indexOf(':')
             val iv = Base64.decode(raw.substring(0, separateur), Base64.NO_WRAP)
             val chiffre = Base64.decode(raw.substring(separateur + 1), Base64.NO_WRAP)
             val cipher = Cipher.getInstance(TRANSFORMATION)
             cipher.init(Cipher.DECRYPT_MODE, secretKey(), GCMParameterSpec(128, iv))
             json.decodeFromString(Payload.serializer(), String(cipher.doFinal(chiffre), Charsets.UTF_8))
-        }.getOrDefault(Payload())
+        }.getOrElse {
+            // Jamais le contenu (mineur e) : seule la lecture illisible compte, pas ce qu'elle cachait.
+            logger.d("magasin SensCritique illisible, repart de zero pour cette session")
+            Payload()
+        }
+        cache = payload
+        return payload
     }
 
     private fun writePayload(payload: Payload) {
-        val cipher = Cipher.getInstance(TRANSFORMATION)
-        cipher.init(Cipher.ENCRYPT_MODE, secretKey())
-        val chiffre = cipher.doFinal(json.encodeToString(Payload.serializer(), payload).toByteArray(Charsets.UTF_8))
-        val iv = Base64.encodeToString(cipher.iv, Base64.NO_WRAP)
-        val donnees = Base64.encodeToString(chiffre, Base64.NO_WRAP)
-        prefs.edit().putString(KEY_DATA, "$iv:$donnees").apply()
+        // Optimiste : la session voit l'etat a jour meme si le chiffrement echoue plus bas
+        // (important 5) — seul le disque resterait en retard, jamais cette session.
+        cache = payload
+        runCatching {
+            val cipher = Cipher.getInstance(TRANSFORMATION)
+            cipher.init(Cipher.ENCRYPT_MODE, secretKey())
+            val chiffre = cipher.doFinal(json.encodeToString(Payload.serializer(), payload).toByteArray(Charsets.UTF_8))
+            val iv = Base64.encodeToString(cipher.iv, Base64.NO_WRAP)
+            val donnees = Base64.encodeToString(chiffre, Base64.NO_WRAP)
+            prefs.edit().putString(KEY_DATA, "$iv:$donnees").apply()
+        }.onFailure {
+            logger.d("ecriture du magasin SensCritique echouee, gardee en memoire pour cette session")
+        }
     }
 
     override fun readAuth(): SensCritiqueAuth? = readPayload().auth
@@ -130,7 +156,10 @@ class KeystoreSensCritiqueStore(context: Context) : SensCritiqueStore {
     override fun writeDecisions(decisions: Map<String, Long?>) { writePayload(readPayload().copy(decisions = decisions)) }
     override fun readQueue(): Map<String, QueuedPush> = readPayload().queue
     override fun writeQueue(queue: Map<String, QueuedPush>) { writePayload(readPayload().copy(queue = queue)) }
-    override fun clear() { prefs.edit().remove(KEY_DATA).apply() }
+    override fun clear() {
+        cache = Payload()
+        runCatching { prefs.edit().remove(KEY_DATA).apply() }
+    }
 
     private companion object {
         const val KEY_ALIAS = "senscritique_store_key"

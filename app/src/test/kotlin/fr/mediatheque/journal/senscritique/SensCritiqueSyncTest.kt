@@ -205,4 +205,118 @@ class SensCritiqueSyncTest {
         assertEquals(listOf(Triple(42L, 8, LocalDate.parse("2026-09-10"))), service.pushCalls)
         assertNull("la deconnexion doit avoir efface l'auth", store.readAuth())
     }
+
+    // --- abandon() : la feuille quittee sans reponse (critique 2 de la revue du 14 septembre 2026) ---
+
+    // Mutation : appeler `recordChoice(mediaId, null)` au lieu d'`enqueueUnresolved` dans
+    // `abandon` confondrait ce test avec « Aucun de ceux-la » — cette assertion verifie
+    // precisement qu'aucune decision n'est ecrite, a la difference d'un vrai choix.
+    @Test
+    fun `abandon met la poussee en file sans productId, sans memoriser de decision`() = runTest {
+        val store = InMemorySensCritiqueStore().apply { connecte(this) }
+        val service = FakeExternalRatingService()
+        val sync = SensCritiqueSync(service, store)
+
+        val resultat = sync.abandon("m1", film, rating = 8, watchedOn = "2026-09-10")
+
+        assertEquals(GestureSyncResult.QueuedForRetry, resultat)
+        assertTrue(service.pushCalls.isEmpty())
+        assertTrue(service.searchCalls.isEmpty())
+        val queued = store.readQueue()["m1"]
+        assertNull(queued?.productId)
+        assertEquals(8, queued?.rating)
+        assertTrue("aucune decision memorisee : la prochaine correction redemande", store.readDecisions().isEmpty())
+    }
+
+    // Un `abandon` pour un `mediaId` deja en file (une correction precedente avait deja echoue)
+    // remplace l'entree plutot que de s'y ajouter — jumeau du comportement de `enqueue`.
+    @Test
+    fun `abandon remplace une entree deja en file pour le meme media_id`() = runTest {
+        val store = InMemorySensCritiqueStore().apply {
+            connecte(this)
+            writeQueue(mapOf("m1" to QueuedPush("m1", "Ancien titre", null, 1999, 3, "2026-01-01", productId = 99L)))
+        }
+        val sync = SensCritiqueSync(FakeExternalRatingService(), store)
+
+        sync.abandon("m1", film, rating = 8, watchedOn = "2026-09-10")
+
+        assertEquals(1, store.readQueue().size)
+        val queued = store.readQueue().getValue("m1")
+        assertEquals("Le Voyage de Chihiro", queued.title)
+        assertEquals(8, queued.rating)
+        assertNull(queued.productId)
+    }
+
+    // --- important 5 de la revue du 14 septembre 2026 : aucune exception ne doit fuir de SensCritiqueSync ---
+
+    // Mutation : retirer le `try`/`catch` autour du corps de `syncAfterSave` fait remonter la
+    // `RuntimeException` jusqu'au test (JUnit la rapporte comme un echec de test, pas comme
+    // l'assertion ci-dessous) — cette assertion ne s'execute alors jamais.
+    @Test
+    fun `une exception inattendue pendant syncAfterSave devient QueuedForRetry, mise en file`() = runTest {
+        val store = InMemorySensCritiqueStore().apply { connecte(this) }
+        val service = FakeExternalRatingService(onSearch = { throw RuntimeException("panne inattendue") })
+        val sync = SensCritiqueSync(service, store)
+
+        val resultat = sync.syncAfterSave("m1", film, rating = 8, watchedOn = "2026-09-10")
+
+        assertEquals(GestureSyncResult.QueuedForRetry, resultat)
+        assertEquals(8, store.readQueue()["m1"]?.rating)
+    }
+
+    @Test
+    fun `une exception inattendue pendant choose devient QueuedForRetry`() = runTest {
+        val store = InMemorySensCritiqueStore().apply { connecte(this) }
+        val service = FakeExternalRatingService(onPush = { _, _, _ -> throw RuntimeException("panne inattendue") })
+        val sync = SensCritiqueSync(service, store)
+
+        val resultat = sync.choose("m1", film, rating = 8, watchedOn = "2026-09-10", productId = 42L)
+
+        assertEquals(GestureSyncResult.QueuedForRetry, resultat)
+    }
+
+    // Mutation : retirer `runCatching { store.writeQueue(store.readQueue() - mediaId) }` de la
+    // branche « date illisible » de `pushAndRecord` (garder le `return Failed` seul) fait echouer
+    // la premiere assertion — l'entree resterait en file indefiniment, jamais retiree. Retirer tout
+    // le bloc `runCatching { LocalDate.parse(...) }` (revenir a un appel nu) est aussi attrape, mais
+    // par le filet du dessus (`replayQueue`) plutot que celui-ci : les deux se recouvrent, ce test
+    // prouve le comportement observable, pas laquelle des deux lignes agit.
+    @Test
+    fun `une entree de file avec une date illisible est retiree, sans bloquer la suivante`() = runTest {
+        val store = InMemorySensCritiqueStore().apply {
+            connecte(this)
+            writeQueue(
+                linkedMapOf(
+                    "m1" to QueuedPush("m1", "Corrompu", null, null, 5, "pas-une-date", productId = 42L),
+                    "m2" to QueuedPush("m2", "Perfect Blue", null, 1997, 6, "2026-09-11", productId = 7L),
+                ),
+            )
+        }
+        SensCritiqueSync(FakeExternalRatingService(), store).replayQueue()
+
+        assertTrue("m1" !in store.readQueue())
+        assertTrue("m2 pousse avec succes doit aussi avoir ete retiree" , "m2" !in store.readQueue())
+    }
+
+    // Une exception qui ne vient pas de la date (ici la recherche elle-meme) ne doit ni planter le
+    // rejeu ni bloquer les entrees suivantes.
+    @Test
+    fun `une exception inattendue pendant le rejeu d une entree n empeche pas les suivantes`() = runTest {
+        val store = InMemorySensCritiqueStore().apply {
+            connecte(this)
+            writeQueue(
+                linkedMapOf(
+                    "m1" to QueuedPush("m1", "Provoque une exception", null, null, 5, "2026-09-10", productId = null),
+                    "m2" to QueuedPush("m2", "Perfect Blue", null, 1997, 6, "2026-09-11", productId = 7L),
+                ),
+            )
+        }
+        val service = FakeExternalRatingService(onSearch = { motsCles ->
+            if (motsCles == "Provoque une exception") throw RuntimeException("panne inattendue") else ExternalSearchOutcome.Success(emptyList())
+        })
+        SensCritiqueSync(service, store).replayQueue()
+
+        assertTrue("m1" !in store.readQueue())
+        assertEquals(listOf(Triple(7L, 6, LocalDate.parse("2026-09-11"))), service.pushCalls)
+    }
 }
