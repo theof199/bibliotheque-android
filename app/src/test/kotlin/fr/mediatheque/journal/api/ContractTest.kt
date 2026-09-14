@@ -74,7 +74,6 @@ class ContractTest {
         assertEquals("2026-09-20", sorties.en_cours.au)
         val film = sorties.en_cours.films.first()
         assertEquals(912649, film.tmdb_id)
-        assertEquals(listOf("Alice Fontaine"), film.directors)
     }
     @Test fun `POST me journal`() { lit("/me/journal", "post", "201", JournalItem.serializer()) }
     @Test fun `PATCH me journal id`() { lit("/me/journal/{id}", "patch", "200", JournalItem.serializer()) }

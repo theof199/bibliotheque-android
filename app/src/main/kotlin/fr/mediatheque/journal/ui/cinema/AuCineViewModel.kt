@@ -58,6 +58,10 @@ fun AuCineUi.dejaDansLeJournal(film: SortieFilm): Boolean =
  * Convertit une sortie en le `SearchResult` qu'attend `Screen.Form` — la même
  * cible que « toucher un résultat de recherche » (`Root.kt`), pour ne pas
  * dupliquer le formulaire de création.
+ *
+ * `director` reste nul : `SortieFilm` ne le porte plus depuis le correctif du
+ * 14 septembre 2026 (la fiche détaillée par film saturait la file sortante
+ * TMDB côté back). Le formulaire s'ouvre donc sans réalisateur pré-rempli.
  */
 fun SortieFilm.toSearchResult(): SearchResult = SearchResult(
     source = "tmdb",
@@ -66,7 +70,7 @@ fun SortieFilm.toSearchResult(): SearchResult = SearchResult(
     title = title,
     year = year,
     cover_url = cover_url,
-    metadata = SearchMetadata(director = directors.firstOrNull()),
+    metadata = SearchMetadata(director = null),
     original_title = original_title,
 )
 

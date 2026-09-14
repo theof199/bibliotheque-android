@@ -17068,7 +17068,7 @@
         "tags": [
           "système"
         ],
-        "description": "Pour l’écran « Au ciné » : les films qui sortent en salle cette semaine et la semaine prochaine, dans le pays de l’instance (`WATCH_REGION`, `FR` par défaut) — la même donnée d’instance que `GET /media/{id}/availability`.\n\nChaque groupe (`en_cours`, `prochaine`) porte ses bornes `du` / `au`, lundi et dimanche inclus, dans le fuseau Europe/Paris. Un film y figure une fois, quel que soit le nombre de types de sortie salle qu’il cumule (limitée, large).\n\n`directors` peut être vide : TMDB ne crédite pas toujours de réalisateur sur une fiche encore incomplète, et ce n’est pas une panne.\n\nRéponse mise en cache 6 h, tous membres confondus — les sorties en salle ne dépendent d’aucun compte.",
+        "description": "Pour l’écran « Au ciné » : les films qui sortent en salle cette semaine et la semaine prochaine, dans le pays de l’instance (`WATCH_REGION`, `FR` par défaut) — la même donnée d’instance que `GET /media/{id}/availability`.\n\nChaque groupe (`en_cours`, `prochaine`) porte ses bornes `du` / `au`, lundi et dimanche inclus, dans le fuseau Europe/Paris. Un film y figure une fois, quel que soit le nombre de types de sortie salle qu’il cumule (limitée, large).\n\nRéponse mise en cache 6 h, tous membres confondus — les sorties en salle ne dépendent d’aucun compte.",
         "responses": {
           "200": {
             "description": "Sorties en salle en France : semaine en cours et semaine prochaine",
@@ -17154,13 +17154,6 @@
                                   }
                                 ],
                                 "description": "Affiche en URL absolue"
-                              },
-                              "directors": {
-                                "type": "array",
-                                "items": {
-                                  "type": "string"
-                                },
-                                "description": "Réalisateurs, dans l’ordre du générique — vide si TMDB n’en crédite aucun"
                               }
                             },
                             "required": [
@@ -17169,8 +17162,7 @@
                               "original_title",
                               "year",
                               "release_date",
-                              "cover_url",
-                              "directors"
+                              "cover_url"
                             ],
                             "additionalProperties": false,
                             "description": "Un film qui sort en salle en France cette semaine-là"
@@ -17262,13 +17254,6 @@
                                   }
                                 ],
                                 "description": "Affiche en URL absolue"
-                              },
-                              "directors": {
-                                "type": "array",
-                                "items": {
-                                  "type": "string"
-                                },
-                                "description": "Réalisateurs, dans l’ordre du générique — vide si TMDB n’en crédite aucun"
                               }
                             },
                             "required": [
@@ -17277,8 +17262,7 @@
                               "original_title",
                               "year",
                               "release_date",
-                              "cover_url",
-                              "directors"
+                              "cover_url"
                             ],
                             "additionalProperties": false,
                             "description": "Un film qui sort en salle en France cette semaine-là"
@@ -17314,10 +17298,7 @@
                             "original_title": "Les Gardiens de la nuit",
                             "year": 2026,
                             "release_date": "2026-09-16",
-                            "cover_url": "https://image.tmdb.org/t/p/w500/9gk7adZmeSSuQfZBtWWLIcVcSY.jpg",
-                            "directors": [
-                              "Alice Fontaine"
-                            ]
+                            "cover_url": "https://image.tmdb.org/t/p/w500/9gk7adZmeSSuQfZBtWWLIcVcSY.jpg"
                           }
                         ]
                       },
@@ -17331,8 +17312,7 @@
                             "original_title": "Marée basse",
                             "year": 2026,
                             "release_date": "2026-09-23",
-                            "cover_url": null,
-                            "directors": []
+                            "cover_url": null
                           }
                         ]
                       }

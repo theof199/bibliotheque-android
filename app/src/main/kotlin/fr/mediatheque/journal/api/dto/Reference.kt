@@ -9,6 +9,11 @@ import kotlinx.serialization.Serializable
  * `tmdb_id` est numérique ici — à la différence de `SearchResult.external_id`,
  * une chaîne — parce que cette route ne connaît que TMDB et n'a donc pas à
  * porter la généricité de la recherche.
+ *
+ * Sans `directors` depuis le correctif du 14 septembre 2026 : le champ venait
+ * d'une fiche détaillée relue par film côté back, et relire 40 à 80 fiches
+ * d'un coup saturait la file sortante TMDB (`RATE_LIMITED`). Retiré du
+ * contrat avec le champ.
  */
 @Serializable
 data class SortieFilm(
@@ -18,7 +23,6 @@ data class SortieFilm(
     val year: Int? = null,
     val release_date: String? = null,
     val cover_url: String? = null,
-    val directors: List<String> = emptyList(),
 )
 
 @Serializable

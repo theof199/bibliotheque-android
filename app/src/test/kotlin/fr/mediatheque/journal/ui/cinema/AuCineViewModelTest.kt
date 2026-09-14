@@ -83,7 +83,6 @@ class AuCineViewModelTest {
             year = 2026,
             release_date = "2026-09-16",
             cover_url = "https://image.tmdb.org/t/p/w500/x.jpg",
-            directors = listOf("Alice Fontaine"),
         )
         val result = film.toSearchResult()
         assertEquals("tmdb", result.source)
@@ -92,7 +91,9 @@ class AuCineViewModelTest {
         assertEquals("Les Gardiens de la nuit", result.title)
         assertEquals(2026, result.year)
         assertEquals("https://image.tmdb.org/t/p/w500/x.jpg", result.cover_url)
-        assertEquals("Alice Fontaine", result.metadata.director)
+        // Plus de réalisateur dans le contrat des sorties depuis le 14 septembre 2026 :
+        // le formulaire s'ouvre sans, plutôt qu'avec un champ qui n'existe plus.
+        assertNull(result.metadata.director)
     }
 
     // Une panne sur les sorties (TMDB) ne doit rien devoir aux séances (le journal) : deux
