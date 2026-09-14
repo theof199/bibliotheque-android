@@ -1,7 +1,14 @@
 package fr.mediatheque.journal.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -25,6 +32,50 @@ sealed interface Screen {
     data class Edit(val item: JournalItem) : Screen
     /** La connexion SensCritique, depuis le profil (brief du 14 septembre 2026). */
     data object SensCritique : Screen
+}
+
+/** Les deux entrées de la barre de navigation du bas (décision du propriétaire du 14 septembre 2026). */
+enum class BottomTab { Home, Profile }
+
+/**
+ * Décide, pour un écran donné, si la barre du bas est visible et laquelle de ses entrées est
+ * sélectionnée : `null` la cache. Fonction pure, sans dépendance à Compose, testée en JVM
+ * (`NavigationTest.kt`) — c'est elle, et elle seule, qui fixe la matrice des sept écrans, plutôt
+ * que de la reposer à chaque site d'appel.
+ *
+ * « Mes films » affiche « Profil » sélectionnée, pas « Accueil » : dans `Root.kt`, cet écran ne
+ * s'empile que depuis `Screen.Profile` (`onFilms`), jamais depuis l'accueil.
+ */
+fun Screen.bottomBarTab(): BottomTab? = when (this) {
+    Screen.Home -> BottomTab.Home
+    Screen.Profile, Screen.Films -> BottomTab.Profile
+    Screen.Search, is Screen.Form, is Screen.Edit, Screen.SensCritique -> null
+}
+
+/**
+ * La barre de navigation du bas (Material 3), visible sur l'accueil, « Mes films » et le profil ;
+ * cachée sur le formulaire, la recherche et l'écran SensCritique (décision du propriétaire du
+ * 14 septembre 2026, en remplacement de l'`IconButton` profil de l'accueil, jugé inaccessible).
+ * Toucher l'entrée déjà sélectionnée ne fait rien. Couleurs du thème : aucune couleur posée ici,
+ * `NavigationBar` les prend de `MaterialTheme.colorScheme`.
+ */
+@Composable
+fun JournalBottomBar(current: Screen, onHome: () -> Unit, onProfile: () -> Unit) {
+    val selected = current.bottomBarTab()
+    NavigationBar {
+        NavigationBarItem(
+            selected = selected == BottomTab.Home,
+            onClick = { if (selected != BottomTab.Home) onHome() },
+            icon = { Icon(Icons.Filled.Home, contentDescription = null) },
+            label = { Text("Accueil") },
+        )
+        NavigationBarItem(
+            selected = selected == BottomTab.Profile,
+            onClick = { if (selected != BottomTab.Profile) onProfile() },
+            icon = { Icon(Icons.Filled.Person, contentDescription = null) },
+            label = { Text("Profil") },
+        )
+    }
 }
 
 /**

@@ -112,8 +112,8 @@ fun Root(container: AppContainer) {
                             vm = films,
                             nav = nav,
                             onAdd = { nav.push(Screen.Search) },
-                            onProfile = { nav.push(Screen.Profile) },
                             onOpen = { nav.push(Screen.Edit(it)) },
+                            bottomBar = { JournalBottomBar(screen, onHome = { nav.home() }, onProfile = { nav.push(Screen.Profile) }) },
                         )
                     }
                     Screen.Search -> SearchScreen(search, onBack = nav::pop, onPick = { nav.push(Screen.Form(it)) })
@@ -138,6 +138,7 @@ fun Root(container: AppContainer) {
                             onFilms = { nav.push(Screen.Films) },
                             onSensCritique = { nav.push(Screen.SensCritique) },
                             onSignOut = session::signOut,
+                            bottomBar = { JournalBottomBar(screen, onHome = { nav.home() }, onProfile = { nav.push(Screen.Profile) }) },
                         )
                     }
                     Screen.Films -> {
@@ -148,7 +149,12 @@ fun Root(container: AppContainer) {
                         // resterait celle de la première visite après une correction ou une
                         // suppression faites depuis `Screen.Edit` (décision 1 de la tâche 7).
                         LaunchedEffect(Unit) { films.refresh() }
-                        FilmsScreen(films, onBack = nav::pop, onOpen = { nav.push(Screen.Edit(it)) })
+                        FilmsScreen(
+                            films,
+                            onBack = nav::pop,
+                            onOpen = { nav.push(Screen.Edit(it)) },
+                            bottomBar = { JournalBottomBar(screen, onHome = { nav.home() }, onProfile = { nav.push(Screen.Profile) }) },
+                        )
                     }
                     is Screen.Edit -> {
                         // Indexé sur l'entrée corrigée (jumeau de `Screen.Form` ci-dessus) : une

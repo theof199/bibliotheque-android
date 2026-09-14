@@ -1,6 +1,10 @@
 package fr.mediatheque.journal.ui
 
 import androidx.compose.material3.SnackbarHostState
+import fr.mediatheque.journal.api.dto.Carnet
+import fr.mediatheque.journal.api.dto.JournalItem
+import fr.mediatheque.journal.api.dto.JournalMedia
+import fr.mediatheque.journal.api.dto.LogEntry
 import fr.mediatheque.journal.api.dto.SearchResult
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -84,5 +88,32 @@ class NavigationTest {
         nav.push(Screen.Form(SearchResult("tmdb", "129", "movie", "Le Voyage de Chihiro", 2001)))
         val apresPushForm = nav.searchVisits
         assertEquals("un push vers un autre ecran ne doit rien incrementer", secondeVisite, apresPushForm)
+    }
+
+    // `bottomBarTab()` fixe la matrice des sept écrans pour la barre de navigation du bas
+    // (décision du propriétaire du 14 septembre 2026) : visible sur l'accueil, « Mes films » et
+    // le profil — « Mes films » affichant « Profil » sélectionnée, puisqu'elle ne s'empile que
+    // depuis `Screen.Profile` dans `Root.kt`, jamais depuis l'accueil — cachée sur la recherche,
+    // le formulaire (création ou correction) et l'écran SensCritique. Mutation : faire retourner
+    // `BottomTab.Home` pour `Screen.Films` casse l'assertion sur `visibles` ; rendre non nul le
+    // résultat pour l'un des quatre écrans cachés, ou nul pour l'un des trois visibles, casse la
+    // boucle correspondante.
+    @Test
+    fun `bottomBarTab fixe la visibilite et la selection des sept ecrans`() {
+        val visibles = mapOf(
+            Screen.Home to BottomTab.Home,
+            Screen.Profile to BottomTab.Profile,
+            Screen.Films to BottomTab.Profile,
+        )
+        visibles.forEach { (screen, tab) -> assertEquals(tab, screen.bottomBarTab()) }
+
+        val exemple = SearchResult("tmdb", "129", "movie", "Le Voyage de Chihiro", 2001)
+        val itemExemple = JournalItem(
+            entry = LogEntry(id = "entry-1", media_id = "media-1", finished_at = "2026-09-03"),
+            media = JournalMedia(id = "media-1", title = "Le Voyage de Chihiro"),
+            carnet = Carnet(),
+        )
+        val caches: List<Screen> = listOf(Screen.Search, Screen.Form(exemple), Screen.Edit(itemExemple), Screen.SensCritique)
+        caches.forEach { screen -> assertNull(screen.bottomBarTab()) }
     }
 }

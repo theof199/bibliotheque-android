@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -20,6 +19,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -40,7 +40,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 // « Mes films ». Seul l'accueil collecte `nav.messages` (revue du tour de correction 1, et
 // Critique 1 de la vague finale pour le mécanisme lui-même).
 @Composable
-fun FilmsScreen(vm: FilmsViewModel, onBack: () -> Unit, onOpen: (JournalItem) -> Unit) {
+fun FilmsScreen(vm: FilmsViewModel, onBack: () -> Unit, onOpen: (JournalItem) -> Unit, bottomBar: @Composable () -> Unit) {
     val ui by vm.ui.collectAsState()
     val liste = rememberLazyListState()
 
@@ -51,39 +51,45 @@ fun FilmsScreen(vm: FilmsViewModel, onBack: () -> Unit, onOpen: (JournalItem) ->
             .collect { index -> if (index != null && index >= ui.items.size - 5) vm.loadMore() }
     }
 
-    Column(Modifier.fillMaxSize().safeDrawingPadding()) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour") }
-            Text("Mes films", style = MaterialTheme.typography.titleLarge)
-        }
-        ui.error?.let { ErrorBlock(it.message ?: "", retryable = it.retryable, onRetry = vm::loadMore, modifier = Modifier.padding(16.dp)) }
-        if (ui.items.isEmpty() && ui.endReached) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Aucun film pour l’instant.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    // `Scaffold` plutôt que `safeDrawingPadding()` : son `bottomBar` (la barre du 14 septembre
+    // 2026, « Profil » sélectionnée puisque cet écran ne s'ouvre que depuis lui) réserve sa
+    // propre place dans le `padding` reçu ci-dessous, comme les insets système que
+    // `safeDrawingPadding()` réservait seul avant elle.
+    Scaffold(containerColor = MaterialTheme.colorScheme.background, bottomBar = bottomBar) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour") }
+                Text("Mes films", style = MaterialTheme.typography.titleLarge)
             }
-        } else {
-            LazyColumn(state = liste, contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(ui.items, key = { it.entry.id }) { item ->
-                    Row(
-                        Modifier.fillMaxWidth().clickable { onOpen(item) },
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Cover(item.media.cover_url, item.media.title, 56.dp, 84.dp)
-                        Column(Modifier.weight(1f)) {
-                            Text(item.media.title, style = MaterialTheme.typography.titleMedium)
-                            Text(formatDate(item.entry.finished_at), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            if (item.carnet.reactions.isNotEmpty()) {
-                                Text(item.carnet.reactions.joinToString(" ") { Reactions.emoji(it) }, style = MaterialTheme.typography.bodyMedium)
-                            }
-                        }
-                        item.entry.rating?.let { Text("$it", style = MaterialTheme.typography.titleMedium) }
-                    }
+            ui.error?.let { ErrorBlock(it.message ?: "", retryable = it.retryable, onRetry = vm::loadMore, modifier = Modifier.padding(16.dp)) }
+            if (ui.items.isEmpty() && ui.endReached) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Aucun film pour l’instant.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                if (ui.loading) {
-                    item {
-                        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(Modifier.size(40.dp), color = MaterialTheme.colorScheme.primary)
+            } else {
+                LazyColumn(state = liste, contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    items(ui.items, key = { it.entry.id }) { item ->
+                        Row(
+                            Modifier.fillMaxWidth().clickable { onOpen(item) },
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Cover(item.media.cover_url, item.media.title, 56.dp, 84.dp)
+                            Column(Modifier.weight(1f)) {
+                                Text(item.media.title, style = MaterialTheme.typography.titleMedium)
+                                Text(formatDate(item.entry.finished_at), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                if (item.carnet.reactions.isNotEmpty()) {
+                                    Text(item.carnet.reactions.joinToString(" ") { Reactions.emoji(it) }, style = MaterialTheme.typography.bodyMedium)
+                                }
+                            }
+                            item.entry.rating?.let { Text("$it", style = MaterialTheme.typography.titleMedium) }
+                        }
+                    }
+                    if (ui.loading) {
+                        item {
+                            Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(Modifier.size(40.dp), color = MaterialTheme.colorScheme.primary)
+                            }
                         }
                     }
                 }

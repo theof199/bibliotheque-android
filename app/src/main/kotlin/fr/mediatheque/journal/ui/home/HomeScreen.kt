@@ -18,12 +18,8 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
@@ -56,7 +52,13 @@ import kotlinx.coroutines.flow.distinctUntilChanged
  * « Mes films » (clé `"films"` dans `Root.kt`) : une seule source, deux présentations.
  */
 @Composable
-fun HomeScreen(vm: FilmsViewModel, nav: Navigator, onAdd: () -> Unit, onProfile: () -> Unit, onOpen: (JournalItem) -> Unit) {
+fun HomeScreen(
+    vm: FilmsViewModel,
+    nav: Navigator,
+    onAdd: () -> Unit,
+    onOpen: (JournalItem) -> Unit,
+    bottomBar: @Composable () -> Unit,
+) {
     val ui by vm.ui.collectAsState()
     val snackbar = remember { SnackbarHostState() }
     // Clé fixe : `nav.messages` est un événement à un coup (revue de la vague finale,
@@ -79,6 +81,7 @@ fun HomeScreen(vm: FilmsViewModel, nav: Navigator, onAdd: () -> Unit, onProfile:
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        bottomBar = bottomBar,
         snackbarHost = {
             // 68 dp : le bouton (52 dp) plus sa marge (16 dp), pour que la snackbar ne tombe pas
             // dessus (relecture, correction 6).
@@ -99,15 +102,7 @@ fun HomeScreen(vm: FilmsViewModel, nav: Navigator, onAdd: () -> Unit, onProfile:
             val largeurJaquette = (maxWidth - ecart * 2) / 3
             val hauteurJaquette = largeurJaquette * 1.5f
 
-            Column(
-                // 48 dp en tête : la place de l'`IconButton` profil, dessiné par-dessus (aligné
-                // `TopEnd` plus bas). Sur la `Column` elle-même, pas sur la seule grille : sans
-                // cette marge ici, l'`ErrorBlock` et le texte « Aucun film pour l'instant. », qui
-                // partagent la `Column` avec la grille, démarraient eux aussi à y = 0 et
-                // passaient sous l'icône, qui les recouvre — elle est déclarée après dans le
-                // `Box`, donc dessinée et touchée en premier (relecture, correction 1 puis 3).
-                Modifier.fillMaxSize().padding(top = 48.dp),
-            ) {
+            Column(Modifier.fillMaxSize()) {
                 ui.error?.let {
                     ErrorBlock(
                         it.message ?: "",
@@ -176,10 +171,6 @@ fun HomeScreen(vm: FilmsViewModel, nav: Navigator, onAdd: () -> Unit, onProfile:
                     shape = MaterialTheme.shapes.medium,
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                 ) { Text("Ajouter un film") }
-            }
-
-            IconButton(onClick = onProfile, modifier = Modifier.align(Alignment.TopEnd)) {
-                Icon(Icons.Filled.Person, contentDescription = "Profil", tint = MaterialTheme.colorScheme.onSurface)
             }
         }
     }
