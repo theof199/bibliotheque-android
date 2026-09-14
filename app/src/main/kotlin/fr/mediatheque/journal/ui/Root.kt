@@ -12,6 +12,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -72,6 +75,21 @@ fun Root(container: AppContainer) {
             // `LaunchedEffect(Unit)` reste dans le `Crossfade` pour recharger à chaque entrée.
             val search: SearchViewModel = viewModel(key = "search") { SearchViewModel(container.api, session::expire) }
             LaunchedEffect(nav.searchVisits) { if (nav.searchVisits > 0) search.reset() }
+            // Même instance dans les deux branches (`Screen.Profile` affiche le pseudo, `Screen.SensCritique`
+            // porte le formulaire) — un aller-retour doit revenir sur le pseudo qu'on vient d'y lire, pas en
+            // repartir à zéro. Hoisté ici pour la même raison que `search` juste au-dessus (mineur a de la
+            // revue du 14 septembre 2026) : l'email et le mot de passe saisis doivent s'effacer à la *sortie*
+            // de `Screen.SensCritique`, pas à l'entrée (l'écran affiche encore un état utile — le pseudo —
+            // hors visite, à la différence de `LoginScreen`) ; un `LaunchedEffect(Unit)` posé dans la branche
+            // du `Crossfade` ne verrait que les entrées, jamais les sorties.
+            val senscritique: SensCritiqueViewModel = viewModel(key = "senscritique") {
+                SensCritiqueViewModel(container.sensCritiqueStore, container.sensCritiqueAuthClient)
+            }
+            var etaitSurSensCritique by remember { mutableStateOf(false) }
+            LaunchedEffect(nav.current) {
+                if (etaitSurSensCritique && nav.current != Screen.SensCritique) senscritique.clearCredentials()
+                etaitSurSensCritique = nav.current == Screen.SensCritique
+            }
             Crossfade(targetState = nav.current, animationSpec = tween(200), label = "ecran") { screen ->
                 when (screen) {
                     Screen.Home -> {
@@ -112,11 +130,6 @@ fun Root(container: AppContainer) {
                     }
                     Screen.Profile -> {
                         val profile: ProfileViewModel = viewModel(key = "profile") { ProfileViewModel(container.api, session::expire) }
-                        // Même instance (même clé) que `Screen.SensCritique` plus bas : un aller-retour vers cet
-                        // écran doit revenir sur le pseudo qu'on vient d'y lire, pas en repartir à zéro.
-                        val senscritique: SensCritiqueViewModel = viewModel(key = "senscritique") {
-                            SensCritiqueViewModel(container.sensCritiqueStore, container.sensCritiqueAuthClient)
-                        }
                         ProfileScreen(
                             s.user,
                             profile,
@@ -162,12 +175,7 @@ fun Root(container: AppContainer) {
                         }
                         FormScreen(form, nav = nav, onBack = nav::pop)
                     }
-                    Screen.SensCritique -> {
-                        val senscritique: SensCritiqueViewModel = viewModel(key = "senscritique") {
-                            SensCritiqueViewModel(container.sensCritiqueStore, container.sensCritiqueAuthClient)
-                        }
-                        SensCritiqueScreen(senscritique, onBack = nav::pop)
-                    }
+                    Screen.SensCritique -> SensCritiqueScreen(senscritique, onBack = nav::pop)
                 }
             }
         }

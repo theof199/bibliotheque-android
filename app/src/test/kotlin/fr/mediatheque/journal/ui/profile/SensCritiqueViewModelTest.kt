@@ -95,4 +95,37 @@ class SensCritiqueViewModelTest {
         vmFraiche.refresh()
         assertNull(vmFraiche.ui.value.connectedPseudo)
     }
+
+    // Mineur a de la revue du 14 septembre 2026 : ni le formulaire (email, mot de passe), ni
+    // l'erreur d'une tentative precedente ne doivent survivre a la sortie de l'ecran — sinon la
+    // prochaine visite les retrouverait, ce `ViewModel` etant indexe sur l'Activite. Mutation : ne
+    // vider que `email` (oublier `password`, ou l'erreur) fait echouer l'assertion correspondante.
+    @Test
+    fun `clearCredentials efface l email, le mot de passe et l erreur d une tentative refusee`() {
+        client.onSignIn = { _, _ -> SignInOutcome.InvalidCredentials }
+        vm.email = "theo@example.com"
+        vm.password = "secret"
+        vm.connect()
+        assertEquals("Identifiants refusés.", vm.ui.value.error) // etat de depart : une erreur affichee
+
+        vm.clearCredentials()
+
+        assertEquals("", vm.email)
+        assertEquals("", vm.password)
+        assertNull(vm.ui.value.error)
+        assertFalse(vm.ui.value.retryable)
+    }
+
+    // Le pseudo connu ne doit jamais disparaitre a l'appel : c'est ce que `ProfileScreen` continue
+    // de lire hors visite de l'ecran SensCritique.
+    @Test
+    fun `clearCredentials ne touche pas au pseudo connecte`() {
+        store.writeAuth(SensCritiqueAuth("refresh-1", "TheofB"))
+        val vmConnecte = SensCritiqueViewModel(store, client)
+        assertEquals("TheofB", vmConnecte.ui.value.connectedPseudo)
+
+        vmConnecte.clearCredentials()
+
+        assertEquals("TheofB", vmConnecte.ui.value.connectedPseudo)
+    }
 }

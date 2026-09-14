@@ -64,4 +64,17 @@ class SensCritiqueViewModel(
         store.clear()
         _ui.value = SensCritiqueUi()
     }
+
+    /**
+     * Efface les champs saisis (mineur a de la revue du 14 septembre 2026) — jumeau de
+     * `LoginViewModel.reset()`, mais appelé par `Root` à la *sortie* de l'écran plutôt qu'à
+     * l'entrée : `connectedPseudo`, lui, reste utile hors visite (la ligne « SensCritique » du
+     * profil le lit). Un email ou un mot de passe qui survivrait à la sortie de l'écran
+     * réapparaîtrait à la prochaine visite, ce `ViewModel` étant indexé sur l'Activité.
+     */
+    fun clearCredentials() {
+        email = ""
+        password = ""
+        _ui.update { it.copy(busy = false, error = null, retryable = false) }
+    }
 }
