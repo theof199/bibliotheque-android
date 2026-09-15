@@ -29130,6 +29130,703 @@
         }
       }
     },
+    "/reference/sagas": {
+      "get": {
+        "summary": "Chercher une saga chez TMDB",
+        "tags": [
+          "sagas"
+        ],
+        "description": "La recherche qui précède `POST /me/sagas` : elle donne les `tmdb_id` à lui passer.\n\n**Dix résultats au plus**, dans l’ordre de pertinence de TMDB, sur sa première page seulement. C’est une liste de choix, pas un catalogue.\n\nSous `/reference` et non sous `/me` : le résultat ne dépend d’aucun compte. La session reste exigée, comme sur `GET /reference/personnes`.\n\n`503` si `TMDB_API_KEY` n’est pas renseignée sur ce serveur.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "description": "Le nom cherché"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Résultats de recherche de sagas, dix au plus",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "tmdb_id": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Identifiant de la **collection** chez TMDB"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "Nom tel que TMDB l’écrit"
+                          },
+                          "cover_url": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uri"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Affiche en URL absolue, taille `w500`, nulle si TMDB n’en a pas"
+                          }
+                        },
+                        "required": [
+                          "tmdb_id",
+                          "name",
+                          "cover_url"
+                        ],
+                        "additionalProperties": false,
+                        "description": "Une collection (saga) de TMDB"
+                      }
+                    }
+                  },
+                  "required": [
+                    "results"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Résultats de recherche de sagas, dix au plus"
+                },
+                "examples": {
+                  "Réponse type": {
+                    "value": {
+                      "results": [
+                        {
+                          "tmdb_id": 8091,
+                          "name": "Alien (Saga)",
+                          "cover_url": "https://image.tmdb.org/t/p/w500/tvSlBzAdRE29bZe5yYWrJ2ds137.jpg"
+                        },
+                        {
+                          "tmdb_id": 1241,
+                          "name": "Harry Potter (Saga)",
+                          "cover_url": "https://image.tmdb.org/t/p/w500/qxsKvyLZ8dnUKzwlLQAKPPT3ILz.jpg"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/sagas": {
+      "get": {
+        "summary": "Mes sagas",
+        "tags": [
+          "sagas"
+        ],
+        "description": "Celles que je suis, de la plus récemment ajoutée à la plus ancienne.\n\n`name` et `cover_url` sont ceux que TMDB donnait **au moment de l’ajout** : la liste s’affiche sans rappeler TMDB. Un nom ou une affiche qui change chez eux se rattrape en retirant puis en remettant la saga.\n\n**Aucun `user_id`.** Cette route ne parle que de toi ; les sagas des autres membres ne sont exposées nulle part.\n\nSans pagination : on suit quelques dizaines de sagas, pas des milliers.",
+        "responses": {
+          "200": {
+            "description": "Mes sagas, de la plus récemment ajoutée à la plus ancienne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "tmdb_id": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991,
+                        "description": "Identifiant de la **collection** chez TMDB"
+                      },
+                      "name": {
+                        "type": "string",
+                        "description": "Nom tel que TMDB l’écrit"
+                      },
+                      "cover_url": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uri"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "Affiche en URL absolue, taille `w500`, nulle si TMDB n’en a pas"
+                      },
+                      "ajoute_le": {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                        "description": "Date à laquelle ce membre l’a ajoutée"
+                      }
+                    },
+                    "required": [
+                      "tmdb_id",
+                      "name",
+                      "cover_url",
+                      "ajoute_le"
+                    ],
+                    "additionalProperties": false,
+                    "description": "Une saga suivie par le membre de la session"
+                  },
+                  "description": "Mes sagas, de la plus récemment ajoutée à la plus ancienne"
+                },
+                "examples": {
+                  "Réponse type": {
+                    "value": [
+                      {
+                        "tmdb_id": 8091,
+                        "name": "Alien (Saga)",
+                        "cover_url": "https://image.tmdb.org/t/p/w500/tvSlBzAdRE29bZe5yYWrJ2ds137.jpg",
+                        "ajoute_le": "2026-09-15T18:30:12.000Z"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Suivre une saga",
+        "tags": [
+          "sagas"
+        ],
+        "description": "Le nom et l’affiche sont lus chez TMDB (`collection/{id}`) et **recopiés** dans la ligne : c’est ce qui permet à `GET /me/sagas` de ne jamais rappeler TMDB.\n\n**Idempotent.** Déjà suivie ? Aucune seconde ligne n’est créée, la réponse est `200` au lieu de `201` et rend la ligne existante — avec sa date d’ajout d’origine, que ce geste ne rafraîchit pas. Un doublon est de toute façon impossible en base : l’unicité `(membre, collection)` y est écrite.\n\nUn `tmdb_id` que TMDB ne connaît pas répond `404`.\n\n`503` si `TMDB_API_KEY` n’est pas renseignée sur ce serveur.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "tmdb_id": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991,
+                    "description": "Identifiant de la collection chez TMDB"
+                  }
+                },
+                "required": [
+                  "tmdb_id"
+                ],
+                "additionalProperties": false,
+                "description": "Suivre une saga"
+              }
+            }
+          },
+          "description": "Suivre une saga"
+        },
+        "responses": {
+          "200": {
+            "description": "Elle était déjà suivie — la ligne existante, inchangée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tmdb_id": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "description": "Identifiant de la **collection** chez TMDB"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Nom tel que TMDB l’écrit"
+                    },
+                    "cover_url": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Affiche en URL absolue, taille `w500`, nulle si TMDB n’en a pas"
+                    },
+                    "ajoute_le": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                      "description": "Date à laquelle ce membre l’a ajoutée"
+                    }
+                  },
+                  "required": [
+                    "tmdb_id",
+                    "name",
+                    "cover_url",
+                    "ajoute_le"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Elle était déjà suivie — la ligne existante, inchangée"
+                },
+                "examples": {
+                  "Réponse type": {
+                    "value": {
+                      "tmdb_id": 8091,
+                      "name": "Alien (Saga)",
+                      "cover_url": "https://image.tmdb.org/t/p/w500/tvSlBzAdRE29bZe5yYWrJ2ds137.jpg",
+                      "ajoute_le": "2026-09-12T09:04:18.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Saga ajoutée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tmdb_id": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "description": "Identifiant de la **collection** chez TMDB"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Nom tel que TMDB l’écrit"
+                    },
+                    "cover_url": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Affiche en URL absolue, taille `w500`, nulle si TMDB n’en a pas"
+                    },
+                    "ajoute_le": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                      "description": "Date à laquelle ce membre l’a ajoutée"
+                    }
+                  },
+                  "required": [
+                    "tmdb_id",
+                    "name",
+                    "cover_url",
+                    "ajoute_le"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Saga ajoutée"
+                },
+                "examples": {
+                  "Réponse type": {
+                    "value": {
+                      "tmdb_id": 8091,
+                      "name": "Alien (Saga)",
+                      "cover_url": "https://image.tmdb.org/t/p/w500/tvSlBzAdRE29bZe5yYWrJ2ds137.jpg",
+                      "ajoute_le": "2026-09-15T18:30:12.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/sagas/{tmdbId}": {
+      "delete": {
+        "summary": "Ne plus suivre une saga",
+        "tags": [
+          "sagas"
+        ],
+        "description": "Le paramètre est le `tmdb_id` de la **collection**, celui rendu par `GET /me/sagas`, et non l’identifiant de la ligne : celle-ci n’en publie aucun.\n\nUne saga que je ne suis pas répond `404` — y compris quand quelqu’un d’autre la suit : le compte ne voit que ses propres lignes.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "in": "path",
+            "name": "tmdbId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response"
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/sagas/{tmdbId}/films": {
+      "get": {
+        "summary": "Ses films, et ce que j’en ai vu",
+        "tags": [
+          "sagas"
+        ],
+        "description": "Les films de cette collection (`collection/{id}`.parts), de la plus ancienne sortie à la plus récente.\n\n**Un film sans date de sortie ne figure pas dans la liste** : TMDB porte les projets annoncés, qui n’en ont pas et qu’une liste chronologique ne saurait pas placer.\n\n**`vu`** est mon visionnage le plus récent de ce film, ou `null`. Il vient de mon journal à moi : celui d’un autre membre ne le remplit jamais, même s’il suit la même saga. Le rapprochement se fait sur l’identifiant TMDB du film — une œuvre entrée dans la bibliothèque depuis une autre source n’y répond pas.\n\n**`introuvable`** est vrai si *je* l’ai moi-même marqué introuvable (`PUT /me/introuvables/{tmdbId}`) — jamais la marque d’un autre membre, même s’il suit la même saga. La marque est la même que celle des réalisateurs : un film introuvable le reste, quelle que soit la liste où il apparaît.\n\n**Rien n’entre dans la bibliothèque** : cette route ne crée aucune œuvre et n’écrit aucun suivi.\n\nLa liste est mémorisée 24 h côté serveur, **par collection et non par membre** — elle est la même pour tous. `vu`, lui, est relu en base à chaque appel et n’est jamais mémorisé.\n\nUne saga que je ne suis pas répond `404` : il faut l’ajouter d’abord. `503` si `TMDB_API_KEY` n’est pas renseignée sur ce serveur.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "in": "path",
+            "name": "tmdbId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Les films d’une saga suivie, de la plus ancienne sortie à la plus récente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "films": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "tmdb_id": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Identifiant du **film** chez TMDB"
+                          },
+                          "title": {
+                            "type": "string",
+                            "description": "Titre en français, avec repli sur le titre original"
+                          },
+                          "original_title": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "year": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Année de sortie, tirée de `release_date`"
+                          },
+                          "release_date": {
+                            "type": "string",
+                            "format": "date",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                            "description": "Date de sortie — un film qui n’en a pas ne figure pas dans la liste"
+                          },
+                          "cover_url": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uri"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Affiche en URL absolue, taille `w500`"
+                          },
+                          "vu": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "entry_id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                    "description": "L’entrée de journal la plus récente pour ce film"
+                                  },
+                                  "rating": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 10
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "La note de ce visionnage-là"
+                                  },
+                                  "finished_at": {
+                                    "type": "string",
+                                    "format": "date",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                                    "description": "La date de ce visionnage"
+                                  }
+                                },
+                                "required": [
+                                  "entry_id",
+                                  "rating",
+                                  "finished_at"
+                                ],
+                                "additionalProperties": false,
+                                "description": "Mon visionnage le plus récent de ce film"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Nul si je ne l’ai jamais journalisé"
+                          },
+                          "introuvable": {
+                            "type": "boolean",
+                            "description": "Vrai si je l’ai moi-même marqué introuvable (`PUT /me/introuvables/{tmdbId}`) — jamais la marque d’un autre membre."
+                          }
+                        },
+                        "required": [
+                          "tmdb_id",
+                          "title",
+                          "original_title",
+                          "year",
+                          "release_date",
+                          "cover_url",
+                          "vu",
+                          "introuvable"
+                        ],
+                        "additionalProperties": false,
+                        "description": "Un film de cette saga"
+                      }
+                    }
+                  },
+                  "required": [
+                    "films"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Les films d’une saga suivie, de la plus ancienne sortie à la plus récente"
+                },
+                "examples": {
+                  "Réponse type": {
+                    "value": {
+                      "films": [
+                        {
+                          "tmdb_id": 348,
+                          "title": "Alien, le huitième passager",
+                          "original_title": "Alien",
+                          "year": 1979,
+                          "release_date": "1979-06-22",
+                          "cover_url": "https://image.tmdb.org/t/p/w500/vfrQk5IMeyx4LbrgAllVCpBry5r.jpg",
+                          "vu": {
+                            "entry_id": "e0000000-0000-4000-8000-000000000003",
+                            "rating": 10,
+                            "finished_at": "2026-06-01"
+                          },
+                          "introuvable": false
+                        },
+                        {
+                          "tmdb_id": 679,
+                          "title": "Aliens, le retour",
+                          "original_title": "Aliens",
+                          "year": 1986,
+                          "release_date": "1986-07-18",
+                          "cover_url": "https://image.tmdb.org/t/p/w500/r1x5JGpyqZU8PYhbs4UcrO1Xb6x.jpg",
+                          "vu": null,
+                          "introuvable": false
+                        },
+                        {
+                          "tmdb_id": 601410,
+                          "title": "Alien 3 (montage de travail)",
+                          "original_title": null,
+                          "year": 1992,
+                          "release_date": "1992-05-22",
+                          "cover_url": null,
+                          "vu": null,
+                          "introuvable": true
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/media/{id}/availability": {
       "get": {
         "summary": "Où regarder un film ou une série",
@@ -39613,6 +40310,10 @@
     {
       "name": "réalisateurs",
       "description": "Suivre des réalisateurs et lire leur filmographie, avec ce qu’on en a déjà vu. Ne parle que de l’utilisateur de la session — sauf la recherche, qui ne dépend d’aucun compte."
+    },
+    {
+      "name": "sagas",
+      "description": "Suivre des sagas (collections TMDB) et lire leurs films dans l’ordre, avec ce qu’on en a déjà vu. Jumelle des réalisateurs, sans rapport avec la veille sur une saga (`/sagas/{id}/watch`)."
     },
     {
       "name": "veille",
