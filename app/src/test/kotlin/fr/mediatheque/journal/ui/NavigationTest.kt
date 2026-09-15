@@ -90,18 +90,21 @@ class NavigationTest {
         assertEquals("un push vers un autre ecran ne doit rien incrementer", secondeVisite, apresPushForm)
     }
 
-    // `bottomBarTab()` fixe la matrice des huit écrans pour la barre de navigation du bas
+    // `bottomBarTab()` fixe la matrice des dix écrans pour la barre de navigation du bas
     // (décision du propriétaire du 14 septembre 2026, troisième entrée « Au ciné » ajoutée le
-    // même jour) : visible sur l'accueil, « Au ciné », « Mes films » et le profil — « Mes films »
-    // affichant « Profil » sélectionnée, puisqu'elle ne s'empile que depuis `Screen.Profile` dans
-    // `Root.kt`, jamais depuis l'accueil — cachée sur la recherche, le formulaire (création ou
-    // correction) et l'écran SensCritique. Mutation : faire retourner `BottomTab.Home` pour
-    // `Screen.Films` casse l'assertion sur `visibles` ; rendre non nul le résultat pour l'un des
-    // quatre écrans cachés, ou nul pour l'un des quatre visibles, casse la boucle correspondante.
+    // même jour ; quatrième entrée « Frise » le 15 septembre 2026) : visible sur l'accueil, la
+    // Frise, « Au ciné », « Mes films » et le profil — « Mes films » affichant « Profil »
+    // sélectionnée, puisqu'elle ne s'empile que depuis `Screen.Profile` dans `Root.kt`, jamais
+    // depuis l'accueil — cachée sur la recherche, le formulaire (création ou correction),
+    // l'écran SensCritique et le détail d'une année de la Frise. Mutation : faire retourner
+    // `BottomTab.Home` pour `Screen.Films` casse l'assertion sur `visibles` ; rendre non nul le
+    // résultat pour l'un des écrans cachés, ou nul pour l'un des visibles, casse la boucle
+    // correspondante.
     @Test
-    fun `bottomBarTab fixe la visibilite et la selection des huit ecrans`() {
+    fun `bottomBarTab fixe la visibilite et la selection des dix ecrans`() {
         val visibles = mapOf(
             Screen.Home to BottomTab.Home,
+            Screen.Frise to BottomTab.Frise,
             Screen.Cinema to BottomTab.Cinema,
             Screen.Profile to BottomTab.Profile,
             Screen.Films to BottomTab.Profile,
@@ -114,7 +117,14 @@ class NavigationTest {
             media = JournalMedia(id = "media-1", title = "Le Voyage de Chihiro"),
             carnet = Carnet(),
         )
-        val caches: List<Screen> = listOf(Screen.Search, Screen.Form(exemple), Screen.Edit(itemExemple), Screen.SensCritique)
+        val anneeExemple = fr.mediatheque.journal.ui.frise.AnneeFrise(2001, listOf(itemExemple), emptyList())
+        val caches: List<Screen> = listOf(
+            Screen.Search,
+            Screen.Form(exemple),
+            Screen.Edit(itemExemple),
+            Screen.SensCritique,
+            Screen.Annee(anneeExemple),
+        )
         caches.forEach { screen -> assertNull(screen.bottomBarTab()) }
     }
 }

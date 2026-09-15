@@ -7,6 +7,7 @@ import fr.mediatheque.journal.api.dto.JournalCreateBody
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.JournalResponse
 import fr.mediatheque.journal.api.dto.LoginBody
+import fr.mediatheque.journal.api.dto.PlexResponse
 import fr.mediatheque.journal.api.dto.SearchResponse
 import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.api.dto.SessionResponse
@@ -135,6 +136,8 @@ class ApiClient(baseUrl: String, engine: HttpClientEngine) : JournalApi {
         }
 
     override suspend fun sorties(): SortiesResponse = call { client.get(Endpoints.sorties) }
+
+    override suspend fun plex(): PlexResponse = call { client.get(Endpoints.plex) }
 
     private suspend inline fun <reified T> call(block: () -> HttpResponse): T {
         val response = try {

@@ -4,6 +4,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -26,12 +27,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.SearchResult
+import fr.mediatheque.journal.ui.frise.AnneeFrise
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.withTimeoutOrNull
 
-/** Les huit écrans. Un écran qui a besoin d'une donnée la porte. */
+/** Les dix écrans. Un écran qui a besoin d'une donnée la porte. */
 sealed interface Screen {
     data object Home : Screen
     data object Search : Screen
@@ -43,33 +45,41 @@ sealed interface Screen {
     data object SensCritique : Screen
     /** « Au ciné » : mes séances et les sorties en salle (brief du 14 septembre 2026). */
     data object Cinema : Screen
+    /** La Frise : le cinéma du propriétaire, année par année (brief du 15 septembre 2026). */
+    data object Frise : Screen
+    /** Le détail d'une année de la Frise : ses vus, et ce qui reste à voir sur le Plex. */
+    data class Annee(val annee: AnneeFrise) : Screen
 }
 
-/** Les trois entrées de la barre de navigation du bas (décision du propriétaire du 14 septembre 2026 ; Cinema ajoutée le même jour, entre Home et Profile). */
-enum class BottomTab { Home, Cinema, Profile }
+/** Les quatre entrées de la barre de navigation du bas (décision du propriétaire du 14 septembre 2026 ; Cinema ajoutée le même jour ; Frise le 15 septembre 2026, entre Home et Cinema). */
+enum class BottomTab { Home, Frise, Cinema, Profile }
 
 /**
  * Décide, pour un écran donné, si la barre du bas est visible et laquelle de ses entrées est
  * sélectionnée : `null` la cache. Fonction pure, sans dépendance à Compose, testée en JVM
- * (`NavigationTest.kt`) — c'est elle, et elle seule, qui fixe la matrice des huit écrans, plutôt
+ * (`NavigationTest.kt`) — c'est elle, et elle seule, qui fixe la matrice des dix écrans, plutôt
  * que de la reposer à chaque site d'appel.
  *
  * « Mes films » affiche « Profil » sélectionnée, pas « Accueil » : dans `Root.kt`, cet écran ne
- * s'empile que depuis `Screen.Profile` (`onFilms`), jamais depuis l'accueil.
+ * s'empile que depuis `Screen.Profile` (`onFilms`), jamais depuis l'accueil. `Screen.Annee`,
+ * comme le formulaire et la recherche, est un détail empilé sans barre : on y arrive toujours
+ * depuis `Screen.Frise`, jamais directement.
  */
 fun Screen.bottomBarTab(): BottomTab? = when (this) {
     Screen.Home -> BottomTab.Home
+    Screen.Frise -> BottomTab.Frise
     Screen.Cinema -> BottomTab.Cinema
     Screen.Profile, Screen.Films -> BottomTab.Profile
-    Screen.Search, is Screen.Form, is Screen.Edit, Screen.SensCritique -> null
+    Screen.Search, is Screen.Form, is Screen.Edit, Screen.SensCritique, is Screen.Annee -> null
 }
 
 /**
- * La barre de navigation du bas (Material 3), visible sur l'accueil, « Au ciné », « Mes films »
- * et le profil ; cachée sur le formulaire, la recherche et l'écran SensCritique (décision du
- * propriétaire du 14 septembre 2026, en remplacement de l'`IconButton` profil de l'accueil, jugé
- * inaccessible ; troisième entrée « Au ciné » ajoutée le même jour, entre « Accueil » et
- * « Profil »).
+ * La barre de navigation du bas (Material 3), visible sur l'accueil, la Frise, « Au ciné »,
+ * « Mes films » et le profil ; cachée sur le formulaire, la recherche, l'écran SensCritique et
+ * le détail d'une année de la Frise (décision du propriétaire du 14 septembre 2026, en
+ * remplacement de l'`IconButton` profil de l'accueil, jugé inaccessible ; troisième entrée
+ * « Au ciné » ajoutée le même jour ; quatrième entrée « Frise » le 15 septembre 2026, entre
+ * « Accueil » et « Au ciné »).
  * Toucher l’écran où l’on est déjà ne fait rien ; depuis « Mes films », « Profil » est surlignée
  * mais reste touchable et ramène au profil (`Root.kt` lui passe un `pop`).
  * Hauteur 56 dp, icônes seules (le `NavigationBar` de Material fait 80 dp avec ses libellés,
@@ -78,7 +88,13 @@ fun Screen.bottomBarTab(): BottomTab? = when (this) {
  * libellé passe en `contentDescription` pour le lecteur d’écran.
  */
 @Composable
-fun JournalBottomBar(current: Screen, onHome: () -> Unit, onCinema: () -> Unit, onProfile: () -> Unit) {
+fun JournalBottomBar(
+    current: Screen,
+    onHome: () -> Unit,
+    onFrise: () -> Unit,
+    onCinema: () -> Unit,
+    onProfile: () -> Unit,
+) {
     val selected = current.bottomBarTab()
     Surface(color = NavigationBarDefaults.containerColor) {
         Row(
@@ -89,6 +105,11 @@ fun JournalBottomBar(current: Screen, onHome: () -> Unit, onCinema: () -> Unit, 
                 selected = selected == BottomTab.Home,
                 onClick = { if (current != Screen.Home) onHome() },
                 icon = { Icon(Icons.Filled.Home, contentDescription = "Accueil") },
+            )
+            NavigationBarItem(
+                selected = selected == BottomTab.Frise,
+                onClick = { if (current != Screen.Frise) onFrise() },
+                icon = { Icon(Icons.Filled.Timeline, contentDescription = "Frise") },
             )
             NavigationBarItem(
                 selected = selected == BottomTab.Cinema,

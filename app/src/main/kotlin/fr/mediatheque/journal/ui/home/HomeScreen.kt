@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -38,6 +39,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
 import fr.mediatheque.journal.api.dto.JournalItem
+import fr.mediatheque.journal.api.dto.PlexFilm
 import fr.mediatheque.journal.ui.Cover
 import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.Navigator
@@ -58,6 +60,9 @@ fun HomeScreen(
     onAdd: () -> Unit,
     onOpen: (JournalItem) -> Unit,
     bottomBar: @Composable () -> Unit,
+    /** Le plus ancien film à voir sur le Plex (brief du 15 septembre 2026) — nul tant qu'il n'y a rien à voir, ou que `/reference/plex` n'a pas encore répondu : pas de chargement bloquant, la ligne apparaît seule. */
+    ensuite: PlexFilm? = null,
+    onOpenEnsuite: (PlexFilm) -> Unit = {},
 ) {
     val ui by vm.ui.collectAsState()
     val snackbar = remember { SnackbarHostState() }
@@ -103,6 +108,31 @@ fun HomeScreen(
             val hauteurJaquette = largeurJaquette * 1.5f
 
             Column(Modifier.fillMaxSize()) {
+                // Pas de chargement bloquant (brief du 15 septembre 2026) : la ligne n'existe
+                // simplement pas tant que `ensuite` est nul, que ce soit parce que
+                // `/reference/plex` n'a pas encore répondu ou parce qu'il n'y a rien à voir.
+                ensuite?.let { film ->
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp)
+                            .clickable { onOpenEnsuite(film) },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Cover(film.cover_url, film.title, 56.dp, 84.dp)
+                        Column(Modifier.padding(start = 12.dp)) {
+                            Text(
+                                "Ensuite",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                film.year?.let { annee -> "${film.title} ($annee)" } ?: film.title,
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                        }
+                    }
+                }
                 ui.error?.let {
                     ErrorBlock(
                         it.message ?: "",

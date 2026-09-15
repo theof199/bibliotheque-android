@@ -17405,6 +17405,150 @@
         }
       }
     },
+    "/reference/plex": {
+      "get": {
+        "summary": "Films demandés sur Seerr et disponibles sur le Plex, pas encore vus",
+        "tags": [
+          "système"
+        ],
+        "description": "Pour la Frise et « Ensuite ». La liste « à voir » du propriétaire, ce n’est pas une liste tenue à la main : c’est son Plex, alimenté par ce qu’il a demandé dans Seerr et qui y est déjà disponible.\n\nLue en Redis, écrite par une tâche de fond qui relit Seerr au démarrage puis toutes les heures — jamais interrogé à la demande. Rien n’est écrit en base.\n\n`configure` vaut faux tant que `SEERR_URL`, `SEERR_API_KEY` ou `SEERR_USER` manque, et `films` reste alors toujours vide. `calcule_le` est nul tant que la tâche n’a jamais tourné.",
+        "responses": {
+          "200": {
+            "description": "Les films du Plex du propriétaire, demandés sur Seerr, disponibles et pas encore vus",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "configure": {
+                      "type": "boolean",
+                      "description": "Faux si Seerr n’est pas configuré (SEERR_URL, SEERR_API_KEY, SEERR_USER) — films est alors toujours vide"
+                    },
+                    "calcule_le": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Horodatage de la dernière passe de la tâche de fond. Nul si elle n’a jamais tourné, ou si Redis est vide"
+                    },
+                    "films": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "tmdb_id": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Identifiant du film chez TMDB"
+                          },
+                          "title": {
+                            "type": "string",
+                            "description": "Titre en français, avec repli sur le titre original"
+                          },
+                          "original_title": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "year": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Année de sortie, nulle si TMDB ne la donne pas"
+                          },
+                          "cover_url": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uri"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Affiche en URL absolue"
+                          },
+                          "demande_le": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                            "description": "Date de la demande sur Seerr"
+                          }
+                        },
+                        "required": [
+                          "tmdb_id",
+                          "title",
+                          "original_title",
+                          "year",
+                          "cover_url",
+                          "demande_le"
+                        ],
+                        "additionalProperties": false,
+                        "description": "Un film demandé sur Seerr, disponible sur le Plex du propriétaire, pas encore vu"
+                      }
+                    }
+                  },
+                  "required": [
+                    "configure",
+                    "calcule_le",
+                    "films"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Les films du Plex du propriétaire, demandés sur Seerr, disponibles et pas encore vus"
+                },
+                "examples": {
+                  "Réponse type": {
+                    "value": {
+                      "configure": true,
+                      "calcule_le": "2026-09-15T09:00:04.000Z",
+                      "films": [
+                        {
+                          "tmdb_id": 27205,
+                          "title": "Inception",
+                          "original_title": "Inception",
+                          "year": 2010,
+                          "cover_url": "https://image.tmdb.org/t/p/w500/9gk7adZmeSSuQfZBtWWLIcVcSY.jpg",
+                          "demande_le": "2026-09-10T20:12:00.000Z"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/auth/login": {
       "post": {
         "summary": "Ouvrir une session",

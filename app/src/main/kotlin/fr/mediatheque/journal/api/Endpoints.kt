@@ -15,5 +15,6 @@ object Endpoints {
     const val journal = "me/journal"
     const val stats = "stats"
     const val sorties = "reference/sorties"
+    const val plex = "reference/plex"
     fun viewing(id: String): String = "me/journal/$id"
 }

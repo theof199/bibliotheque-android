@@ -10,6 +10,7 @@ import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.JournalMedia
 import fr.mediatheque.journal.api.dto.JournalResponse
 import fr.mediatheque.journal.api.dto.LogEntry
+import fr.mediatheque.journal.api.dto.PlexResponse
 import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.api.dto.SortiesEnCours
 import fr.mediatheque.journal.api.dto.SortiesResponse
@@ -40,6 +41,7 @@ class FakeJournalApi : JournalApi {
             SortieSemaine("2026-09-21", "2026-09-27"),
         )
     }
+    var onPlex: suspend () -> PlexResponse = { PlexResponse(configure = true) }
 
     override suspend fun login(pseudo: String, password: String) = track("login $pseudo") { onLogin(pseudo, password) }
     override suspend fun me() = track("me") { onMe() }
@@ -53,6 +55,7 @@ class FakeJournalApi : JournalApi {
     override suspend fun stats() = track("stats") { onStats() }
     override suspend fun seances(cursor: String?) = track("seances $cursor") { onSeances(cursor) }
     override suspend fun sorties() = track("sorties") { onSorties() }
+    override suspend fun plex() = track("plex") { onPlex() }
 
     private suspend fun <T> track(name: String, block: suspend () -> T): T {
         calls += name

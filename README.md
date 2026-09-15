@@ -239,3 +239,7 @@ liste de contrôle à jouer, pas un journal de ce qui a déjà été vérifié.
 - [ ] Une tuile de « Sorti cette semaine dans mes cinémas » sans identifiant TMDB (rare) ne réagit pas au toucher et ne porte jamais la coche.
 - [ ] `SORTIES_CINEMAS` vide côté back, ou la tâche de fond jamais lancée : « Pas encore de programme. » à la place de la grille.
 - [ ] « Tes séances » liste les films marqués « En salle », du plus récent au plus ancien, même ligne que « Mes films » ; toucher une ligne ouvre la correction, et « N séances cette année » en tête reflète bien ce qui est journalisé.
+- [ ] La barre du bas compte quatre icônes (Accueil, Frise, Au ciné, Profil) ; « Frise » l'ouvre.
+- [ ] Sur l'accueil, la ligne « Ensuite » (affiche, titre, année) apparaît sans bloquer l'affichage de la grille ; absente s'il n'y a rien à voir sur le Plex ; toucher l'affiche ouvre le formulaire pré-rempli.
+- [ ] La Frise : « Tu en es à *année* » (ou « Tout vu jusqu'ici ») en tête, absente si Seerr n'est pas configuré côté back ; la liste défile jusqu'à l'année en cours à l'ouverture ; chaque ligne dit « N vus · M à voir » (masque « · 0 à voir ») avec une fine barre de progression.
+- [ ] Toucher une année ouvre son détail : la grille des vus, puis « À voir sur le Plex » (liseré pointillé, sans note) ; toucher une tuile à voir ouvre le formulaire pré-rempli.

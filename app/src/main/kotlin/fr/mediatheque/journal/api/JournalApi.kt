@@ -4,6 +4,7 @@ import fr.mediatheque.journal.api.dto.AddMediaResponse
 import fr.mediatheque.journal.api.dto.JournalCreateBody
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.JournalResponse
+import fr.mediatheque.journal.api.dto.PlexResponse
 import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.api.dto.SortiesResponse
 import fr.mediatheque.journal.api.dto.StatsResponse
@@ -40,4 +41,6 @@ interface JournalApi {
     suspend fun seances(cursor: String?): JournalResponse
     /** `GET /reference/sorties` : sorties en salle, semaine en cours et semaine prochaine. */
     suspend fun sorties(): SortiesResponse
+    /** `GET /reference/plex` : le Plex du propriétaire, demandé sur Seerr — la Frise et « Ensuite ». */
+    suspend fun plex(): PlexResponse
 }

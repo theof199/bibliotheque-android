@@ -69,3 +69,31 @@ data class SortiesEnCours(
 
 @Serializable
 data class SortiesResponse(val en_cours: SortiesEnCours, val prochaine: SortieSemaine)
+
+/**
+ * `GET /reference/plex` (chantier « La Frise et Ensuite », 15 septembre 2026) : un film demandé
+ * sur Seerr et disponible sur le Plex du propriétaire, pas encore vu. `tmdb_id` sert au même
+ * rapprochement que `SortieFilm.tmdb_id` — par `media.external_id`, jamais par le titre.
+ */
+@Serializable
+data class PlexFilm(
+    val tmdb_id: Int,
+    val title: String,
+    val original_title: String? = null,
+    val year: Int? = null,
+    val cover_url: String? = null,
+    val demande_le: String,
+)
+
+/**
+ * `configure` faux tant que Seerr n'est pas configuré côté back (`SEERR_URL`, `SEERR_API_KEY`,
+ * `SEERR_USER`) — `films` est alors toujours vide, et la Frise ne montre que les vus, sans
+ * en-tête « Tu en es à » (brief du 15 septembre 2026). `calcule_le` est nul tant que la tâche de
+ * fond n'a jamais tourné.
+ */
+@Serializable
+data class PlexResponse(
+    val configure: Boolean = false,
+    val calcule_le: String? = null,
+    val films: List<PlexFilm> = emptyList(),
+)

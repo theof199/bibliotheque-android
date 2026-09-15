@@ -27,6 +27,10 @@ import fr.mediatheque.journal.ui.films.FilmsViewModel
 import fr.mediatheque.journal.ui.form.FormMode
 import fr.mediatheque.journal.ui.form.FormScreen
 import fr.mediatheque.journal.ui.form.FormViewModel
+import fr.mediatheque.journal.ui.frise.AnneeScreen
+import fr.mediatheque.journal.ui.frise.FriseScreen
+import fr.mediatheque.journal.ui.frise.FriseViewModel
+import fr.mediatheque.journal.ui.frise.toSearchResult
 import fr.mediatheque.journal.ui.home.HomeScreen
 import fr.mediatheque.journal.ui.login.LoginScreen
 import fr.mediatheque.journal.ui.login.LoginViewModel
@@ -87,6 +91,11 @@ fun Root(container: AppContainer) {
             val senscritique: SensCritiqueViewModel = viewModel(key = "senscritique") {
                 SensCritiqueViewModel(container.sensCritiqueStore, container.sensCritiqueAuthClient, container.sensCritiqueSync)
             }
+            // Une seule instance pour la Frise et pour la ligne « Ensuite » de l'accueil (brief du
+            // 15 septembre 2026) : les deux doivent viser le même film « à voir », et ne charger le
+            // journal complet qu'une fois. Indexé sur l'Activité comme `search`/`senscritique` :
+            // sans clé fixe, chaque entrée sur l'accueil ou la Frise recréerait l'instance.
+            val frise: FriseViewModel = viewModel(key = "frise") { FriseViewModel(container.api, session::expire) }
             var etaitSurSensCritique by remember { mutableStateOf(false) }
             LaunchedEffect(nav.current) {
                 if (etaitSurSensCritique && nav.current != Screen.SensCritique) senscritique.clearCredentials()
@@ -110,15 +119,23 @@ fun Root(container: AppContainer) {
                         // si un futur chemin de navigation les rapproche.
                         val films: FilmsViewModel = viewModel(key = "films") { FilmsViewModel(container.api, session::expire) }
                         LaunchedEffect(Unit) { films.refresh() }
+                        // Jumeau de `films.refresh()` ci-dessus, pour la ligne « Ensuite » (brief du
+                        // 15 septembre 2026) : pas de chargement bloquant, l'accueil s'affiche tout de
+                        // suite et la ligne apparaît quand `/reference/plex` a répondu.
+                        LaunchedEffect(Unit) { frise.refresh() }
+                        val friseUi by frise.ui.collectAsState()
                         HomeScreen(
                             vm = films,
                             nav = nav,
+                            ensuite = friseUi.ensuite,
                             onAdd = { nav.push(Screen.Search) },
                             onOpen = { nav.push(Screen.Edit(it)) },
+                            onOpenEnsuite = { nav.push(Screen.Form(it.toSearchResult())) },
                             bottomBar = {
                                 JournalBottomBar(
                                     screen,
                                     onHome = { nav.home() },
+                                    onFrise = { nav.push(Screen.Frise) },
                                     onCinema = { nav.push(Screen.Cinema) },
                                     onProfile = { nav.push(Screen.Profile) },
                                 )
@@ -151,6 +168,7 @@ fun Root(container: AppContainer) {
                                 JournalBottomBar(
                                     screen,
                                     onHome = { nav.home() },
+                                    onFrise = { nav.push(Screen.Frise) },
                                     onCinema = { nav.push(Screen.Cinema) },
                                     onProfile = { nav.push(Screen.Profile) },
                                 )
@@ -175,6 +193,7 @@ fun Root(container: AppContainer) {
                                 JournalBottomBar(
                                     screen,
                                     onHome = { nav.home() },
+                                    onFrise = { nav.push(Screen.Frise) },
                                     onCinema = { nav.push(Screen.Cinema) },
                                     onProfile = nav::pop,
                                 )
@@ -222,12 +241,38 @@ fun Root(container: AppContainer) {
                                 JournalBottomBar(
                                     screen,
                                     onHome = { nav.home() },
+                                    onFrise = { nav.push(Screen.Frise) },
                                     onCinema = { nav.push(Screen.Cinema) },
                                     onProfile = { nav.push(Screen.Profile) },
                                 )
                             },
                         )
                     }
+                    Screen.Frise -> {
+                        // Nouveau `ViewModel` partagé avec l'accueil (même clé `"frise"` ci-dessus) :
+                        // sans ce rechargement à chaque entrée, la Frise resterait celle de la
+                        // première visite après l'ajout d'un visionnage depuis l'un de ses écrans.
+                        LaunchedEffect(Unit) { frise.refresh() }
+                        FriseScreen(
+                            frise,
+                            onOpenAnnee = { nav.push(Screen.Annee(it)) },
+                            bottomBar = {
+                                JournalBottomBar(
+                                    screen,
+                                    onHome = { nav.home() },
+                                    onFrise = { nav.push(Screen.Frise) },
+                                    onCinema = { nav.push(Screen.Cinema) },
+                                    onProfile = { nav.push(Screen.Profile) },
+                                )
+                            },
+                        )
+                    }
+                    is Screen.Annee -> AnneeScreen(
+                        screen.annee,
+                        onBack = nav::pop,
+                        onOpenVu = { nav.push(Screen.Edit(it)) },
+                        onOpenAVoir = { nav.push(Screen.Form(it.toSearchResult())) },
+                    )
                 }
             }
         }

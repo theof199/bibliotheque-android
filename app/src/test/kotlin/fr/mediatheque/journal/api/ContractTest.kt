@@ -3,6 +3,7 @@ package fr.mediatheque.journal.api
 import fr.mediatheque.journal.api.dto.AddMediaResponse
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.JournalResponse
+import fr.mediatheque.journal.api.dto.PlexResponse
 import fr.mediatheque.journal.api.dto.SearchResponse
 import fr.mediatheque.journal.api.dto.SessionResponse
 import fr.mediatheque.journal.api.dto.SortiesResponse
@@ -79,6 +80,17 @@ class ContractTest {
         assertEquals(306319, film.allocine_id)
         assertEquals(listOf("UGC Ciné Cité Les Halles", "mk2 Bastille (Beaumarchais)"), film.cinemas)
         assertEquals(listOf("Alix Delaporte"), film.directors)
+    }
+    // La Frise et « Ensuite » (brief du 15 septembre 2026) : le Plex du propriétaire, demandé
+    // sur Seerr. Authentifiée côté back, mais l'exemple du contrat ne dépend pas d'une session.
+    @Test fun `GET reference plex`() {
+        val plex = lit("/reference/plex", "get", "200", PlexResponse.serializer())
+        assertEquals(true, plex.configure)
+        assertNotNull(plex.calcule_le)
+        val film = plex.films.first()
+        assertEquals(27205, film.tmdb_id)
+        assertEquals("Inception", film.title)
+        assertEquals(2010, film.year)
     }
     @Test fun `POST me journal`() { lit("/me/journal", "post", "201", JournalItem.serializer()) }
     @Test fun `PATCH me journal id`() { lit("/me/journal/{id}", "patch", "200", JournalItem.serializer()) }
