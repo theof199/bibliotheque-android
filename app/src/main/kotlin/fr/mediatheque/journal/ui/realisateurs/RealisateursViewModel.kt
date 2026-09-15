@@ -28,6 +28,10 @@ import kotlinx.coroutines.launch
  * d'un appel (`GET /me/realisateurs`), les filmographies d'un appel **par réalisateur**, joués
  * à la suite les uns des autres : chaque ligne s'affiche avant de savoir ce qu'elle compte, et
  * dit « … » en attendant sa réponse.
+ *
+ * Un film peut aussi être marqué introuvable (décision du propriétaire du 15 septembre 2026) :
+ * `prochainAVoir` l'ignore, comme la pastille « à voir » et le « Ensuite » de l'accueil qui s'en
+ * déduisent tous deux.
  */
 
 /**
@@ -47,21 +51,29 @@ data class RealisateurEnCours(val realisateur: Realisateur, val prochain: FilmDe
 /** Combien de films de cette filmographie j'ai déjà journalisés. */
 fun filmsVus(films: List<FilmDeRealisateur>): Int = films.count { it.vu != null }
 
+/** Combien de films de cette filmographie j'ai moi-même marqués introuvables. */
+fun filmsIntrouvables(films: List<FilmDeRealisateur>): Int = films.count { it.introuvable }
+
 /**
- * Le prochain film à voir : le premier que je n'ai pas vu, dans l'ordre où le back les rend —
- * de la plus ancienne sortie à la plus récente. Nul quand j'ai tout vu.
+ * Le prochain film à voir : le premier que je n'ai pas vu **et que je n'ai pas marqué
+ * introuvable** (décision du propriétaire du 15 septembre 2026), dans l'ordre où le back les
+ * rend — de la plus ancienne sortie à la plus récente. Nul quand il n'y a plus rien à voir.
  */
-fun prochainAVoir(films: List<FilmDeRealisateur>): FilmDeRealisateur? = films.firstOrNull { it.vu == null }
+fun prochainAVoir(films: List<FilmDeRealisateur>): FilmDeRealisateur? =
+    films.firstOrNull { it.vu == null && !it.introuvable }
 
 /** « Lolita (1962) », ou « Lolita » tout court si TMDB n'a pas d'année pour lui. */
 fun titreEtAnnee(film: FilmDeRealisateur): String = film.year?.let { "${film.title} ($it)" } ?: film.title
 
 /**
- * La ligne sous le nom, dans la liste : « 7 vus sur 13 · prochain : Lolita (1962) ». La part
- * « prochain » disparaît quand il n'y a plus rien à voir — le compte, lui, reste.
+ * La ligne sous le nom, dans la liste : « 7 vus sur 13 · 2 introuvables · prochain : Lolita
+ * (1962) ». Le total compte tous les films de la filmographie, introuvables compris ; la part
+ * « · N introuvables » n'apparaît que s'il y en a au moins un ; la part « prochain » disparaît
+ * quand il n'y a plus rien à voir — le compte, lui, reste toujours.
  */
 fun resumeFilmographie(films: List<FilmDeRealisateur>): String {
-    val compte = "${filmsVus(films)} vus sur ${films.size}"
+    val introuvables = filmsIntrouvables(films)
+    val compte = "${filmsVus(films)} vus sur ${films.size}" + if (introuvables > 0) " · $introuvables introuvables" else ""
     val prochain = prochainAVoir(films) ?: return compte
     return "$compte · prochain : ${titreEtAnnee(prochain)}"
 }
@@ -137,6 +149,12 @@ data class RealisateursUi(
     val entrees: Map<String, JournalItem> = emptyMap(),
     val loading: Boolean = false,
     val error: ApiError? = null,
+    /**
+     * L'interrupteur « Masquer les introuvables » de la fiche (décision du propriétaire du
+     * 15 septembre 2026), activé par défaut. Ici et non dans un `remember` local à l'écran : il
+     * doit survivre à une sortie puis un retour sur la fiche, tant que l'application tourne.
+     */
+    val masquerIntrouvables: Boolean = true,
 )
 
 class RealisateursViewModel(private val api: JournalApi, private val onUnauthenticated: () -> Unit) : ViewModel() {
@@ -240,6 +258,40 @@ class RealisateursViewModel(private val api: JournalApi, private val onUnauthent
             }
             _messages.trySend("Retiré")
             refresh()
+        }
+    }
+
+    fun basculerMasquerIntrouvables() {
+        _ui.update { it.copy(masquerIntrouvables = !it.masquerIntrouvables) }
+    }
+
+    /**
+     * Marquer ou retirer la marque « introuvable » (décision du propriétaire du 15 septembre
+     * 2026), depuis la fiche. `PUT`/`DELETE`, puis la filmographie de ce réalisateur se recharge ;
+     * un échec ne touche à rien d'autre qu'un bandeau — ni la marque affichée, ni le reste de
+     * l'écran.
+     */
+    fun marquerIntrouvable(tmdbId: Int, filmId: Int) {
+        viewModelScope.launch {
+            try {
+                api.marquerIntrouvable(filmId)
+            } catch (e: ApiError) {
+                if (e.isUnauthenticated) onUnauthenticated() else _messages.trySend("Impossible pour l’instant")
+                return@launch
+            }
+            chargerUneFilmographie(tmdbId)
+        }
+    }
+
+    fun retirerIntrouvable(tmdbId: Int, filmId: Int) {
+        viewModelScope.launch {
+            try {
+                api.retirerIntrouvable(filmId)
+            } catch (e: ApiError) {
+                if (e.isUnauthenticated) onUnauthenticated() else _messages.trySend("Impossible pour l’instant")
+                return@launch
+            }
+            chargerUneFilmographie(tmdbId)
         }
     }
 

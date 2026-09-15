@@ -18,9 +18,13 @@ object Endpoints {
     const val plex = "reference/plex"
     const val personnes = "reference/personnes"
     const val realisateurs = "me/realisateurs"
+    const val introuvables = "me/introuvables"
     fun viewing(id: String): String = "me/journal/$id"
 
     /** `GET`/`DELETE /me/realisateurs/{tmdbId}` — l'identifiant de la **personne**, pas celui de la ligne. */
     fun realisateur(tmdbId: Int): String = "$realisateurs/$tmdbId"
     fun filmographie(tmdbId: Int): String = "${realisateur(tmdbId)}/films"
+
+    /** `PUT`/`DELETE /me/introuvables/{tmdbId}` — l'identifiant d'un **film**, pas d'une personne. */
+    fun introuvable(tmdbId: Int): String = "$introuvables/$tmdbId"
 }

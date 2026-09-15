@@ -33,6 +33,7 @@ import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
+import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
@@ -164,6 +165,14 @@ class ApiClient(baseUrl: String, engine: HttpClientEngine) : JournalApi {
 
     override suspend fun filmographie(tmdbId: Int): List<FilmDeRealisateur> =
         call<FilmographieResponse> { client.get(Endpoints.filmographie(tmdbId)) }.films
+
+    override suspend fun marquerIntrouvable(tmdbId: Int) {
+        call<Unit> { client.put(Endpoints.introuvable(tmdbId)) }
+    }
+
+    override suspend fun retirerIntrouvable(tmdbId: Int) {
+        call<Unit> { client.delete(Endpoints.introuvable(tmdbId)) }
+    }
 
     private suspend inline fun <reified T> call(block: () -> HttpResponse): T {
         val response = try {

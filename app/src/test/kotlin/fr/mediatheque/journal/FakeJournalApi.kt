@@ -51,6 +51,8 @@ class FakeJournalApi : JournalApi {
     var onSuivreRealisateur: suspend (Int) -> Realisateur = { id -> realisateur(id, "Personne $id") }
     var onRetirerRealisateur: suspend (Int) -> Unit = {}
     var onFilmographie: suspend (Int) -> List<FilmDeRealisateur> = { emptyList() }
+    var onMarquerIntrouvable: suspend (Int) -> Unit = {}
+    var onRetirerIntrouvable: suspend (Int) -> Unit = {}
 
     override suspend fun login(pseudo: String, password: String) = track("login $pseudo") { onLogin(pseudo, password) }
     override suspend fun me() = track("me") { onMe() }
@@ -70,6 +72,8 @@ class FakeJournalApi : JournalApi {
     override suspend fun suivreRealisateur(tmdbId: Int) = track("suivreRealisateur $tmdbId") { onSuivreRealisateur(tmdbId) }
     override suspend fun retirerRealisateur(tmdbId: Int) = track("retirerRealisateur $tmdbId") { onRetirerRealisateur(tmdbId) }
     override suspend fun filmographie(tmdbId: Int) = track("filmographie $tmdbId") { onFilmographie(tmdbId) }
+    override suspend fun marquerIntrouvable(tmdbId: Int) = track("marquerIntrouvable $tmdbId") { onMarquerIntrouvable(tmdbId) }
+    override suspend fun retirerIntrouvable(tmdbId: Int) = track("retirerIntrouvable $tmdbId") { onRetirerIntrouvable(tmdbId) }
 
     private suspend fun <T> track(name: String, block: suspend () -> T): T {
         calls += name
@@ -117,12 +121,14 @@ class FakeJournalApi : JournalApi {
             entryId: String? = null,
             rating: Int? = null,
             finishedAt: String = "2026-07-12",
+            introuvable: Boolean = false,
         ) = FilmDeRealisateur(
             tmdb_id = tmdbId,
             title = title,
             year = year,
             release_date = year?.let { "$it-01-01" },
             vu = entryId?.let { VuDuFilm(it, rating, finishedAt) },
+            introuvable = introuvable,
         )
 
         fun unauthorized() = ApiError("UNAUTHENTICATED", "Connecte-toi d’abord.", retryable = false, status = 401)

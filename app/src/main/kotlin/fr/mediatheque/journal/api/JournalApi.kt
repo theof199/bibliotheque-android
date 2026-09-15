@@ -61,6 +61,12 @@ interface JournalApi {
 
     /** `GET /me/realisateurs/{tmdbId}/films` : sa filmographie, de la plus ancienne sortie à la plus récente. */
     suspend fun filmographie(tmdbId: Int): List<FilmDeRealisateur>
+
+    /** `PUT /me/introuvables/{tmdbId}` : marque un film (son propre `tmdb_id`) introuvable. Idempotent, toujours `204`. */
+    suspend fun marquerIntrouvable(tmdbId: Int)
+
+    /** `DELETE /me/introuvables/{tmdbId}` : retire la marque. Toujours `204`, même si rien n'était marqué. */
+    suspend fun retirerIntrouvable(tmdbId: Int)
 }
 
 /**

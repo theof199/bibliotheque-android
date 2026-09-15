@@ -225,4 +225,105 @@ class RealisateursViewModelTest {
         assertEquals(1, expire)
         assertNull(vm.ui.value.error)
     }
+
+    // L'interrupteur de la fiche (décision du propriétaire du 15 septembre 2026), activé par
+    // défaut : une bascule l'éteint, une seconde le rallume. Mutation : ne jamais inverser, ou
+    // partir de `false`, casse l'une des trois assertions.
+    @Test
+    fun `basculerMasquerIntrouvables inverse l etat, actif par defaut`() {
+        val vm = vm()
+        assertTrue(vm.ui.value.masquerIntrouvables)
+        vm.basculerMasquerIntrouvables()
+        assertEquals(false, vm.ui.value.masquerIntrouvables)
+        vm.basculerMasquerIntrouvables()
+        assertTrue(vm.ui.value.masquerIntrouvables)
+    }
+
+    // Marquer un film introuvable : le `PUT`, puis sa filmographie se recharge — c'est ce
+    // rechargement qui fait apparaître `introuvable: true` sur la ligne. Mutation : ne pas
+    // recharger laisse la vieille filmographie affichée, sans la marque qu'on vient de poser.
+    @Test
+    fun `marquerIntrouvable appelle le back puis recharge la filmographie`() = runTest(dispatcher) {
+        api.onRealisateurs = { listOf(nolan) }
+        var marque = false
+        api.onFilmographie = {
+            listOf(FakeJournalApi.filmDe(1, "Memento", 2000, introuvable = marque))
+        }
+        api.onMarquerIntrouvable = { marque = true }
+
+        val vm = vm()
+        vm.refresh()
+        testScheduler.advanceUntilIdle()
+        assertEquals(false, (vm.ui.value.filmographies[525] as EtatFilmographie.Pret).films.first().introuvable)
+
+        vm.marquerIntrouvable(525, 1)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(listOf("marquerIntrouvable 1"), api.calls.filter { it.startsWith("marquerIntrouvable") })
+        assertTrue((vm.ui.value.filmographies[525] as EtatFilmographie.Pret).films.first().introuvable)
+    }
+
+    // Un échec du `PUT` : bandeau « Impossible pour l'instant », et rien d'autre ne bouge — ni
+    // rechargement, ni marque locale posée par optimisme. Mutation : rechargerait quand même
+    // (`chargerUneFilmographie` hors du `catch`) ferait apparaître un second appel dans
+    // `api.calls` alors que ce test n'en attend qu'un.
+    @Test
+    fun `marquerIntrouvable rate annonce un bandeau, rien ne change`() = runTest(dispatcher) {
+        api.onRealisateurs = { listOf(nolan) }
+        api.onFilmographie = { listOf(FakeJournalApi.filmDe(1, "Memento", 2000)) }
+        api.onMarquerIntrouvable = { throw FakeJournalApi.network() }
+
+        val recus = mutableListOf<String>()
+        val vm = vm()
+        val job = launch { vm.messages.collect { recus += it } }
+        vm.refresh()
+        testScheduler.advanceUntilIdle()
+
+        vm.marquerIntrouvable(525, 1)
+        testScheduler.advanceUntilIdle()
+        job.cancel()
+
+        assertEquals(listOf("Impossible pour l’instant"), recus)
+        assertEquals(listOf("realisateurs", "filmographie 525", "marquerIntrouvable 1"), api.calls)
+        assertEquals(false, (vm.ui.value.filmographies[525] as EtatFilmographie.Pret).films.first().introuvable)
+    }
+
+    // Retirer la marque : le `DELETE`, puis la filmographie se recharge — jumeau de
+    // `marquerIntrouvable`, l'autre sens.
+    @Test
+    fun `retirerIntrouvable appelle le back puis recharge la filmographie`() = runTest(dispatcher) {
+        api.onRealisateurs = { listOf(nolan) }
+        var marque = true
+        api.onFilmographie = {
+            listOf(FakeJournalApi.filmDe(1, "Memento", 2000, introuvable = marque))
+        }
+        api.onRetirerIntrouvable = { marque = false }
+
+        val vm = vm()
+        vm.refresh()
+        testScheduler.advanceUntilIdle()
+        assertTrue((vm.ui.value.filmographies[525] as EtatFilmographie.Pret).films.first().introuvable)
+
+        vm.retirerIntrouvable(525, 1)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(listOf("retirerIntrouvable 1"), api.calls.filter { it.startsWith("retirerIntrouvable") })
+        assertEquals(false, (vm.ui.value.filmographies[525] as EtatFilmographie.Pret).films.first().introuvable)
+    }
+
+    @Test
+    fun `un 401 sur marquerIntrouvable previent la session`() = runTest(dispatcher) {
+        api.onRealisateurs = { listOf(nolan) }
+        api.onFilmographie = { listOf(FakeJournalApi.filmDe(1, "Memento", 2000)) }
+        api.onMarquerIntrouvable = { throw FakeJournalApi.unauthorized() }
+
+        val vm = vm()
+        vm.refresh()
+        testScheduler.advanceUntilIdle()
+
+        vm.marquerIntrouvable(525, 1)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(1, expire)
+    }
 }

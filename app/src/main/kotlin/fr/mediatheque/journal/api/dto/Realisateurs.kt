@@ -50,6 +50,11 @@ data class VuDuFilm(val entry_id: String, val rating: Int? = null, val finished_
  * plus ancienne sortie à la plus récente. Un film sans date de sortie ne
  * figure pas dans la liste côté back : `release_date` est donc toujours là,
  * et `year` avec elle en pratique.
+ *
+ * `introuvable` (décision du propriétaire du 15 septembre 2026) est vrai si
+ * *je* l'ai moi-même marqué introuvable — jamais la marque d'un autre membre.
+ * Par défaut à `false` : le contrat le rend toujours, mais un test qui
+ * construit ce DTO à la main n'a pas à le répéter à chaque appel.
  */
 @Serializable
 data class FilmDeRealisateur(
@@ -60,6 +65,7 @@ data class FilmDeRealisateur(
     val release_date: String? = null,
     val cover_url: String? = null,
     val vu: VuDuFilm? = null,
+    val introuvable: Boolean = false,
 )
 
 @Serializable

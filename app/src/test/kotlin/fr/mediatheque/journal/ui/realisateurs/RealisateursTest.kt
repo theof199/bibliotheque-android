@@ -46,6 +46,23 @@ class RealisateursTest {
         assertNull(prochainAVoir(emptyList()))
     }
 
+    // Un film introuvable (décision du propriétaire du 15 septembre 2026) n'est jamais le
+    // prochain, même non vu et même en tête. Mutation : ne filtrer que sur `vu == null` (l'ancien
+    // corps de la fonction) rendrait « Lolita » dans les deux cas.
+    @Test
+    fun `prochainAVoir ignore les films marques introuvables`() {
+        val lolitaIntrouvable = listOf(
+            filmDe(1, "Les Sentiers de la gloire", 1957, entryId = "e-1", rating = 9),
+            filmDe(2, "Spartacus", 1960, entryId = "e-2", rating = 7),
+            filmDe(3, "Lolita", 1962, introuvable = true),
+            filmDe(4, "Docteur Folamour", 1964),
+        )
+        assertEquals("Docteur Folamour", prochainAVoir(lolitaIntrouvable)?.title)
+
+        // Tout le reste est introuvable ou vu : plus de prochain du tout, comme « tout vu ».
+        assertNull(prochainAVoir(lolitaIntrouvable.filter { it.title != "Docteur Folamour" }))
+    }
+
     // La phrase exacte de la ligne (brief du 15 septembre 2026). Mutation : inverser vus et
     // total, oublier l'année du prochain, ou garder « · prochain : » quand il n'y a plus rien à
     // voir, casse l'une des trois assertions.
@@ -57,6 +74,27 @@ class RealisateursTest {
             "0 vus sur 1 · prochain : Sans année",
             resumeFilmographie(listOf(filmDe(7, "Sans année"))),
         )
+    }
+
+    // Le total compte les introuvables (brief du 15 septembre 2026), la mention « · N
+    // introuvables » ne sort que s'il y en a, et le prochain qui suit les ignore. Mutation :
+    // exclure les introuvables du total ferait dire « 3 vus sur 3 » ; les compter sans jamais
+    // ajouter la mention laisserait « 3 vus sur 4 · prochain : Docteur Folamour » sans dire
+    // pourquoi Lolita n'est pas le prochain.
+    @Test
+    fun `resumeFilmographie compte les introuvables et l annonce`() {
+        val lolitaIntrouvable = listOf(
+            filmDe(1, "Les Sentiers de la gloire", 1957, entryId = "e-1", rating = 9),
+            filmDe(2, "Spartacus", 1960, entryId = "e-2", rating = 7),
+            filmDe(3, "Lolita", 1962, introuvable = true),
+            filmDe(4, "Docteur Folamour", 1964),
+        )
+        assertEquals(
+            "2 vus sur 4 · 1 introuvables · prochain : Docteur Folamour (1964)",
+            resumeFilmographie(lolitaIntrouvable),
+        )
+        // Aucun introuvable : la mention disparaît entièrement, pas « · 0 introuvables ».
+        assertEquals("3 vus sur 4 · prochain : Lolita (1962)", resumeFilmographie(kubrick))
     }
 
     // « … » tant que la réponse n'est pas là, « indisponible » quand elle a échoué : c'est ce qui
@@ -119,6 +157,24 @@ class RealisateursTest {
         val toutVu = mapOf(kub.tmdb_id to EtatFilmographie.Pret(kubrick.filter { it.vu != null }))
         assertNull(realisateurEnCours(listOf(kub), toutVu))
         assertNull(realisateurEnCours(emptyList(), emptyMap()))
+    }
+
+    // Le seul film qui restait à voir est marqué introuvable (décision du propriétaire du
+    // 15 septembre 2026) : ce réalisateur ne concourt plus, comme s'il était tout vu — la ligne
+    // « Ensuite » de l'accueil ne doit jamais pointer sur un film qu'on ne peut pas trouver.
+    // Mutation : revenir à l'ancien `prochainAVoir` (qui ne regarde que `vu`) élirait Kubrick.
+    @Test
+    fun `realisateurEnCours ignore un realisateur dont il ne reste qu un introuvable`() {
+        val filmographies = mapOf(
+            kub.tmdb_id to EtatFilmographie.Pret(
+                kubrick.map { if (it.vu == null) it.copy(introuvable = true) else it },
+            ),
+            miyazaki.tmdb_id to EtatFilmographie.Pret(
+                listOf(filmDe(30, "Porco Rosso", 1992, entryId = "e-30"), filmDe(31, "Mononoké", 1997)),
+            ),
+        )
+
+        assertEquals("Hayao Miyazaki", realisateurEnCours(listOf(kub, miyazaki), filmographies)?.realisateur?.name)
     }
 
     // À égalité, le premier de la liste — `GET /me/realisateurs` la rend du plus récemment ajouté
