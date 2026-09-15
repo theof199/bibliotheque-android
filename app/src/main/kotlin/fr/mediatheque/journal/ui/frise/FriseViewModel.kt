@@ -48,7 +48,7 @@ fun construireFrise(journal: List<JournalItem>, plex: PlexResponse): Frise {
     val dejaVus = journal.mapNotNull { it.media.external_id.toIntOrNull() }.toSet()
     val aVoir = plex.films.filterNot { it.tmdb_id in dejaVus }
 
-    val vusParAnnee: Map<Int?, List<JournalItem>> = journal.groupBy { it.entry.finished_at.take(4).toIntOrNull() }
+    val vusParAnnee: Map<Int?, List<JournalItem>> = journal.groupBy { it.media.year }
     val aVoirParAnnee: Map<Int?, List<PlexFilm>> = aVoir.groupBy { it.year }
 
     val anneesConnues = (vusParAnnee.keys + aVoirParAnnee.keys).filterNotNull().distinct().sorted()

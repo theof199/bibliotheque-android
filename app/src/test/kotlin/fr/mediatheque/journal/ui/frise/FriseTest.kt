@@ -12,8 +12,11 @@ import org.junit.Test
  * Frise et Ensuite » (15 septembre 2026), testée sans réseau ni `ViewModel`.
  */
 class FriseTest {
-    private fun vu(finishedAt: String, externalId: String) =
-        FakeJournalApi.item("m-$externalId", finishedAt, null, emptyList(), null, externalId = externalId)
+    // Tous vus en 2026 : la frise range par annee de SORTIE du film (`media.year`), jamais par
+    // date de visionnage. Le 15 septembre 2026, la release montrait une seule ligne « 2026 »
+    // avec 51 films : ce qui suit interdit ce retour.
+    private fun vu(annee: Int?, externalId: String) =
+        FakeJournalApi.item("m-$externalId", "2026-09-0${externalId.last()}", null, emptyList(), null, externalId = externalId, year = annee)
 
     private fun aVoir(tmdbId: Int, titre: String, annee: Int?, demandeLe: String = "2026-09-10T20:12:00.000Z") =
         PlexFilm(tmdb_id = tmdbId, title = titre, year = annee, demande_le = demandeLe)
@@ -23,7 +26,7 @@ class FriseTest {
     // l'assertion sur la taille de `aVoir`.
     @Test
     fun `un film du plex deja dans le journal est ecarte, par tmdb_id`() {
-        val journal = listOf(vu("2026-01-10", "27205"))
+        val journal = listOf(vu(2010, "27205"))
         val plex = PlexResponse(
             configure = true,
             films = listOf(aVoir(27205, "Inception", 2010), aVoir(912649, "Les Gardiens de la nuit", 2026)),
@@ -33,9 +36,11 @@ class FriseTest {
 
         val annee2026 = frise.annees.first { it.annee == 2026 }
         assertEquals(listOf(912649), annee2026.aVoir.map { it.tmdb_id })
-        // Aucune ligne 2010 : le seul film candidat de cette année a été écarté, et l'année ne
-        // porte par ailleurs aucun vu.
-        assertEquals(null, frise.annees.find { it.annee == 2010 })
+        // La ligne 2010 porte le vu (Inception, sorti en 2010) et aucun à-voir : le seul
+        // candidat du Plex pour cette année est celui qu'on vient d'écarter.
+        val annee2010 = frise.annees.first { it.annee == 2010 }
+        assertEquals(1, annee2010.vus.size)
+        assertEquals(emptyList<Int>(), annee2010.aVoir.map { it.tmdb_id })
     }
 
     // Les années se suivent en ordre croissant, « Sans année » toujours en dernier — jamais
@@ -43,7 +48,7 @@ class FriseTest {
     // en tête, fait échouer l'égalité de séquence.
     @Test
     fun `les annees sont triees croissant, sans annee toujours en fin`() {
-        val journal = listOf(vu("2024-03-01", "1"), vu("2020-03-01", "2"), vu("", "3"))
+        val journal = listOf(vu(2024, "1"), vu(2020, "2"), vu(null, "3"))
         val plex = PlexResponse(configure = true, films = listOf(aVoir(4, "Film 2022", 2022)))
 
         val frise = construireFrise(journal, plex)
@@ -56,18 +61,18 @@ class FriseTest {
     // apparaître 2021 et 2023 ici.
     @Test
     fun `une annee sans rien n apparait pas dans la liste`() {
-        val journal = listOf(vu("2020-03-01", "1"), vu("2024-03-01", "2"))
+        val journal = listOf(vu(2020, "1"), vu(2024, "2"))
         val frise = construireFrise(journal, PlexResponse(configure = true))
 
         assertEquals(listOf(2020, 2024), frise.annees.map { it.annee })
     }
 
-    // Un vu sans date exploitable et un à-voir sans année rejoignent le même groupe « Sans
+    // Un vu sans année de sortie et un à-voir sans année rejoignent le même groupe « Sans
     // année ». Mutation : les répartir dans deux groupes nuls distincts, ou les faire
     // disparaître, casse le compte de l'un ou l'autre.
     @Test
     fun `les vus et les a-voir sans annee rejoignent le meme groupe Sans annee`() {
-        val journal = listOf(vu("date-invalide", "1"))
+        val journal = listOf(vu(null, "1"))
         val plex = PlexResponse(configure = true, films = listOf(aVoir(2, "Film sans annee", null)))
 
         val frise = construireFrise(journal, plex)
@@ -83,7 +88,7 @@ class FriseTest {
     // la liste sans regarder `aVoir` retournerait 2019 ; prendre la dernière retournerait 2026.
     @Test
     fun `anneeEnCours est la plus ancienne annee avec au moins un a-voir`() {
-        val journal = listOf(vu("2019-01-01", "1"))
+        val journal = listOf(vu(2019, "1"))
         val plex = PlexResponse(
             configure = true,
             films = listOf(aVoir(10, "Ancien a voir", 2021), aVoir(11, "Recent a voir", 2026)),
@@ -97,7 +102,7 @@ class FriseTest {
     // Sans le moindre à-voir, `anneeEnCours` est nul — « Tout vu jusqu'ici » côté écran.
     @Test
     fun `anneeEnCours est nul si rien n est a voir`() {
-        val frise = construireFrise(listOf(vu("2020-01-01", "1")), PlexResponse(configure = true))
+        val frise = construireFrise(listOf(vu(2020, "1")), PlexResponse(configure = true))
         assertNull(frise.anneeEnCours)
     }
 

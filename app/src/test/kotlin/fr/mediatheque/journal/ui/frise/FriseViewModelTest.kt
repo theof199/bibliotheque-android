@@ -68,11 +68,11 @@ class FriseViewModelTest {
             appelsJournal++
             when (cursor) {
                 null -> JournalResponse(
-                    listOf(FakeJournalApi.item("m1", "2026-01-10", null, emptyList(), null, externalId = "1")),
+                    listOf(FakeJournalApi.item("m1", "2026-01-10", null, emptyList(), null, externalId = "1", year = 2026)),
                     "page-2",
                 )
                 "page-2" -> JournalResponse(
-                    listOf(FakeJournalApi.item("m2", "2020-01-10", null, emptyList(), null, externalId = "2")),
+                    listOf(FakeJournalApi.item("m2", "2020-01-10", null, emptyList(), null, externalId = "2", year = 2020)),
                     null,
                 )
                 else -> error("curseur inattendu : $cursor")
