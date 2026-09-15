@@ -83,7 +83,7 @@ fun Root(container: AppContainer) {
             // hors visite, à la différence de `LoginScreen`) ; un `LaunchedEffect(Unit)` posé dans la branche
             // du `Crossfade` ne verrait que les entrées, jamais les sorties.
             val senscritique: SensCritiqueViewModel = viewModel(key = "senscritique") {
-                SensCritiqueViewModel(container.sensCritiqueStore, container.sensCritiqueAuthClient)
+                SensCritiqueViewModel(container.sensCritiqueStore, container.sensCritiqueAuthClient, container.sensCritiqueSync)
             }
             var etaitSurSensCritique by remember { mutableStateOf(false) }
             LaunchedEffect(nav.current) {

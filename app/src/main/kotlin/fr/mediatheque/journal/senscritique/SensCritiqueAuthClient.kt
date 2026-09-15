@@ -110,6 +110,10 @@ class GraphQlSensCritiqueAuthClient(
             return SignInOutcome.Unreachable
         }
         val pseudo = ((resultat["me"] as? JsonObject)?.get("username") as? JsonPrimitive)?.contentOrNull
+        // Correctif du 15 septembre 2026, point 3 : seule trace qu'une connexion a renouvele le
+        // jeton, jamais `cookieRef` lui-meme (celui-ci ne survit qu'en clair le temps de cet appel,
+        // puis chiffre dans le magasin).
+        logger.d("connexion SensCritique reussie, dateExpiration=$dateExpiration pseudo=${pseudo ?: "?"}")
         return SignInOutcome.Success(cookieRef, dateExpiration, pseudo)
     }
 }

@@ -319,4 +319,46 @@ class SensCritiqueSyncTest {
         assertTrue("m1" !in store.readQueue())
         assertEquals(listOf(Triple(7L, 6, LocalDate.parse("2026-09-11"))), service.pushCalls)
     }
+
+    // --- journalisation (brief du 15 septembre 2026, point 3) ---
+
+    // Mutation : ne pas appeler `logResultatPoussee` (ou logger un texte qui ne mentionne pas
+    // "Pushed") fait echouer cette assertion.
+    @Test
+    fun `syncAfterSave journalise le resultat de la poussee, jamais un secret`() = runTest {
+        val store = InMemorySensCritiqueStore().apply { connecte(this); writeDecisions(mapOf("m1" to 42L)) }
+        val service = FakeExternalRatingService()
+        val logger = FakeSensCritiqueLogger()
+        val sync = SensCritiqueSync(service, store, logger)
+
+        sync.syncAfterSave("m1", film, rating = 8, watchedOn = "2026-09-10")
+
+        assertTrue(logger.lines.any { it.contains("m1") && it.contains("Pushed") })
+        assertTrue("jamais le cookieRef dans le journal", logger.lines.none { it.contains("cookie-1") })
+    }
+
+    // Le rejeu resume ses trois compteurs en une ligne (brief §3) : ici une entree deja resolue
+    // (poussee reussie) et une entree ambigue (sautee, "m2" partage le titre de deux candidats).
+    // Mutation : oublier d'incrementer `reussies` ou `sautees` fait echouer cette assertion.
+    @Test
+    fun `replayQueue journalise le nombre d entrees tentees, reussies et sautees`() = runTest {
+        val store = InMemorySensCritiqueStore().apply {
+            connecte(this)
+            writeQueue(
+                linkedMapOf(
+                    "m1" to QueuedPush("m1", "Le Voyage de Chihiro", null, 2001, 8, "2026-09-10", productId = 42L),
+                    "m2" to QueuedPush("m2", "Le Voyage de Chihiro", null, 2001, 8, "2026-09-10", productId = null),
+                ),
+            )
+        }
+        val service = FakeExternalRatingService(onSearch = { ExternalSearchOutcome.Success(listOf(candidat(1), candidat(2))) })
+        val logger = FakeSensCritiqueLogger()
+
+        SensCritiqueSync(service, store, logger).replayQueue()
+
+        assertEquals(
+            listOf("rejeu SensCritique : 2 tentee(s), 1 reussie(s), 1 sautee(s)"),
+            logger.lines.filter { it.startsWith("rejeu SensCritique") },
+        )
+    }
 }

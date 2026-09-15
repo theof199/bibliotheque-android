@@ -51,7 +51,7 @@ class SensCritiqueSync(
      */
     suspend fun syncAfterSave(mediaId: String, film: MatchableFilm, rating: Int?, watchedOn: String): GestureSyncResult {
         if (rating == null) return GestureSyncResult.Skipped
-        return try {
+        val resultat = try {
             if (!isConnected()) {
                 GestureSyncResult.Skipped
             } else {
@@ -70,11 +70,13 @@ class SensCritiqueSync(
             runCatching { enqueueUnresolved(mediaId, film, rating, watchedOn) }
             GestureSyncResult.QueuedForRetry
         }
+        logResultatPoussee(mediaId, resultat)
+        return resultat
     }
 
     /** Après la feuille : `productId` choisi, ou `null` pour « Aucun de ceux-là ». Le choix est mémorisé, redemandé jamais. */
-    suspend fun choose(mediaId: String, film: MatchableFilm, rating: Int, watchedOn: String, productId: Long?): GestureSyncResult =
-        try {
+    suspend fun choose(mediaId: String, film: MatchableFilm, rating: Int, watchedOn: String, productId: Long?): GestureSyncResult {
+        val resultat = try {
             recordChoice(mediaId, productId)
             if (productId == null) GestureSyncResult.Skipped else finishPush(mediaId, productId, rating, watchedOn, film)
         } catch (e: CancellationException) {
@@ -84,6 +86,9 @@ class SensCritiqueSync(
             runCatching { enqueue(mediaId, film, rating, watchedOn, productId) }
             GestureSyncResult.QueuedForRetry
         }
+        logResultatPoussee(mediaId, resultat)
+        return resultat
+    }
 
     /**
      * Renonce à résoudre ou pousser tout de suite — la feuille de choix quittée sans réponse
@@ -94,13 +99,17 @@ class SensCritiqueSync(
      */
     suspend fun abandon(mediaId: String, film: MatchableFilm, rating: Int, watchedOn: String): GestureSyncResult {
         runCatching { enqueueUnresolved(mediaId, film, rating, watchedOn) }
-        return GestureSyncResult.QueuedForRetry
+        val resultat = GestureSyncResult.QueuedForRetry
+        logResultatPoussee(mediaId, resultat)
+        return resultat
     }
 
     /**
-     * Rejoué au lancement, une fois, silencieusement (brief §5) : ce qui redemande un choix est
-     * sauté. Une entrée illisible (important 5 — une date corrompue, par exemple) est retirée de la
-     * file plutôt que de bloquer les suivantes.
+     * Rejoué au lancement, une fois, silencieusement (brief §5), et depuis le correctif du
+     * 15 septembre 2026 juste après une reconnexion réussie (`SensCritiqueViewModel.connect()`) :
+     * ce qui redemande un choix est sauté. Une entrée illisible (important 5 — une date corrompue,
+     * par exemple) est retirée de la file plutôt que de bloquer les suivantes. Une ligne de journal
+     * résume le rejeu (nombre d'entrées tentées, réussies, sautées).
      */
     suspend fun replayQueue() {
         val connecte = try {
@@ -112,20 +121,31 @@ class SensCritiqueSync(
             false
         }
         if (!connecte) return
-        for ((mediaId, queued) in store.readQueue()) {
+
+        var rejouees = 0
+        var reussies = 0
+        var sautees = 0
+        boucle@ for ((mediaId, queued) in store.readQueue()) {
             try {
+                rejouees++
                 val film = MatchableFilm(queued.title, queued.originalTitle, queued.year)
                 val productId = queued.productId
                 if (productId != null) {
-                    if (pushAndRecord(mediaId, productId, queued.rating, queued.watchedOn, film) == SyncPushResult.Unauthenticated) return
+                    when (pushAndRecord(mediaId, productId, queued.rating, queued.watchedOn, film)) {
+                        SyncPushResult.Success -> reussies++
+                        SyncPushResult.Unauthenticated -> break@boucle // plus connecte : inutile de continuer la file
+                        SyncPushResult.Failed -> Unit
+                    }
                     continue
                 }
                 when (val resolution = resolve(mediaId, film)) {
-                    is SyncResolution.Matched -> pushAndRecord(mediaId, resolution.productId, queued.rating, queued.watchedOn, film)
+                    is SyncResolution.Matched -> {
+                        if (pushAndRecord(mediaId, resolution.productId, queued.rating, queued.watchedOn, film) == SyncPushResult.Success) reussies++
+                    }
                     SyncResolution.Ignored -> store.writeQueue(store.readQueue() - mediaId)
-                    is SyncResolution.NeedsChoice -> Unit // sauté : attend une correction manuelle du film
+                    is SyncResolution.NeedsChoice -> sautees++ // sauté : attend une correction manuelle du film
                     SyncResolution.Failed -> Unit // reste en file, retentera au prochain lancement
-                    SyncResolution.Unauthenticated -> return // plus connecté : inutile de continuer la file
+                    SyncResolution.Unauthenticated -> break@boucle // plus connecté : inutile de continuer la file
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -133,6 +153,18 @@ class SensCritiqueSync(
                 logger.d("entree de file illisible pour $mediaId, retiree : ${e.message}")
                 runCatching { store.writeQueue(store.readQueue() - mediaId) }
             }
+        }
+        logger.d("rejeu SensCritique : $rejouees tentee(s), $reussies reussie(s), $sautees sautee(s)")
+    }
+
+    /** Une ligne par poussée (brief du 15 septembre 2026, point 3) : jamais le `cookieRef`. */
+    private fun logResultatPoussee(mediaId: String, resultat: GestureSyncResult) {
+        when (resultat) {
+            GestureSyncResult.Skipped -> Unit // pas connecte, note nulle, ou decision deja memorisee : aucun appel
+            GestureSyncResult.Pushed -> logger.d("poussee $mediaId : Pushed")
+            GestureSyncResult.QueuedForRetry -> logger.d("poussee $mediaId : QueuedForRetry")
+            GestureSyncResult.ReconnectNeeded -> logger.d("poussee $mediaId : ReconnectNeeded")
+            is GestureSyncResult.ChoiceNeeded -> logger.d("poussee $mediaId : ChoiceNeeded (${resultat.candidates.size} candidat(s))")
         }
     }
 

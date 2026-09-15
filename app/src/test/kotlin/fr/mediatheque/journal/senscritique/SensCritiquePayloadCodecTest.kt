@@ -1,6 +1,5 @@
 package fr.mediatheque.journal.senscritique
 
-import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -12,9 +11,13 @@ import org.junit.Test
  * utile version 1 (Firebase, `SensCritiqueAuth(refreshToken, pseudo)`) ne se lit plus connectée
  * dans la forme actuelle (`cookieRef`, `dateExpiration`), mais `decisions` et `queue` —
  * inchangées par cette migration — survivent.
+ *
+ * `json` est le même `SENSCRITIQUE_STORE_JSON` que `KeystoreSensCritiqueStore` (jamais un `Json`
+ * reconstruit à côté, correctif du 15 septembre 2026) : un test qui en construirait un autre ne
+ * garderait rien de la configuration réellement écrite sur le téléphone.
  */
 class SensCritiquePayloadCodecTest {
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = SENSCRITIQUE_STORE_JSON
 
     @Test
     fun `une charge utile version 2 se decode normalement, auth comprise`() {
@@ -65,5 +68,20 @@ class SensCritiquePayloadCodecTest {
         assertNull(payload.auth)
         assertTrue(payload.decisions.isEmpty())
         assertTrue(payload.queue.isEmpty())
+    }
+
+    // Cause racine du 15 septembre 2026 (« je dois me reconnecter tout le temps ») : `version`
+    // porte une valeur par defaut, que kotlinx.serialization n'ecrit pas sans `encodeDefaults =
+    // true` — un blob pourtant ecrit en version 2 ne portait donc jamais "version", lu absent ici
+    // (`?: 1`), pris pour l'ancien format Firebase, `auth` rendu nul. Aller-retour reel par le Json
+    // du magasin (`SENSCRITIQUE_STORE_JSON`), pas un JSON ecrit a la main : encoder puis decoder.
+    // Mutation : remettre `encodeDefaults` a faux dans `SENSCRITIQUE_STORE_JSON` fait echouer cette
+    // assertion (`auth` redeviendrait nul).
+    @Test
+    fun `un aller-retour reel par le Json du magasin garde l auth connectee`() {
+        val connecte = Payload(auth = SensCritiqueAuth("cookie-1", "2026-10-14T10:00:00Z", "TheofB"))
+        val texte = json.encodeToString(Payload.serializer(), connecte)
+        val relu = decodePayload(json, texte)
+        assertEquals(connecte.auth, relu.auth)
     }
 }

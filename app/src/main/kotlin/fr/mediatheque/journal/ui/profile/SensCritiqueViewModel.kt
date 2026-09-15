@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import fr.mediatheque.journal.senscritique.SensCritiqueAuth
 import fr.mediatheque.journal.senscritique.SensCritiqueAuthClient
 import fr.mediatheque.journal.senscritique.SensCritiqueStore
+import fr.mediatheque.journal.senscritique.SensCritiqueSync
 import fr.mediatheque.journal.senscritique.SignInOutcome
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -30,6 +31,7 @@ data class SensCritiqueUi(
 class SensCritiqueViewModel(
     private val store: SensCritiqueStore,
     private val authClient: SensCritiqueAuthClient,
+    private val sensCritique: SensCritiqueSync,
 ) : ViewModel() {
     var email by mutableStateOf("")
     var password by mutableStateOf("")
@@ -52,6 +54,10 @@ class SensCritiqueViewModel(
                     email = ""
                     password = ""
                     _ui.value = SensCritiqueUi(connectedPseudo = outcome.pseudo)
+                    // Correctif du 15 septembre 2026, point 2 : une poussée mise en file sur
+                    // « reconnecte-toi » ne doit pas attendre le prochain lancement de l'application
+                    // pour repartir — elle repart dès que l'utilisateur vient de se reconnecter ici.
+                    sensCritique.replayQueue()
                 }
                 // Toute erreur GraphQL de cette mutation affiche le même message (brief du
                 // 14 septembre 2026 : contrairement à Firebase, l'API GraphQL de SensCritique ne

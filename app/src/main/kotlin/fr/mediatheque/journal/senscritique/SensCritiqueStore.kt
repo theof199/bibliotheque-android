@@ -87,6 +87,21 @@ class InMemorySensCritiqueStore : SensCritiqueStore {
  */
 const val PAYLOAD_VERSION = 2
 
+/**
+ * Le `Json` du magasin — un seul, partagé par `KeystoreSensCritiqueStore` et par les tests qui
+ * l'exercent en aller-retour réel (`SensCritiquePayloadCodecTest`), pour ne jamais dériver de la
+ * configuration réellement écrite sur le téléphone. `encodeDefaults = true` est indispensable
+ * (correctif du 15 septembre 2026, cause racine de « je dois me reconnecter tout le temps ») :
+ * `Payload.version` porte une valeur par défaut (`= PAYLOAD_VERSION`), et sans `encodeDefaults`,
+ * kotlinx.serialization n'écrit jamais un champ égal à son défaut — le blob chiffré ne portait donc
+ * aucun `version`. `decodePayload` le lisait alors absent (`?: 1`), prenait un blob pourtant en
+ * version 2 pour l'ancien format Firebase, et rendait `auth = null` : déconnecté. Le cache mémoire
+ * de `KeystoreSensCritiqueStore` masquait le défaut tant que l'application restait en vie ; au
+ * relancement, le blob relu retombait dans le même piège. `ignoreUnknownKeys` : jumeau
+ * d'`ApiClient.ApiJson`, un champ ajouté plus tard ne casse pas la lecture d'un blob plus ancien.
+ */
+val SENSCRITIQUE_STORE_JSON = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+
 @Serializable
 data class Payload(
     val version: Int = PAYLOAD_VERSION,
@@ -138,9 +153,9 @@ class KeystoreSensCritiqueStore(
 ) : SensCritiqueStore {
     private val prefs = context.getSharedPreferences("senscritique", Context.MODE_PRIVATE)
 
-    // `ignoreUnknownKeys` : un champ ajouté à `Payload` dans une version future ne doit pas faire
-    // échouer la lecture d'un blob écrit par une version plus ancienne — jumeau de `ApiClient.ApiJson`.
-    private val json = Json { ignoreUnknownKeys = true }
+    // Le meme Json que celui documente plus haut (`SENSCRITIQUE_STORE_JSON`) : `encodeDefaults`
+    // y est indispensable, voir sa doc.
+    private val json = SENSCRITIQUE_STORE_JSON
 
     private var cache: Payload? = null
 

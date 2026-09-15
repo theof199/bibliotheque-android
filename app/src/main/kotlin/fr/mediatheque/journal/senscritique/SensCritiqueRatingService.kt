@@ -1,21 +1,21 @@
 package fr.mediatheque.journal.senscritique
 
-import java.time.Instant
 import java.time.LocalDate
 
 /**
  * `ExternalRatingService` pour SensCritique : plus de jeton à gérer (brief du 14 septembre 2026,
  * après un premier essai réel — l'API GraphQL n'accepte que son propre `cookieRef`, relu tel quel
- * depuis `store` à chaque appel, jamais renouvelé). Seule l'expiration se vérifie, et seulement
- * avant une poussée (§3 du brief) : la relire à chaque recherche coûterait un appel réseau que le
- * refus de session (`ExternalSearchOutcome.Unauthenticated`, détecté par `SensCritiqueGraphQLClient`)
- * couvre déjà.
+ * depuis `store` à chaque appel, jamais renouvelé). L'expiration locale (`dateExpiration`, rendue
+ * par SensCritique) n'est plus comparée à l'horloge avant une poussée (correctif du 15 septembre
+ * 2026, échoue ouvert : rien ne garantit sa fiabilité, ni qu'elle soit longue — une comparaison
+ * locale erronée déconnectait l'utilisateur à tort avant même d'avoir essayé le réseau). Seul un
+ * vrai refus de session, rendu par GraphQL (`ExternalSearchOutcome.Unauthenticated` /
+ * `ExternalPushOutcome.Unauthenticated`, détectés par `SensCritiqueGraphQLClient`), déconnecte.
  */
 class SensCritiqueRatingService(
     private val store: SensCritiqueStore,
     private val graphql: SensCritiqueGraphQLClient,
     private val logger: SensCritiqueLogger = AndroidSensCritiqueLogger,
-    private val clock: () -> Instant = Instant::now,
 ) : ExternalRatingService {
     override val name: String = "SensCritique"
 
@@ -33,17 +33,11 @@ class SensCritiqueRatingService(
      * — journalisé (par `KtorSensCritiqueGraphQLClient`, jamais le jeton) mais la poussée compte
      * comme réussie.
      *
-     * Avant l'appel, `dateExpiration` est comparée à l'horloge (brief §3) : dépassée, la poussée ne
-     * part même pas — même traitement qu'un refus de session (déconnexion, `Unauthenticated`), sans
-     * gaspiller un aller-retour dont le résultat est déjà connu.
+     * La poussée part toujours (correctif du 15 septembre 2026, voir la doc de la classe) : plus de
+     * vérification de `dateExpiration` avant l'appel.
      */
     override suspend fun push(productId: Long, rating: Int, watchedOn: LocalDate): ExternalPushOutcome {
         val auth = store.readAuth() ?: return ExternalPushOutcome.Unauthenticated
-        if (estExpiree(auth.dateExpiration, clock())) {
-            logger.d("cookieRef SensCritique expire avant la poussee, deconnexion sans appel reseau")
-            store.writeAuth(null)
-            return ExternalPushOutcome.Unauthenticated
-        }
         val cookieRef = auth.cookieRef
 
         val rated = graphql.rate(cookieRef, productId, rating)
@@ -56,19 +50,4 @@ class SensCritiqueRatingService(
         }
         return ExternalPushOutcome.Success
     }
-}
-
-/**
- * `dateExpiration` est gardée telle que SensCritique la rend (brief §2), une chaîne ISO — jamais
- * garanti d'être un `Instant` strict (`2026-10-14T10:00:00Z`) : `OffsetDateTime` couvre aussi une
- * forme avec décalage explicite. Illisible → jamais expirée (échoue ouvert, important : voir
- * commentaire de `push` ci-dessus) — le refus de session, lui, reste détecté par l'appel réseau
- * réel si cette lecture s'est trompée.
- */
-fun estExpiree(dateExpiration: String, maintenant: Instant): Boolean {
-    val instant = runCatching { Instant.parse(dateExpiration) }
-        .recoverCatching { java.time.OffsetDateTime.parse(dateExpiration).toInstant() }
-        .getOrNull()
-        ?: return false
-    return maintenant.isAfter(instant)
 }
