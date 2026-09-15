@@ -17064,14 +17064,14 @@
     },
     "/reference/sorties": {
       "get": {
-        "summary": "Sorties en salle, semaine en cours et semaine prochaine",
+        "summary": "Sorties en salle : à l’affiche chez soi aujourd’hui, et la semaine prochaine",
         "tags": [
           "système"
         ],
-        "description": "Pour l’écran « Au ciné » : les films qui sortent en salle cette semaine et la semaine prochaine, dans le pays de l’instance (`WATCH_REGION`, `FR` par défaut) — la même donnée d’instance que `GET /media/{id}/availability`.\n\nChaque groupe (`en_cours`, `prochaine`) porte ses bornes `du` / `au`, lundi et dimanche inclus, dans le fuseau Europe/Paris. Un film y figure une fois, quel que soit le nombre de types de sortie salle qu’il cumule (limitée, large).\n\nRéponse mise en cache 6 h, tous membres confondus — les sorties en salle ne dépendent d’aucun compte.",
+        "description": "Pour l’écran « Au ciné ». Deux données de nature différente, dans deux champs :\n\n- `en_cours` : les films à l’affiche **aujourd’hui** dans les cinémas du propriétaire (`SORTIES_CINEMAS`), lus sur Allociné par une tâche de fond au démarrage puis toutes les 6 h — jamais interrogé à la demande. `du` et `au` valent tous deux ce jour-là. `cinemas_configures` vaut faux tant qu’aucun cinéma n’est configuré, et `films` reste alors vide. `calcule_le` est nul tant que la tâche n’a jamais tourné.\n- `prochaine` : la semaine prochaine (lundi à dimanche, fuseau Europe/Paris) dans le pays de l’instance (`WATCH_REGION`, `FR` par défaut), chez TMDB — les douze sorties les plus populaires, calculées à la demande et mises en cache 6 h.\n\nUn film de `en_cours` dont `tmdb_id` est nul n’a pas été retrouvé chez TMDB : à afficher, mais sans lien vers une fiche.",
         "responses": {
           "200": {
-            "description": "Sorties en salle en France : semaine en cours et semaine prochaine",
+            "description": "Sorties en salle : à l’affiche chez soi aujourd’hui, et la semaine prochaine en France",
             "content": {
               "application/json": {
                 "schema": {
@@ -17084,13 +17084,30 @@
                           "type": "string",
                           "format": "date",
                           "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
-                          "description": "Lundi de la semaine, inclus"
+                          "description": "Le jour couvert (égal à `au`)"
                         },
                         "au": {
                           "type": "string",
                           "format": "date",
                           "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
-                          "description": "Dimanche de la semaine, inclus"
+                          "description": "Le jour couvert (égal à `du`)"
+                        },
+                        "calcule_le": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Horodatage de la dernière passe de la tâche de fond. Nul si elle n’a jamais tourné"
+                        },
+                        "cinemas_configures": {
+                          "type": "boolean",
+                          "description": "Faux si `SORTIES_CINEMAS` est vide — dans ce cas, `films` est toujours vide"
                         },
                         "films": {
                           "type": "array",
@@ -17098,10 +17115,23 @@
                             "type": "object",
                             "properties": {
                               "tmdb_id": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "Identifiant du film chez TMDB, nul si non résolu"
+                              },
+                              "allocine_id": {
                                 "type": "integer",
                                 "minimum": -9007199254740991,
                                 "maximum": 9007199254740991,
-                                "description": "Identifiant du film chez TMDB"
+                                "description": "Identifiant du film chez Allociné (`internalId`)"
                               },
                               "title": {
                                 "type": "string",
@@ -17128,7 +17158,7 @@
                                     "type": "null"
                                   }
                                 ],
-                                "description": "Année de sortie, nulle si TMDB ne la donne pas"
+                                "description": "Année de sortie, nulle si Allociné ne la donne pas"
                               },
                               "release_date": {
                                 "anyOf": [
@@ -17153,29 +17183,49 @@
                                     "type": "null"
                                   }
                                 ],
-                                "description": "Affiche en URL absolue"
+                                "description": "Affiche Allociné, en URL absolue"
+                              },
+                              "directors": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "description": "Réalisateurs, dans l’ordre porté par Allociné"
+                              },
+                              "cinemas": {
+                                "minItems": 1,
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "description": "Noms des cinémas du propriétaire où ce film est à l’affiche aujourd’hui, au moins un"
                               }
                             },
                             "required": [
                               "tmdb_id",
+                              "allocine_id",
                               "title",
                               "original_title",
                               "year",
                               "release_date",
-                              "cover_url"
+                              "cover_url",
+                              "directors",
+                              "cinemas"
                             ],
                             "additionalProperties": false,
-                            "description": "Un film qui sort en salle en France cette semaine-là"
+                            "description": "Un film à l’affiche aujourd’hui dans un des cinémas du propriétaire"
                           }
                         }
                       },
                       "required": [
                         "du",
                         "au",
+                        "calcule_le",
+                        "cinemas_configures",
                         "films"
                       ],
                       "additionalProperties": false,
-                      "description": "La semaine en cours"
+                      "description": "À l’affiche aujourd’hui, dans les cinémas du propriétaire"
                     },
                     "prochaine": {
                       "type": "object",
@@ -17265,7 +17315,7 @@
                               "cover_url"
                             ],
                             "additionalProperties": false,
-                            "description": "Un film qui sort en salle en France cette semaine-là"
+                            "description": "Un film qui sort en salle en France, la semaine prochaine"
                           }
                         }
                       },
@@ -17275,7 +17325,7 @@
                         "films"
                       ],
                       "additionalProperties": false,
-                      "description": "La semaine prochaine"
+                      "description": "La semaine prochaine, TMDB, plafonnée à 12 films"
                     }
                   },
                   "required": [
@@ -17283,22 +17333,32 @@
                     "prochaine"
                   ],
                   "additionalProperties": false,
-                  "description": "Sorties en salle en France : semaine en cours et semaine prochaine"
+                  "description": "Sorties en salle : à l’affiche chez soi aujourd’hui, et la semaine prochaine en France"
                 },
                 "examples": {
                   "Réponse type": {
                     "value": {
                       "en_cours": {
-                        "du": "2026-09-14",
-                        "au": "2026-09-20",
+                        "du": "2026-09-15",
+                        "au": "2026-09-15",
+                        "calcule_le": "2026-09-15T08:00:03.000Z",
+                        "cinemas_configures": true,
                         "films": [
                           {
                             "tmdb_id": 912649,
+                            "allocine_id": 306319,
                             "title": "Les Gardiens de la nuit",
                             "original_title": "Les Gardiens de la nuit",
                             "year": 2026,
                             "release_date": "2026-09-16",
-                            "cover_url": "https://image.tmdb.org/t/p/w500/9gk7adZmeSSuQfZBtWWLIcVcSY.jpg"
+                            "cover_url": "https://fr.web.img6.acsta.net/pictures/gardiens-de-la-nuit.jpg",
+                            "directors": [
+                              "Alix Delaporte"
+                            ],
+                            "cinemas": [
+                              "UGC Ciné Cité Les Halles",
+                              "mk2 Bastille (Beaumarchais)"
+                            ]
                           }
                         ]
                       },

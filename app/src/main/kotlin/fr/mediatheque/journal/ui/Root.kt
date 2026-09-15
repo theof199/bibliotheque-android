@@ -22,7 +22,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import fr.mediatheque.journal.AppContainer
 import fr.mediatheque.journal.ui.cinema.AuCineScreen
 import fr.mediatheque.journal.ui.cinema.AuCineViewModel
-import fr.mediatheque.journal.ui.cinema.toSearchResult
 import fr.mediatheque.journal.ui.films.FilmsScreen
 import fr.mediatheque.journal.ui.films.FilmsViewModel
 import fr.mediatheque.journal.ui.form.FormMode
@@ -217,7 +216,7 @@ fun Root(container: AppContainer) {
                         LaunchedEffect(Unit) { cinema.refresh() }
                         AuCineScreen(
                             cinema,
-                            onOpenSortie = { nav.push(Screen.Form(it.toSearchResult())) },
+                            onOpenSortie = { nav.push(Screen.Form(it)) },
                             onOpenSeance = { nav.push(Screen.Edit(it)) },
                             bottomBar = {
                                 JournalBottomBar(

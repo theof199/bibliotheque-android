@@ -11,6 +11,7 @@ import fr.mediatheque.journal.api.dto.JournalMedia
 import fr.mediatheque.journal.api.dto.JournalResponse
 import fr.mediatheque.journal.api.dto.LogEntry
 import fr.mediatheque.journal.api.dto.SearchResult
+import fr.mediatheque.journal.api.dto.SortiesEnCours
 import fr.mediatheque.journal.api.dto.SortiesResponse
 import fr.mediatheque.journal.api.dto.SortieSemaine
 import fr.mediatheque.journal.api.dto.StatsResponse
@@ -34,7 +35,10 @@ class FakeJournalApi : JournalApi {
     var onStats: suspend () -> StatsResponse = { error("onStats non configuré") }
     var onSeances: suspend (String?) -> JournalResponse = { JournalResponse(emptyList(), null) }
     var onSorties: suspend () -> SortiesResponse = {
-        SortiesResponse(SortieSemaine("2026-09-14", "2026-09-20"), SortieSemaine("2026-09-21", "2026-09-27"))
+        SortiesResponse(
+            SortiesEnCours(du = "2026-09-15", au = "2026-09-15", cinemas_configures = true),
+            SortieSemaine("2026-09-21", "2026-09-27"),
+        )
     }
 
     override suspend fun login(pseudo: String, password: String) = track("login $pseudo") { onLogin(pseudo, password) }

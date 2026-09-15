@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -33,10 +34,14 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextOverflow
 import fr.mediatheque.journal.api.ApiError
 import fr.mediatheque.journal.api.dto.JournalItem
+import fr.mediatheque.journal.api.dto.SearchResult
+import fr.mediatheque.journal.api.dto.SortieCinemaFilm
 import fr.mediatheque.journal.api.dto.SortieFilm
 import fr.mediatheque.journal.api.dto.SortieSemaine
+import fr.mediatheque.journal.api.dto.SortiesEnCours
 import fr.mediatheque.journal.ui.Cover
 import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.JournalRow
@@ -52,7 +57,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 @Composable
 fun AuCineScreen(
     vm: AuCineViewModel,
-    onOpenSortie: (SortieFilm) -> Unit,
+    onOpenSortie: (SearchResult) -> Unit,
     onOpenSeance: (JournalItem) -> Unit,
     bottomBar: @Composable () -> Unit,
 ) {
@@ -84,15 +89,24 @@ fun AuCineScreen(
                     Text("$n séance${if (n > 1) "s" else ""} cette année", style = MaterialTheme.typography.titleLarge)
                 }
 
-                item { Text("Cette semaine", style = MaterialTheme.typography.titleMedium) }
+                item { Text("À l’affiche dans mes cinémas", style = MaterialTheme.typography.titleMedium) }
+                ui.sorties?.en_cours?.miseAJourAffichee()?.let { texte ->
+                    item {
+                        Text(
+                            texte,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 item {
-                    SortiesSection(
-                        semaine = ui.sorties?.en_cours,
+                    SortiesEnCoursSection(
+                        enCours = ui.sorties?.en_cours,
                         loading = ui.sortiesLoading,
                         error = ui.sortiesError,
                         onRetry = vm::retrySorties,
                         dejaVu = ui::dejaDansLeJournal,
-                        onOpen = onOpenSortie,
+                        onOpen = { film -> onOpenSortie(film.toSearchResult()) },
                         largeur = largeurJaquette,
                         hauteur = hauteurJaquette,
                         ecart = ecart,
@@ -104,10 +118,10 @@ fun AuCineScreen(
                     SortiesSection(
                         semaine = ui.sorties?.prochaine,
                         loading = ui.sortiesLoading,
-                        error = null, // l'erreur des sorties n'est montrée qu'une fois, dans « Cette semaine ».
+                        error = null, // l'erreur des sorties n'est montrée qu'une fois, plus haut.
                         onRetry = vm::retrySorties,
                         dejaVu = ui::dejaDansLeJournal,
-                        onOpen = onOpenSortie,
+                        onOpen = { film -> onOpenSortie(film.toSearchResult()) },
                         largeur = largeurJaquette,
                         hauteur = hauteurJaquette,
                         ecart = ecart,
@@ -191,6 +205,82 @@ private fun SortiesSection(
                                     )
                                 }
                             }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * La grille « à l'affiche dans mes cinémas » (brief du 15 septembre 2026) —
+ * mêmes tuiles que `SortiesSection`, plus un sous-titre de cinémas de 11 sp
+ * sous chacune ; une tuile sans `tmdb_id` n'est ni touchable ni cochable.
+ */
+@Composable
+private fun SortiesEnCoursSection(
+    enCours: SortiesEnCours?,
+    loading: Boolean,
+    error: ApiError?,
+    onRetry: () -> Unit,
+    dejaVu: (SortieCinemaFilm) -> Boolean,
+    onOpen: (SortieCinemaFilm) -> Unit,
+    largeur: Dp,
+    hauteur: Dp,
+    ecart: Dp,
+) {
+    error?.let {
+        ErrorBlock(it.message ?: "", retryable = it.retryable, onRetry = onRetry)
+        return
+    }
+
+    val message = enCours?.messageAuCine()
+    when {
+        enCours == null && loading -> Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(Modifier.size(40.dp), color = MaterialTheme.colorScheme.primary)
+        }
+        // Ni chargement ni réponse encore arrivée (premier rendu, avant `refresh()`) : rien à montrer.
+        enCours == null -> Unit
+        message != null -> Text(
+            message,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        else -> Column(verticalArrangement = Arrangement.spacedBy(ecart)) {
+            enCours.films.chunked(3).forEach { rangee ->
+                Row(horizontalArrangement = Arrangement.spacedBy(ecart)) {
+                    rangee.forEach { film ->
+                        val ouvrable = film.estOuvrable()
+                        Column(Modifier.width(largeur).let { if (ouvrable) it.clickable { onOpen(film) } else it }) {
+                            Box {
+                                Cover(film.cover_url, film.title, largeur, hauteur)
+                                if (ouvrable && dejaVu(film)) {
+                                    Box(
+                                        Modifier
+                                            .align(Alignment.BottomEnd)
+                                            .padding(4.dp)
+                                            .background(MaterialTheme.colorScheme.primary, CircleShape)
+                                            .padding(4.dp)
+                                            .clearAndSetSemantics { contentDescription = "Déjà dans ton journal" },
+                                    ) {
+                                        Icon(
+                                            Icons.Filled.Check,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onPrimary,
+                                            modifier = Modifier.size(16.dp),
+                                        )
+                                    }
+                                }
+                            }
+                            Text(
+                                film.sousTitreCinemas(),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(top = 2.dp),
+                            )
                         }
                     }
                 }

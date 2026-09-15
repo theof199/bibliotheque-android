@@ -7,14 +7,18 @@ import fr.mediatheque.journal.api.JournalApi
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.SearchMetadata
 import fr.mediatheque.journal.api.dto.SearchResult
+import fr.mediatheque.journal.api.dto.SortieCinemaFilm
 import fr.mediatheque.journal.api.dto.SortieFilm
+import fr.mediatheque.journal.api.dto.SortiesEnCours
 import fr.mediatheque.journal.api.dto.SortiesResponse
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 
 /**
  * L'écran « Au ciné » (brief du 14 septembre 2026) : mes séances, et les
@@ -55,6 +59,66 @@ fun AuCineUi.dejaDansLeJournal(film: SortieFilm): Boolean =
     seances.any { it.media.external_id == film.tmdb_id.toString() }
 
 /**
+ * Le même rapprochement, pour une tuile « à l'affiche dans mes cinémas »
+ * (brief du 15 septembre 2026). Une tuile sans `tmdb_id` ne peut jamais
+ * porter la coche : rien à rapprocher, ce n'est de toute façon pas une
+ * tuile touchable (`estOuvrable`, ci-dessous).
+ */
+fun AuCineUi.dejaDansLeJournal(film: SortieCinemaFilm): Boolean {
+    val tmdbId = film.tmdb_id ?: return false
+    return seances.any { it.media.external_id == tmdbId.toString() }
+}
+
+/**
+ * Une tuile « à l'affiche dans mes cinémas » n'est touchable que si TMDB a
+ * été retrouvé côté back — sans lui, rien à ouvrir dans le formulaire ni à
+ * afficher dans une fiche (brief du 15 septembre 2026).
+ */
+fun SortieCinemaFilm.estOuvrable(): Boolean = tmdb_id != null
+
+/**
+ * Sous-titre d'une tuile « à l'affiche dans mes cinémas » : le premier
+ * cinéma, puis « +N » s'il y en a d'autres (brief du 15 septembre 2026).
+ * `cinemas` porte toujours au moins une entrée quand le film vient du back
+ * (le contrat l'exige) ; une liste vide — un film construit à la main dans
+ * un test, par exemple — rend une chaîne vide plutôt que de lever.
+ */
+fun SortieCinemaFilm.sousTitreCinemas(): String {
+    val premier = cinemas.firstOrNull() ?: return ""
+    val reste = cinemas.size - 1
+    return if (reste > 0) "$premier +$reste" else premier
+}
+
+/**
+ * Le message à afficher à la place de la grille « à l'affiche dans mes
+ * cinémas », ou nul quand elle doit s'afficher (brief du 15 septembre 2026).
+ *
+ * Deux causes distinctes rendent « Pas encore de programme. » : aucun cinéma
+ * configuré, ou la tâche de fond du back n'a **jamais** tourné (`films` vide
+ * ET `calcule_le` nul) — à ne pas confondre avec une passe qui a bien eu
+ * lieu et n'a simplement rien trouvé aujourd'hui, qui a son propre message.
+ */
+fun SortiesEnCours.messageAuCine(): String? = when {
+    !cinemas_configures || (films.isEmpty() && calcule_le == null) -> "Pas encore de programme."
+    films.isEmpty() -> "Rien à l’affiche aujourd’hui."
+    else -> null
+}
+
+/** Fuseau fixe, comme côté back (`routes/reference.ts`) : une heure affichée qui ne varie pas avec l'appareil. */
+private val FUSEAU_AU_CINE: ZoneId = ZoneId.of("Europe/Paris")
+
+/**
+ * « mis à jour à 14 h », depuis `calcule_le` (ISO 8601, UTC) — nul tant que
+ * la tâche de fond n'a jamais tourné, ou si le back envoie une date
+ * illisible plutôt que de faire échouer tout l'écran pour ça.
+ */
+fun SortiesEnCours.miseAJourAffichee(): String? {
+    val instant = calcule_le?.let { runCatching { Instant.parse(it) }.getOrNull() } ?: return null
+    val heure = instant.atZone(FUSEAU_AU_CINE).hour
+    return "mis à jour à $heure h"
+}
+
+/**
  * Convertit une sortie en le `SearchResult` qu'attend `Screen.Form` — la même
  * cible que « toucher un résultat de recherche » (`Root.kt`), pour ne pas
  * dupliquer le formulaire de création.
@@ -73,6 +137,30 @@ fun SortieFilm.toSearchResult(): SearchResult = SearchResult(
     metadata = SearchMetadata(director = null),
     original_title = original_title,
 )
+
+/**
+ * Le même formulaire pré-rempli, depuis une tuile « à l'affiche dans mes
+ * cinémas ». N'a de sens que pour une tuile touchable (`estOuvrable`) : lève
+ * sinon, plutôt que d'ouvrir un formulaire sans identifiant TMDB.
+ *
+ * `director` reste nul, comme pour `SortieFilm.toSearchResult()` : mêmes
+ * tuiles, même geste, même formulaire — la disponibilité de `directors` ici
+ * ne justifie pas à elle seule de préremplir un champ que l'autre grille ne
+ * préremplit pas.
+ */
+fun SortieCinemaFilm.toSearchResult(): SearchResult {
+    val id = requireNotNull(tmdb_id) { "toSearchResult() sur une tuile sans tmdb_id (non touchable)" }
+    return SearchResult(
+        source = "tmdb",
+        external_id = id.toString(),
+        type = "movie",
+        title = title,
+        year = year,
+        cover_url = cover_url,
+        metadata = SearchMetadata(director = null),
+        original_title = original_title,
+    )
+}
 
 class AuCineViewModel(private val api: JournalApi, private val onUnauthenticated: () -> Unit) : ViewModel() {
     private val _ui = MutableStateFlow(AuCineUi())

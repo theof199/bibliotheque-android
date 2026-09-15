@@ -65,15 +65,20 @@ class ContractTest {
         assertEquals("Revu avec Léa, toujours aussi fort.", item.carnet.comment)
         assertEquals(null, page.next_cursor)
     }
-    // « Au ciné » (brief du 14 septembre 2026) : sorties en salle, semaine en cours et semaine
-    // prochaine. Le contrat n'a pas d'exemple à part pour `GET /me/journal?reaction=` : c'est la
-    // même opération, déjà couverte ci-dessus.
+    // « Au ciné » (brief du 14 puis 15 septembre 2026) : à l'affiche aujourd'hui dans mes
+    // cinémas (Allociné), et la semaine prochaine (TMDB). Le contrat n'a pas d'exemple à part
+    // pour `GET /me/journal?reaction=` : c'est la même opération, déjà couverte ci-dessus.
     @Test fun `GET reference sorties`() {
         val sorties = lit("/reference/sorties", "get", "200", SortiesResponse.serializer())
-        assertEquals("2026-09-14", sorties.en_cours.du)
-        assertEquals("2026-09-20", sorties.en_cours.au)
+        assertEquals("2026-09-15", sorties.en_cours.du)
+        assertEquals("2026-09-15", sorties.en_cours.au)
+        assertEquals(true, sorties.en_cours.cinemas_configures)
+        assertNotNull(sorties.en_cours.calcule_le)
         val film = sorties.en_cours.films.first()
         assertEquals(912649, film.tmdb_id)
+        assertEquals(306319, film.allocine_id)
+        assertEquals(listOf("UGC Ciné Cité Les Halles", "mk2 Bastille (Beaumarchais)"), film.cinemas)
+        assertEquals(listOf("Alix Delaporte"), film.directors)
     }
     @Test fun `POST me journal`() { lit("/me/journal", "post", "201", JournalItem.serializer()) }
     @Test fun `PATCH me journal id`() { lit("/me/journal/{id}", "patch", "200", JournalItem.serializer()) }
