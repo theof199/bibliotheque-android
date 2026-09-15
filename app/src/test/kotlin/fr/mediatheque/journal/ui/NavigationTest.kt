@@ -91,7 +91,7 @@ class NavigationTest {
         assertEquals("un push vers un autre ecran ne doit rien incrementer", secondeVisite, apresPushForm)
     }
 
-    // `bottomBarTab()` fixe la matrice des treize écrans pour la barre de navigation du bas
+    // `bottomBarTab()` fixe la matrice des quatorze écrans pour la barre de navigation du bas
     // (décision du propriétaire du 14 septembre 2026, troisième entrée « Au ciné » ajoutée le
     // même jour ; quatrième entrée « Frise » et cinquième « Réalisateurs » le 15 septembre
     // 2026, renommée « Suivis » le même jour quand les sagas l'ont rejointe) : visible sur
@@ -103,7 +103,7 @@ class NavigationTest {
     // `Screen.Films` casse l'assertion sur `visibles` ; rendre non nul le résultat pour l'un des
     // écrans cachés, ou nul pour l'un des visibles, casse la boucle correspondante.
     @Test
-    fun `bottomBarTab fixe la visibilite et la selection des treize ecrans`() {
+    fun `bottomBarTab fixe la visibilite et la selection des quatorze ecrans`() {
         val visibles = mapOf(
             Screen.Home to BottomTab.Home,
             Screen.Frise to BottomTab.Frise,
@@ -129,6 +129,7 @@ class NavigationTest {
             Screen.Annee(anneeExemple),
             Screen.ChercherSuivi,
             Screen.FicheSuivi(SourceSuivi.REALISATEURS, 240),
+            Screen.ChoisirFilmDeSaga(8091),
         )
         caches.forEach { screen -> assertNull(screen.bottomBarTab()) }
     }

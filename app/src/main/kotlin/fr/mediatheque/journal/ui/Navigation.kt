@@ -35,7 +35,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.withTimeoutOrNull
 
-/** Les treize écrans. Un écran qui a besoin d'une donnée la porte. */
+/** Les quatorze écrans. Un écran qui a besoin d'une donnée la porte. */
 sealed interface Screen {
     data object Home : Screen
     data object Search : Screen
@@ -73,6 +73,17 @@ sealed interface Screen {
      * rafraîchissement.
      */
     data class FicheSuivi(val source: SourceSuivi, val tmdbId: Int) : Screen
+
+    /**
+     * Choisir un film à ajouter à une saga suivie (brief « les films de saga
+     * ajoutés à la main », 15 septembre 2026), empilée depuis sa fiche —
+     * seulement sur une saga, jamais sur un réalisateur. Réutilise l'écran
+     * de recherche de films existant (`SearchScreen`), sur une instance de
+     * `SearchViewModel` propre à cet écran, en mode « choisir » : toucher un
+     * résultat ajoute le film et referme l'écran, sans jamais passer par le
+     * formulaire — jumeau de `Screen.ChercherSuivi` pour cette différence-là.
+     */
+    data class ChoisirFilmDeSaga(val tmdbId: Int) : Screen
 }
 
 /** Les cinq entrées de la barre de navigation du bas (décision du propriétaire du 14 septembre 2026 ; Cinema ajoutée le même jour ; Frise le 15 septembre 2026, entre Home et Cinema ; Suivis le même jour, entre Frise et Cinema, sous le nom « Réalisateurs » jusqu'aux sagas, le même jour encore). */
@@ -97,7 +108,7 @@ fun Screen.bottomBarTab(): BottomTab? = when (this) {
     Screen.Cinema -> BottomTab.Cinema
     Screen.Profile, Screen.Films -> BottomTab.Profile
     Screen.Search, is Screen.Form, is Screen.Edit, Screen.SensCritique, is Screen.Annee,
-    Screen.ChercherSuivi, is Screen.FicheSuivi,
+    Screen.ChercherSuivi, is Screen.FicheSuivi, is Screen.ChoisirFilmDeSaga,
     -> null
 }
 

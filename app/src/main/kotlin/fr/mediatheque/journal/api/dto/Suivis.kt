@@ -5,13 +5,22 @@ import kotlinx.serialization.Serializable
 /**
  * Ce qu'un réalisateur suivi et une saga suivie ont en commun (brief « les
  * sagas », 15 septembre 2026, jumelle du brief « les réalisateurs ») : la
- * forme d'un film dans leur liste de films est **littéralement la même** côté
- * back (`GET /me/realisateurs/{tmdbId}/films` et `GET /me/sagas/{tmdbId}/films`
- * rendent tous deux `{ films: [{ tmdb_id, title, original_title, year,
- * release_date, cover_url, vu, introuvable }] }`) — un seul DTO les sert
- * plutôt qu'une copie qui diffère à la première retouche. Ce qui distingue
- * les deux sources (le nom, la photo ou l'affiche, les cinq appels réseau)
- * reste dans `Realisateurs.kt` et `Sagas.kt`, propre à chacune.
+ * forme d'un film dans leur liste de films est **presque littéralement la
+ * même** côté back (`GET /me/realisateurs/{tmdbId}/films` et
+ * `GET /me/sagas/{tmdbId}/films` rendent tous deux `{ films: [{ tmdb_id,
+ * title, original_title, year, release_date, cover_url, vu, introuvable,
+ * … }] }`) — un seul DTO les sert plutôt qu'une copie qui diffère à la
+ * première retouche. Ce qui distingue les deux sources (le nom, la photo ou
+ * l'affiche, les cinq appels réseau) reste dans `Realisateurs.kt` et
+ * `Sagas.kt`, propre à chacune.
+ *
+ * **`ajoute`** (brief « les films de saga ajoutés à la main », toujours le
+ * 15 septembre 2026) est la seule vraie différence : une collection TMDB
+ * n'est pas toujours complète — « Alien - Saga » n'a que les quatre films
+ * originaux — et un membre peut y ajouter un film à la main
+ * (`PUT`/`DELETE /me/sagas/{tmdbId}/films/{filmId}`). Le contrat des
+ * réalisateurs ne porte jamais ce champ ; son défaut à `false` fait qu'un
+ * film de filmographie s'en passe sans encombre.
  */
 
 /**
@@ -45,6 +54,8 @@ data class FilmSuivi(
     val cover_url: String? = null,
     val vu: VuDuFilm? = null,
     val introuvable: Boolean = false,
+    /** Vrai pour un film ajouté à la main à une saga, faux pour un film de sa collection TMDB — toujours faux pour un réalisateur. */
+    val ajoute: Boolean = false,
 )
 
 @Serializable

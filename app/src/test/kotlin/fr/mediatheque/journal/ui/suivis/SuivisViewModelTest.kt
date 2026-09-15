@@ -431,4 +431,138 @@ class SuivisViewModelTest {
             (vm.ui.value.sagas.filmographies[8091] as EtatFilmographie.Pret).films.map { it.tmdb_id },
         )
     }
+
+    // -------------------------------------------------------------------------
+    // ajouterFilm / retirerFilm : les films de saga ajoutés à la main (brief du
+    // 15 septembre 2026 — une collection TMDB n'est pas toujours complète).
+    // Sans `source`, à la différence de marquerIntrouvable/retirerIntrouvable :
+    // la route n'existe que pour les sagas.
+    // -------------------------------------------------------------------------
+
+    // Ajouter un film : le `PUT`, puis la filmographie de la saga se recharge — c'est ce
+    // rechargement qui fait apparaître le nouveau film, à sa place chronologique. Mutation : ne
+    // pas recharger laisse l'ancienne filmographie affichée, sans Prometheus.
+    @Test
+    fun `ajouterFilm appelle le back puis recharge la filmographie, a sa place`() = runTest(dispatcher) {
+        api.onSagas = { listOf(FakeJournalApi.saga(8091, "Alien (Saga)")) }
+        var ajoute = false
+        api.onFilmsDeSaga = {
+            val films = mutableListOf(FakeJournalApi.filmDe(348, "Alien", 1979))
+            if (ajoute) films += FakeJournalApi.filmDe(70981, "Prometheus", 2012, ajoute = true)
+            films
+        }
+        api.onAjouterFilmSaga = { _, _ -> ajoute = true }
+
+        val vm = vm()
+        vm.refresh(SourceSuivi.SAGAS)
+        testScheduler.advanceUntilIdle()
+        assertEquals(
+            listOf(348),
+            (vm.ui.value.sagas.filmographies[8091] as EtatFilmographie.Pret).films.map { it.tmdb_id },
+        )
+
+        vm.ajouterFilm(8091, 70981)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(listOf("ajouterFilmSaga 8091 70981"), api.calls.filter { it.startsWith("ajouterFilmSaga") })
+        val filmographie = (vm.ui.value.sagas.filmographies[8091] as EtatFilmographie.Pret).films
+        assertEquals(listOf(348, 70981), filmographie.map { it.tmdb_id })
+        assertEquals(true, filmographie.last().ajoute)
+    }
+
+    // Le bandeau « Ajouté à la saga », et « Impossible pour l'instant » sur un échec — jumeau de
+    // `marquerIntrouvable`, pas de `ajouter` : ce message-ci est fixe, il ne reprend pas celui du
+    // back. Mutation : ne rien envoyer, ou l'envoyer avant le `PUT` (donc aussi quand il échoue),
+    // casse l'une des deux assertions.
+    @Test
+    fun `ajouterFilm annonce Ajoute a la saga, un echec annonce le bandeau`() = runTest(dispatcher) {
+        api.onSagas = { emptyList() }
+        val recus = mutableListOf<String>()
+        val vm = vm()
+        val job = launch { vm.messages.collect { recus += it } }
+
+        vm.ajouterFilm(8091, 70981)
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf("Ajouté à la saga"), recus)
+
+        api.onAjouterFilmSaga = { _, _ -> throw FakeJournalApi.network() }
+        vm.ajouterFilm(8091, 70981)
+        testScheduler.advanceUntilIdle()
+        job.cancel()
+
+        assertEquals(listOf("Ajouté à la saga", "Impossible pour l’instant"), recus)
+    }
+
+    // Un échec du `PUT` : bandeau « Impossible pour l'instant », rien d'autre ne bouge — jumeau
+    // de `marquerIntrouvable rate annonce un bandeau, rien ne change`. Mutation : recharger quand
+    // même (`chargerUneFilmographie` hors du `catch`) ferait apparaître un second appel à
+    // `filmsDeSaga` alors que ce test n'en attend qu'un.
+    @Test
+    fun `ajouterFilm rate annonce un bandeau, rien ne change`() = runTest(dispatcher) {
+        api.onSagas = { listOf(FakeJournalApi.saga(8091, "Alien (Saga)")) }
+        api.onFilmsDeSaga = { listOf(FakeJournalApi.filmDe(348, "Alien", 1979)) }
+        api.onAjouterFilmSaga = { _, _ -> throw FakeJournalApi.network() }
+
+        val recus = mutableListOf<String>()
+        val vm = vm()
+        val job = launch { vm.messages.collect { recus += it } }
+        vm.refresh(SourceSuivi.SAGAS)
+        testScheduler.advanceUntilIdle()
+
+        vm.ajouterFilm(8091, 70981)
+        testScheduler.advanceUntilIdle()
+        job.cancel()
+
+        assertEquals(listOf("Impossible pour l’instant"), recus)
+        assertEquals(listOf("sagas", "filmsDeSaga 8091", "ajouterFilmSaga 8091 70981"), api.calls)
+        assertEquals(
+            listOf(348),
+            (vm.ui.value.sagas.filmographies[8091] as EtatFilmographie.Pret).films.map { it.tmdb_id },
+        )
+    }
+
+    // Retirer un film ajouté : le `DELETE`, puis la filmographie se recharge — jumeau de
+    // `ajouterFilm`, l'autre sens.
+    @Test
+    fun `retirerFilm appelle le back puis recharge la filmographie`() = runTest(dispatcher) {
+        api.onSagas = { listOf(FakeJournalApi.saga(8091, "Alien (Saga)")) }
+        var retire = false
+        api.onFilmsDeSaga = {
+            val films = mutableListOf(FakeJournalApi.filmDe(348, "Alien", 1979))
+            if (!retire) films += FakeJournalApi.filmDe(70981, "Prometheus", 2012, ajoute = true)
+            films
+        }
+        api.onRetirerFilmSaga = { _, _ -> retire = true }
+
+        val vm = vm()
+        vm.refresh(SourceSuivi.SAGAS)
+        testScheduler.advanceUntilIdle()
+        assertEquals(
+            listOf(348, 70981),
+            (vm.ui.value.sagas.filmographies[8091] as EtatFilmographie.Pret).films.map { it.tmdb_id },
+        )
+
+        vm.retirerFilm(8091, 70981)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(listOf("retirerFilmSaga 8091 70981"), api.calls.filter { it.startsWith("retirerFilmSaga") })
+        assertEquals(
+            listOf(348),
+            (vm.ui.value.sagas.filmographies[8091] as EtatFilmographie.Pret).films.map { it.tmdb_id },
+        )
+    }
+
+    @Test
+    fun `retirerFilm annonce Retire de la saga`() = runTest(dispatcher) {
+        api.onSagas = { emptyList() }
+        val recus = mutableListOf<String>()
+        val vm = vm()
+        val job = launch { vm.messages.collect { recus += it } }
+
+        vm.retirerFilm(8091, 70981)
+        testScheduler.advanceUntilIdle()
+        job.cancel()
+
+        assertEquals(listOf("Retiré de la saga"), recus)
+    }
 }

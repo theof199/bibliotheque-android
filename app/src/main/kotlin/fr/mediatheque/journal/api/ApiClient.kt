@@ -198,6 +198,14 @@ class ApiClient(baseUrl: String, engine: HttpClientEngine) : JournalApi {
     override suspend fun filmsDeSaga(tmdbId: Int): List<FilmSuivi> =
         call<FilmsResponse> { client.get(Endpoints.filmsDeSaga(tmdbId)) }.films
 
+    override suspend fun ajouterFilmSaga(tmdbId: Int, filmId: Int) {
+        call<Unit> { client.put(Endpoints.filmDeSaga(tmdbId, filmId)) }
+    }
+
+    override suspend fun retirerFilmSaga(tmdbId: Int, filmId: Int) {
+        call<Unit> { client.delete(Endpoints.filmDeSaga(tmdbId, filmId)) }
+    }
+
     private suspend inline fun <reified T> call(block: () -> HttpResponse): T {
         val response = try {
             block()

@@ -36,4 +36,11 @@ object Endpoints {
     /** `GET`/`DELETE /me/sagas/{tmdbId}` — l'identifiant de la **collection**, pas celui de la ligne. */
     fun saga(tmdbId: Int): String = "$sagas/$tmdbId"
     fun filmsDeSaga(tmdbId: Int): String = "${saga(tmdbId)}/films"
+
+    /**
+     * `PUT`/`DELETE /me/sagas/{tmdbId}/films/{filmId}` — le premier identifiant est celui de la
+     * **collection**, le second celui du **film** (brief « les films de saga ajoutés à la main »,
+     * 15 septembre 2026).
+     */
+    fun filmDeSaga(tmdbId: Int, filmId: Int): String = "${filmsDeSaga(tmdbId)}/$filmId"
 }

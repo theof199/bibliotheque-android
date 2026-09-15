@@ -60,6 +60,8 @@ class FakeJournalApi : JournalApi {
     var onSuivreSaga: suspend (Int) -> Saga = { id -> saga(id, "Saga $id") }
     var onRetirerSaga: suspend (Int) -> Unit = {}
     var onFilmsDeSaga: suspend (Int) -> List<FilmSuivi> = { emptyList() }
+    var onAjouterFilmSaga: suspend (Int, Int) -> Unit = { _, _ -> }
+    var onRetirerFilmSaga: suspend (Int, Int) -> Unit = { _, _ -> }
 
     override suspend fun login(pseudo: String, password: String) = track("login $pseudo") { onLogin(pseudo, password) }
     override suspend fun me() = track("me") { onMe() }
@@ -86,6 +88,10 @@ class FakeJournalApi : JournalApi {
     override suspend fun suivreSaga(tmdbId: Int) = track("suivreSaga $tmdbId") { onSuivreSaga(tmdbId) }
     override suspend fun retirerSaga(tmdbId: Int) = track("retirerSaga $tmdbId") { onRetirerSaga(tmdbId) }
     override suspend fun filmsDeSaga(tmdbId: Int) = track("filmsDeSaga $tmdbId") { onFilmsDeSaga(tmdbId) }
+    override suspend fun ajouterFilmSaga(tmdbId: Int, filmId: Int) =
+        track("ajouterFilmSaga $tmdbId $filmId") { onAjouterFilmSaga(tmdbId, filmId) }
+    override suspend fun retirerFilmSaga(tmdbId: Int, filmId: Int) =
+        track("retirerFilmSaga $tmdbId $filmId") { onRetirerFilmSaga(tmdbId, filmId) }
 
     private suspend fun <T> track(name: String, block: suspend () -> T): T {
         calls += name
@@ -138,6 +144,7 @@ class FakeJournalApi : JournalApi {
             rating: Int? = null,
             finishedAt: String = "2026-07-12",
             introuvable: Boolean = false,
+            ajoute: Boolean = false,
         ) = FilmSuivi(
             tmdb_id = tmdbId,
             title = title,
@@ -145,6 +152,7 @@ class FakeJournalApi : JournalApi {
             release_date = year?.let { "$it-01-01" },
             vu = entryId?.let { VuDuFilm(it, rating, finishedAt) },
             introuvable = introuvable,
+            ajoute = ajoute,
         )
 
         fun unauthorized() = ApiError("UNAUTHENTICATED", "Connecte-toi d’abord.", retryable = false, status = 401)

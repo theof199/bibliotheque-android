@@ -281,4 +281,22 @@ class SuivisTest {
         val enCours = EnCours(SourceSuivi.SAGAS, alien, filmDe(348, "Alien", 1979))
         assertNull(enCours.formulaire().metadata.director)
     }
+
+    // « Retirer de la saga » (brief « les films de saga ajoutés à la main », 15 septembre 2026) :
+    // seulement sur une saga, et seulement sur un film qui y a été ajouté à la main — jamais sur
+    // un film de la collection elle-même, et jamais pour un réalisateur, qui n'a pas cette route
+    // côté back. Mutation : ne tester que `film.ajoute` (sans la source) rendrait vrai un film
+    // ajouté vu depuis une fiche de réalisateur, ce qui n'a pas de sens et n'arrive de toute façon
+    // jamais côté back (`ajoute` y est toujours faux pour un réalisateur) ; ne tester que la
+    // source rendrait vrai n'importe quel film d'une saga, ajouté ou non.
+    @Test
+    fun `peutRetirerDeSaga exige la source sagas et un film ajoute`() {
+        val ajoute = filmDe(70981, "Prometheus", 2012, ajoute = true)
+        val deLaCollection = filmDe(348, "Alien", 1979, ajoute = false)
+
+        assertEquals(true, peutRetirerDeSaga(SourceSuivi.SAGAS, ajoute))
+        assertEquals(false, peutRetirerDeSaga(SourceSuivi.SAGAS, deLaCollection))
+        assertEquals(false, peutRetirerDeSaga(SourceSuivi.REALISATEURS, ajoute))
+        assertEquals(false, peutRetirerDeSaga(SourceSuivi.REALISATEURS, deLaCollection))
+    }
 }

@@ -379,7 +379,35 @@ fun Root(container: AppContainer) {
                         onOuvrirVu = { nav.push(Screen.Edit(it)) },
                         onOuvrirAVoir = { nav.push(Screen.Form(it)) },
                         onSupprimer = { suivis.retirer(screen.source, screen.tmdbId); nav.pop() },
+                        // Le bouton n'est rendu que sur une saga (`FicheSuiviScreen`) : passer le
+                        // même `onAjouterFilm` sur une fiche de réalisateur ne fait donc jamais rien.
+                        onAjouterFilm = { nav.push(Screen.ChoisirFilmDeSaga(screen.tmdbId)) },
                     )
+                    is Screen.ChoisirFilmDeSaga -> {
+                        // Instance propre à cet écran (jumeau de `chercher` sur
+                        // `Screen.ChercherSuivi` juste au-dessus), pas la `search` hoistée
+                        // plus haut : celle-ci sert `Screen.Search`, remise à zéro par
+                        // `nav.searchVisits`, un mécanisme qu'il aurait fallu étendre à cet
+                        // écran pour la partager sans risquer une requête ou un texte résiduel
+                        // d'une autre visite.
+                        val choisir: SearchViewModel = viewModel(key = "choisir-film-saga") {
+                            SearchViewModel(container.api, session::expire)
+                        }
+                        // Comme `chercher` ci-dessus : on ne revient jamais *dans* cet écran
+                        // depuis un écran plus profond, chaque entrée repart donc d'un champ vide.
+                        LaunchedEffect(Unit) { choisir.reset() }
+                        SearchScreen(
+                            choisir,
+                            onBack = nav::pop,
+                            // L'ajout part sur `suivis`, pas sur `choisir` : c'est lui qui tient
+                            // la filmographie à rafraîchir et le bandeau à montrer, et son
+                            // `viewModelScope` (celui de l'Activité) survit au `pop` immédiat.
+                            onPick = { result ->
+                                result.external_id.toIntOrNull()?.let { suivis.ajouterFilm(screen.tmdbId, it) }
+                                nav.pop()
+                            },
+                        )
+                    }
                 }
             }
         }

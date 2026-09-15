@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -69,6 +70,13 @@ import fr.mediatheque.journal.ui.showBriefly
  * grise avec la mention « introuvable » à droite — jamais hors d'atteinte
  * d'un appui long, dans un cas comme dans l'autre.
  *
+ * Sur une saga seulement (brief « les films de saga ajoutés à la main »,
+ * 15 septembre 2026 : une collection TMDB n'est pas toujours complète), un
+ * bouton « Ajouter un film » sous le nom ouvre `Screen.ChoisirFilmDeSaga`, la
+ * recherche existante en mode « choisir ». Un film ainsi ajouté porte
+ * « ajouté » à droite de son titre, et un appui long dessus propose aussi
+ * « Retirer de la saga », même s'il est déjà vu.
+ *
  * Empilée depuis `Screen.Suivis`, sans barre du bas. Elle lit le `ViewModel`
  * partagé plutôt que de recharger : la liste a déjà tiré les films.
  */
@@ -82,6 +90,7 @@ fun FicheSuiviScreen(
     onOuvrirVu: (JournalItem) -> Unit,
     onOuvrirAVoir: (SearchResult) -> Unit,
     onSupprimer: () -> Unit,
+    onAjouterFilm: () -> Unit,
 ) {
     val ui by vm.ui.collectAsState()
     val etatSource = if (source == SourceSuivi.REALISATEURS) ui.realisateurs else ui.sagas
@@ -111,8 +120,10 @@ fun FicheSuiviScreen(
     feuillePour?.let { film ->
         IntrouvableSheet(
             film = film,
+            peutRetirerDeSaga = peutRetirerDeSaga(source, film),
             onMarquer = { feuillePour = null; vm.marquerIntrouvable(source, tmdbId, film.tmdb_id) },
             onRetirer = { feuillePour = null; vm.retirerIntrouvable(source, tmdbId, film.tmdb_id) },
+            onRetirerDeSaga = { feuillePour = null; vm.retirerFilm(tmdbId, film.tmdb_id) },
             onDismiss = { feuillePour = null },
         )
     }
@@ -141,6 +152,16 @@ fun FicheSuiviScreen(
                 )
                 IconButton(onClick = { confirmation = true }) {
                     Icon(Icons.Filled.Delete, contentDescription = "Ne plus suivre")
+                }
+            }
+
+            // Seulement sur une saga (brief « les films de saga ajoutés à la main »,
+            // 15 septembre 2026) : une collection TMDB n'est pas toujours complète,
+            // rien de tout cela sur la filmographie d'un réalisateur.
+            if (source == SourceSuivi.SAGAS) {
+                TextButton(onClick = onAjouterFilm, modifier = Modifier.padding(start = 8.dp)) {
+                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
+                    Text("Ajouter un film")
                 }
             }
 
@@ -201,8 +222,10 @@ fun FicheSuiviScreen(
                                         else -> Unit
                                     }
                                 },
-                                // Un film déjà vu n'a pas de marque à poser : rien à lui ouvrir.
-                                onLongClick = { if (film.vu == null) feuillePour = film },
+                                // Un film déjà vu n'a pas de marque « introuvable » à poser, mais un
+                                // film ajouté à la main reste retirable de la saga même vu (brief
+                                // « les films de saga ajoutés à la main », 15 septembre 2026).
+                                onLongClick = { if (film.vu == null || peutRetirerDeSaga(source, film)) feuillePour = film },
                             )
                         }
                     }
@@ -217,19 +240,38 @@ fun FicheSuiviScreen(
  * remettre à voir » sur un film qui l'est déjà — jumeau de
  * `SensCritiqueChoiceSheet` (`ui/form/`). Le retour système la referme comme
  * `onDismiss`, sans rien poser : ce n'est pas une décision, juste une sortie.
+ *
+ * « Retirer de la saga » (brief « les films de saga ajoutés à la main »,
+ * 15 septembre 2026) s'ajoute, seul ou à côté des deux boutons ci-dessus —
+ * `peutRetirerDeSaga` (`SuivisViewModel.kt`) l'autorise sur un film ajouté à
+ * la main, même déjà vu, ce que « marquer introuvable » ne permet pas.
+ * `onDismiss` sort toujours en dernier, pour rester atteignable quel que soit
+ * le nombre de boutons au-dessus.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun IntrouvableSheet(film: FilmSuivi, onMarquer: () -> Unit, onRetirer: () -> Unit, onDismiss: () -> Unit) {
+private fun IntrouvableSheet(
+    film: FilmSuivi,
+    peutRetirerDeSaga: Boolean,
+    onMarquer: () -> Unit,
+    onRetirer: () -> Unit,
+    onRetirerDeSaga: () -> Unit,
+    onDismiss: () -> Unit,
+) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-            if (film.introuvable) {
-                TextButton(onClick = onRetirer) { Text("Le remettre à voir") }
-            } else {
-                TextButton(onClick = onMarquer) { Text("Marquer introuvable") }
-                TextButton(onClick = onDismiss) { Text("Annuler") }
+            if (film.vu == null) {
+                if (film.introuvable) {
+                    TextButton(onClick = onRetirer) { Text("Le remettre à voir") }
+                } else {
+                    TextButton(onClick = onMarquer) { Text("Marquer introuvable") }
+                }
             }
+            if (peutRetirerDeSaga) {
+                TextButton(onClick = onRetirerDeSaga) { Text("Retirer de la saga") }
+            }
+            TextButton(onClick = onDismiss) { Text("Annuler") }
         }
     }
 }
@@ -258,6 +300,17 @@ private fun LigneFilm(film: FilmSuivi, aVoir: Boolean, onClick: () -> Unit, onLo
         )
         Cover(film.cover_url, film.title, 30.dp, 45.dp)
         Text(film.title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+        // Petite mention à droite du titre (brief « les films de saga ajoutés à la
+        // main », 15 septembre 2026), distincte du bloc note/introuvable/à voir plus
+        // loin : un film ajouté peut être vu, introuvable ou à voir tout autant, les
+        // deux mentions doivent donc pouvoir cohabiter plutôt que s'exclure.
+        if (film.ajoute) {
+            Text(
+                "ajouté",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         val note = film.vu?.rating
         when {
             note != null -> Text(

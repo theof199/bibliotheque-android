@@ -44,6 +44,12 @@ import kotlinx.coroutines.launch
  * 15 septembre 2026) : `prochainAVoir` l'ignore, comme la pastille « à voir »
  * et le « Ensuite » de l'accueil qui s'en déduisent tous deux — pour les deux
  * sources, la marque est la même (`user_unfindable_films` côté back).
+ *
+ * Une saga suivie peut aussi recevoir des films ajoutés à la main (brief « les
+ * films de saga ajoutés à la main », 15 septembre 2026 : une collection TMDB
+ * n'est pas toujours complète) — `ajouterFilm`/`retirerFilm`, jumeaux de
+ * `marquerIntrouvable`/`retirerIntrouvable` mais sans `source`, puisque cette
+ * paire n'existe que pour les sagas.
  */
 
 /**
@@ -78,6 +84,17 @@ fun prochainAVoir(films: List<FilmSuivi>): FilmSuivi? =
 
 /** « Lolita (1962) », ou « Lolita » tout court si TMDB n'a pas d'année pour lui. */
 fun titreEtAnnee(film: FilmSuivi): String = film.year?.let { "${film.title} ($it)" } ?: film.title
+
+/**
+ * « Retirer de la saga » n'a de sens que sur un film ajouté à la main, et
+ * seulement dans une saga (brief « les films de saga ajoutés à la main »,
+ * 15 septembre 2026) : rien de tout cela sur une fiche de réalisateur, qui
+ * n'a pas cette route côté back — `film.ajoute` y est de toute façon toujours
+ * faux (`FilmSuivi.ajoute` par défaut), mais la source est vérifiée en plus,
+ * explicitement, plutôt que de s'y fier seule.
+ */
+fun peutRetirerDeSaga(source: SourceSuivi, film: FilmSuivi): Boolean =
+    source == SourceSuivi.SAGAS && film.ajoute
 
 /**
  * La ligne sous le nom, dans la liste : « 7 vus sur 13 · 2 introuvables ·
@@ -363,6 +380,39 @@ class SuivisViewModel(private val api: JournalApi, private val onUnauthenticated
                 return@launch
             }
             chargerUneFilmographie(source, tmdbId)
+        }
+    }
+
+    /**
+     * Ajouter un film absent de la collection à une saga suivie (brief « les
+     * films de saga ajoutés à la main », 15 septembre 2026) — sans `source`,
+     * à la différence de `marquerIntrouvable`/`retirerIntrouvable` : la route
+     * n'existe que pour les sagas, jamais pour un réalisateur.
+     */
+    fun ajouterFilm(tmdbId: Int, filmId: Int) {
+        viewModelScope.launch {
+            try {
+                api.ajouterFilmSaga(tmdbId, filmId)
+            } catch (e: ApiError) {
+                if (e.isUnauthenticated) onUnauthenticated() else _messages.trySend("Impossible pour l’instant")
+                return@launch
+            }
+            _messages.trySend("Ajouté à la saga")
+            chargerUneFilmographie(SourceSuivi.SAGAS, tmdbId)
+        }
+    }
+
+    /** L'inverse de `ajouterFilm` — jumeau de `retirerIntrouvable`. */
+    fun retirerFilm(tmdbId: Int, filmId: Int) {
+        viewModelScope.launch {
+            try {
+                api.retirerFilmSaga(tmdbId, filmId)
+            } catch (e: ApiError) {
+                if (e.isUnauthenticated) onUnauthenticated() else _messages.trySend("Impossible pour l’instant")
+                return@launch
+            }
+            _messages.trySend("Retiré de la saga")
+            chargerUneFilmographie(SourceSuivi.SAGAS, tmdbId)
         }
     }
 

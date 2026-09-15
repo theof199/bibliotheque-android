@@ -17,7 +17,7 @@ import fr.mediatheque.journal.api.dto.User
 import kotlinx.serialization.json.JsonObject
 
 /**
- * La seule porte des écrans vers le réseau. Vingt-cinq opérations, celles que
+ * La seule porte des écrans vers le réseau. Vingt-sept opérations, celles que
  * l'application consomme ; les chemins n'existent que dans `Endpoints`, et ne
  * s'emploient que depuis `ApiClient`. Toute fonction peut lever `ApiError`.
  *
@@ -86,6 +86,17 @@ interface JournalApi {
 
     /** `GET /me/sagas/{tmdbId}/films` : ses films, de la plus ancienne sortie à la plus récente. */
     suspend fun filmsDeSaga(tmdbId: Int): List<FilmSuivi>
+
+    /**
+     * `PUT /me/sagas/{tmdbId}/films/{filmId}` : ajoute un film absent de la
+     * collection (brief « les films de saga ajoutés à la main », 15 septembre
+     * 2026). Idempotent, toujours `204`. `404` si la saga n'est pas suivie, ou
+     * si TMDB ne connaît pas ce `filmId`.
+     */
+    suspend fun ajouterFilmSaga(tmdbId: Int, filmId: Int)
+
+    /** `DELETE /me/sagas/{tmdbId}/films/{filmId}` : le retire. Toujours `204`, même si le film n'avait pas été ajouté. */
+    suspend fun retirerFilmSaga(tmdbId: Int, filmId: Int)
 }
 
 /**
