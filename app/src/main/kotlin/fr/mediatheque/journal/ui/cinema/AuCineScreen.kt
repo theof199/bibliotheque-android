@@ -89,7 +89,7 @@ fun AuCineScreen(
                     Text("$n séance${if (n > 1) "s" else ""} cette année", style = MaterialTheme.typography.titleLarge)
                 }
 
-                item { Text("À l’affiche dans mes cinémas", style = MaterialTheme.typography.titleMedium) }
+                item { Text("Sorti cette semaine dans mes cinémas", style = MaterialTheme.typography.titleMedium) }
                 ui.sorties?.en_cours?.miseAJourAffichee()?.let { texte ->
                     item {
                         Text(
