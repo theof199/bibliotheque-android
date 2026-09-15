@@ -28804,7 +28804,7 @@
         "tags": [
           "réalisateurs"
         ],
-        "description": "Les films **réalisés** par cette personne (`crew`, poste `Director` — ni ceux qu’elle a produits, ni ceux où elle joue), dédoublonnés, de la plus ancienne sortie à la plus récente.\n\n**Un film sans date de sortie ne figure pas dans la liste** : TMDB porte les projets annoncés, qui n’en ont pas et qu’une liste chronologique ne saurait pas placer.\n\n**`vu`** est mon visionnage le plus récent de ce film, ou `null`. Il vient de mon journal à moi : celui d’un autre membre ne le remplit jamais, même s’il suit le même réalisateur. Le rapprochement se fait sur l’identifiant TMDB du film — une œuvre entrée dans la bibliothèque depuis une autre source n’y répond pas.\n\n**Rien n’entre dans la bibliothèque** : cette route ne crée aucune œuvre et n’écrit aucun suivi.\n\nLa filmographie est mémorisée 24 h côté serveur, **par personne et non par membre** — elle est la même pour tous. `vu`, lui, est relu en base à chaque appel et n’est jamais mémorisé.\n\nUn réalisateur que je ne suis pas répond `404` : il faut l’ajouter d’abord. `503` si `TMDB_API_KEY` n’est pas renseignée sur ce serveur.",
+        "description": "Les films **réalisés** par cette personne (`crew`, poste `Director` — ni ceux qu’elle a produits, ni ceux où elle joue), dédoublonnés, de la plus ancienne sortie à la plus récente.\n\n**Un film sans date de sortie ne figure pas dans la liste** : TMDB porte les projets annoncés, qui n’en ont pas et qu’une liste chronologique ne saurait pas placer.\n\n**`vu`** est mon visionnage le plus récent de ce film, ou `null`. Il vient de mon journal à moi : celui d’un autre membre ne le remplit jamais, même s’il suit le même réalisateur. Le rapprochement se fait sur l’identifiant TMDB du film — une œuvre entrée dans la bibliothèque depuis une autre source n’y répond pas.\n\n**`introuvable`** est vrai si *je* l’ai moi-même marqué introuvable (`PUT /me/introuvables/{tmdbId}`) — jamais la marque d’un autre membre, même s’il suit le même réalisateur.\n\n**Rien n’entre dans la bibliothèque** : cette route ne crée aucune œuvre et n’écrit aucun suivi.\n\nLa filmographie est mémorisée 24 h côté serveur, **par personne et non par membre** — elle est la même pour tous. `vu`, lui, est relu en base à chaque appel et n’est jamais mémorisé.\n\nUn réalisateur que je ne suis pas répond `404` : il faut l’ajouter d’abord. `503` si `TMDB_API_KEY` n’est pas renseignée sur ce serveur.",
         "parameters": [
           {
             "schema": {
@@ -28925,6 +28925,10 @@
                               }
                             ],
                             "description": "Nul si je ne l’ai jamais journalisé"
+                          },
+                          "introuvable": {
+                            "type": "boolean",
+                            "description": "Vrai si je l’ai moi-même marqué introuvable (`PUT /me/introuvables/{tmdbId}`) — jamais la marque d’un autre membre."
                           }
                         },
                         "required": [
@@ -28934,7 +28938,8 @@
                           "year",
                           "release_date",
                           "cover_url",
-                          "vu"
+                          "vu",
+                          "introuvable"
                         ],
                         "additionalProperties": false,
                         "description": "Un film réalisé par cette personne"
@@ -28962,7 +28967,8 @@
                             "entry_id": "e0000000-0000-4000-8000-000000000002",
                             "rating": 9,
                             "finished_at": "2026-07-12"
-                          }
+                          },
+                          "introuvable": false
                         },
                         {
                           "tmdb_id": 157336,
@@ -28971,7 +28977,18 @@
                           "year": 2014,
                           "release_date": "2014-11-05",
                           "cover_url": "https://image.tmdb.org/t/p/w500/nrJ0FuWpoGVQ8lLkmDVUxr4b8vF.jpg",
-                          "vu": null
+                          "vu": null,
+                          "introuvable": false
+                        },
+                        {
+                          "tmdb_id": 62211,
+                          "title": "Le Suaire",
+                          "original_title": null,
+                          "year": null,
+                          "release_date": "1975-01-01",
+                          "cover_url": null,
+                          "vu": null,
+                          "introuvable": true
                         }
                       ]
                     }
@@ -29011,6 +29028,96 @@
             }
           },
           "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/introuvables/{tmdbId}": {
+      "put": {
+        "summary": "Marquer un film introuvable",
+        "tags": [
+          "réalisateurs"
+        ],
+        "description": "Le paramètre est le `tmdb_id` d’un **film**, et non d’une personne : celui rendu par `GET /me/realisateurs/{tmdbId}/films`.\n\n**Idempotent.** Marquer un film déjà marqué ne crée pas de seconde ligne et répond `204` comme la première fois — l’unicité `(membre, film)` en base le garantit de toute façon.\n\nLa marque est strictement personnelle : elle ne modifie que `GET /me/realisateurs/{tmdbId}/films` **pour moi**, jamais pour un autre membre.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "in": "path",
+            "name": "tmdbId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response"
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Retirer la marque « introuvable »",
+        "tags": [
+          "réalisateurs"
+        ],
+        "description": "Le paramètre est le `tmdb_id` d’un **film**, comme sur `PUT /me/introuvables/{tmdbId}`.\n\n**204 dans tous les cas**, y compris quand le film n’était pas marqué : retirer une marque absente ne fait rien de plus, et ce n’est pas une erreur.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "in": "path",
+            "name": "tmdbId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response"
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
             "description": "Default Response",
             "content": {
               "application/json": {
