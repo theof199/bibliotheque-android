@@ -27,4 +27,13 @@ object Endpoints {
 
     /** `PUT`/`DELETE /me/introuvables/{tmdbId}` — l'identifiant d'un **film**, pas d'une personne. */
     fun introuvable(tmdbId: Int): String = "$introuvables/$tmdbId"
+
+    // --- Les sagas (brief du 15 septembre 2026), jumelles des réalisateurs ci-dessus. ---
+
+    const val sagas = "me/sagas"
+    const val collections = "reference/sagas"
+
+    /** `GET`/`DELETE /me/sagas/{tmdbId}` — l'identifiant de la **collection**, pas celui de la ligne. */
+    fun saga(tmdbId: Int): String = "$sagas/$tmdbId"
+    fun filmsDeSaga(tmdbId: Int): String = "${saga(tmdbId)}/films"
 }

@@ -29,6 +29,7 @@ import androidx.compose.runtime.setValue
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.ui.frise.AnneeFrise
+import fr.mediatheque.journal.ui.suivis.SourceSuivi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -51,24 +52,31 @@ sealed interface Screen {
     /** Le détail d'une année de la Frise : ses vus, et ce qui reste à voir sur le Plex. */
     data class Annee(val annee: AnneeFrise) : Screen
 
-    /** Les réalisateurs que je suis (brief du 15 septembre 2026). */
-    data object Realisateurs : Screen
+    /**
+     * Ce que je suis, réalisateurs ou sagas (brief du 15 septembre 2026, puis
+     * généralisé le même jour pour les sagas — l'onglet « Réalisateurs »
+     * devient « Suivis »). Les deux segments vivent **dans** cet écran
+     * (`SuivisUi.source`, mémorisé pour la session), pas dans deux `Screen`
+     * séparés.
+     */
+    data object Suivis : Screen
 
-    /** La recherche d'un réalisateur à suivre, ouverte par le « + » de l'écran ci-dessus. */
-    data object ChercherRealisateur : Screen
+    /** La recherche d'un réalisateur ou d'une saga à suivre, ouverte par le « + » de l'écran ci-dessus, sur le segment affiché. */
+    data object ChercherSuivi : Screen
 
     /**
-     * La fiche d'un réalisateur suivi : sa filmographie, et ce que j'en ai vu.
-     * Elle porte l'identifiant de la **personne** chez TMDB, pas le réalisateur
-     * entier : la liste et les filmographies vivent dans le `ViewModel` partagé
-     * (`Root.kt`, clé `"realisateurs"`), et un écran qui porterait une copie du
-     * réalisateur montrerait celle d'avant après un rafraîchissement.
+     * La fiche d'un réalisateur ou d'une saga suivis : ses films, et ce que
+     * j'en ai vu. Elle porte `source` (laquelle des deux) et l'identifiant
+     * TMDB de l'entité, pas l'entité entière : la liste et les filmographies
+     * vivent dans le `ViewModel` partagé (`Root.kt`, clé `"suivis"`), et un
+     * écran qui en porterait une copie montrerait celle d'avant après un
+     * rafraîchissement.
      */
-    data class Realisateur(val tmdbId: Int) : Screen
+    data class FicheSuivi(val source: SourceSuivi, val tmdbId: Int) : Screen
 }
 
-/** Les cinq entrées de la barre de navigation du bas (décision du propriétaire du 14 septembre 2026 ; Cinema ajoutée le même jour ; Frise le 15 septembre 2026, entre Home et Cinema ; Realisateurs le même jour, entre Frise et Cinema). */
-enum class BottomTab { Home, Frise, Realisateurs, Cinema, Profile }
+/** Les cinq entrées de la barre de navigation du bas (décision du propriétaire du 14 septembre 2026 ; Cinema ajoutée le même jour ; Frise le 15 septembre 2026, entre Home et Cinema ; Suivis le même jour, entre Frise et Cinema, sous le nom « Réalisateurs » jusqu'aux sagas, le même jour encore). */
+enum class BottomTab { Home, Frise, Suivis, Cinema, Profile }
 
 /**
  * Décide, pour un écran donné, si la barre du bas est visible et laquelle de ses entrées est
@@ -79,28 +87,29 @@ enum class BottomTab { Home, Frise, Realisateurs, Cinema, Profile }
  * « Mes films » affiche « Profil » sélectionnée, pas « Accueil » : dans `Root.kt`, cet écran ne
  * s'empile que depuis `Screen.Profile` (`onFilms`), jamais depuis l'accueil. `Screen.Annee`,
  * comme le formulaire et la recherche, est un détail empilé sans barre : on y arrive toujours
- * depuis `Screen.Frise`, jamais directement. Même règle pour la fiche d'un réalisateur et pour
- * sa recherche, qui ne s'empilent que depuis `Screen.Realisateurs`.
+ * depuis `Screen.Frise`, jamais directement. Même règle pour la fiche d'un réalisateur ou d'une
+ * saga et pour leur recherche, qui ne s'empilent que depuis `Screen.Suivis`.
  */
 fun Screen.bottomBarTab(): BottomTab? = when (this) {
     Screen.Home -> BottomTab.Home
     Screen.Frise -> BottomTab.Frise
-    Screen.Realisateurs -> BottomTab.Realisateurs
+    Screen.Suivis -> BottomTab.Suivis
     Screen.Cinema -> BottomTab.Cinema
     Screen.Profile, Screen.Films -> BottomTab.Profile
     Screen.Search, is Screen.Form, is Screen.Edit, Screen.SensCritique, is Screen.Annee,
-    Screen.ChercherRealisateur, is Screen.Realisateur,
+    Screen.ChercherSuivi, is Screen.FicheSuivi,
     -> null
 }
 
 /**
- * La barre de navigation du bas (Material 3), visible sur l'accueil, la Frise, « Réalisateurs »,
+ * La barre de navigation du bas (Material 3), visible sur l'accueil, la Frise, « Suivis »,
  * « Au ciné », « Mes films » et le profil ; cachée sur le formulaire, la recherche, l'écran
- * SensCritique, le détail d'une année de la Frise, la fiche d'un réalisateur et sa recherche
- * (décision du propriétaire du 14 septembre 2026, en remplacement de l'`IconButton` profil de
- * l'accueil, jugé inaccessible ; troisième entrée « Au ciné » ajoutée le même jour ; quatrième
- * entrée « Frise » le 15 septembre 2026, entre « Accueil » et « Au ciné » ; cinquième entrée
- * « Réalisateurs » le même jour, entre « Frise » et « Au ciné »).
+ * SensCritique, le détail d'une année de la Frise, la fiche d'un réalisateur ou d'une saga et
+ * leur recherche (décision du propriétaire du 14 septembre 2026, en remplacement de
+ * l'`IconButton` profil de l'accueil, jugé inaccessible ; troisième entrée « Au ciné » ajoutée le
+ * même jour ; quatrième entrée « Frise » le 15 septembre 2026, entre « Accueil » et « Au ciné » ;
+ * cinquième entrée « Réalisateurs » le même jour, entre « Frise » et « Au ciné », renommée
+ * « Suivis » le même jour encore quand les sagas l'ont rejointe — icône inchangée).
  * Toucher l’écran où l’on est déjà ne fait rien ; depuis « Mes films », « Profil » est surlignée
  * mais reste touchable et ramène au profil (`Root.kt` lui passe un `pop`).
  * Hauteur 56 dp, icônes seules (le `NavigationBar` de Material fait 80 dp avec ses libellés,
@@ -113,7 +122,7 @@ fun JournalBottomBar(
     current: Screen,
     onHome: () -> Unit,
     onFrise: () -> Unit,
-    onRealisateurs: () -> Unit,
+    onSuivis: () -> Unit,
     onCinema: () -> Unit,
     onProfile: () -> Unit,
 ) {
@@ -134,9 +143,9 @@ fun JournalBottomBar(
                 icon = { Icon(Icons.Filled.Timeline, contentDescription = "Frise") },
             )
             NavigationBarItem(
-                selected = selected == BottomTab.Realisateurs,
-                onClick = { if (current != Screen.Realisateurs) onRealisateurs() },
-                icon = { Icon(Icons.Filled.Movie, contentDescription = "Réalisateurs") },
+                selected = selected == BottomTab.Suivis,
+                onClick = { if (current != Screen.Suivis) onSuivis() },
+                icon = { Icon(Icons.Filled.Movie, contentDescription = "Suivis") },
             )
             NavigationBarItem(
                 selected = selected == BottomTab.Cinema,

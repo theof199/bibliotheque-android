@@ -3,8 +3,10 @@ package fr.mediatheque.journal.api
 import fr.mediatheque.journal.api.dto.AddMediaBody
 import fr.mediatheque.journal.api.dto.AddMediaResponse
 import fr.mediatheque.journal.api.dto.ApiErrorBody
-import fr.mediatheque.journal.api.dto.FilmDeRealisateur
-import fr.mediatheque.journal.api.dto.FilmographieResponse
+import fr.mediatheque.journal.api.dto.CollectionResult
+import fr.mediatheque.journal.api.dto.CollectionsResponse
+import fr.mediatheque.journal.api.dto.FilmSuivi
+import fr.mediatheque.journal.api.dto.FilmsResponse
 import fr.mediatheque.journal.api.dto.JournalCreateBody
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.JournalResponse
@@ -13,11 +15,13 @@ import fr.mediatheque.journal.api.dto.PersonneResult
 import fr.mediatheque.journal.api.dto.PersonnesResponse
 import fr.mediatheque.journal.api.dto.PlexResponse
 import fr.mediatheque.journal.api.dto.Realisateur
+import fr.mediatheque.journal.api.dto.Saga
 import fr.mediatheque.journal.api.dto.SearchResponse
 import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.api.dto.SessionResponse
 import fr.mediatheque.journal.api.dto.SortiesResponse
 import fr.mediatheque.journal.api.dto.SuivreRealisateurBody
+import fr.mediatheque.journal.api.dto.SuivreSagaBody
 import fr.mediatheque.journal.api.dto.StatsResponse
 import fr.mediatheque.journal.api.dto.User
 import fr.mediatheque.journal.reactions.Reactions
@@ -163,8 +167,8 @@ class ApiClient(baseUrl: String, engine: HttpClientEngine) : JournalApi {
         call<Unit> { client.delete(Endpoints.realisateur(tmdbId)) }
     }
 
-    override suspend fun filmographie(tmdbId: Int): List<FilmDeRealisateur> =
-        call<FilmographieResponse> { client.get(Endpoints.filmographie(tmdbId)) }.films
+    override suspend fun filmographie(tmdbId: Int): List<FilmSuivi> =
+        call<FilmsResponse> { client.get(Endpoints.filmographie(tmdbId)) }.films
 
     override suspend fun marquerIntrouvable(tmdbId: Int) {
         call<Unit> { client.put(Endpoints.introuvable(tmdbId)) }
@@ -173,6 +177,26 @@ class ApiClient(baseUrl: String, engine: HttpClientEngine) : JournalApi {
     override suspend fun retirerIntrouvable(tmdbId: Int) {
         call<Unit> { client.delete(Endpoints.introuvable(tmdbId)) }
     }
+
+    override suspend fun chercherSagas(query: String): List<CollectionResult> =
+        call<CollectionsResponse> { client.get(Endpoints.collections) { parameter("q", query) } }.results
+
+    override suspend fun sagas(): List<Saga> = call { client.get(Endpoints.sagas) }
+
+    override suspend fun suivreSaga(tmdbId: Int): Saga =
+        call {
+            client.post(Endpoints.sagas) {
+                contentType(ContentType.Application.Json)
+                setBody(SuivreSagaBody(tmdbId))
+            }
+        }
+
+    override suspend fun retirerSaga(tmdbId: Int) {
+        call<Unit> { client.delete(Endpoints.saga(tmdbId)) }
+    }
+
+    override suspend fun filmsDeSaga(tmdbId: Int): List<FilmSuivi> =
+        call<FilmsResponse> { client.get(Endpoints.filmsDeSaga(tmdbId)) }.films
 
     private suspend inline fun <reified T> call(block: () -> HttpResponse): T {
         val response = try {

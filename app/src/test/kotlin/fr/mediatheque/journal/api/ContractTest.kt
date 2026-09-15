@@ -1,12 +1,14 @@
 package fr.mediatheque.journal.api
 
 import fr.mediatheque.journal.api.dto.AddMediaResponse
-import fr.mediatheque.journal.api.dto.FilmographieResponse
+import fr.mediatheque.journal.api.dto.CollectionsResponse
+import fr.mediatheque.journal.api.dto.FilmsResponse
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.JournalResponse
 import fr.mediatheque.journal.api.dto.PersonnesResponse
 import fr.mediatheque.journal.api.dto.PlexResponse
 import fr.mediatheque.journal.api.dto.Realisateur
+import fr.mediatheque.journal.api.dto.Saga
 import fr.mediatheque.journal.api.dto.SearchResponse
 import fr.mediatheque.journal.api.dto.SessionResponse
 import fr.mediatheque.journal.api.dto.SortiesResponse
@@ -127,7 +129,7 @@ class ContractTest {
     // journalisé, l'entrée la plus récente sinon. C'est `entry_id` qui ouvre la correction
     // depuis la fiche — un renommage côté back casserait ici, avant le téléphone.
     @Test fun `GET me realisateurs films`() {
-        val filmo = lit("/me/realisateurs/{tmdbId}/films", "get", "200", FilmographieResponse.serializer())
+        val filmo = lit("/me/realisateurs/{tmdbId}/films", "get", "200", FilmsResponse.serializer())
         val inception = filmo.films.first()
         assertEquals(27205, inception.tmdb_id)
         assertEquals(2010, inception.year)
@@ -136,5 +138,35 @@ class ContractTest {
         assertEquals(9, inception.vu?.rating)
         assertEquals("2026-07-12", inception.vu?.finished_at)
         assertNull("un film jamais journalisé n'a pas de `vu`", filmo.films[1].vu)
+    }
+
+    // Les sagas (brief du 15 septembre 2026), jumelles des réalisateurs ci-dessus. `DELETE
+    // /me/sagas/{tmdbId}` rend `204` : aucun corps, donc aucun exemple à lire ici.
+    @Test fun `GET reference sagas`() {
+        val page = lit("/reference/sagas", "get", "200", CollectionsResponse.serializer())
+        val collection = page.results.first()
+        assertEquals(8091, collection.tmdb_id)
+        assertEquals("Alien (Saga)", collection.name)
+        assertEquals("https://image.tmdb.org/t/p/w500/tvSlBzAdRE29bZe5yYWrJ2ds137.jpg", collection.cover_url)
+    }
+
+    @Test fun `GET me sagas`() {
+        val suivies = lit("/me/sagas", "get", "200", ListSerializer(Saga.serializer()))
+        assertEquals(8091, suivies.first().tmdb_id)
+        assertEquals("Alien (Saga)", suivies.first().name)
+        assertEquals("2026-09-15T18:30:12.000Z", suivies.first().ajoute_le)
+    }
+
+    @Test fun `POST me sagas`() { lit("/me/sagas", "post", "201", Saga.serializer()) }
+
+    @Test fun `GET me sagas films`() {
+        val filmo = lit("/me/sagas/{tmdbId}/films", "get", "200", FilmsResponse.serializer())
+        val alien = filmo.films.first()
+        assertEquals(348, alien.tmdb_id)
+        assertEquals(1979, alien.year)
+        assertEquals("1979-06-22", alien.release_date)
+        assertEquals(10, alien.vu?.rating)
+        assertNull("Aliens n'a pas encore été vu dans l'exemple", filmo.films[1].vu)
+        assertEquals(true, filmo.films[2].introuvable)
     }
 }

@@ -44,8 +44,8 @@ import fr.mediatheque.journal.ui.Cover
 import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.Navigator
 import fr.mediatheque.journal.ui.films.FilmsViewModel
-import fr.mediatheque.journal.ui.realisateurs.RealisateurEnCours
-import fr.mediatheque.journal.ui.realisateurs.titreEtAnnee
+import fr.mediatheque.journal.ui.suivis.EnCours
+import fr.mediatheque.journal.ui.suivis.titreEtAnnee
 import fr.mediatheque.journal.ui.showBriefly
 import kotlinx.coroutines.flow.distinctUntilChanged
 
@@ -66,8 +66,11 @@ fun HomeScreen(
     ensuite: PlexFilm? = null,
     onOpenEnsuite: (PlexFilm) -> Unit = {},
     /** Le réalisateur en cours et son prochain film (brief du 15 septembre 2026) — même règle : nul tant qu'aucun réalisateur suivi n'a de film à voir, ou que les filmographies n'ont pas répondu. */
-    ensuiteRealisateur: RealisateurEnCours? = null,
-    onOpenEnsuiteRealisateur: (RealisateurEnCours) -> Unit = {},
+    ensuiteRealisateur: EnCours? = null,
+    onOpenEnsuiteRealisateur: (EnCours) -> Unit = {},
+    /** La saga en cours et son prochain film (brief du 15 septembre 2026, généralisé le même jour) — même règle, même composant que le réalisateur en cours ci-dessus. */
+    ensuiteSaga: EnCours? = null,
+    onOpenEnsuiteSaga: (EnCours) -> Unit = {},
 ) {
     val ui by vm.ui.collectAsState()
     val snackbar = remember { SnackbarHostState() }
@@ -133,9 +136,21 @@ fun HomeScreen(
                     LigneEnsuite(
                         coverUrl = encours.prochain.cover_url,
                         titreAffiche = encours.prochain.title,
-                        libelle = "Ensuite · ${encours.realisateur.name}",
+                        libelle = "Ensuite · ${encours.entite.nom}",
                         titre = titreEtAnnee(encours.prochain),
                         onClick = { onOpenEnsuiteRealisateur(encours) },
+                    )
+                }
+                // La troisième ligne « Ensuite », celle de la saga en cours (brief du
+                // 15 septembre 2026, généralisé le même jour) : même composant, même règle que
+                // celle du réalisateur juste au-dessus.
+                ensuiteSaga?.let { encours ->
+                    LigneEnsuite(
+                        coverUrl = encours.prochain.cover_url,
+                        titreAffiche = encours.prochain.title,
+                        libelle = "Ensuite · ${encours.entite.nom}",
+                        titre = titreEtAnnee(encours.prochain),
+                        onClick = { onOpenEnsuiteSaga(encours) },
                     )
                 }
                 ui.error?.let {
@@ -213,9 +228,10 @@ fun HomeScreen(
 
 /**
  * Une ligne « Ensuite » : une affiche 56×84 à gauche, un libellé discret au-dessus du titre.
- * Le même composant sert les deux lignes de l'accueil — celle du Plex (« Ensuite ») et celle du
- * réalisateur en cours (« Ensuite · *Nom* ») — plutôt que deux copies qui divergeraient à la
- * première retouche (brief du 15 septembre 2026).
+ * Le même composant sert les trois lignes possibles de l'accueil — celle du Plex (« Ensuite »),
+ * celle du réalisateur en cours et celle de la saga en cours (« Ensuite · *Nom* » pour les deux
+ * dernières) — plutôt que des copies qui divergeraient à la première retouche (brief du
+ * 15 septembre 2026, généralisé aux sagas le même jour).
  */
 @Composable
 private fun LigneEnsuite(

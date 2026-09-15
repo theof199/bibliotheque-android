@@ -1,4 +1,4 @@
-package fr.mediatheque.journal.ui.realisateurs
+package fr.mediatheque.journal.ui.suivis
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -20,6 +20,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -42,18 +45,22 @@ import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.showBriefly
 
 /**
- * Les réalisateurs que je suis (brief du 15 septembre 2026) : une ligne par personne, sa photo
- * ronde, son nom, et ce qu'il me reste à voir d'elle. Le « + » en haut à droite ouvre la
- * recherche ; le retour de celle-ci fait apparaître « Ajouté » ici, en snackbar.
+ * Ce que je suis — réalisateurs ou sagas (brief du 15 septembre 2026,
+ * l'onglet « Réalisateurs » devient « Suivis ») : une ligne par entité, sa
+ * photo ou son affiche ronde, son nom, et ce qu'il me reste à en voir. Deux
+ * segments en tête (`SingleChoiceSegmentedButtonRow`) choisissent la source ;
+ * le « + » ouvre la recherche de la source affichée ; le retour de celle-ci
+ * fait apparaître « Ajouté » ici, en snackbar.
  */
 @Composable
-fun RealisateursScreen(
-    vm: RealisateursViewModel,
+fun SuivisScreen(
+    vm: SuivisViewModel,
     onAjouter: () -> Unit,
-    onOuvrir: (Int) -> Unit,
+    onOuvrir: (SourceSuivi, Int) -> Unit,
     bottomBar: @Composable () -> Unit,
 ) {
     val ui by vm.ui.collectAsState()
+    val etat = if (ui.source == SourceSuivi.REALISATEURS) ui.realisateurs else ui.sagas
     val snackbar = remember { SnackbarHostState() }
     // Clé fixe, même raison que sur l'accueil : `vm.messages` est un événement à un coup, et une
     // clé qui bougerait à chaque message couperait la snackbar avant ses deux secondes.
@@ -77,25 +84,34 @@ fun RealisateursScreen(
                 Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Réalisateurs", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                SingleChoiceSegmentedButtonRow(Modifier.weight(1f)) {
+                    SourceSuivi.entries.forEachIndexed { index, source ->
+                        SegmentedButton(
+                            selected = ui.source == source,
+                            onClick = { vm.selectionnerSource(source) },
+                            shape = SegmentedButtonDefaults.itemShape(index, SourceSuivi.entries.size),
+                            label = { Text(source.titre) },
+                        )
+                    }
+                }
                 IconButton(onClick = onAjouter) {
-                    Icon(Icons.Filled.Add, contentDescription = "Ajouter un réalisateur")
+                    Icon(Icons.Filled.Add, contentDescription = ui.source.libelleAjouter)
                 }
             }
 
-            ui.error?.let { e ->
+            etat.error?.let { e ->
                 ErrorBlock(
                     e.message ?: "",
                     retryable = e.retryable,
-                    onRetry = vm::refresh,
+                    onRetry = { vm.refresh(ui.source) },
                     modifier = Modifier.padding(16.dp),
                 )
             }
 
-            if (ui.realisateurs.isEmpty() && ui.error == null && !ui.loading) {
+            if (etat.entites.isEmpty() && etat.error == null && !etat.loading) {
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                     Text(
-                        "Ajoute un réalisateur avec +",
+                        ui.source.libelleVide,
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -106,17 +122,17 @@ fun RealisateursScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    items(ui.realisateurs, key = { it.tmdb_id }) { realisateur ->
+                    items(etat.entites, key = { it.tmdbId }) { entite ->
                         Row(
-                            Modifier.fillMaxWidth().clickable { onOuvrir(realisateur.tmdb_id) },
+                            Modifier.fillMaxWidth().clickable { onOuvrir(ui.source, entite.tmdbId) },
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Portrait(realisateur.profile_url, realisateur.name, 40.dp)
+                            Portrait(entite.imageUrl, entite.nom, 40.dp)
                             Column {
-                                Text(realisateur.name, style = MaterialTheme.typography.titleMedium)
+                                Text(entite.nom, style = MaterialTheme.typography.titleMedium)
                                 Text(
-                                    libelleLigne(ui.filmographies[realisateur.tmdb_id] ?: EtatFilmographie.EnAttente),
+                                    libelleLigne(etat.filmographies[entite.tmdbId] ?: EtatFilmographie.EnAttente),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -130,10 +146,11 @@ fun RealisateursScreen(
 }
 
 /**
- * La photo d'une personne : ronde, ou son initiale sur la même pastille quand TMDB n'en a pas.
- * Jumeau de `Cover` (`ui/Cover.kt`) pour les affiches — un `contentDescription` toujours posé,
- * photo ou non (design §8), et rien pendant le chargement, pour que l'initiale reste le geste de
- * l'absence de photo et pas celui d'une attente.
+ * La photo d'une personne, ou l'affiche d'une saga : ronde, ou l'initiale sur
+ * la même pastille quand TMDB n'en a pas. Jumeau de `Cover` (`ui/Cover.kt`)
+ * pour les affiches rectangulaires — un `contentDescription` toujours posé,
+ * photo ou non (design §8), et rien pendant le chargement, pour que
+ * l'initiale reste le geste de l'absence d'image et pas celui d'une attente.
  */
 @Composable
 fun Portrait(url: String?, name: String, taille: Dp, modifier: Modifier = Modifier) {

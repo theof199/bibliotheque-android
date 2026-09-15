@@ -1,13 +1,15 @@
 package fr.mediatheque.journal.api
 
 import fr.mediatheque.journal.api.dto.AddMediaResponse
-import fr.mediatheque.journal.api.dto.FilmDeRealisateur
+import fr.mediatheque.journal.api.dto.CollectionResult
+import fr.mediatheque.journal.api.dto.FilmSuivi
 import fr.mediatheque.journal.api.dto.JournalCreateBody
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.JournalResponse
 import fr.mediatheque.journal.api.dto.PersonneResult
 import fr.mediatheque.journal.api.dto.PlexResponse
 import fr.mediatheque.journal.api.dto.Realisateur
+import fr.mediatheque.journal.api.dto.Saga
 import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.api.dto.SortiesResponse
 import fr.mediatheque.journal.api.dto.StatsResponse
@@ -15,7 +17,7 @@ import fr.mediatheque.journal.api.dto.User
 import kotlinx.serialization.json.JsonObject
 
 /**
- * La seule porte des écrans vers le réseau. Dix-huit opérations, celles que
+ * La seule porte des écrans vers le réseau. Vingt-cinq opérations, celles que
  * l'application consomme ; les chemins n'existent que dans `Endpoints`, et ne
  * s'emploient que depuis `ApiClient`. Toute fonction peut lever `ApiError`.
  *
@@ -60,13 +62,30 @@ interface JournalApi {
     suspend fun retirerRealisateur(tmdbId: Int)
 
     /** `GET /me/realisateurs/{tmdbId}/films` : sa filmographie, de la plus ancienne sortie à la plus récente. */
-    suspend fun filmographie(tmdbId: Int): List<FilmDeRealisateur>
+    suspend fun filmographie(tmdbId: Int): List<FilmSuivi>
 
     /** `PUT /me/introuvables/{tmdbId}` : marque un film (son propre `tmdb_id`) introuvable. Idempotent, toujours `204`. */
     suspend fun marquerIntrouvable(tmdbId: Int)
 
     /** `DELETE /me/introuvables/{tmdbId}` : retire la marque. Toujours `204`, même si rien n'était marqué. */
     suspend fun retirerIntrouvable(tmdbId: Int)
+
+    // --- Les sagas (brief du 15 septembre 2026), jumelles des cinq ci-dessus. ---
+
+    /** `GET /reference/sagas?q=` : dix sagas au plus, pour le « + » de l'écran Suivis, segment Sagas. */
+    suspend fun chercherSagas(query: String): List<CollectionResult>
+
+    /** `GET /me/sagas` : celles que je suis, de la plus récemment ajoutée à la plus ancienne. Sans pagination. */
+    suspend fun sagas(): List<Saga>
+
+    /** `POST /me/sagas` : idempotent côté back (200 au lieu de 201 si déjà suivie). */
+    suspend fun suivreSaga(tmdbId: Int): Saga
+
+    /** `DELETE /me/sagas/{tmdbId}` : `404` si je ne la suis pas. */
+    suspend fun retirerSaga(tmdbId: Int)
+
+    /** `GET /me/sagas/{tmdbId}/films` : ses films, de la plus ancienne sortie à la plus récente. */
+    suspend fun filmsDeSaga(tmdbId: Int): List<FilmSuivi>
 }
 
 /**

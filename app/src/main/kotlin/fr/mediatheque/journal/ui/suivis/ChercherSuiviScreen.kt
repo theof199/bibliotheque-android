@@ -1,4 +1,4 @@
-package fr.mediatheque.journal.ui.realisateurs
+package fr.mediatheque.journal.ui.suivis
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -33,19 +33,21 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import fr.mediatheque.journal.api.dto.PersonneResult
 import fr.mediatheque.journal.ui.ErrorBlock
 
 /**
- * Chercher un réalisateur à suivre (brief du 15 septembre 2026) : jumeau de `SearchScreen`, à
- * ceci près que les lignes portent une photo ronde plutôt qu'une affiche, et que toucher l'une
- * d'elles la suit et referme l'écran — le bandeau « Ajouté » apparaît sur la liste, derrière.
+ * Chercher un réalisateur ou une saga à suivre (brief du 15 septembre 2026,
+ * généralisé le même jour) : jumeau de `SearchScreen`, à ceci près que les
+ * lignes portent une photo ou une affiche ronde plutôt qu'une affiche
+ * rectangulaire, et que toucher l'une d'elles la suit et referme l'écran —
+ * le bandeau « Ajouté » apparaît sur la liste, derrière.
  */
 @Composable
-fun ChercherRealisateurScreen(
-    vm: ChercherRealisateurViewModel,
+fun ChercherSuiviScreen(
+    vm: ChercherSuiviViewModel,
+    source: SourceSuivi,
     onBack: () -> Unit,
-    onPick: (PersonneResult) -> Unit,
+    onPick: (EntiteSuivie) -> Unit,
 ) {
     val ui by vm.ui.collectAsState()
     val focus = remember { FocusRequester() }
@@ -57,7 +59,7 @@ fun ChercherRealisateurScreen(
             TextField(
                 value = ui.query,
                 onValueChange = vm::onQueryChange,
-                placeholder = { Text("Un nom de réalisateur") },
+                placeholder = { Text(source.placeholderRecherche) },
                 singleLine = true,
                 shape = MaterialTheme.shapes.medium,
                 colors = TextFieldDefaults.colors(
@@ -82,21 +84,21 @@ fun ChercherRealisateurScreen(
         }
         if (ui.error == null && ui.searched.isNotEmpty() && ui.results.isEmpty() && !ui.loading) {
             Text(
-                "Personne trouvée pour “${ui.searched}”.",
+                "Rien trouvé pour “${ui.searched}”.",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(16.dp),
             )
         }
         LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(ui.results, key = { it.tmdb_id }) { personne ->
+            items(ui.results, key = { it.tmdbId }) { entite ->
                 Row(
-                    Modifier.fillMaxWidth().clickable { onPick(personne) },
+                    Modifier.fillMaxWidth().clickable { onPick(entite) },
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Portrait(personne.profile_url, personne.name, 40.dp)
-                    Text(personne.name, style = MaterialTheme.typography.titleMedium)
+                    Portrait(entite.imageUrl, entite.nom, 40.dp)
+                    Text(entite.nom, style = MaterialTheme.typography.titleMedium)
                 }
             }
         }

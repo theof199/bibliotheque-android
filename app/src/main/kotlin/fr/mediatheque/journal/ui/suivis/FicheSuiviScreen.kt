@@ -1,4 +1,4 @@
-package fr.mediatheque.journal.ui.realisateurs
+package fr.mediatheque.journal.ui.suivis
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -47,7 +47,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import fr.mediatheque.journal.api.dto.FilmDeRealisateur
+import fr.mediatheque.journal.api.dto.FilmSuivi
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.ui.Cover
@@ -55,24 +55,28 @@ import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.showBriefly
 
 /**
- * La fiche d'un réalisateur suivi (brief du 15 septembre 2026) : sa filmographie dans l'ordre,
- * de la plus ancienne sortie à la plus récente, avec sa note à droite quand je l'ai vu. Le
- * premier film non vu et non introuvable porte une pastille corail « à voir » — c'est celui que
- * la liste annonce sous son nom, et celui que l'accueil met dans « Ensuite » quand c'est lui le
- * réalisateur en cours.
+ * La fiche d'un réalisateur ou d'une saga suivis (brief du 15 septembre
+ * 2026, puis généralisée le même jour pour les sagas) : ses films dans
+ * l'ordre, de la plus ancienne sortie à la plus récente, avec sa note à
+ * droite quand je l'ai vu. Le premier film non vu et non introuvable porte
+ * une pastille corail « à voir » — c'est celui que la liste annonce sous le
+ * nom, et celui que l'accueil met dans « Ensuite » quand c'est cette entité
+ * qui est en cours.
  *
- * Un film peut aussi être marqué introuvable (décision du propriétaire du 15 septembre 2026) :
- * un appui long sur un film non vu ouvre la feuille qui marque ou démarque. L'interrupteur en
- * tête masque les films marqués, ou les grise avec la mention « introuvable » à droite — jamais
- * hors d'atteinte d'un appui long, dans un cas comme dans l'autre.
+ * Un film peut aussi être marqué introuvable (décision du propriétaire du
+ * 15 septembre 2026) : un appui long sur un film non vu ouvre la feuille qui
+ * marque ou démarque. L'interrupteur en tête masque les films marqués, ou les
+ * grise avec la mention « introuvable » à droite — jamais hors d'atteinte
+ * d'un appui long, dans un cas comme dans l'autre.
  *
- * Empilée depuis `Screen.Realisateurs`, sans barre du bas. Elle lit le `ViewModel` partagé
- * plutôt que de recharger : la liste a déjà tiré les filmographies.
+ * Empilée depuis `Screen.Suivis`, sans barre du bas. Elle lit le `ViewModel`
+ * partagé plutôt que de recharger : la liste a déjà tiré les films.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RealisateurScreen(
-    vm: RealisateursViewModel,
+fun FicheSuiviScreen(
+    vm: SuivisViewModel,
+    source: SourceSuivi,
     tmdbId: Int,
     onBack: () -> Unit,
     onOuvrirVu: (JournalItem) -> Unit,
@@ -80,22 +84,23 @@ fun RealisateurScreen(
     onSupprimer: () -> Unit,
 ) {
     val ui by vm.ui.collectAsState()
-    val realisateur = ui.realisateurs.firstOrNull { it.tmdb_id == tmdbId }
-    val etat = ui.filmographies[tmdbId] ?: EtatFilmographie.EnAttente
+    val etatSource = if (source == SourceSuivi.REALISATEURS) ui.realisateurs else ui.sagas
+    val entite = etatSource.entites.firstOrNull { it.tmdbId == tmdbId }
+    val etat = etatSource.filmographies[tmdbId] ?: EtatFilmographie.EnAttente
     var confirmation by remember { mutableStateOf(false) }
-    var feuillePour by remember { mutableStateOf<FilmDeRealisateur?>(null) }
+    var feuillePour by remember { mutableStateOf<FilmSuivi?>(null) }
 
     val snackbar = remember { SnackbarHostState() }
-    // Même canal que la liste (`RealisateursScreen`) : un `ViewModel` partagé, un seul
-    // `messages`. Les deux écrans ne sont jamais composés ensemble, donc jamais collecté deux
-    // fois pour un même message.
+    // Même canal que la liste (`SuivisScreen`) : un `ViewModel` partagé, un seul `messages`. Les
+    // deux écrans ne sont jamais composés ensemble, donc jamais collecté deux fois pour un même
+    // message.
     LaunchedEffect(Unit) { vm.messages.collect { snackbar.showBriefly(it) } }
 
     if (confirmation) {
         AlertDialog(
             onDismissRequest = { confirmation = false },
-            title = { Text("Ne plus suivre ${realisateur?.name ?: "ce réalisateur"} ?") },
-            text = { Text("Sa filmographie disparaîtra de la liste. Tes films vus, eux, restent au journal.") },
+            title = { Text("Ne plus suivre ${entite?.nom ?: "…"} ?") },
+            text = { Text("Ses films disparaîtront de la liste. Tes films vus, eux, restent au journal.") },
             confirmButton = {
                 TextButton(onClick = { confirmation = false; onSupprimer() }) { Text("Ne plus suivre") }
             },
@@ -106,8 +111,8 @@ fun RealisateurScreen(
     feuillePour?.let { film ->
         IntrouvableSheet(
             film = film,
-            onMarquer = { feuillePour = null; vm.marquerIntrouvable(tmdbId, film.tmdb_id) },
-            onRetirer = { feuillePour = null; vm.retirerIntrouvable(tmdbId, film.tmdb_id) },
+            onMarquer = { feuillePour = null; vm.marquerIntrouvable(source, tmdbId, film.tmdb_id) },
+            onRetirer = { feuillePour = null; vm.retirerIntrouvable(source, tmdbId, film.tmdb_id) },
             onDismiss = { feuillePour = null },
         )
     }
@@ -130,7 +135,7 @@ fun RealisateurScreen(
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
                 }
                 Text(
-                    realisateur?.name ?: "",
+                    entite?.nom ?: "",
                     style = MaterialTheme.typography.titleLarge,
                     modifier = Modifier.weight(1f),
                 )
@@ -148,9 +153,9 @@ fun RealisateurScreen(
                 }
 
                 EtatFilmographie.Indisponible -> ErrorBlock(
-                    "Sa filmographie est indisponible.",
+                    "Ses films sont indisponibles.",
                     retryable = true,
-                    onRetry = { vm.rechargerFilmographie(tmdbId) },
+                    onRetry = { vm.rechargerFilmographie(source, tmdbId) },
                     modifier = Modifier.padding(16.dp),
                 )
 
@@ -192,7 +197,7 @@ fun RealisateurScreen(
                                     // mauvais écran.
                                     when {
                                         entree != null -> onOuvrirVu(entree)
-                                        film.vu == null -> onOuvrirAVoir(film.toSearchResult(realisateur?.name))
+                                        film.vu == null -> onOuvrirAVoir(film.toSearchResult(if (source == SourceSuivi.REALISATEURS) entite?.nom else null))
                                         else -> Unit
                                     }
                                 },
@@ -208,14 +213,14 @@ fun RealisateurScreen(
 }
 
 /**
- * « Marquer introuvable » / « Annuler » sur un film non encore marqué, « Le remettre à voir »
- * sur un film qui l'est déjà — jumeau de `SensCritiqueChoiceSheet` (`ui/form/`). Le retour
- * système la referme comme `onDismiss`, sans rien poser : ce n'est pas une décision, juste une
- * sortie.
+ * « Marquer introuvable » / « Annuler » sur un film non encore marqué, « Le
+ * remettre à voir » sur un film qui l'est déjà — jumeau de
+ * `SensCritiqueChoiceSheet` (`ui/form/`). Le retour système la referme comme
+ * `onDismiss`, sans rien poser : ce n'est pas une décision, juste une sortie.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun IntrouvableSheet(film: FilmDeRealisateur, onMarquer: () -> Unit, onRetirer: () -> Unit, onDismiss: () -> Unit) {
+private fun IntrouvableSheet(film: FilmSuivi, onMarquer: () -> Unit, onRetirer: () -> Unit, onDismiss: () -> Unit) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -231,7 +236,7 @@ private fun IntrouvableSheet(film: FilmDeRealisateur, onMarquer: () -> Unit, onR
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun LigneFilm(film: FilmDeRealisateur, aVoir: Boolean, onClick: () -> Unit, onLongClick: () -> Unit) {
+private fun LigneFilm(film: FilmSuivi, aVoir: Boolean, onClick: () -> Unit, onLongClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()

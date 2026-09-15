@@ -34,17 +34,19 @@ import fr.mediatheque.journal.ui.frise.toSearchResult
 import fr.mediatheque.journal.ui.home.HomeScreen
 import fr.mediatheque.journal.ui.login.LoginScreen
 import fr.mediatheque.journal.ui.login.LoginViewModel
+import fr.mediatheque.journal.ui.profile.BilanViewModel
 import fr.mediatheque.journal.ui.profile.ProfileScreen
 import fr.mediatheque.journal.ui.profile.ProfileViewModel
 import fr.mediatheque.journal.ui.profile.SensCritiqueScreen
 import fr.mediatheque.journal.ui.profile.SensCritiqueViewModel
-import fr.mediatheque.journal.ui.realisateurs.ChercherRealisateurScreen
-import fr.mediatheque.journal.ui.realisateurs.ChercherRealisateurViewModel
-import fr.mediatheque.journal.ui.realisateurs.RealisateurScreen
-import fr.mediatheque.journal.ui.realisateurs.RealisateursScreen
-import fr.mediatheque.journal.ui.realisateurs.RealisateursViewModel
-import fr.mediatheque.journal.ui.realisateurs.formulaire
-import fr.mediatheque.journal.ui.realisateurs.realisateurEnCours
+import fr.mediatheque.journal.ui.suivis.ChercherSuiviScreen
+import fr.mediatheque.journal.ui.suivis.ChercherSuiviViewModel
+import fr.mediatheque.journal.ui.suivis.FicheSuiviScreen
+import fr.mediatheque.journal.ui.suivis.SourceSuivi
+import fr.mediatheque.journal.ui.suivis.SuivisScreen
+import fr.mediatheque.journal.ui.suivis.SuivisViewModel
+import fr.mediatheque.journal.ui.suivis.entiteEnCours
+import fr.mediatheque.journal.ui.suivis.formulaire
 import fr.mediatheque.journal.ui.search.SearchScreen
 import fr.mediatheque.journal.ui.search.SearchViewModel
 
@@ -103,13 +105,14 @@ fun Root(container: AppContainer) {
             // journal complet qu'une fois. Indexé sur l'Activité comme `search`/`senscritique` :
             // sans clé fixe, chaque entrée sur l'accueil ou la Frise recréerait l'instance.
             val frise: FriseViewModel = viewModel(key = "frise") { FriseViewModel(container.api, session::expire) }
-            // Une seule instance pour l'écran Réalisateurs, ses fiches et la seconde ligne
-            // « Ensuite » de l'accueil (brief du 15 septembre 2026), pour la même raison que
-            // `frise` juste au-dessus : les trois doivent viser le même « réalisateur en cours »,
-            // et les filmographies ne se tirent qu'une fois. La fiche, en particulier, ne
-            // recharge rien — elle lit ce que la liste a déjà.
-            val realisateurs: RealisateursViewModel = viewModel(key = "realisateurs") {
-                RealisateursViewModel(container.api, session::expire)
+            // Une seule instance pour l'écran Suivis (ses deux segments), ses fiches, les deux
+            // secondes lignes « Ensuite » de l'accueil et les deux dernières lignes du Bilan du
+            // profil (brief du 15 septembre 2026, généralisé aux sagas le même jour) : toutes
+            // doivent viser les mêmes entités « en cours », et les filmographies ne se tirent
+            // qu'une fois. La fiche, en particulier, ne recharge rien — elle lit ce que la liste a
+            // déjà.
+            val suivis: SuivisViewModel = viewModel(key = "suivis") {
+                SuivisViewModel(container.api, session::expire)
             }
             var etaitSurSensCritique by remember { mutableStateOf(false) }
             LaunchedEffect(nav.current) {
@@ -138,27 +141,31 @@ fun Root(container: AppContainer) {
                         // 15 septembre 2026) : pas de chargement bloquant, l'accueil s'affiche tout de
                         // suite et la ligne apparaît quand `/reference/plex` a répondu.
                         LaunchedEffect(Unit) { frise.refresh() }
-                        // Jumeau du précédent, pour la seconde ligne « Ensuite ». Il ne charge
-                        // que la liste et les filmographies : le journal complet (`entrees`) ne
-                        // sert qu'aux fiches, et l'accueil n'a pas à le payer.
-                        LaunchedEffect(Unit) { realisateurs.refresh() }
+                        // Jumeau du précédent, pour les deux secondes lignes « Ensuite ». Il ne
+                        // charge que les listes et les filmographies des deux sources : le
+                        // journal complet (`entrees`) ne sert qu'aux fiches, et l'accueil n'a pas
+                        // à le payer.
+                        LaunchedEffect(Unit) { suivis.refresh(SourceSuivi.REALISATEURS) }
+                        LaunchedEffect(Unit) { suivis.refresh(SourceSuivi.SAGAS) }
                         val friseUi by frise.ui.collectAsState()
-                        val realisateursUi by realisateurs.ui.collectAsState()
+                        val suivisUi by suivis.ui.collectAsState()
                         HomeScreen(
                             vm = films,
                             nav = nav,
                             ensuite = friseUi.ensuite,
-                            ensuiteRealisateur = realisateurEnCours(realisateursUi.realisateurs, realisateursUi.filmographies),
+                            ensuiteRealisateur = entiteEnCours(SourceSuivi.REALISATEURS, suivisUi.realisateurs.entites, suivisUi.realisateurs.filmographies),
+                            ensuiteSaga = entiteEnCours(SourceSuivi.SAGAS, suivisUi.sagas.entites, suivisUi.sagas.filmographies),
                             onAdd = { nav.push(Screen.Search) },
                             onOpen = { nav.push(Screen.Edit(it)) },
                             onOpenEnsuite = { nav.push(Screen.Form(it.toSearchResult())) },
                             onOpenEnsuiteRealisateur = { nav.push(Screen.Form(it.formulaire())) },
+                            onOpenEnsuiteSaga = { nav.push(Screen.Form(it.formulaire())) },
                             bottomBar = {
                                 JournalBottomBar(
                                     screen,
                                     onHome = { nav.home() },
                                     onFrise = { nav.push(Screen.Frise) },
-                                    onRealisateurs = { nav.push(Screen.Realisateurs) },
+                                    onSuivis = { nav.push(Screen.Suivis) },
                                     onCinema = { nav.push(Screen.Cinema) },
                                     onProfile = { nav.push(Screen.Profile) },
                                 )
@@ -179,10 +186,20 @@ fun Root(container: AppContainer) {
                     }
                     Screen.Profile -> {
                         val profile: ProfileViewModel = viewModel(key = "profile") { ProfileViewModel(container.api, session::expire) }
+                        // Le Bilan (brief du 15 septembre 2026) : son propre journal complet, et
+                        // les deux sources suivies relues sur l'instance partagée — un
+                        // rafraîchissement de plus ne coûte qu'un appel réseau chacune, comme
+                        // `senscritique.refresh()` juste au-dessus.
+                        val bilan: BilanViewModel = viewModel(key = "bilan") { BilanViewModel(container.api, session::expire) }
+                        LaunchedEffect(Unit) { bilan.refresh() }
+                        LaunchedEffect(Unit) { suivis.refresh(SourceSuivi.REALISATEURS) }
+                        LaunchedEffect(Unit) { suivis.refresh(SourceSuivi.SAGAS) }
                         ProfileScreen(
                             s.user,
                             profile,
                             senscritique,
+                            bilan,
+                            suivis,
                             onBack = nav::pop,
                             onFilms = { nav.push(Screen.Films) },
                             onSensCritique = { nav.push(Screen.SensCritique) },
@@ -192,7 +209,7 @@ fun Root(container: AppContainer) {
                                     screen,
                                     onHome = { nav.home() },
                                     onFrise = { nav.push(Screen.Frise) },
-                                    onRealisateurs = { nav.push(Screen.Realisateurs) },
+                                    onSuivis = { nav.push(Screen.Suivis) },
                                     onCinema = { nav.push(Screen.Cinema) },
                                     onProfile = { nav.push(Screen.Profile) },
                                 )
@@ -218,7 +235,7 @@ fun Root(container: AppContainer) {
                                     screen,
                                     onHome = { nav.home() },
                                     onFrise = { nav.push(Screen.Frise) },
-                                    onRealisateurs = { nav.push(Screen.Realisateurs) },
+                                    onSuivis = { nav.push(Screen.Suivis) },
                                     onCinema = { nav.push(Screen.Cinema) },
                                     onProfile = nav::pop,
                                 )
@@ -267,7 +284,7 @@ fun Root(container: AppContainer) {
                                     screen,
                                     onHome = { nav.home() },
                                     onFrise = { nav.push(Screen.Frise) },
-                                    onRealisateurs = { nav.push(Screen.Realisateurs) },
+                                    onSuivis = { nav.push(Screen.Suivis) },
                                     onCinema = { nav.push(Screen.Cinema) },
                                     onProfile = { nav.push(Screen.Profile) },
                                 )
@@ -287,7 +304,7 @@ fun Root(container: AppContainer) {
                                     screen,
                                     onHome = { nav.home() },
                                     onFrise = { nav.push(Screen.Frise) },
-                                    onRealisateurs = { nav.push(Screen.Realisateurs) },
+                                    onSuivis = { nav.push(Screen.Suivis) },
                                     onCinema = { nav.push(Screen.Cinema) },
                                     onProfile = { nav.push(Screen.Profile) },
                                 )
@@ -300,58 +317,68 @@ fun Root(container: AppContainer) {
                         onOpenVu = { nav.push(Screen.Edit(it)) },
                         onOpenAVoir = { nav.push(Screen.Form(it.toSearchResult())) },
                     )
-                    Screen.Realisateurs -> {
-                        // Jumeau de `Screen.Frise` : le `ViewModel` est partagé avec l'accueil,
-                        // et sans ce rechargement à chaque entrée, la liste resterait celle de la
-                        // première visite après un ajout ou un visionnage.
-                        LaunchedEffect(Unit) { realisateurs.refresh() }
+                    Screen.Suivis -> {
+                        // Jumeau de `Screen.Frise` : le `ViewModel` est partagé avec l'accueil, et
+                        // sans ce rechargement à chaque entrée, les deux segments resteraient ceux
+                        // de la première visite après un ajout ou un visionnage — les deux sources,
+                        // pas seulement celle affichée, pour que changer de segment ne montre
+                        // jamais une liste jamais chargée.
+                        LaunchedEffect(Unit) { suivis.refresh(SourceSuivi.REALISATEURS) }
+                        LaunchedEffect(Unit) { suivis.refresh(SourceSuivi.SAGAS) }
                         // Le journal complet se tire ici et pas sur l'accueil : il ne sert qu'à
                         // ouvrir la correction d'un film vu depuis une fiche, et la fiche ne
                         // s'empile que depuis cet écran.
-                        LaunchedEffect(Unit) { realisateurs.chargerEntrees() }
-                        RealisateursScreen(
-                            realisateurs,
-                            onAjouter = { nav.push(Screen.ChercherRealisateur) },
-                            onOuvrir = { nav.push(Screen.Realisateur(it)) },
+                        LaunchedEffect(Unit) { suivis.chargerEntrees() }
+                        SuivisScreen(
+                            suivis,
+                            onAjouter = { nav.push(Screen.ChercherSuivi) },
+                            onOuvrir = { source, tmdbId -> nav.push(Screen.FicheSuivi(source, tmdbId)) },
                             bottomBar = {
                                 JournalBottomBar(
                                     screen,
                                     onHome = { nav.home() },
                                     onFrise = { nav.push(Screen.Frise) },
-                                    onRealisateurs = { nav.push(Screen.Realisateurs) },
+                                    onSuivis = { nav.push(Screen.Suivis) },
                                     onCinema = { nav.push(Screen.Cinema) },
                                     onProfile = { nav.push(Screen.Profile) },
                                 )
                             },
                         )
                     }
-                    Screen.ChercherRealisateur -> {
-                        val chercher: ChercherRealisateurViewModel = viewModel(key = "chercher-realisateur") {
-                            ChercherRealisateurViewModel(container.api, session::expire)
+                    Screen.ChercherSuivi -> {
+                        val source = suivis.ui.collectAsState().value.source
+                        // Clé qui porte la source (jumeau de `Screen.Form` plus haut) : changer de
+                        // segment puis rouvrir la recherche doit ouvrir une instance neuve, sur la
+                        // bonne source — une clé fixe rendrait celle de « Réalisateurs » à qui
+                        // cherche une saga.
+                        val chercher: ChercherSuiviViewModel = viewModel(key = "chercher-suivi:${source.name}") {
+                            ChercherSuiviViewModel(container.api, source, session::expire)
                         }
                         // Ici le `LaunchedEffect` reste dans la branche, à l'inverse de `search`
                         // plus haut : on ne revient jamais *dans* cet écran depuis un écran plus
-                        // profond — choisir une personne referme la recherche par un `pop` vers la
+                        // profond — choisir une entité referme la recherche par un `pop` vers la
                         // liste. Chaque entrée est donc une entrée depuis la liste, et doit
                         // repartir d'un champ vide.
                         LaunchedEffect(Unit) { chercher.reset() }
-                        ChercherRealisateurScreen(
+                        ChercherSuiviScreen(
                             chercher,
+                            source,
                             onBack = nav::pop,
                             // L'ajout part sur le `ViewModel` de la liste, pas sur celui de la
                             // recherche : c'est lui qui tient la liste à rafraîchir et le
                             // « Ajouté » à montrer. Son `viewModelScope` est celui de l'Activité,
                             // donc le `pop` immédiat ne coupe pas la requête en vol.
-                            onPick = { realisateurs.ajouter(it.tmdb_id); nav.pop() },
+                            onPick = { suivis.ajouter(source, it.tmdbId); nav.pop() },
                         )
                     }
-                    is Screen.Realisateur -> RealisateurScreen(
-                        realisateurs,
+                    is Screen.FicheSuivi -> FicheSuiviScreen(
+                        suivis,
+                        source = screen.source,
                         tmdbId = screen.tmdbId,
                         onBack = nav::pop,
                         onOuvrirVu = { nav.push(Screen.Edit(it)) },
                         onOuvrirAVoir = { nav.push(Screen.Form(it)) },
-                        onSupprimer = { realisateurs.retirer(screen.tmdbId); nav.pop() },
+                        onSupprimer = { suivis.retirer(screen.source, screen.tmdbId); nav.pop() },
                     )
                 }
             }

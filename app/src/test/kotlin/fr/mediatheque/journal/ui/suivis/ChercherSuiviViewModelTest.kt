@@ -1,7 +1,8 @@
-package fr.mediatheque.journal.ui.realisateurs
+package fr.mediatheque.journal.ui.suivis
 
 import fr.mediatheque.journal.FakeJournalApi
 import fr.mediatheque.journal.MainDispatcherRule
+import fr.mediatheque.journal.api.dto.CollectionResult
 import fr.mediatheque.journal.api.dto.PersonneResult
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -12,8 +13,15 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
+/**
+ * `ChercherSuiviViewModel` (brief du 15 septembre 2026, généralisation de
+ * `ChercherRealisateurViewModelTest.kt` du même jour). Construit sur la
+ * source des réalisateurs pour la plupart des règles, comme avant la
+ * généralisation ; deux tests à la fin prouvent que la source des sagas
+ * atteint bien `chercherSagas`, pas `chercherPersonnes`.
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
-class ChercherRealisateurViewModelTest {
+class ChercherSuiviViewModelTest {
     private val dispatcher = StandardTestDispatcher()
     @get:Rule val main = MainDispatcherRule(dispatcher)
     private val api = FakeJournalApi()
@@ -21,7 +29,7 @@ class ChercherRealisateurViewModelTest {
 
     private val kubrick = PersonneResult(240, "Stanley Kubrick", null)
 
-    private fun vm() = ChercherRealisateurViewModel(api) { expire++ }
+    private fun vm(source: SourceSuivi = SourceSuivi.REALISATEURS) = ChercherSuiviViewModel(api, source) { expire++ }
 
     // 400 ms de silence avant la requête (brief du 15 septembre 2026). Mutation : retirer le
     // `debounce`, ou le régler sur les 300 ms de la recherche de films, fait partir l'appel avant
@@ -39,7 +47,7 @@ class ChercherRealisateurViewModelTest {
         testScheduler.advanceTimeBy(2)
         testScheduler.runCurrent()
         assertEquals(listOf("chercherPersonnes Kubrick"), api.calls)
-        assertEquals(listOf(kubrick), vm.ui.value.results)
+        assertEquals(listOf(kubrick.tmdb_id), vm.ui.value.results.map { it.tmdbId })
         assertEquals("Kubrick", vm.ui.value.searched)
     }
 
@@ -53,13 +61,13 @@ class ChercherRealisateurViewModelTest {
 
         vm.onQueryChange("Kubrick")
         testScheduler.advanceUntilIdle()
-        assertEquals(listOf(kubrick), vm.ui.value.results)
+        assertEquals(listOf(kubrick.tmdb_id), vm.ui.value.results.map { it.tmdbId })
 
         vm.onQueryChange("   ")
         testScheduler.advanceUntilIdle()
 
         assertEquals(listOf("chercherPersonnes Kubrick"), api.calls)
-        assertEquals(emptyList<PersonneResult>(), vm.ui.value.results)
+        assertEquals(emptyList<EntiteSuivie>(), vm.ui.value.results)
         assertEquals("", vm.ui.value.searched)
     }
 
@@ -112,5 +120,33 @@ class ChercherRealisateurViewModelTest {
         vm.onQueryChange("Kubrick")
         testScheduler.advanceUntilIdle()
         assertEquals(listOf("chercherPersonnes Kubrick", "chercherPersonnes Kubrick"), api.calls)
+    }
+
+    // La source des sagas atteint `chercherSagas`, jamais `chercherPersonnes` — le seul `when`
+    // de ce `ViewModel`. Mutation : dispatcher les deux sources vers le même appel casse l'une
+    // des deux assertions selon le sens de l'erreur.
+    @Test
+    fun `sur la source des sagas, la recherche appelle chercherSagas`() = runTest(dispatcher) {
+        val alien = CollectionResult(8091, "Alien (Saga)", null)
+        api.onChercherSagas = { listOf(alien) }
+        val vm = vm(SourceSuivi.SAGAS)
+
+        vm.onQueryChange("alien")
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(listOf("chercherSagas alien"), api.calls)
+        assertEquals(listOf(8091), vm.ui.value.results.map { it.tmdbId })
+    }
+
+    @Test
+    fun `sur la source des sagas, un 401 previent la session`() = runTest(dispatcher) {
+        api.onChercherSagas = { throw FakeJournalApi.unauthorized() }
+        val vm = vm(SourceSuivi.SAGAS)
+
+        vm.onQueryChange("alien")
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(1, expire)
+        assertNull(vm.ui.value.error)
     }
 }

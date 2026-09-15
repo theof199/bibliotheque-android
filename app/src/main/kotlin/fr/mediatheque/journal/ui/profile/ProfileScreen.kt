@@ -1,6 +1,7 @@
 package fr.mediatheque.journal.ui.profile
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -38,12 +39,17 @@ import androidx.compose.ui.unit.dp
 import fr.mediatheque.journal.R
 import fr.mediatheque.journal.api.dto.User
 import fr.mediatheque.journal.ui.ErrorBlock
+import fr.mediatheque.journal.ui.suivis.SuiviState
+import fr.mediatheque.journal.ui.suivis.SuivisViewModel
+import fr.mediatheque.journal.ui.suivis.pret
 
 @Composable
 fun ProfileScreen(
     user: User,
     vm: ProfileViewModel,
     senscritique: SensCritiqueViewModel,
+    bilan: BilanViewModel,
+    suivis: SuivisViewModel,
     onBack: () -> Unit,
     onFilms: () -> Unit,
     onSensCritique: () -> Unit,
@@ -52,6 +58,8 @@ fun ProfileScreen(
 ) {
     val ui by vm.ui.collectAsState()
     val senscritiqueUi by senscritique.ui.collectAsState()
+    val bilanUi by bilan.ui.collectAsState()
+    val suivisUi by suivis.ui.collectAsState()
 
     // Jumeau du `LaunchedEffect(Unit) { vm.retry() }` ci-dessous : ce `ViewModel` est lui aussi
     // indexé sur l'Activité, clé fixe — sans ce rafraîchissement, revenir du profil depuis l'écran
@@ -94,6 +102,7 @@ fun ProfileScreen(
                         // ne s'affiche — jamais un zéro, qui serait un compte, pas une absence de
                         // réponse (décision 3 de la tâche 7).
                     }
+                    BilanCard(bilanUi.journal, suivisUi.realisateurs, suivisUi.sagas)
                     ListItem(
                         headlineContent = { Text("Mes films", style = MaterialTheme.typography.titleMedium) },
                         trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null) },
@@ -134,4 +143,75 @@ fun ProfileScreen(
             }
         }
     }
+}
+
+/**
+ * La carte « Bilan » (brief du 15 septembre 2026), sous les deux chiffres du
+ * haut : sept lignes, chacune apparaissant quand sa donnée arrive — « … »
+ * avant, jamais un chiffre provisoire. Les cinq premières viennent du
+ * journal (`bilanJournal`, calculé une fois par `BilanViewModel`) ; les deux
+ * dernières viennent des deux sources suivies (`bilanSuivi`, **la même
+ * fonction pour les deux** : elle ne sait pas si elle compte des
+ * réalisateurs ou des sagas), tant qu'elles n'ont pas fini de charger leurs
+ * filmographies.
+ */
+@Composable
+private fun BilanCard(journal: BilanJournal?, realisateurs: SuiviState, sagas: SuiviState) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceContainer, MaterialTheme.shapes.medium)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text("Bilan", style = MaterialTheme.typography.titleMedium)
+
+        LigneBilan(if (journal == null) "…" else "${journal.filmsVus} films vus, dont ${journal.filmsVusCetteAnnee} cette année")
+        LigneBilan(if (journal == null) "…" else "${journal.seancesEnSalle} séances en salle, dont ${journal.seancesEnSalleCetteAnnee} cette année")
+        LigneBilan(
+            when {
+                journal == null -> "…"
+                journal.noteMoyenne == null -> "Aucun film noté"
+                else -> "Note moyenne : ${journal.noteMoyenne}/10"
+            },
+        )
+        LigneBilan(
+            when {
+                journal == null -> "…"
+                journal.decennies == null -> "Aucune année connue"
+                else -> {
+                    val d = journal.decennies
+                    "${d.premiere} → ${d.derniere}, ${d.couvertes} décennies sur ${d.total}"
+                }
+            },
+        )
+        LigneBilan(
+            when {
+                journal == null -> "…"
+                journal.plusAncien == null -> "Le plus ancien : inconnu"
+                else -> "Le plus ancien : ${journal.plusAncien.titre} (${journal.plusAncien.annee})"
+            },
+        )
+        LigneBilan(
+            if (!realisateurs.pret()) {
+                "…"
+            } else {
+                val b = bilanSuivi(realisateurs.entites, realisateurs.filmographies)
+                "${b.suivis} réalisateurs suivis, dont ${b.termines} terminés"
+            },
+        )
+        LigneBilan(
+            if (!sagas.pret()) {
+                "…"
+            } else {
+                val b = bilanSuivi(sagas.entites, sagas.filmographies)
+                "${b.suivis} sagas suivies, dont ${b.termines} terminées"
+            },
+        )
+    }
+}
+
+@Composable
+private fun LigneBilan(texte: String) {
+    Text(texte, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }

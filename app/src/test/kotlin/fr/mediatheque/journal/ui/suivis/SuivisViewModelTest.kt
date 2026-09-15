@@ -1,9 +1,10 @@
-package fr.mediatheque.journal.ui.realisateurs
+package fr.mediatheque.journal.ui.suivis
 
 import fr.mediatheque.journal.FakeJournalApi
 import fr.mediatheque.journal.MainDispatcherRule
 import fr.mediatheque.journal.api.dto.JournalResponse
 import fr.mediatheque.journal.api.dto.Realisateur
+import fr.mediatheque.journal.api.dto.Saga
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -15,8 +16,17 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
+/**
+ * `SuivisViewModel` (brief du 15 septembre 2026, généralisation de
+ * `RealisateursViewModelTest.kt` du même jour). La plupart des règles sont
+ * éprouvées sur la source des réalisateurs, comme avant la généralisation ;
+ * un petit bloc à la fin (« dispatch … ») éprouve, une fois chacun, que le
+ * `when (source)` des quatre appels réseau atteint bien la bonne route pour
+ * les sagas — la seule chose que la réutilisation des tests réalisateurs ne
+ * peut pas prouver.
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
-class RealisateursViewModelTest {
+class SuivisViewModelTest {
     private val dispatcher = StandardTestDispatcher()
     @get:Rule val main = MainDispatcherRule(dispatcher)
     private val api = FakeJournalApi()
@@ -25,10 +35,10 @@ class RealisateursViewModelTest {
     private val nolan = FakeJournalApi.realisateur(525, "Christopher Nolan")
     private val kubrick = FakeJournalApi.realisateur(240, "Stanley Kubrick")
 
-    private fun vm() = RealisateursViewModel(api) { expire++ }
+    private fun vm() = SuivisViewModel(api) { expire++ }
 
     // Jumeau de `FriseViewModel`/`FilmsViewModel` : `Root.kt` déclenche le premier chargement,
-    // pas le constructeur. Mutation : un `init { refresh() }` fait échouer l'assertion.
+    // pas le constructeur. Mutation : un `init { refresh(...) }` fait échouer l'assertion.
     @Test
     fun `la construction ne charge rien, seul refresh declenche les appels`() = runTest(dispatcher) {
         api.onRealisateurs = { listOf(nolan) }
@@ -48,14 +58,14 @@ class RealisateursViewModelTest {
         api.onFilmographie = { id -> listOf(FakeJournalApi.filmDe(id * 10, "Film de $id", 2000)) }
 
         val vm = vm()
-        vm.refresh()
+        vm.refresh(SourceSuivi.REALISATEURS)
         testScheduler.advanceUntilIdle()
 
         assertEquals(listOf("realisateurs", "filmographie 525", "filmographie 240"), api.calls)
-        assertEquals(listOf(525, 240), vm.ui.value.realisateurs.map { it.tmdb_id })
+        assertEquals(listOf(525, 240), vm.ui.value.realisateurs.entites.map { it.tmdbId })
         assertEquals(
             EtatFilmographie.Pret(listOf(FakeJournalApi.filmDe(5250, "Film de 525", 2000))),
-            vm.ui.value.filmographies[525],
+            vm.ui.value.realisateurs.filmographies[525],
         )
     }
 
@@ -72,19 +82,19 @@ class RealisateursViewModelTest {
         }
 
         val vm = vm()
-        vm.refresh()
+        vm.refresh(SourceSuivi.REALISATEURS)
         testScheduler.advanceUntilIdle()
 
-        assertNull(vm.ui.value.error)
-        assertEquals(EtatFilmographie.Indisponible, vm.ui.value.filmographies[525])
-        assertEquals("indisponible", libelleLigne(vm.ui.value.filmographies[525]!!))
-        assertTrue(vm.ui.value.filmographies[240] is EtatFilmographie.Pret)
-        assertEquals(2, vm.ui.value.realisateurs.size)
+        assertNull(vm.ui.value.realisateurs.error)
+        assertEquals(EtatFilmographie.Indisponible, vm.ui.value.realisateurs.filmographies[525])
+        assertEquals("indisponible", libelleLigne(vm.ui.value.realisateurs.filmographies[525]!!))
+        assertTrue(vm.ui.value.realisateurs.filmographies[240] is EtatFilmographie.Pret)
+        assertEquals(2, vm.ui.value.realisateurs.entites.size)
     }
 
     // Ajouter un réalisateur : le `POST`, puis la liste se rafraîchit — sans quoi la personne
     // qu'on vient de suivre n'apparaîtrait qu'à la visite suivante. Mutation : retirer le
-    // `refresh()` après le `POST` fait échouer les deux dernières assertions (la liste reste
+    // `refresh(...)` après le `POST` fait échouer les deux dernières assertions (la liste reste
     // vide, et `realisateurs` n'est appelé qu'une fois).
     @Test
     fun `ajouter suit la personne puis rafraichit la liste`() = runTest(dispatcher) {
@@ -97,15 +107,15 @@ class RealisateursViewModelTest {
         api.onFilmographie = { listOf(FakeJournalApi.filmDe(1, "Shining", 1980)) }
 
         val vm = vm()
-        vm.refresh()
+        vm.refresh(SourceSuivi.REALISATEURS)
         testScheduler.advanceUntilIdle()
-        assertEquals(emptyList<Int>(), vm.ui.value.realisateurs.map { it.tmdb_id })
+        assertEquals(emptyList<Int>(), vm.ui.value.realisateurs.entites.map { it.tmdbId })
 
-        vm.ajouter(240)
+        vm.ajouter(SourceSuivi.REALISATEURS, 240)
         testScheduler.advanceUntilIdle()
 
         assertTrue(api.calls.contains("suivreRealisateur 240"))
-        assertEquals(listOf(240), vm.ui.value.realisateurs.map { it.tmdb_id })
+        assertEquals(listOf(240), vm.ui.value.realisateurs.entites.map { it.tmdbId })
         assertEquals(2, api.calls.count { it == "realisateurs" })
     }
 
@@ -120,12 +130,12 @@ class RealisateursViewModelTest {
         val vm = vm()
         val job = launch { vm.messages.collect { recus += it } }
 
-        vm.ajouter(240)
+        vm.ajouter(SourceSuivi.REALISATEURS, 240)
         testScheduler.advanceUntilIdle()
         assertEquals(listOf("Ajouté"), recus)
 
         api.onSuivreRealisateur = { throw FakeJournalApi.network() }
-        vm.ajouter(525)
+        vm.ajouter(SourceSuivi.REALISATEURS, 525)
         testScheduler.advanceUntilIdle()
         job.cancel()
 
@@ -144,18 +154,18 @@ class RealisateursViewModelTest {
         api.onRetirerRealisateur = { id -> suivis = suivis.filterNot { it.tmdb_id == id } }
 
         val vm = vm()
-        vm.refresh()
+        vm.refresh(SourceSuivi.REALISATEURS)
         testScheduler.advanceUntilIdle()
-        assertEquals(setOf(525, 240), vm.ui.value.filmographies.keys)
+        assertEquals(setOf(525, 240), vm.ui.value.realisateurs.filmographies.keys)
 
-        vm.retirer(525)
+        vm.retirer(SourceSuivi.REALISATEURS, 525)
         testScheduler.advanceUntilIdle()
 
-        assertEquals(listOf(240), vm.ui.value.realisateurs.map { it.tmdb_id })
-        assertEquals(setOf(240), vm.ui.value.filmographies.keys)
+        assertEquals(listOf(240), vm.ui.value.realisateurs.entites.map { it.tmdbId })
+        assertEquals(setOf(240), vm.ui.value.realisateurs.filmographies.keys)
     }
 
-    // Le journal complet, indexé par `entry_id` : c'est lui qui permet à la fiche d'ouvrir la
+    // Le journal complet, indexé par `entry_id` : c'est lui qui permet à une fiche d'ouvrir la
     // *correction* d'un film vu plutôt qu'un second visionnage. Toutes les pages, pas seulement
     // la première — jumeau de la Frise. Mutation : s'arrêter au premier `next_cursor` laisse
     // l'entrée « e-2 » introuvable.
@@ -177,14 +187,14 @@ class RealisateursViewModelTest {
         assertEquals(8, vm.ui.value.entrees["e-1"]?.entry?.rating)
     }
 
-    // L'accueil ne paie pas le journal complet : `refresh()` ne le touche pas, seule l'entrée sur
-    // l'écran Réalisateurs l'appelle. Mutation : charger les entrées depuis `refresh()` fait
+    // L'accueil ne paie pas le journal complet : `refresh(...)` ne le touche pas, seule l'entrée
+    // sur l'écran Suivis l'appelle. Mutation : charger les entrées depuis `refresh(...)` fait
     // apparaître « journal null » dans les appels.
     @Test
     fun `refresh ne lit pas le journal`() = runTest(dispatcher) {
         api.onRealisateurs = { listOf(nolan) }
         val vm = vm()
-        vm.refresh()
+        vm.refresh(SourceSuivi.REALISATEURS)
         testScheduler.advanceUntilIdle()
 
         assertTrue(api.calls.none { it.startsWith("journal") })
@@ -198,9 +208,9 @@ class RealisateursViewModelTest {
         api.onRealisateurs = { listOf(nolan) }
         api.onFilmographie = { throw FakeJournalApi.network() }
         val vm = vm()
-        vm.refresh()
+        vm.refresh(SourceSuivi.REALISATEURS)
         testScheduler.advanceUntilIdle()
-        assertEquals(EtatFilmographie.Indisponible, vm.ui.value.filmographies[525])
+        assertEquals(EtatFilmographie.Indisponible, vm.ui.value.realisateurs.filmographies[525])
 
         // Le `delay` rend l'appel observable à mi-course : sans lui, la doublure répondrait dans
         // le même tour de boucle et l'état d'attente serait vrai sans jamais être visible.
@@ -208,22 +218,22 @@ class RealisateursViewModelTest {
             delay(100)
             listOf(FakeJournalApi.filmDe(1, "Memento", 2000))
         }
-        vm.rechargerFilmographie(525)
+        vm.rechargerFilmographie(SourceSuivi.REALISATEURS, 525)
         testScheduler.runCurrent()
-        assertEquals(EtatFilmographie.EnAttente, vm.ui.value.filmographies[525])
+        assertEquals(EtatFilmographie.EnAttente, vm.ui.value.realisateurs.filmographies[525])
 
         testScheduler.advanceUntilIdle()
-        assertTrue(vm.ui.value.filmographies[525] is EtatFilmographie.Pret)
+        assertTrue(vm.ui.value.realisateurs.filmographies[525] is EtatFilmographie.Pret)
     }
 
     @Test
     fun `un 401 sur la liste previent la session`() = runTest(dispatcher) {
         api.onRealisateurs = { throw FakeJournalApi.unauthorized() }
         val vm = vm()
-        vm.refresh()
+        vm.refresh(SourceSuivi.REALISATEURS)
         testScheduler.advanceUntilIdle()
         assertEquals(1, expire)
-        assertNull(vm.ui.value.error)
+        assertNull(vm.ui.value.realisateurs.error)
     }
 
     // L'interrupteur de la fiche (décision du propriétaire du 15 septembre 2026), activé par
@@ -252,15 +262,15 @@ class RealisateursViewModelTest {
         api.onMarquerIntrouvable = { marque = true }
 
         val vm = vm()
-        vm.refresh()
+        vm.refresh(SourceSuivi.REALISATEURS)
         testScheduler.advanceUntilIdle()
-        assertEquals(false, (vm.ui.value.filmographies[525] as EtatFilmographie.Pret).films.first().introuvable)
+        assertEquals(false, (vm.ui.value.realisateurs.filmographies[525] as EtatFilmographie.Pret).films.first().introuvable)
 
-        vm.marquerIntrouvable(525, 1)
+        vm.marquerIntrouvable(SourceSuivi.REALISATEURS, 525, 1)
         testScheduler.advanceUntilIdle()
 
         assertEquals(listOf("marquerIntrouvable 1"), api.calls.filter { it.startsWith("marquerIntrouvable") })
-        assertTrue((vm.ui.value.filmographies[525] as EtatFilmographie.Pret).films.first().introuvable)
+        assertTrue((vm.ui.value.realisateurs.filmographies[525] as EtatFilmographie.Pret).films.first().introuvable)
     }
 
     // Un échec du `PUT` : bandeau « Impossible pour l'instant », et rien d'autre ne bouge — ni
@@ -276,16 +286,16 @@ class RealisateursViewModelTest {
         val recus = mutableListOf<String>()
         val vm = vm()
         val job = launch { vm.messages.collect { recus += it } }
-        vm.refresh()
+        vm.refresh(SourceSuivi.REALISATEURS)
         testScheduler.advanceUntilIdle()
 
-        vm.marquerIntrouvable(525, 1)
+        vm.marquerIntrouvable(SourceSuivi.REALISATEURS, 525, 1)
         testScheduler.advanceUntilIdle()
         job.cancel()
 
         assertEquals(listOf("Impossible pour l’instant"), recus)
         assertEquals(listOf("realisateurs", "filmographie 525", "marquerIntrouvable 1"), api.calls)
-        assertEquals(false, (vm.ui.value.filmographies[525] as EtatFilmographie.Pret).films.first().introuvable)
+        assertEquals(false, (vm.ui.value.realisateurs.filmographies[525] as EtatFilmographie.Pret).films.first().introuvable)
     }
 
     // Retirer la marque : le `DELETE`, puis la filmographie se recharge — jumeau de
@@ -300,15 +310,15 @@ class RealisateursViewModelTest {
         api.onRetirerIntrouvable = { marque = false }
 
         val vm = vm()
-        vm.refresh()
+        vm.refresh(SourceSuivi.REALISATEURS)
         testScheduler.advanceUntilIdle()
-        assertTrue((vm.ui.value.filmographies[525] as EtatFilmographie.Pret).films.first().introuvable)
+        assertTrue((vm.ui.value.realisateurs.filmographies[525] as EtatFilmographie.Pret).films.first().introuvable)
 
-        vm.retirerIntrouvable(525, 1)
+        vm.retirerIntrouvable(SourceSuivi.REALISATEURS, 525, 1)
         testScheduler.advanceUntilIdle()
 
         assertEquals(listOf("retirerIntrouvable 1"), api.calls.filter { it.startsWith("retirerIntrouvable") })
-        assertEquals(false, (vm.ui.value.filmographies[525] as EtatFilmographie.Pret).films.first().introuvable)
+        assertEquals(false, (vm.ui.value.realisateurs.filmographies[525] as EtatFilmographie.Pret).films.first().introuvable)
     }
 
     @Test
@@ -318,12 +328,107 @@ class RealisateursViewModelTest {
         api.onMarquerIntrouvable = { throw FakeJournalApi.unauthorized() }
 
         val vm = vm()
-        vm.refresh()
+        vm.refresh(SourceSuivi.REALISATEURS)
         testScheduler.advanceUntilIdle()
 
-        vm.marquerIntrouvable(525, 1)
+        vm.marquerIntrouvable(SourceSuivi.REALISATEURS, 525, 1)
         testScheduler.advanceUntilIdle()
 
         assertEquals(1, expire)
+    }
+
+    // Les deux sources sont tenues à part (brief du 15 septembre 2026) : ajouter, retirer ou
+    // recharger sur l'une ne doit jamais toucher l'état de l'autre — y compris quand les deux
+    // partagent le même entier TMDB, un réalisateur et une collection pouvant parfaitement
+    // partager un identifiant. Mutation : fusionner les deux cartes de filmographies
+    // (`SuiviState` unique au lieu de deux) fait tomber la troisième assertion.
+    @Test
+    fun `les deux sources restent independantes, meme sur le meme entier`() = runTest(dispatcher) {
+        api.onRealisateurs = { listOf(nolan.copy(tmdb_id = 8091)) }
+        api.onSagas = { listOf(FakeJournalApi.saga(8091, "Alien (Saga)")) }
+        api.onFilmographie = { listOf(FakeJournalApi.filmDe(1, "Film de realisateur", 2000)) }
+        api.onFilmsDeSaga = { listOf(FakeJournalApi.filmDe(2, "Film de saga", 1980), FakeJournalApi.filmDe(3, "Autre", 1990)) }
+
+        val vm = vm()
+        vm.refresh(SourceSuivi.REALISATEURS)
+        vm.refresh(SourceSuivi.SAGAS)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(listOf(8091), vm.ui.value.realisateurs.entites.map { it.tmdbId })
+        assertEquals(listOf(8091), vm.ui.value.sagas.entites.map { it.tmdbId })
+        assertEquals(1, vm.ui.value.realisateurs.filmographies.size)
+        assertEquals(1, vm.ui.value.sagas.filmographies.size)
+        assertEquals(
+            listOf("Film de realisateur"),
+            (vm.ui.value.realisateurs.filmographies[8091] as EtatFilmographie.Pret).films.map { it.title },
+        )
+        assertEquals(
+            listOf("Film de saga", "Autre"),
+            (vm.ui.value.sagas.filmographies[8091] as EtatFilmographie.Pret).films.map { it.title },
+        )
+    }
+
+    // -------------------------------------------------------------------------
+    // Dispatch : les quatre `when (source)` de `SuivisViewModel`, du côté sagas
+    // (le côté réalisateurs est déjà éprouvé par tout ce qui précède).
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `dispatch refresh appelle sagas et non realisateurs`() = runTest(dispatcher) {
+        api.onSagas = { listOf(FakeJournalApi.saga(8091, "Alien (Saga)")) }
+        val vm = vm()
+        vm.refresh(SourceSuivi.SAGAS)
+        testScheduler.advanceUntilIdle()
+
+        assertTrue(api.calls.contains("sagas"))
+        assertTrue(api.calls.none { it == "realisateurs" })
+        assertEquals(listOf(8091), vm.ui.value.sagas.entites.map { it.tmdbId })
+    }
+
+    @Test
+    fun `dispatch ajouter appelle suivreSaga`() = runTest(dispatcher) {
+        var suivies = emptyList<Saga>()
+        api.onSagas = { suivies }
+        api.onSuivreSaga = { id -> suivies = listOf(FakeJournalApi.saga(id, "Saga $id")); suivies.first() }
+
+        val vm = vm()
+        vm.ajouter(SourceSuivi.SAGAS, 8091)
+        testScheduler.advanceUntilIdle()
+
+        assertTrue(api.calls.contains("suivreSaga 8091"))
+        assertEquals(listOf(8091), vm.ui.value.sagas.entites.map { it.tmdbId })
+    }
+
+    @Test
+    fun `dispatch retirer appelle retirerSaga`() = runTest(dispatcher) {
+        var suivies = listOf(FakeJournalApi.saga(8091, "Alien (Saga)"))
+        api.onSagas = { suivies }
+        api.onRetirerSaga = { id -> suivies = suivies.filterNot { it.tmdb_id == id } }
+
+        val vm = vm()
+        vm.refresh(SourceSuivi.SAGAS)
+        testScheduler.advanceUntilIdle()
+
+        vm.retirer(SourceSuivi.SAGAS, 8091)
+        testScheduler.advanceUntilIdle()
+
+        assertTrue(api.calls.contains("retirerSaga 8091"))
+        assertEquals(emptyList<Int>(), vm.ui.value.sagas.entites.map { it.tmdbId })
+    }
+
+    @Test
+    fun `dispatch filmographie appelle filmsDeSaga`() = runTest(dispatcher) {
+        api.onSagas = { listOf(FakeJournalApi.saga(8091, "Alien (Saga)")) }
+        api.onFilmsDeSaga = { listOf(FakeJournalApi.filmDe(348, "Alien", 1979)) }
+
+        val vm = vm()
+        vm.refresh(SourceSuivi.SAGAS)
+        testScheduler.advanceUntilIdle()
+
+        assertTrue(api.calls.contains("filmsDeSaga 8091"))
+        assertEquals(
+            listOf(348),
+            (vm.ui.value.sagas.filmographies[8091] as EtatFilmographie.Pret).films.map { it.tmdb_id },
+        )
     }
 }

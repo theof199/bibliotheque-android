@@ -5,7 +5,8 @@ import fr.mediatheque.journal.api.JournalApi
 import fr.mediatheque.journal.api.dto.AddMediaResponse
 import fr.mediatheque.journal.api.dto.AddedMedia
 import fr.mediatheque.journal.api.dto.Carnet
-import fr.mediatheque.journal.api.dto.FilmDeRealisateur
+import fr.mediatheque.journal.api.dto.CollectionResult
+import fr.mediatheque.journal.api.dto.FilmSuivi
 import fr.mediatheque.journal.api.dto.JournalCreateBody
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.JournalMedia
@@ -14,6 +15,7 @@ import fr.mediatheque.journal.api.dto.LogEntry
 import fr.mediatheque.journal.api.dto.PersonneResult
 import fr.mediatheque.journal.api.dto.PlexResponse
 import fr.mediatheque.journal.api.dto.Realisateur
+import fr.mediatheque.journal.api.dto.Saga
 import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.api.dto.SortiesEnCours
 import fr.mediatheque.journal.api.dto.SortiesResponse
@@ -50,9 +52,14 @@ class FakeJournalApi : JournalApi {
     var onRealisateurs: suspend () -> List<Realisateur> = { emptyList() }
     var onSuivreRealisateur: suspend (Int) -> Realisateur = { id -> realisateur(id, "Personne $id") }
     var onRetirerRealisateur: suspend (Int) -> Unit = {}
-    var onFilmographie: suspend (Int) -> List<FilmDeRealisateur> = { emptyList() }
+    var onFilmographie: suspend (Int) -> List<FilmSuivi> = { emptyList() }
     var onMarquerIntrouvable: suspend (Int) -> Unit = {}
     var onRetirerIntrouvable: suspend (Int) -> Unit = {}
+    var onChercherSagas: suspend (String) -> List<CollectionResult> = { emptyList() }
+    var onSagas: suspend () -> List<Saga> = { emptyList() }
+    var onSuivreSaga: suspend (Int) -> Saga = { id -> saga(id, "Saga $id") }
+    var onRetirerSaga: suspend (Int) -> Unit = {}
+    var onFilmsDeSaga: suspend (Int) -> List<FilmSuivi> = { emptyList() }
 
     override suspend fun login(pseudo: String, password: String) = track("login $pseudo") { onLogin(pseudo, password) }
     override suspend fun me() = track("me") { onMe() }
@@ -74,6 +81,11 @@ class FakeJournalApi : JournalApi {
     override suspend fun filmographie(tmdbId: Int) = track("filmographie $tmdbId") { onFilmographie(tmdbId) }
     override suspend fun marquerIntrouvable(tmdbId: Int) = track("marquerIntrouvable $tmdbId") { onMarquerIntrouvable(tmdbId) }
     override suspend fun retirerIntrouvable(tmdbId: Int) = track("retirerIntrouvable $tmdbId") { onRetirerIntrouvable(tmdbId) }
+    override suspend fun chercherSagas(query: String) = track("chercherSagas $query") { onChercherSagas(query) }
+    override suspend fun sagas() = track("sagas") { onSagas() }
+    override suspend fun suivreSaga(tmdbId: Int) = track("suivreSaga $tmdbId") { onSuivreSaga(tmdbId) }
+    override suspend fun retirerSaga(tmdbId: Int) = track("retirerSaga $tmdbId") { onRetirerSaga(tmdbId) }
+    override suspend fun filmsDeSaga(tmdbId: Int) = track("filmsDeSaga $tmdbId") { onFilmsDeSaga(tmdbId) }
 
     private suspend fun <T> track(name: String, block: suspend () -> T): T {
         calls += name
@@ -110,9 +122,13 @@ class FakeJournalApi : JournalApi {
         fun realisateur(tmdbId: Int, name: String, profileUrl: String? = null, ajouteLe: String = "2026-09-15T18:22:41.000Z") =
             Realisateur(tmdbId, name, profileUrl, ajouteLe)
 
+        /** Une saga suivie, tel que `GET /me/sagas` le rend — jumelle de `realisateur` ci-dessus. */
+        fun saga(tmdbId: Int, name: String, coverUrl: String? = null, ajouteLe: String = "2026-09-15T18:30:12.000Z") =
+            Saga(tmdbId, name, coverUrl, ajouteLe)
+
         /**
-         * Un film de filmographie. `vu` non nul le rend « déjà journalisé » : `entryId` est
-         * l'entrée de journal que la fiche ouvrira en correction.
+         * Un film d'une filmographie ou d'une saga. `vu` non nul le rend « déjà journalisé » :
+         * `entryId` est l'entrée de journal que la fiche ouvrira en correction.
          */
         fun filmDe(
             tmdbId: Int,
@@ -122,7 +138,7 @@ class FakeJournalApi : JournalApi {
             rating: Int? = null,
             finishedAt: String = "2026-07-12",
             introuvable: Boolean = false,
-        ) = FilmDeRealisateur(
+        ) = FilmSuivi(
             tmdb_id = tmdbId,
             title = title,
             year = year,

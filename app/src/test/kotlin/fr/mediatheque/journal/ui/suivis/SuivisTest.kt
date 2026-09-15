@@ -1,17 +1,24 @@
-package fr.mediatheque.journal.ui.realisateurs
+package fr.mediatheque.journal.ui.suivis
 
 import fr.mediatheque.journal.FakeJournalApi.Companion.filmDe
-import fr.mediatheque.journal.FakeJournalApi.Companion.realisateur
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
 /**
- * Les fonctions pures des réalisateurs (brief du 15 septembre 2026) : ce que compte une ligne,
- * quel film vient ensuite, quel réalisateur est « en cours ». Aucune ne touche au réseau ni à
- * un `ViewModel` ; chacune est le calcul qu'un écran se contenterait de refaire à la main, mal.
+ * Les fonctions pures partagées par les réalisateurs et les sagas (brief du
+ * 15 septembre 2026, généralisation de `RealisateursTest.kt` du même jour) :
+ * ce que compte une ligne, quel film vient ensuite, quelle entité est « en
+ * cours ». Aucune ne touche au réseau ni à un `ViewModel` ; chacune est le
+ * calcul qu'un écran se contenterait de refaire à la main, mal.
+ *
+ * La plupart des règles sont éprouvées avec des réalisateurs, comme avant la
+ * généralisation ; chacune l'est aussi **au moins une fois avec une saga**
+ * (`entiteEnCours ignore...`, `filmographieTerminee...` seraient redondants
+ * ici — voir `ui/profile/BilanTest.kt`) : la preuve que la fonction ne
+ * connaît que `EntiteSuivie` et `FilmSuivi`, jamais `Realisateur` ni `Saga`.
  */
-class RealisateursTest {
+class SuivisTest {
     private val kubrick = listOf(
         filmDe(1, "Les Sentiers de la gloire", 1957, entryId = "e-1", rating = 9),
         filmDe(2, "Spartacus", 1960, entryId = "e-2", rating = 7),
@@ -107,81 +114,89 @@ class RealisateursTest {
         assertEquals("3 vus sur 4 · prochain : Lolita (1962)", libelleLigne(EtatFilmographie.Pret(kubrick)))
     }
 
-    private val nolan = realisateur(525, "Christopher Nolan")
-    private val kub = realisateur(240, "Stanley Kubrick")
-    private val miyazaki = realisateur(608, "Hayao Miyazaki")
+    private val nolan = EntiteSuivie(525, "Christopher Nolan", null)
+    private val kub = EntiteSuivie(240, "Stanley Kubrick", null)
+    private val miyazaki = EntiteSuivie(608, "Hayao Miyazaki", null)
 
     // Le plus de films vus **parmi ceux qui ont encore quelque chose à voir**. Mutation : retirer
     // la condition « au moins un non vu » élirait Miyazaki (4 vus, tout vu) ; prendre le minimum
     // au lieu du maximum élirait Nolan (1 vu).
     @Test
-    fun `realisateurEnCours prend le plus vu parmi ceux qui ont encore a voir`() {
+    fun `entiteEnCours prend le plus vu parmi ceux qui ont encore a voir`() {
         val filmographies = mapOf(
-            nolan.tmdb_id to EtatFilmographie.Pret(
+            nolan.tmdbId to EtatFilmographie.Pret(
                 listOf(filmDe(11, "Memento", 2000, entryId = "e-11"), filmDe(12, "Inception", 2010)),
             ),
-            kub.tmdb_id to EtatFilmographie.Pret(kubrick),
-            miyazaki.tmdb_id to EtatFilmographie.Pret(
+            kub.tmdbId to EtatFilmographie.Pret(kubrick),
+            miyazaki.tmdbId to EtatFilmographie.Pret(
                 (1..4).map { filmDe(20 + it, "Film $it", 1990 + it, entryId = "e-2$it") },
             ),
         )
 
-        val enCours = realisateurEnCours(listOf(nolan, kub, miyazaki), filmographies)
+        val enCours = entiteEnCours(SourceSuivi.REALISATEURS, listOf(nolan, kub, miyazaki), filmographies)
 
-        assertEquals("Stanley Kubrick", enCours?.realisateur?.name)
+        assertEquals("Stanley Kubrick", enCours?.entite?.nom)
         assertEquals("Lolita", enCours?.prochain?.title)
+        assertEquals(SourceSuivi.REALISATEURS, enCours?.source)
     }
 
     // Une filmographie qui n'est pas encore là, ou qui a échoué, ne concourt pas — mais elle ne
-    // doit pas non plus retenir les autres : la ligne « Ensuite » de l'accueil apparaît dès qu'un
-    // réalisateur a de quoi la remplir, sans attendre que les N appels soient tous revenus.
+    // doit pas non plus retenir les autres : la ligne « Ensuite » de l'accueil apparaît dès qu'une
+    // entité a de quoi la remplir, sans attendre que les N appels soient tous revenus.
     // Mutation : refuser de trancher tant qu'une filmographie n'est pas `Pret`
     // (`if (filmographies.values.any { it !is Pret }) return null`) rend ce test nul alors que le
     // précédent, lui, reste vert.
     @Test
-    fun `realisateurEnCours ignore les filmographies en attente ou indisponibles`() {
+    fun `entiteEnCours ignore les filmographies en attente ou indisponibles`() {
         val filmographies = mapOf(
-            nolan.tmdb_id to EtatFilmographie.EnAttente,
-            kub.tmdb_id to EtatFilmographie.Indisponible,
-            miyazaki.tmdb_id to EtatFilmographie.Pret(
+            nolan.tmdbId to EtatFilmographie.EnAttente,
+            kub.tmdbId to EtatFilmographie.Indisponible,
+            miyazaki.tmdbId to EtatFilmographie.Pret(
                 listOf(filmDe(30, "Porco Rosso", 1992, entryId = "e-30"), filmDe(31, "Mononoké", 1997)),
             ),
         )
 
-        assertEquals("Hayao Miyazaki", realisateurEnCours(listOf(nolan, kub, miyazaki), filmographies)?.realisateur?.name)
+        assertEquals(
+            "Hayao Miyazaki",
+            entiteEnCours(SourceSuivi.REALISATEURS, listOf(nolan, kub, miyazaki), filmographies)?.entite?.nom,
+        )
     }
 
     // Personne à proposer : la ligne « Ensuite · … » est absente de l'accueil, pas affichée vide.
     @Test
-    fun `realisateurEnCours est nul quand tout est vu, ou quand la liste est vide`() {
-        val toutVu = mapOf(kub.tmdb_id to EtatFilmographie.Pret(kubrick.filter { it.vu != null }))
-        assertNull(realisateurEnCours(listOf(kub), toutVu))
-        assertNull(realisateurEnCours(emptyList(), emptyMap()))
+    fun `entiteEnCours est nul quand tout est vu, ou quand la liste est vide`() {
+        val toutVu = mapOf(kub.tmdbId to EtatFilmographie.Pret(kubrick.filter { it.vu != null }))
+        assertNull(entiteEnCours(SourceSuivi.REALISATEURS, listOf(kub), toutVu))
+        assertNull(entiteEnCours(SourceSuivi.REALISATEURS, emptyList(), emptyMap()))
     }
 
     // Le seul film qui restait à voir est marqué introuvable (décision du propriétaire du
-    // 15 septembre 2026) : ce réalisateur ne concourt plus, comme s'il était tout vu — la ligne
+    // 15 septembre 2026) : cette entité ne concourt plus, comme si tout était vu — la ligne
     // « Ensuite » de l'accueil ne doit jamais pointer sur un film qu'on ne peut pas trouver.
     // Mutation : revenir à l'ancien `prochainAVoir` (qui ne regarde que `vu`) élirait Kubrick.
     @Test
-    fun `realisateurEnCours ignore un realisateur dont il ne reste qu un introuvable`() {
+    fun `entiteEnCours ignore une entite dont il ne reste qu un introuvable`() {
         val filmographies = mapOf(
-            kub.tmdb_id to EtatFilmographie.Pret(
+            kub.tmdbId to EtatFilmographie.Pret(
                 kubrick.map { if (it.vu == null) it.copy(introuvable = true) else it },
             ),
-            miyazaki.tmdb_id to EtatFilmographie.Pret(
+            miyazaki.tmdbId to EtatFilmographie.Pret(
                 listOf(filmDe(30, "Porco Rosso", 1992, entryId = "e-30"), filmDe(31, "Mononoké", 1997)),
             ),
         )
 
-        assertEquals("Hayao Miyazaki", realisateurEnCours(listOf(kub, miyazaki), filmographies)?.realisateur?.name)
+        assertEquals(
+            "Hayao Miyazaki",
+            entiteEnCours(SourceSuivi.REALISATEURS, listOf(kub, miyazaki), filmographies)?.entite?.nom,
+        )
     }
 
-    // À égalité, le premier de la liste — `GET /me/realisateurs` la rend du plus récemment ajouté
-    // au plus ancien, donc le dernier ajouté gagne. Mutation : un `maxByOrNull` qui garderait le
-    // dernier maximum (ou un tri qui inverserait la liste) élirait Kubrick.
+    // À égalité, la première de la liste — `GET /me/realisateurs` (et `GET /me/sagas`) la rend du
+    // plus récemment ajouté au plus ancien, donc la dernière ajoutée gagne. Mutation : un
+    // `maxByOrNull` qui garderait le dernier maximum (ou un tri qui inverserait la liste) élirait
+    // Kubrick.
     @Test
-    fun `realisateurEnCours tranche une egalite par le premier de la liste`() {
+    fun `entiteEnCours tranche une egalite par la premiere de la liste`() {
         val unVuUnAVoir = { prefixe: String ->
             EtatFilmographie.Pret(
                 listOf(
@@ -191,11 +206,36 @@ class RealisateursTest {
             )
         }
         val filmographies = mapOf(
-            nolan.tmdb_id to unVuUnAVoir("nolan"),
-            kub.tmdb_id to unVuUnAVoir("kubrick"),
+            nolan.tmdbId to unVuUnAVoir("nolan"),
+            kub.tmdbId to unVuUnAVoir("kubrick"),
         )
 
-        assertEquals("Christopher Nolan", realisateurEnCours(listOf(nolan, kub), filmographies)?.realisateur?.name)
+        assertEquals(
+            "Christopher Nolan",
+            entiteEnCours(SourceSuivi.REALISATEURS, listOf(nolan, kub), filmographies)?.entite?.nom,
+        )
+    }
+
+    // La généralisation, éprouvée avec une saga (brief du 15 septembre 2026) : mêmes règles,
+    // aucune n'est propre aux réalisateurs. Mutation : les mêmes que les tests réalisateurs
+    // ci-dessus, appliquées à une source différente — la fonction ne doit rien y lire de
+    // spécifique.
+    @Test
+    fun `entiteEnCours fonctionne a l identique pour une saga`() {
+        val alien = EntiteSuivie(8091, "Alien (Saga)", null)
+        val godzilla = EntiteSuivie(9946, "Godzilla (Saga)", null)
+        val filmographies = mapOf(
+            alien.tmdbId to EtatFilmographie.Pret(
+                listOf(filmDe(348, "Alien", 1979, entryId = "e-348"), filmDe(679, "Aliens", 1986)),
+            ),
+            // Toute vue : ne concourt pas, comme un réalisateur tout vu.
+            godzilla.tmdbId to EtatFilmographie.Pret(listOf(filmDe(1, "Godzilla", 1954, entryId = "e-1"))),
+        )
+
+        val enCours = entiteEnCours(SourceSuivi.SAGAS, listOf(alien, godzilla), filmographies)
+        assertEquals("Alien (Saga)", enCours?.entite?.nom)
+        assertEquals("Aliens", enCours?.prochain?.title)
+        assertEquals(SourceSuivi.SAGAS, enCours?.source)
     }
 
     // Le back refuse un `q` vide (`400`) : une saisie vide, ou faite d'espaces, ne doit pas
@@ -224,5 +264,21 @@ class RealisateursTest {
         assertEquals("Lolita", resultat.title)
         assertEquals(1962, resultat.year)
         assertEquals("Stanley Kubrick", resultat.metadata.director)
+    }
+
+    // `formulaire()` : le nom se glisse en `metadata.director` sur la source des réalisateurs...
+    @Test
+    fun `formulaire porte le nom du realisateur en cours`() {
+        val enCours = EnCours(SourceSuivi.REALISATEURS, kub, filmDe(3, "Lolita", 1962))
+        assertEquals("Stanley Kubrick", enCours.formulaire().metadata.director)
+    }
+
+    // ... mais jamais celui d'une saga : « Réalisé par Alien (Saga) » n'a pas de sens. Mutation :
+    // passer `entite.nom` sans distinguer la source casse cette assertion.
+    @Test
+    fun `formulaire ne pretend jamais qu une saga est un realisateur`() {
+        val alien = EntiteSuivie(8091, "Alien (Saga)", null)
+        val enCours = EnCours(SourceSuivi.SAGAS, alien, filmDe(348, "Alien", 1979))
+        assertNull(enCours.formulaire().metadata.director)
     }
 }

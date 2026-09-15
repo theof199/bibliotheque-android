@@ -6,6 +6,7 @@ import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.JournalMedia
 import fr.mediatheque.journal.api.dto.LogEntry
 import fr.mediatheque.journal.api.dto.SearchResult
+import fr.mediatheque.journal.ui.suivis.SourceSuivi
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
@@ -93,20 +94,20 @@ class NavigationTest {
     // `bottomBarTab()` fixe la matrice des treize écrans pour la barre de navigation du bas
     // (décision du propriétaire du 14 septembre 2026, troisième entrée « Au ciné » ajoutée le
     // même jour ; quatrième entrée « Frise » et cinquième « Réalisateurs » le 15 septembre
-    // 2026) : visible sur l'accueil, la Frise, « Réalisateurs », « Au ciné », « Mes films » et
-    // le profil — « Mes films » affichant « Profil » sélectionnée, puisqu'elle ne s'empile que
-    // depuis `Screen.Profile` dans `Root.kt`, jamais depuis l'accueil — cachée sur la recherche,
-    // le formulaire (création ou correction), l'écran SensCritique, le détail d'une année de la
-    // Frise, la recherche d'un réalisateur et la fiche d'un réalisateur. Mutation : faire
-    // retourner `BottomTab.Home` pour `Screen.Films` casse l'assertion sur `visibles` ; rendre
-    // non nul le résultat pour l'un des écrans cachés, ou nul pour l'un des visibles, casse la
-    // boucle correspondante.
+    // 2026, renommée « Suivis » le même jour quand les sagas l'ont rejointe) : visible sur
+    // l'accueil, la Frise, « Suivis », « Au ciné », « Mes films » et le profil — « Mes films »
+    // affichant « Profil » sélectionnée, puisqu'elle ne s'empile que depuis `Screen.Profile`
+    // dans `Root.kt`, jamais depuis l'accueil — cachée sur la recherche, le formulaire (création
+    // ou correction), l'écran SensCritique, le détail d'une année de la Frise, la recherche
+    // d'une entité suivie et sa fiche. Mutation : faire retourner `BottomTab.Home` pour
+    // `Screen.Films` casse l'assertion sur `visibles` ; rendre non nul le résultat pour l'un des
+    // écrans cachés, ou nul pour l'un des visibles, casse la boucle correspondante.
     @Test
     fun `bottomBarTab fixe la visibilite et la selection des treize ecrans`() {
         val visibles = mapOf(
             Screen.Home to BottomTab.Home,
             Screen.Frise to BottomTab.Frise,
-            Screen.Realisateurs to BottomTab.Realisateurs,
+            Screen.Suivis to BottomTab.Suivis,
             Screen.Cinema to BottomTab.Cinema,
             Screen.Profile to BottomTab.Profile,
             Screen.Films to BottomTab.Profile,
@@ -126,8 +127,8 @@ class NavigationTest {
             Screen.Edit(itemExemple),
             Screen.SensCritique,
             Screen.Annee(anneeExemple),
-            Screen.ChercherRealisateur,
-            Screen.Realisateur(240),
+            Screen.ChercherSuivi,
+            Screen.FicheSuivi(SourceSuivi.REALISATEURS, 240),
         )
         caches.forEach { screen -> assertNull(screen.bottomBarTab()) }
     }
