@@ -3,6 +3,7 @@ package fr.mediatheque.journal.ui
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material3.Icon
@@ -33,7 +34,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.withTimeoutOrNull
 
-/** Les dix écrans. Un écran qui a besoin d'une donnée la porte. */
+/** Les treize écrans. Un écran qui a besoin d'une donnée la porte. */
 sealed interface Screen {
     data object Home : Screen
     data object Search : Screen
@@ -49,37 +50,57 @@ sealed interface Screen {
     data object Frise : Screen
     /** Le détail d'une année de la Frise : ses vus, et ce qui reste à voir sur le Plex. */
     data class Annee(val annee: AnneeFrise) : Screen
+
+    /** Les réalisateurs que je suis (brief du 15 septembre 2026). */
+    data object Realisateurs : Screen
+
+    /** La recherche d'un réalisateur à suivre, ouverte par le « + » de l'écran ci-dessus. */
+    data object ChercherRealisateur : Screen
+
+    /**
+     * La fiche d'un réalisateur suivi : sa filmographie, et ce que j'en ai vu.
+     * Elle porte l'identifiant de la **personne** chez TMDB, pas le réalisateur
+     * entier : la liste et les filmographies vivent dans le `ViewModel` partagé
+     * (`Root.kt`, clé `"realisateurs"`), et un écran qui porterait une copie du
+     * réalisateur montrerait celle d'avant après un rafraîchissement.
+     */
+    data class Realisateur(val tmdbId: Int) : Screen
 }
 
-/** Les quatre entrées de la barre de navigation du bas (décision du propriétaire du 14 septembre 2026 ; Cinema ajoutée le même jour ; Frise le 15 septembre 2026, entre Home et Cinema). */
-enum class BottomTab { Home, Frise, Cinema, Profile }
+/** Les cinq entrées de la barre de navigation du bas (décision du propriétaire du 14 septembre 2026 ; Cinema ajoutée le même jour ; Frise le 15 septembre 2026, entre Home et Cinema ; Realisateurs le même jour, entre Frise et Cinema). */
+enum class BottomTab { Home, Frise, Realisateurs, Cinema, Profile }
 
 /**
  * Décide, pour un écran donné, si la barre du bas est visible et laquelle de ses entrées est
  * sélectionnée : `null` la cache. Fonction pure, sans dépendance à Compose, testée en JVM
- * (`NavigationTest.kt`) — c'est elle, et elle seule, qui fixe la matrice des dix écrans, plutôt
+ * (`NavigationTest.kt`) — c'est elle, et elle seule, qui fixe la matrice des treize écrans, plutôt
  * que de la reposer à chaque site d'appel.
  *
  * « Mes films » affiche « Profil » sélectionnée, pas « Accueil » : dans `Root.kt`, cet écran ne
  * s'empile que depuis `Screen.Profile` (`onFilms`), jamais depuis l'accueil. `Screen.Annee`,
  * comme le formulaire et la recherche, est un détail empilé sans barre : on y arrive toujours
- * depuis `Screen.Frise`, jamais directement.
+ * depuis `Screen.Frise`, jamais directement. Même règle pour la fiche d'un réalisateur et pour
+ * sa recherche, qui ne s'empilent que depuis `Screen.Realisateurs`.
  */
 fun Screen.bottomBarTab(): BottomTab? = when (this) {
     Screen.Home -> BottomTab.Home
     Screen.Frise -> BottomTab.Frise
+    Screen.Realisateurs -> BottomTab.Realisateurs
     Screen.Cinema -> BottomTab.Cinema
     Screen.Profile, Screen.Films -> BottomTab.Profile
-    Screen.Search, is Screen.Form, is Screen.Edit, Screen.SensCritique, is Screen.Annee -> null
+    Screen.Search, is Screen.Form, is Screen.Edit, Screen.SensCritique, is Screen.Annee,
+    Screen.ChercherRealisateur, is Screen.Realisateur,
+    -> null
 }
 
 /**
- * La barre de navigation du bas (Material 3), visible sur l'accueil, la Frise, « Au ciné »,
- * « Mes films » et le profil ; cachée sur le formulaire, la recherche, l'écran SensCritique et
- * le détail d'une année de la Frise (décision du propriétaire du 14 septembre 2026, en
- * remplacement de l'`IconButton` profil de l'accueil, jugé inaccessible ; troisième entrée
- * « Au ciné » ajoutée le même jour ; quatrième entrée « Frise » le 15 septembre 2026, entre
- * « Accueil » et « Au ciné »).
+ * La barre de navigation du bas (Material 3), visible sur l'accueil, la Frise, « Réalisateurs »,
+ * « Au ciné », « Mes films » et le profil ; cachée sur le formulaire, la recherche, l'écran
+ * SensCritique, le détail d'une année de la Frise, la fiche d'un réalisateur et sa recherche
+ * (décision du propriétaire du 14 septembre 2026, en remplacement de l'`IconButton` profil de
+ * l'accueil, jugé inaccessible ; troisième entrée « Au ciné » ajoutée le même jour ; quatrième
+ * entrée « Frise » le 15 septembre 2026, entre « Accueil » et « Au ciné » ; cinquième entrée
+ * « Réalisateurs » le même jour, entre « Frise » et « Au ciné »).
  * Toucher l’écran où l’on est déjà ne fait rien ; depuis « Mes films », « Profil » est surlignée
  * mais reste touchable et ramène au profil (`Root.kt` lui passe un `pop`).
  * Hauteur 56 dp, icônes seules (le `NavigationBar` de Material fait 80 dp avec ses libellés,
@@ -92,6 +113,7 @@ fun JournalBottomBar(
     current: Screen,
     onHome: () -> Unit,
     onFrise: () -> Unit,
+    onRealisateurs: () -> Unit,
     onCinema: () -> Unit,
     onProfile: () -> Unit,
 ) {
@@ -110,6 +132,11 @@ fun JournalBottomBar(
                 selected = selected == BottomTab.Frise,
                 onClick = { if (current != Screen.Frise) onFrise() },
                 icon = { Icon(Icons.Filled.Timeline, contentDescription = "Frise") },
+            )
+            NavigationBarItem(
+                selected = selected == BottomTab.Realisateurs,
+                onClick = { if (current != Screen.Realisateurs) onRealisateurs() },
+                icon = { Icon(Icons.Filled.Movie, contentDescription = "Réalisateurs") },
             )
             NavigationBarItem(
                 selected = selected == BottomTab.Cinema,

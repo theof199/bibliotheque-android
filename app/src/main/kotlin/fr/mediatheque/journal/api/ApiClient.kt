@@ -3,15 +3,21 @@ package fr.mediatheque.journal.api
 import fr.mediatheque.journal.api.dto.AddMediaBody
 import fr.mediatheque.journal.api.dto.AddMediaResponse
 import fr.mediatheque.journal.api.dto.ApiErrorBody
+import fr.mediatheque.journal.api.dto.FilmDeRealisateur
+import fr.mediatheque.journal.api.dto.FilmographieResponse
 import fr.mediatheque.journal.api.dto.JournalCreateBody
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.JournalResponse
 import fr.mediatheque.journal.api.dto.LoginBody
+import fr.mediatheque.journal.api.dto.PersonneResult
+import fr.mediatheque.journal.api.dto.PersonnesResponse
 import fr.mediatheque.journal.api.dto.PlexResponse
+import fr.mediatheque.journal.api.dto.Realisateur
 import fr.mediatheque.journal.api.dto.SearchResponse
 import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.api.dto.SessionResponse
 import fr.mediatheque.journal.api.dto.SortiesResponse
+import fr.mediatheque.journal.api.dto.SuivreRealisateurBody
 import fr.mediatheque.journal.api.dto.StatsResponse
 import fr.mediatheque.journal.api.dto.User
 import fr.mediatheque.journal.reactions.Reactions
@@ -138,6 +144,26 @@ class ApiClient(baseUrl: String, engine: HttpClientEngine) : JournalApi {
     override suspend fun sorties(): SortiesResponse = call { client.get(Endpoints.sorties) }
 
     override suspend fun plex(): PlexResponse = call { client.get(Endpoints.plex) }
+
+    override suspend fun chercherPersonnes(query: String): List<PersonneResult> =
+        call<PersonnesResponse> { client.get(Endpoints.personnes) { parameter("q", query) } }.results
+
+    override suspend fun realisateurs(): List<Realisateur> = call { client.get(Endpoints.realisateurs) }
+
+    override suspend fun suivreRealisateur(tmdbId: Int): Realisateur =
+        call {
+            client.post(Endpoints.realisateurs) {
+                contentType(ContentType.Application.Json)
+                setBody(SuivreRealisateurBody(tmdbId))
+            }
+        }
+
+    override suspend fun retirerRealisateur(tmdbId: Int) {
+        call<Unit> { client.delete(Endpoints.realisateur(tmdbId)) }
+    }
+
+    override suspend fun filmographie(tmdbId: Int): List<FilmDeRealisateur> =
+        call<FilmographieResponse> { client.get(Endpoints.filmographie(tmdbId)) }.films
 
     private suspend inline fun <reified T> call(block: () -> HttpResponse): T {
         val response = try {

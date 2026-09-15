@@ -16,5 +16,11 @@ object Endpoints {
     const val stats = "stats"
     const val sorties = "reference/sorties"
     const val plex = "reference/plex"
+    const val personnes = "reference/personnes"
+    const val realisateurs = "me/realisateurs"
     fun viewing(id: String): String = "me/journal/$id"
+
+    /** `GET`/`DELETE /me/realisateurs/{tmdbId}` — l'identifiant de la **personne**, pas celui de la ligne. */
+    fun realisateur(tmdbId: Int): String = "$realisateurs/$tmdbId"
+    fun filmographie(tmdbId: Int): String = "${realisateur(tmdbId)}/films"
 }

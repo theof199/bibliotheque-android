@@ -44,6 +44,8 @@ import fr.mediatheque.journal.ui.Cover
 import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.Navigator
 import fr.mediatheque.journal.ui.films.FilmsViewModel
+import fr.mediatheque.journal.ui.realisateurs.RealisateurEnCours
+import fr.mediatheque.journal.ui.realisateurs.titreEtAnnee
 import fr.mediatheque.journal.ui.showBriefly
 import kotlinx.coroutines.flow.distinctUntilChanged
 
@@ -63,6 +65,9 @@ fun HomeScreen(
     /** Le plus ancien film à voir sur le Plex (brief du 15 septembre 2026) — nul tant qu'il n'y a rien à voir, ou que `/reference/plex` n'a pas encore répondu : pas de chargement bloquant, la ligne apparaît seule. */
     ensuite: PlexFilm? = null,
     onOpenEnsuite: (PlexFilm) -> Unit = {},
+    /** Le réalisateur en cours et son prochain film (brief du 15 septembre 2026) — même règle : nul tant qu'aucun réalisateur suivi n'a de film à voir, ou que les filmographies n'ont pas répondu. */
+    ensuiteRealisateur: RealisateurEnCours? = null,
+    onOpenEnsuiteRealisateur: (RealisateurEnCours) -> Unit = {},
 ) {
     val ui by vm.ui.collectAsState()
     val snackbar = remember { SnackbarHostState() }
@@ -112,26 +117,26 @@ fun HomeScreen(
                 // simplement pas tant que `ensuite` est nul, que ce soit parce que
                 // `/reference/plex` n'a pas encore répondu ou parce qu'il n'y a rien à voir.
                 ensuite?.let { film ->
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 12.dp)
-                            .clickable { onOpenEnsuite(film) },
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Cover(film.cover_url, film.title, 56.dp, 84.dp)
-                        Column(Modifier.padding(start = 12.dp)) {
-                            Text(
-                                "Ensuite",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Text(
-                                film.year?.let { annee -> "${film.title} ($annee)" } ?: film.title,
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                        }
-                    }
+                    LigneEnsuite(
+                        coverUrl = film.cover_url,
+                        titreAffiche = film.title,
+                        libelle = "Ensuite",
+                        titre = film.year?.let { annee -> "${film.title} ($annee)" } ?: film.title,
+                        onClick = { onOpenEnsuite(film) },
+                    )
+                }
+                // La seconde ligne « Ensuite », celle du réalisateur en cours (brief du
+                // 15 septembre 2026) : même composant que celle du Plex juste au-dessus, jamais
+                // une copie — le nom vient sur la première ligne, après « Ensuite · », et le
+                // titre du film prend la seconde, comme pour le Plex.
+                ensuiteRealisateur?.let { encours ->
+                    LigneEnsuite(
+                        coverUrl = encours.prochain.cover_url,
+                        titreAffiche = encours.prochain.title,
+                        libelle = "Ensuite · ${encours.realisateur.name}",
+                        titre = titreEtAnnee(encours.prochain),
+                        onClick = { onOpenEnsuiteRealisateur(encours) },
+                    )
                 }
                 ui.error?.let {
                     ErrorBlock(
@@ -202,6 +207,39 @@ fun HomeScreen(
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                 ) { Text("Ajouter un film") }
             }
+        }
+    }
+}
+
+/**
+ * Une ligne « Ensuite » : une affiche 56×84 à gauche, un libellé discret au-dessus du titre.
+ * Le même composant sert les deux lignes de l'accueil — celle du Plex (« Ensuite ») et celle du
+ * réalisateur en cours (« Ensuite · *Nom* ») — plutôt que deux copies qui divergeraient à la
+ * première retouche (brief du 15 septembre 2026).
+ */
+@Composable
+private fun LigneEnsuite(
+    coverUrl: String?,
+    titreAffiche: String,
+    libelle: String,
+    titre: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(bottom = 12.dp)
+            .clickable(onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Cover(coverUrl, titreAffiche, 56.dp, 84.dp)
+        Column(Modifier.padding(start = 12.dp)) {
+            Text(
+                libelle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(titre, style = MaterialTheme.typography.titleMedium)
         }
     }
 }

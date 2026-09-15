@@ -5,18 +5,22 @@ import fr.mediatheque.journal.api.JournalApi
 import fr.mediatheque.journal.api.dto.AddMediaResponse
 import fr.mediatheque.journal.api.dto.AddedMedia
 import fr.mediatheque.journal.api.dto.Carnet
+import fr.mediatheque.journal.api.dto.FilmDeRealisateur
 import fr.mediatheque.journal.api.dto.JournalCreateBody
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.JournalMedia
 import fr.mediatheque.journal.api.dto.JournalResponse
 import fr.mediatheque.journal.api.dto.LogEntry
+import fr.mediatheque.journal.api.dto.PersonneResult
 import fr.mediatheque.journal.api.dto.PlexResponse
+import fr.mediatheque.journal.api.dto.Realisateur
 import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.api.dto.SortiesEnCours
 import fr.mediatheque.journal.api.dto.SortiesResponse
 import fr.mediatheque.journal.api.dto.SortieSemaine
 import fr.mediatheque.journal.api.dto.StatsResponse
 import fr.mediatheque.journal.api.dto.User
+import fr.mediatheque.journal.api.dto.VuDuFilm
 import kotlinx.serialization.json.JsonObject
 
 class FakeJournalApi : JournalApi {
@@ -42,6 +46,11 @@ class FakeJournalApi : JournalApi {
         )
     }
     var onPlex: suspend () -> PlexResponse = { PlexResponse(configure = true) }
+    var onChercherPersonnes: suspend (String) -> List<PersonneResult> = { emptyList() }
+    var onRealisateurs: suspend () -> List<Realisateur> = { emptyList() }
+    var onSuivreRealisateur: suspend (Int) -> Realisateur = { id -> realisateur(id, "Personne $id") }
+    var onRetirerRealisateur: suspend (Int) -> Unit = {}
+    var onFilmographie: suspend (Int) -> List<FilmDeRealisateur> = { emptyList() }
 
     override suspend fun login(pseudo: String, password: String) = track("login $pseudo") { onLogin(pseudo, password) }
     override suspend fun me() = track("me") { onMe() }
@@ -56,6 +65,11 @@ class FakeJournalApi : JournalApi {
     override suspend fun seances(cursor: String?) = track("seances $cursor") { onSeances(cursor) }
     override suspend fun sorties() = track("sorties") { onSorties() }
     override suspend fun plex() = track("plex") { onPlex() }
+    override suspend fun chercherPersonnes(query: String) = track("chercherPersonnes $query") { onChercherPersonnes(query) }
+    override suspend fun realisateurs() = track("realisateurs") { onRealisateurs() }
+    override suspend fun suivreRealisateur(tmdbId: Int) = track("suivreRealisateur $tmdbId") { onSuivreRealisateur(tmdbId) }
+    override suspend fun retirerRealisateur(tmdbId: Int) = track("retirerRealisateur $tmdbId") { onRetirerRealisateur(tmdbId) }
+    override suspend fun filmographie(tmdbId: Int) = track("filmographie $tmdbId") { onFilmographie(tmdbId) }
 
     private suspend fun <T> track(name: String, block: suspend () -> T): T {
         calls += name
@@ -86,6 +100,29 @@ class FakeJournalApi : JournalApi {
             LogEntry(id, mediaId, finishedAt, rating),
             JournalMedia(mediaId, title, coverUrl, year, director, externalId),
             Carnet(reactions, comment),
+        )
+
+        /** Un réalisateur suivi, tel que `GET /me/realisateurs` le rend. */
+        fun realisateur(tmdbId: Int, name: String, profileUrl: String? = null, ajouteLe: String = "2026-09-15T18:22:41.000Z") =
+            Realisateur(tmdbId, name, profileUrl, ajouteLe)
+
+        /**
+         * Un film de filmographie. `vu` non nul le rend « déjà journalisé » : `entryId` est
+         * l'entrée de journal que la fiche ouvrira en correction.
+         */
+        fun filmDe(
+            tmdbId: Int,
+            title: String,
+            year: Int? = null,
+            entryId: String? = null,
+            rating: Int? = null,
+            finishedAt: String = "2026-07-12",
+        ) = FilmDeRealisateur(
+            tmdb_id = tmdbId,
+            title = title,
+            year = year,
+            release_date = year?.let { "$it-01-01" },
+            vu = entryId?.let { VuDuFilm(it, rating, finishedAt) },
         )
 
         fun unauthorized() = ApiError("UNAUTHENTICATED", "Connecte-toi d’abord.", retryable = false, status = 401)

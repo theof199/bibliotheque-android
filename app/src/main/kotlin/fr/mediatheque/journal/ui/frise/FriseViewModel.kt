@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import fr.mediatheque.journal.api.ApiError
 import fr.mediatheque.journal.api.JournalApi
 import fr.mediatheque.journal.api.dto.JournalItem
+import fr.mediatheque.journal.api.journalComplet
 import fr.mediatheque.journal.api.dto.PlexFilm
 import fr.mediatheque.journal.api.dto.PlexResponse
 import fr.mediatheque.journal.api.dto.SearchMetadata
@@ -112,7 +113,7 @@ class FriseViewModel(private val api: JournalApi, private val onUnauthenticated:
         _ui.update { it.copy(loading = true, error = null) }
         job = viewModelScope.launch {
             val journal = try {
-                journalComplet()
+                api.journalComplet()
             } catch (e: ApiError) {
                 _ui.update { it.copy(loading = false, error = if (e.isUnauthenticated) null else e) }
                 if (e.isUnauthenticated) onUnauthenticated()
@@ -140,17 +141,5 @@ class FriseViewModel(private val api: JournalApi, private val onUnauthenticated:
                 )
             }
         }
-    }
-
-    /** Toutes les pages de `GET /me/journal`, chargées à la suite — la Frise veut le journal entier, pas une page. */
-    private suspend fun journalComplet(): List<JournalItem> {
-        val items = mutableListOf<JournalItem>()
-        var cursor: String? = null
-        do {
-            val page = api.journal(cursor)
-            items += page.items
-            cursor = page.next_cursor
-        } while (cursor != null)
-        return items
     }
 }

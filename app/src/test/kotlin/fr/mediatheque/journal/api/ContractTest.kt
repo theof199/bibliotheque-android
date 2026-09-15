@@ -1,20 +1,25 @@
 package fr.mediatheque.journal.api
 
 import fr.mediatheque.journal.api.dto.AddMediaResponse
+import fr.mediatheque.journal.api.dto.FilmographieResponse
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.JournalResponse
+import fr.mediatheque.journal.api.dto.PersonnesResponse
 import fr.mediatheque.journal.api.dto.PlexResponse
+import fr.mediatheque.journal.api.dto.Realisateur
 import fr.mediatheque.journal.api.dto.SearchResponse
 import fr.mediatheque.journal.api.dto.SessionResponse
 import fr.mediatheque.journal.api.dto.SortiesResponse
 import fr.mediatheque.journal.api.dto.StatsResponse
 import fr.mediatheque.journal.api.dto.movies
 import kotlinx.serialization.KSerializer
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Test
 import java.io.File
 
@@ -97,5 +102,39 @@ class ContractTest {
     @Test fun `GET stats`() {
         val stats = lit("/stats", "get", "200", StatsResponse.serializer())
         assertEquals(17, stats.dashboard.periods.all.counts.movies)
+    }
+
+    // Les réalisateurs (brief du 15 septembre 2026). `DELETE /me/realisateurs/{tmdbId}` rend
+    // `204` : aucun corps, donc aucun exemple à lire ici.
+    @Test fun `GET reference personnes`() {
+        val page = lit("/reference/personnes", "get", "200", PersonnesResponse.serializer())
+        val personne = page.results.first()
+        assertEquals(525, personne.tmdb_id)
+        assertEquals("Christopher Nolan", personne.name)
+        assertEquals("https://image.tmdb.org/t/p/w185/xuAIuYSmsUzKlUMBFGVZaWsY3DZ.jpg", personne.profile_url)
+    }
+
+    @Test fun `GET me realisateurs`() {
+        val suivis = lit("/me/realisateurs", "get", "200", ListSerializer(Realisateur.serializer()))
+        assertEquals(525, suivis.first().tmdb_id)
+        assertEquals("Christopher Nolan", suivis.first().name)
+        assertEquals("2026-09-15T18:22:41.000Z", suivis.first().ajoute_le)
+    }
+
+    @Test fun `POST me realisateurs`() { lit("/me/realisateurs", "post", "201", Realisateur.serializer()) }
+
+    // `vu` est la seule forme qui change d'un film à l'autre : nul quand je ne l'ai jamais
+    // journalisé, l'entrée la plus récente sinon. C'est `entry_id` qui ouvre la correction
+    // depuis la fiche — un renommage côté back casserait ici, avant le téléphone.
+    @Test fun `GET me realisateurs films`() {
+        val filmo = lit("/me/realisateurs/{tmdbId}/films", "get", "200", FilmographieResponse.serializer())
+        val inception = filmo.films.first()
+        assertEquals(27205, inception.tmdb_id)
+        assertEquals(2010, inception.year)
+        assertEquals("2010-07-15", inception.release_date)
+        assertEquals("e0000000-0000-4000-8000-000000000002", inception.vu?.entry_id)
+        assertEquals(9, inception.vu?.rating)
+        assertEquals("2026-07-12", inception.vu?.finished_at)
+        assertNull("un film jamais journalisé n'a pas de `vu`", filmo.films[1].vu)
     }
 }

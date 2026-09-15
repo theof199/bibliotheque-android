@@ -28343,6 +28343,686 @@
         }
       }
     },
+    "/reference/personnes": {
+      "get": {
+        "summary": "Chercher un réalisateur chez TMDB",
+        "tags": [
+          "réalisateurs"
+        ],
+        "description": "La recherche qui précède `POST /me/realisateurs` : elle donne les `tmdb_id` à lui passer.\n\n**Ne rend que des réalisateurs.** TMDB ne sait pas filtrer une recherche de personnes par métier ; le tri se fait ici, sur `known_for_department = \"Directing\"`, ce que TMDB appelle le métier principal d’une personne. Un acteur homonyme ne sort donc pas — et un réalisateur qui joue plus qu’il ne réalise n’en sortira pas non plus.\n\n**Dix résultats au plus**, dans l’ordre de pertinence de TMDB, sur sa première page seulement. C’est une liste de choix, pas un catalogue.\n\nSous `/reference` et non sous `/me` : le résultat ne dépend d’aucun compte. La session reste exigée, comme sur `GET /reference/sorties`.\n\n`503` si `TMDB_API_KEY` n’est pas renseignée sur ce serveur.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "description": "Le nom cherché"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Résultats de recherche de réalisateurs, dix au plus",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "tmdb_id": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Identifiant de la **personne** chez TMDB"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "Nom tel que TMDB l’écrit"
+                          },
+                          "profile_url": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uri"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Photo en URL absolue, taille `w185`, nulle si TMDB n’en a pas"
+                          }
+                        },
+                        "required": [
+                          "tmdb_id",
+                          "name",
+                          "profile_url"
+                        ],
+                        "additionalProperties": false,
+                        "description": "Une personne de TMDB dont le métier principal est la réalisation"
+                      }
+                    }
+                  },
+                  "required": [
+                    "results"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Résultats de recherche de réalisateurs, dix au plus"
+                },
+                "examples": {
+                  "Réponse type": {
+                    "value": {
+                      "results": [
+                        {
+                          "tmdb_id": 525,
+                          "name": "Christopher Nolan",
+                          "profile_url": "https://image.tmdb.org/t/p/w185/xuAIuYSmsUzKlUMBFGVZaWsY3DZ.jpg"
+                        },
+                        {
+                          "tmdb_id": 608,
+                          "name": "Hayao Miyazaki",
+                          "profile_url": "https://image.tmdb.org/t/p/w185/tGwO4xcFjhbtCHnVZVbP2OQt2Rn.jpg"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/realisateurs": {
+      "get": {
+        "summary": "Mes réalisateurs",
+        "tags": [
+          "réalisateurs"
+        ],
+        "description": "Ceux que je suis, du plus récemment ajouté au plus ancien.\n\n`name` et `profile_url` sont ceux que TMDB donnait **au moment de l’ajout** : la liste s’affiche sans rappeler TMDB. Un nom ou une photo qui change chez eux se rattrape en retirant puis en remettant le réalisateur.\n\n**Aucun `user_id`.** Cette route ne parle que de toi ; les réalisateurs des autres membres ne sont exposés nulle part.\n\nSans pagination : on suit quelques dizaines de personnes, pas des milliers.",
+        "responses": {
+          "200": {
+            "description": "Mes réalisateurs, du plus récemment ajouté au plus ancien",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "tmdb_id": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991,
+                        "description": "Identifiant de la **personne** chez TMDB"
+                      },
+                      "name": {
+                        "type": "string",
+                        "description": "Nom tel que TMDB l’écrit"
+                      },
+                      "profile_url": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "uri"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "Photo en URL absolue, taille `w185`, nulle si TMDB n’en a pas"
+                      },
+                      "ajoute_le": {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                        "description": "Date à laquelle ce membre l’a ajouté"
+                      }
+                    },
+                    "required": [
+                      "tmdb_id",
+                      "name",
+                      "profile_url",
+                      "ajoute_le"
+                    ],
+                    "additionalProperties": false,
+                    "description": "Un réalisateur suivi par le membre de la session"
+                  },
+                  "description": "Mes réalisateurs, du plus récemment ajouté au plus ancien"
+                },
+                "examples": {
+                  "Réponse type": {
+                    "value": [
+                      {
+                        "tmdb_id": 525,
+                        "name": "Christopher Nolan",
+                        "profile_url": "https://image.tmdb.org/t/p/w185/xuAIuYSmsUzKlUMBFGVZaWsY3DZ.jpg",
+                        "ajoute_le": "2026-09-15T18:22:41.000Z"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Suivre un réalisateur",
+        "tags": [
+          "réalisateurs"
+        ],
+        "description": "Le nom et la photo sont lus chez TMDB (`person/{id}`) et **recopiés** dans la ligne : c’est ce qui permet à `GET /me/realisateurs` de ne jamais rappeler TMDB.\n\n**Idempotent.** Déjà suivi ? Aucune seconde ligne n’est créée, la réponse est `200` au lieu de `201` et rend la ligne existante — avec sa date d’ajout d’origine, que ce geste ne rafraîchit pas. Un doublon est de toute façon impossible en base : l’unicité `(membre, personne)` y est écrite.\n\nUn `tmdb_id` que TMDB ne connaît pas répond `404`. Rien n’interdit de suivre quelqu’un qui n’est pas réalisateur — `GET /reference/personnes` ne propose que des réalisateurs, mais cette route-ci fait confiance à l’identifiant qu’on lui donne : sa filmographie sera simplement vide.\n\n`503` si `TMDB_API_KEY` n’est pas renseignée sur ce serveur.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "tmdb_id": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991,
+                    "description": "Identifiant de la personne chez TMDB"
+                  }
+                },
+                "required": [
+                  "tmdb_id"
+                ],
+                "additionalProperties": false,
+                "description": "Suivre un réalisateur"
+              }
+            }
+          },
+          "description": "Suivre un réalisateur"
+        },
+        "responses": {
+          "200": {
+            "description": "Il était déjà suivi — la ligne existante, inchangée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tmdb_id": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "description": "Identifiant de la **personne** chez TMDB"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Nom tel que TMDB l’écrit"
+                    },
+                    "profile_url": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Photo en URL absolue, taille `w185`, nulle si TMDB n’en a pas"
+                    },
+                    "ajoute_le": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                      "description": "Date à laquelle ce membre l’a ajouté"
+                    }
+                  },
+                  "required": [
+                    "tmdb_id",
+                    "name",
+                    "profile_url",
+                    "ajoute_le"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Il était déjà suivi — la ligne existante, inchangée"
+                },
+                "examples": {
+                  "Réponse type": {
+                    "value": {
+                      "tmdb_id": 525,
+                      "name": "Christopher Nolan",
+                      "profile_url": "https://image.tmdb.org/t/p/w185/xuAIuYSmsUzKlUMBFGVZaWsY3DZ.jpg",
+                      "ajoute_le": "2026-09-12T09:04:18.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Réalisateur ajouté",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tmdb_id": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "description": "Identifiant de la **personne** chez TMDB"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Nom tel que TMDB l’écrit"
+                    },
+                    "profile_url": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Photo en URL absolue, taille `w185`, nulle si TMDB n’en a pas"
+                    },
+                    "ajoute_le": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                      "description": "Date à laquelle ce membre l’a ajouté"
+                    }
+                  },
+                  "required": [
+                    "tmdb_id",
+                    "name",
+                    "profile_url",
+                    "ajoute_le"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Réalisateur ajouté"
+                },
+                "examples": {
+                  "Réponse type": {
+                    "value": {
+                      "tmdb_id": 525,
+                      "name": "Christopher Nolan",
+                      "profile_url": "https://image.tmdb.org/t/p/w185/xuAIuYSmsUzKlUMBFGVZaWsY3DZ.jpg",
+                      "ajoute_le": "2026-09-15T18:22:41.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/realisateurs/{tmdbId}": {
+      "delete": {
+        "summary": "Ne plus suivre un réalisateur",
+        "tags": [
+          "réalisateurs"
+        ],
+        "description": "Le paramètre est le `tmdb_id` de la **personne**, celui rendu par `GET /me/realisateurs`, et non l’identifiant de la ligne : celle-ci n’en publie aucun.\n\nUn réalisateur que je ne suis pas répond `404` — y compris quand quelqu’un d’autre le suit : le compte ne voit que ses propres lignes.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "in": "path",
+            "name": "tmdbId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response"
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/realisateurs/{tmdbId}/films": {
+      "get": {
+        "summary": "Sa filmographie, et ce que j’en ai vu",
+        "tags": [
+          "réalisateurs"
+        ],
+        "description": "Les films **réalisés** par cette personne (`crew`, poste `Director` — ni ceux qu’elle a produits, ni ceux où elle joue), dédoublonnés, de la plus ancienne sortie à la plus récente.\n\n**Un film sans date de sortie ne figure pas dans la liste** : TMDB porte les projets annoncés, qui n’en ont pas et qu’une liste chronologique ne saurait pas placer.\n\n**`vu`** est mon visionnage le plus récent de ce film, ou `null`. Il vient de mon journal à moi : celui d’un autre membre ne le remplit jamais, même s’il suit le même réalisateur. Le rapprochement se fait sur l’identifiant TMDB du film — une œuvre entrée dans la bibliothèque depuis une autre source n’y répond pas.\n\n**Rien n’entre dans la bibliothèque** : cette route ne crée aucune œuvre et n’écrit aucun suivi.\n\nLa filmographie est mémorisée 24 h côté serveur, **par personne et non par membre** — elle est la même pour tous. `vu`, lui, est relu en base à chaque appel et n’est jamais mémorisé.\n\nUn réalisateur que je ne suis pas répond `404` : il faut l’ajouter d’abord. `503` si `TMDB_API_KEY` n’est pas renseignée sur ce serveur.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "in": "path",
+            "name": "tmdbId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "La filmographie d’un réalisateur suivi, de la plus ancienne sortie à la plus récente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "films": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "tmdb_id": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Identifiant du **film** chez TMDB"
+                          },
+                          "title": {
+                            "type": "string",
+                            "description": "Titre en français, avec repli sur le titre original"
+                          },
+                          "original_title": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "year": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Année de sortie, tirée de `release_date`"
+                          },
+                          "release_date": {
+                            "type": "string",
+                            "format": "date",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                            "description": "Date de sortie — un film qui n’en a pas ne figure pas dans la liste"
+                          },
+                          "cover_url": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uri"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Affiche en URL absolue, taille `w500`"
+                          },
+                          "vu": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "entry_id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                    "description": "L’entrée de journal la plus récente pour ce film"
+                                  },
+                                  "rating": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 10
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "La note de ce visionnage-là"
+                                  },
+                                  "finished_at": {
+                                    "type": "string",
+                                    "format": "date",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                                    "description": "La date de ce visionnage"
+                                  }
+                                },
+                                "required": [
+                                  "entry_id",
+                                  "rating",
+                                  "finished_at"
+                                ],
+                                "additionalProperties": false,
+                                "description": "Mon visionnage le plus récent de ce film"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Nul si je ne l’ai jamais journalisé"
+                          }
+                        },
+                        "required": [
+                          "tmdb_id",
+                          "title",
+                          "original_title",
+                          "year",
+                          "release_date",
+                          "cover_url",
+                          "vu"
+                        ],
+                        "additionalProperties": false,
+                        "description": "Un film réalisé par cette personne"
+                      }
+                    }
+                  },
+                  "required": [
+                    "films"
+                  ],
+                  "additionalProperties": false,
+                  "description": "La filmographie d’un réalisateur suivi, de la plus ancienne sortie à la plus récente"
+                },
+                "examples": {
+                  "Réponse type": {
+                    "value": {
+                      "films": [
+                        {
+                          "tmdb_id": 27205,
+                          "title": "Inception",
+                          "original_title": "Inception",
+                          "year": 2010,
+                          "release_date": "2010-07-15",
+                          "cover_url": "https://image.tmdb.org/t/p/w500/9gk7adZmeSSuQfZBtWWLIcVcSY.jpg",
+                          "vu": {
+                            "entry_id": "e0000000-0000-4000-8000-000000000002",
+                            "rating": 9,
+                            "finished_at": "2026-07-12"
+                          }
+                        },
+                        {
+                          "tmdb_id": 157336,
+                          "title": "Interstellar",
+                          "original_title": "Interstellar",
+                          "year": 2014,
+                          "release_date": "2014-11-05",
+                          "cover_url": "https://image.tmdb.org/t/p/w500/nrJ0FuWpoGVQ8lLkmDVUxr4b8vF.jpg",
+                          "vu": null
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/media/{id}/availability": {
       "get": {
         "summary": "Où regarder un film ou une série",
@@ -38822,6 +39502,10 @@
     {
       "name": "carnet",
       "description": "La partie privée du journal — la seule exception à « tout est public ». Ne parle que de l’utilisateur de la session."
+    },
+    {
+      "name": "réalisateurs",
+      "description": "Suivre des réalisateurs et lire leur filmographie, avec ce qu’on en a déjà vu. Ne parle que de l’utilisateur de la session — sauf la recherche, qui ne dépend d’aucun compte."
     },
     {
       "name": "veille",
