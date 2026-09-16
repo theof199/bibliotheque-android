@@ -7,6 +7,8 @@ import fr.mediatheque.journal.api.dto.CollectionResult
 import fr.mediatheque.journal.api.dto.CollectionsResponse
 import fr.mediatheque.journal.api.dto.FilmSuivi
 import fr.mediatheque.journal.api.dto.FilmsResponse
+import fr.mediatheque.journal.api.dto.ImportLetterboxdBody
+import fr.mediatheque.journal.api.dto.ImportLetterboxdResponse
 import fr.mediatheque.journal.api.dto.JournalCreateBody
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.JournalResponse
@@ -29,8 +31,10 @@ import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.okhttp.OkHttp
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
+import io.ktor.client.plugins.timeout
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -66,6 +70,9 @@ class ApiClient(baseUrl: String, engine: HttpClientEngine) : JournalApi {
     private val client = HttpClient(engine) {
         expectSuccess = false
         install(ContentNegotiation) { json(ApiJson) }
+        // Sans valeur par défaut ici : les appels ordinaires gardent les délais bruts du moteur
+        // OkHttp (10 s). Seul `importLetterboxd` pose un délai propre, par requête — voir plus bas.
+        install(HttpTimeout)
         defaultRequest {
             // La base finit par `/` et les chemins ne commencent pas par `/` :
             // c'est ce qui garde le préfixe `/api` de l'instance en ligne.
@@ -134,6 +141,18 @@ class ApiClient(baseUrl: String, engine: HttpClientEngine) : JournalApi {
     override suspend fun deleteViewing(id: String) {
         call<Unit> { client.delete(Endpoints.viewing(id)) }
     }
+
+    override suspend fun importLetterboxd(csv: String): ImportLetterboxdResponse =
+        call {
+            client.post(Endpoints.importLetterboxd) {
+                contentType(ContentType.Application.Json)
+                setBody(ImportLetterboxdBody(csv))
+                // 5 minutes (brief du 16 septembre 2026) : la réponse n'arrive qu'une fois le
+                // fichier entièrement traité, jusqu'à ~2 minutes pour 500 lignes côté back — le
+                // délai par défaut du moteur (10 s) couperait bien avant.
+                timeout { requestTimeoutMillis = IMPORT_LETTERBOXD_TIMEOUT_MS }
+            }
+        }
 
     override suspend fun stats(): StatsResponse = call { client.get(Endpoints.stats) }
 
@@ -248,6 +267,9 @@ class ApiClient(baseUrl: String, engine: HttpClientEngine) : JournalApi {
     }
 
     companion object {
+        /** Cinq minutes, pour `importLetterboxd` seul (brief du 16 septembre 2026). */
+        const val IMPORT_LETTERBOXD_TIMEOUT_MS = 5 * 60_000L
+
         /**
          * `ignoreUnknownKeys` : les réponses sont riches, on n'en modèle qu'une
          * partie, et le contrat a le droit de s'enrichir. `encodeDefaults` :

@@ -1,5 +1,8 @@
 package fr.mediatheque.journal.ui.profile
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -31,6 +34,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
@@ -54,12 +58,24 @@ fun ProfileScreen(
     onFilms: () -> Unit,
     onSensCritique: () -> Unit,
     onSignOut: () -> Unit,
+    onImportLetterboxd: (ByteArray) -> Unit,
     bottomBar: @Composable () -> Unit,
 ) {
     val ui by vm.ui.collectAsState()
     val senscritiqueUi by senscritique.ui.collectAsState()
     val bilanUi by bilan.ui.collectAsState()
     val suivisUi by suivis.ui.collectAsState()
+
+    // Sélecteur de fichiers système (brief « importer Letterboxd », 16 septembre 2026) : le ZIP de
+    // l'export ou `diary.csv` seul, `*/*` en repli pour les lecteurs qui ne déclarent aucun des deux
+    // types MIME correctement. `null` (retour sans choix) ne fait rien. La lecture du contenu se
+    // fait ici, seul endroit de l'écran qui touche un `Context` — `onImportLetterboxd` ne reçoit que
+    // des octets, jamais l'`Uri`.
+    val context = LocalContext.current
+    val choisirFichier = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        context.contentResolver.openInputStream(uri)?.use { flux -> onImportLetterboxd(flux.readBytes()) }
+    }
 
     // Jumeau du `LaunchedEffect(Unit) { vm.retry() }` ci-dessous : ce `ViewModel` est lui aussi
     // indexé sur l'Activité, clé fixe — sans ce rafraîchissement, revenir du profil depuis l'écran
@@ -118,6 +134,16 @@ fun ProfileScreen(
                         trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null) },
                         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
                         modifier = Modifier.clickable(onClick = onSensCritique),
+                    )
+                    ListItem(
+                        headlineContent = { Text("Importer Letterboxd", style = MaterialTheme.typography.titleMedium) },
+                        supportingContent = { Text("Le fichier d’export de Letterboxd, ZIP ou diary.csv") },
+                        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+                        modifier = Modifier.clickable {
+                            choisirFichier.launch(
+                                arrayOf("application/zip", "text/csv", "text/comma-separated-values", "*/*"),
+                            )
+                        },
                     )
                     TextButton(onClick = onSignOut) { Text("Se déconnecter", color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }

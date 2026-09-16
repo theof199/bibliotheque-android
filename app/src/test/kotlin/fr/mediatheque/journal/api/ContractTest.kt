@@ -3,6 +3,7 @@ package fr.mediatheque.journal.api
 import fr.mediatheque.journal.api.dto.AddMediaResponse
 import fr.mediatheque.journal.api.dto.CollectionsResponse
 import fr.mediatheque.journal.api.dto.FilmsResponse
+import fr.mediatheque.journal.api.dto.ImportLetterboxdResponse
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.JournalResponse
 import fr.mediatheque.journal.api.dto.PersonnesResponse
@@ -72,6 +73,19 @@ class ContractTest {
         assertEquals(listOf("adore", "touche"), item.carnet.reactions)
         assertEquals("Revu avec Léa, toujours aussi fort.", item.carnet.comment)
         assertEquals(null, page.next_cursor)
+    }
+    // L'import Letterboxd (brief du 16 septembre 2026) : un candidat ambigu et une erreur, dans
+    // l'exemple du contrat — de quoi vérifier que les deux DTO imbriqués se désérialisent aussi.
+    @Test fun `POST me journal import letterboxd`() {
+        val rapport = lit("/me/journal/import/letterboxd", "post", "200", ImportLetterboxdResponse.serializer())
+        assertEquals(2, rapport.importes)
+        assertEquals(1, rapport.deja_presents)
+        val ligne = rapport.non_reconnus.first()
+        assertEquals(5, ligne.ligne)
+        assertEquals("Alien", ligne.name)
+        assertEquals(1979, ligne.year)
+        assertEquals(listOf("348", "999501"), ligne.candidats.map { it.tmdb_id })
+        assertEquals(12, rapport.erreurs.first().ligne)
     }
     // « Au ciné » (brief du 14 puis 15 septembre 2026) : à l'affiche aujourd'hui dans mes
     // cinémas (Allociné), et la semaine prochaine (TMDB). Le contrat n'a pas d'exemple à part

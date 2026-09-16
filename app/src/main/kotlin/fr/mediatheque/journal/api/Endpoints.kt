@@ -13,6 +13,8 @@ object Endpoints {
     const val search = "search"
     const val media = "media"
     const val journal = "me/journal"
+    /** `POST /me/journal/import/letterboxd` (brief du 16 septembre 2026) : corps JSON `{ csv }`, jamais `text/csv`. */
+    const val importLetterboxd = "me/journal/import/letterboxd"
     const val stats = "stats"
     const val sorties = "reference/sorties"
     const val plex = "reference/plex"

@@ -35,10 +35,13 @@ import fr.mediatheque.journal.ui.home.HomeScreen
 import fr.mediatheque.journal.ui.login.LoginScreen
 import fr.mediatheque.journal.ui.login.LoginViewModel
 import fr.mediatheque.journal.ui.profile.BilanViewModel
+import fr.mediatheque.journal.ui.profile.LetterboxdImportViewModel
 import fr.mediatheque.journal.ui.profile.ProfileScreen
 import fr.mediatheque.journal.ui.profile.ProfileViewModel
+import fr.mediatheque.journal.ui.profile.RapportImportScreen
 import fr.mediatheque.journal.ui.profile.SensCritiqueScreen
 import fr.mediatheque.journal.ui.profile.SensCritiqueViewModel
+import fr.mediatheque.journal.ui.profile.toSearchResult
 import fr.mediatheque.journal.ui.suivis.ChercherSuiviScreen
 import fr.mediatheque.journal.ui.suivis.ChercherSuiviViewModel
 import fr.mediatheque.journal.ui.suivis.FicheSuiviScreen
@@ -114,6 +117,13 @@ fun Root(container: AppContainer) {
             val suivis: SuivisViewModel = viewModel(key = "suivis") {
                 SuivisViewModel(container.api, session::expire)
             }
+            // Indexé sur l'Activité comme les autres ci-dessus (brief « importer Letterboxd »,
+            // 16 septembre 2026) : `Screen.RapportImport` ne porte aucune donnée, elle relit cette
+            // instance — c'est elle qui garde la requête en vol si le retour système dépile l'écran
+            // pendant l'attente.
+            val letterboxd: LetterboxdImportViewModel = viewModel(key = "letterboxd-import") {
+                LetterboxdImportViewModel(container.api, session::expire)
+            }
             var etaitSurSensCritique by remember { mutableStateOf(false) }
             LaunchedEffect(nav.current) {
                 if (etaitSurSensCritique && nav.current != Screen.SensCritique) senscritique.clearCredentials()
@@ -180,7 +190,12 @@ fun Root(container: AppContainer) {
                         // le `FormViewModel` du premier film à tous les suivants ; l'identité du
                         // film dans la clé ouvre une case par film.
                         val form: FormViewModel = viewModel(key = "form:${screen.result.source}:${screen.result.external_id}") {
-                            FormViewModel(container.api, FormMode.Create(screen.result), container.sensCritiqueSync, session::expire)
+                            FormViewModel(
+                                container.api,
+                                FormMode.Create(screen.result, screen.date, screen.rating),
+                                container.sensCritiqueSync,
+                                session::expire,
+                            )
                         }
                         FormScreen(form, nav = nav, onBack = nav::pop)
                     }
@@ -204,6 +219,7 @@ fun Root(container: AppContainer) {
                             onFilms = { nav.push(Screen.Films) },
                             onSensCritique = { nav.push(Screen.SensCritique) },
                             onSignOut = session::signOut,
+                            onImportLetterboxd = { bytes -> letterboxd.start(bytes); nav.push(Screen.RapportImport) },
                             bottomBar = {
                                 JournalBottomBar(
                                     screen,
@@ -406,6 +422,18 @@ fun Root(container: AppContainer) {
                                 result.external_id.toIntOrNull()?.let { suivis.ajouterFilm(screen.tmdbId, it) }
                                 nav.pop()
                             },
+                        )
+                    }
+                    Screen.RapportImport -> {
+                        val letterboxdUi by letterboxd.ui.collectAsState()
+                        RapportImportScreen(
+                            letterboxdUi,
+                            onBack = nav::pop,
+                            onCandidat = { candidat, ligne ->
+                                val (date, rating) = letterboxd.prefillFor(ligne)
+                                nav.push(Screen.Form(candidat.toSearchResult(), date, rating))
+                            },
+                            onTermine = nav::pop,
                         )
                     }
                 }

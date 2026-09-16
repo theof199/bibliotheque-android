@@ -187,6 +187,12 @@ au back.
 
     bin/dans ./gradlew testDebugUnitTest
 
+Pour éprouver l'import Letterboxd (brief du 16 septembre 2026) sur un vrai
+fichier : sur Letterboxd, Réglages → Import & Export → « Export your data »
+donne un ZIP contenant `diary.csv` (et `watched.csv`, `ratings.csv`, que
+l'appli n'utilise pas). C'est ce ZIP, ou `diary.csv` seul une fois extrait,
+que Profil → « Importer Letterboxd » accepte.
+
 Ce qui ne se teste pas sur la JVM se vérifie sur le téléphone :
 
 Aucune des lignes qui suivent n'a encore été vue sur un téléphone : c'est une
@@ -254,3 +260,5 @@ liste de contrôle à jouer, pas un journal de ce qui a déjà été vérifié.
 - [ ] Chercher une saga (par exemple « alien ») : les résultats affichent l'affiche ronde et le nom ; en suivre une, sa fiche liste ses films dans l'ordre de sortie ; ceux sans date de sortie n'y figurent pas.
 - [ ] Sur la fiche d'une saga (jamais sur celle d'un réalisateur), « Ajouter un film » sous le nom ouvre la recherche existante ; choisir un film y revient avec « ajouté » à droite de son titre, à sa place chronologique, et « Ajouté à la saga » en snackbar ; un appui long dessus propose aussi « Retirer de la saga », qui le fait disparaître.
 - [ ] Profil : sous les deux chiffres du haut, la carte « Bilan » — sept lignes (films vus dont cette année, séances en salle dont cette année, note moyenne, décennies couvertes, le plus ancien film vu, réalisateurs suivis et terminés, sagas idem), chacune en « … » un instant avant sa vraie valeur, jamais un chiffre qui saute d'une valeur à l'autre.
+- [ ] Profil, « Importer Letterboxd » : choisir le ZIP de l'export (ou `diary.csv` seul) affiche « Import en cours… » puis le rapport — comptes, non reconnus avec leurs candidats, erreurs ; un ZIP sans `diary.csv` affiche le message qui le dit.
+- [ ] Toucher un candidat non reconnu ouvre le formulaire avec la date et la note de sa ligne du fichier déjà remplies ; « Terminé » revient au profil, dont les deux chiffres du haut sont à jour.

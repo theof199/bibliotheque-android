@@ -25,13 +25,18 @@ import java.time.LocalDate
 private const val SENSCRITIQUE_SYNC_TIMEOUT_MS = 6_000L
 
 sealed interface FormMode {
-    data class Create(val result: SearchResult) : FormMode
+    /**
+     * `date` et `rating` : nuls pour une ouverture ordinaire (aujourd'hui, sans note) ; portés
+     * quand `Screen.Form` vient d'un candidat choisi dans le rapport d'import Letterboxd (brief du
+     * 16 septembre 2026) — la date et la note que le back a lues sur cette ligne du fichier.
+     */
+    data class Create(val result: SearchResult, val date: LocalDate? = null, val rating: Int? = null) : FormMode
     data class Edit(val item: JournalItem) : FormMode
 }
 
 /** L'état de départ du brouillon pour un mode — celui du formulaire vide, ou celui du visionnage à corriger. */
 private fun initialUi(mode: FormMode): FormUi = when (mode) {
-    is FormMode.Create -> FormUi(date = LocalDate.now())
+    is FormMode.Create -> FormUi(date = mode.date ?: LocalDate.now(), rating = mode.rating)
     is FormMode.Edit -> FormUi(
         date = LocalDate.parse(mode.item.entry.finished_at),
         rating = mode.item.entry.rating,

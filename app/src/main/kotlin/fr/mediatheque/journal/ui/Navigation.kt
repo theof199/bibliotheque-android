@@ -34,12 +34,19 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.withTimeoutOrNull
+import java.time.LocalDate
 
-/** Les quatorze écrans. Un écran qui a besoin d'une donnée la porte. */
+/** Les quinze écrans. Un écran qui a besoin d'une donnée la porte. */
 sealed interface Screen {
     data object Home : Screen
     data object Search : Screen
-    data class Form(val result: SearchResult) : Screen
+
+    /**
+     * `date` et `rating` pré-remplissent le formulaire (brief « importer Letterboxd », 16 septembre
+     * 2026) : nuls partout ailleurs, portés seulement quand on ouvre depuis un candidat choisi dans
+     * `Screen.RapportImport` — la date et la note que le back a lues sur cette ligne du fichier.
+     */
+    data class Form(val result: SearchResult, val date: LocalDate? = null, val rating: Int? = null) : Screen
     data object Profile : Screen
     data object Films : Screen
     data class Edit(val item: JournalItem) : Screen
@@ -84,6 +91,16 @@ sealed interface Screen {
      * formulaire — jumeau de `Screen.ChercherSuivi` pour cette différence-là.
      */
     data class ChoisirFilmDeSaga(val tmdbId: Int) : Screen
+
+    /**
+     * L'import Letterboxd (brief du 16 septembre 2026), empilée depuis le profil dès qu'un fichier
+     * est choisi. Un seul écran pour les deux états du design (§5, §6) : « Import en cours… » tant
+     * que `LetterboxdImportViewModel.ui` ne porte ni rapport ni erreur, le rapport ou le message
+     * d'erreur ensuite — la même instance de `ViewModel`, indexée sur l'Activité (`Root.kt`, clé
+     * `"letterboxd-import"`), pas de donnée portée ici : le retour système pendant l'attente dépile
+     * l'écran sans annuler la requête, qui continue sur cette instance.
+     */
+    data object RapportImport : Screen
 }
 
 /** Les cinq entrées de la barre de navigation du bas (décision du propriétaire du 14 septembre 2026 ; Cinema ajoutée le même jour ; Frise le 15 septembre 2026, entre Home et Cinema ; Suivis le même jour, entre Frise et Cinema, sous le nom « Réalisateurs » jusqu'aux sagas, le même jour encore). */
@@ -92,7 +109,7 @@ enum class BottomTab { Home, Frise, Suivis, Cinema, Profile }
 /**
  * Décide, pour un écran donné, si la barre du bas est visible et laquelle de ses entrées est
  * sélectionnée : `null` la cache. Fonction pure, sans dépendance à Compose, testée en JVM
- * (`NavigationTest.kt`) — c'est elle, et elle seule, qui fixe la matrice des treize écrans, plutôt
+ * (`NavigationTest.kt`) — c'est elle, et elle seule, qui fixe la matrice des quinze écrans, plutôt
  * que de la reposer à chaque site d'appel.
  *
  * « Mes films » affiche « Profil » sélectionnée, pas « Accueil » : dans `Root.kt`, cet écran ne
@@ -108,7 +125,7 @@ fun Screen.bottomBarTab(): BottomTab? = when (this) {
     Screen.Cinema -> BottomTab.Cinema
     Screen.Profile, Screen.Films -> BottomTab.Profile
     Screen.Search, is Screen.Form, is Screen.Edit, Screen.SensCritique, is Screen.Annee,
-    Screen.ChercherSuivi, is Screen.FicheSuivi, is Screen.ChoisirFilmDeSaga,
+    Screen.ChercherSuivi, is Screen.FicheSuivi, is Screen.ChoisirFilmDeSaga, Screen.RapportImport,
     -> null
 }
 

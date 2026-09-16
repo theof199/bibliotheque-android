@@ -7,6 +7,7 @@ import fr.mediatheque.journal.api.dto.AddedMedia
 import fr.mediatheque.journal.api.dto.Carnet
 import fr.mediatheque.journal.api.dto.CollectionResult
 import fr.mediatheque.journal.api.dto.FilmSuivi
+import fr.mediatheque.journal.api.dto.ImportLetterboxdResponse
 import fr.mediatheque.journal.api.dto.JournalCreateBody
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.JournalMedia
@@ -40,6 +41,7 @@ class FakeJournalApi : JournalApi {
     var onPatchViewing: suspend (String, JsonObject) -> JournalItem = { id, _ -> item("m", "2026-01-01", null, emptyList(), null, id) }
     var onDeleteViewing: suspend (String) -> Unit = {}
     var onStats: suspend () -> StatsResponse = { error("onStats non configuré") }
+    var onImportLetterboxd: suspend (String) -> ImportLetterboxdResponse = { error("onImportLetterboxd non configuré") }
     var onSeances: suspend (String?) -> JournalResponse = { JournalResponse(emptyList(), null) }
     var onSorties: suspend () -> SortiesResponse = {
         SortiesResponse(
@@ -73,6 +75,7 @@ class FakeJournalApi : JournalApi {
     override suspend fun patchViewing(id: String, body: JsonObject) = track("patchViewing $id") { onPatchViewing(id, body) }
     override suspend fun deleteViewing(id: String) = track("deleteViewing $id") { onDeleteViewing(id) }
     override suspend fun stats() = track("stats") { onStats() }
+    override suspend fun importLetterboxd(csv: String) = track("importLetterboxd") { onImportLetterboxd(csv) }
     override suspend fun seances(cursor: String?) = track("seances $cursor") { onSeances(cursor) }
     override suspend fun sorties() = track("sorties") { onSorties() }
     override suspend fun plex() = track("plex") { onPlex() }

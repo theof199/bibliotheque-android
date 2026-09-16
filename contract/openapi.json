@@ -27913,6 +27913,230 @@
         }
       }
     },
+    "/me/journal/import/letterboxd": {
+      "post": {
+        "summary": "Importer le journal Letterboxd (`diary.csv`)",
+        "tags": [
+          "carnet"
+        ],
+        "description": "Letterboxd est fermé (Cloudflare, API sur invitation) : pas de synchronisation possible. Le seul chemin est l’export personnel du membre (Réglages → Import & Export → « Export your data » sur Letterboxd), un ZIP dont l’appli extrait `diary.csv` avant de l’envoyer ici — **en JSON**, `{ \"csv\": \"...\" }`, jamais en `text/csv`.\n\nPour chaque ligne : titre et année cherchent un candidat chez TMDB, apparié par les mêmes règles que l’import SensCritique (`dev/importer-senscritique.ts`) — **un seul candidat net importe**, zéro ou plusieurs partent dans `non_reconnus` avec les candidats trouvés, jamais devinés.\n\nLa date de l’entrée est `Watched Date`, ou `Date` si elle est vide. La note est `Rating × 2` arrondie à l’entier (une note Letterboxd vide n’écrit pas de note). **Une ligne déjà présente — même film TMDB, même date, chez ce membre — est ignorée** (`deja_presents`), sans créer de doublon.\n\nFilms seulement, comme le reste du carnet : l’œuvre entre dans la bibliothèque si elle n’y était pas, exactement comme `POST /media/:id/log`, sans toucher au statut de suivi.\n\n**La réponse n’arrive qu’une fois le fichier entièrement traité.** Les recherches TMDB passent une par une, à 250 ms d’écart, par la file sortante commune — un fichier de 500 lignes prend donc environ deux minutes. La résolution d’un titre et d’une année se mémorise 30 jours en Redis : rejouer le même fichier ne rappelle pas TMDB pour les lignes déjà résolues. **Prévoir un délai client d’au moins cinq minutes pour cet appel.**\n\nUn CSV sans les en-têtes de `diary.csv` (`Date,Name,Year,Letterboxd URI,Rating,Rewatch,Tags,Watched Date`) répond `400`. `watched.csv` et `ratings.csv`, qui n’en portent qu’un sous-ensemble, ne sont donc pas acceptés tels quels.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "csv": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2097152,
+                    "description": "Le contenu de `diary.csv`, tel quel — l’appli l’a extrait du ZIP Letterboxd si besoin"
+                  }
+                },
+                "required": [
+                  "csv"
+                ],
+                "additionalProperties": false,
+                "description": "Le CSV `diary.csv` de l’export Letterboxd"
+              }
+            }
+          },
+          "description": "Le CSV `diary.csv` de l’export Letterboxd"
+        },
+        "responses": {
+          "200": {
+            "description": "Le bilan de l’import — la réponse arrive une fois le fichier entièrement traité",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "importes": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "description": "Visionnages importés — un par ligne reconnue et pas déjà présente"
+                    },
+                    "deja_presents": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "description": "Lignes ignorées : ce membre a déjà une entrée pour ce film à cette date"
+                    },
+                    "non_reconnus": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "ligne": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Numéro de la ligne dans le CSV — 1 pour l’en-tête, 2 pour la première ligne de données"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "year": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "candidats": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "tmdb_id": {
+                                  "type": "string",
+                                  "description": "Identifiant TMDB du candidat"
+                                },
+                                "title": {
+                                  "type": "string"
+                                },
+                                "year": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "tmdb_id",
+                                "title",
+                                "year"
+                              ],
+                              "additionalProperties": false,
+                              "description": "Un candidat TMDB parmi lesquels la ligne n’a pas pu être tranchée"
+                            },
+                            "description": "Vide si aucun candidat ne correspond, plusieurs si le choix est ambigu"
+                          }
+                        },
+                        "required": [
+                          "ligne",
+                          "name",
+                          "year",
+                          "candidats"
+                        ],
+                        "additionalProperties": false,
+                        "description": "Une ligne non importée, faute d’un candidat net"
+                      }
+                    },
+                    "erreurs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "ligne": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "ligne",
+                          "message"
+                        ],
+                        "additionalProperties": false,
+                        "description": "Une ligne dont le traitement a échoué"
+                      }
+                    }
+                  },
+                  "required": [
+                    "importes",
+                    "deja_presents",
+                    "non_reconnus",
+                    "erreurs"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Le bilan de l’import — la réponse arrive une fois le fichier entièrement traité"
+                },
+                "examples": {
+                  "Réponse type": {
+                    "value": {
+                      "importes": 2,
+                      "deja_presents": 1,
+                      "non_reconnus": [
+                        {
+                          "ligne": 5,
+                          "name": "Alien",
+                          "year": 1979,
+                          "candidats": [
+                            {
+                              "tmdb_id": "348",
+                              "title": "Alien, le huitième passager",
+                              "year": 1979
+                            },
+                            {
+                              "tmdb_id": "999501",
+                              "title": "Alien: Awakening",
+                              "year": 1979
+                            }
+                          ]
+                        }
+                      ],
+                      "erreurs": [
+                        {
+                          "ligne": 12,
+                          "message": "Date invalide."
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/me/journal/{id}": {
       "patch": {
         "summary": "Corriger un visionnage et sa partie privée",

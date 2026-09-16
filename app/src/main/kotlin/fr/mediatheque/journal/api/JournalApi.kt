@@ -3,6 +3,7 @@ package fr.mediatheque.journal.api
 import fr.mediatheque.journal.api.dto.AddMediaResponse
 import fr.mediatheque.journal.api.dto.CollectionResult
 import fr.mediatheque.journal.api.dto.FilmSuivi
+import fr.mediatheque.journal.api.dto.ImportLetterboxdResponse
 import fr.mediatheque.journal.api.dto.JournalCreateBody
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.JournalResponse
@@ -41,6 +42,13 @@ interface JournalApi {
     suspend fun addViewing(body: JournalCreateBody): JournalItem
     suspend fun patchViewing(id: String, body: JsonObject): JournalItem
     suspend fun deleteViewing(id: String)
+
+    /**
+     * `POST /me/journal/import/letterboxd` (brief du 16 septembre 2026) : le contenu de
+     * `diary.csv`, tel quel. La réponse n'arrive qu'une fois le fichier entièrement traité —
+     * jusqu'à quelques minutes pour un gros fichier, `ApiClient` lui donne un délai propre.
+     */
+    suspend fun importLetterboxd(csv: String): ImportLetterboxdResponse
     suspend fun stats(): StatsResponse
     /** `GET /me/journal?reaction=en_salle` : mes séances, du plus récent au plus ancien. */
     suspend fun seances(cursor: String?): JournalResponse
