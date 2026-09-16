@@ -185,7 +185,7 @@ plusieurs, ce sont des états sélectionnés, pas des boutons, et un seul bouton
 | **Vide**, recherche sans résultat | « Rien trouvé pour “…”. » sous la barre, même style. Champ vide : rien du tout. |
 | **Vide**, « Au ciné » (brief du 14 puis 15 septembre 2026) | « Tes séances » sans entrée : « Aucune séance pour l'instant. », même style que l'accueil. « La semaine prochaine » sans film cette semaine-là : « Rien cette semaine. », même style, à la place de la grille. « Sorti cette semaine dans mes cinémas » : « Pas encore de programme. » tant qu'aucun cinéma n'est configuré ou que la tâche de fond du back n'a jamais tourné ; « Rien à l'affiche aujourd'hui. » si elle a tourné et n'a simplement rien trouvé ce jour-là — deux messages distincts, même style. |
 | **Erreur**, toutes | Le `message` du back tel quel, `bodyLarge onSurface`, dans un bloc `surfaceContainer` à coins 12 dp, marge 16 dp. Si `retryable`, un `TextButton` « Réessayer » corail, aligné à droite dans le bloc. Panne réseau : le même bloc avec « L'API est injoignable. » |
-| **Erreur**, second appel du geste | Le même bloc, avec « Le film est ajouté, mais pas ton visionnage. » et « Réessayer », qui ne relance que `POST /me/journal`. |
+| **Erreur**, second appel du geste | Une ligne de contexte « Le film est ajouté, mais pas ton visionnage. » au-dessus du bloc d'erreur habituel, lequel garde le vrai message du back (`error.message`) et son « Réessayer » si `retryable` — qui ne relance que `POST /me/journal` (`FormViewModel.ViewingFailedAfterMediaAdded`, `FormScreen` ; précisé le 16 septembre 2026, la ligne de contexte s'ajoutant au message du back plutôt que de le remplacer). |
 | **Succès** | Un `Snackbar` « Enregistré », fond `surfaceContainerHigh`, texte `onSurface`, deux secondes, sans action. Pas de flash clair : la version inversée de Material n'est pas utilisée. |
 | **Désactivé** | Opacité 38 %, valeur de Material, rien de spécifique. |
 | **Succès, poussé sur SensCritique** (brief du 14 septembre 2026) | Le même `Snackbar`, avec « · SensCritique ✓ » à la suite : « Enregistré · SensCritique ✓ » ou « Corrigé · SensCritique ✓ ». |
@@ -253,8 +253,13 @@ app/src/main/kotlin/fr/mediatheque/journal/ui/theme/
   Theme.kt     JournalTheme : darkColorScheme(...) avec les valeurs de Color.kt,
                pas de dynamicDarkColorScheme, pas de branche claire, pas de
                isSystemInDarkTheme()
+app/src/main/assets/
+  OFL.txt      la licence Manrope — un `.txt` n'est pas une ressource valide
+               sous res/font/, qui ne porte que les quatre .ttf (corrigé le
+               16 septembre 2026, l'ancienne description la donnait à tort
+               comme rangée là)
 app/src/main/res/
-  font/        manrope_regular.ttf, _medium, _semibold, _bold, OFL.txt
+  font/        manrope_regular.ttf, _medium, _semibold, _bold
   values/themes.xml      windowBackground #000000, splash background #000000
   values-v31/themes.xml  windowSplashScreenAnimatedIcon, windowSplashScreenAnimationDuration
   mipmap-anydpi-v26/ic_launcher.xml   icône adaptative (fond + premier plan)
