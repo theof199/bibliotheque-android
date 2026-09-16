@@ -64,10 +64,11 @@ import java.time.ZoneOffset
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun FormScreen(vm: FormViewModel, nav: Navigator, onBack: () -> Unit) {
+fun FormScreen(vm: FormViewModel, nav: Navigator, onBack: () -> Unit, carton: CartonViewModel? = null) {
     val ui by vm.ui.collectAsState()
     var showPicker by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var cartonVisible by remember { mutableStateOf(true) }
     val editing = vm.mode is FormMode.Edit
 
     // Le `ViewModel` ne connaît pas `nav` (correction 1 de la tâche 6) : indexé sur le film ou
@@ -76,7 +77,7 @@ fun FormScreen(vm: FormViewModel, nav: Navigator, onBack: () -> Unit) {
     // consomme le signal et referme la boucle.
     LaunchedEffect(ui.done) {
         ui.done?.let {
-            nav.home(it)
+            nav.home(it, ui.doneCartonTmdbId)
             vm.doneConsumed()
         }
     }
@@ -166,6 +167,12 @@ fun FormScreen(vm: FormViewModel, nav: Navigator, onBack: () -> Unit) {
                     }
                     ErrorBlock(error.message ?: "", retryable = error.retryable, onRetry = vm::retry)
                 }
+            }
+            // Le Voyage (brief du 16 septembre 2026) : en bas de la correction, silencieuse tant
+            // que le carton n'existe pas encore (`CartonCard` lui-même ne rend rien dans ce cas).
+            if (carton != null && cartonVisible) {
+                val cartonUi by carton.ui.collectAsState()
+                CartonCard(cartonUi, attente = false, onDismiss = { cartonVisible = false })
             }
             Spacer(Modifier.height(8.dp))
         }

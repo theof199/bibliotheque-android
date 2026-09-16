@@ -45,4 +45,11 @@ object Endpoints {
      * 15 septembre 2026).
      */
     fun filmDeSaga(tmdbId: Int, filmId: Int): String = "${filmsDeSaga(tmdbId)}/$filmId"
+
+    // --- Le Voyage (brief du 16 septembre 2026), phase 1 « le moteur ». ---
+
+    const val voyage = "me/voyage"
+    fun chroniqueAnnee(annee: Int): String = "reference/chroniques/annees/$annee"
+    fun chroniqueFilm(tmdbId: Int): String = "reference/chroniques/films/$tmdbId"
+    fun demanderVoyage(tmdbId: Int): String = "me/voyage/demander/$tmdbId"
 }

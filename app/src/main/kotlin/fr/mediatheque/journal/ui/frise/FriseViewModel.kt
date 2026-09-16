@@ -11,6 +11,7 @@ import fr.mediatheque.journal.api.dto.PlexFilm
 import fr.mediatheque.journal.api.dto.PlexResponse
 import fr.mediatheque.journal.api.dto.SearchMetadata
 import fr.mediatheque.journal.api.dto.SearchResult
+import fr.mediatheque.journal.api.dto.VoyageResponse
 import fr.mediatheque.journal.ui.theme.Corail
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -187,6 +188,8 @@ data class FriseUi(
     val decennies: List<DecennieFrise> = emptyList(),
     /** Faux si Seerr n'est pas configuré côté back : la Frise ne montre alors que les vus. */
     val plexConfigure: Boolean = false,
+    /** Ma progression dans le Voyage (brief du 16 septembre 2026) — la phrase de tête et la couleur des cases en dépendent désormais. */
+    val voyage: VoyageUi = VoyageUi(),
     val loading: Boolean = false,
     val error: ApiError? = null,
 )
@@ -221,6 +224,15 @@ class FriseViewModel(private val api: JournalApi, private val onUnauthenticated:
                 PlexResponse()
             }
 
+            // Comme le Plex : une panne ou un serveur sans clé Anthropic ne doit pas priver la
+            // Frise de son calendrier — elle se dégrade sans la phrase de tête ni les cadenas/étoiles.
+            val voyage = try {
+                api.voyage()
+            } catch (e: ApiError) {
+                if (e.isUnauthenticated) onUnauthenticated()
+                VoyageResponse()
+            }
+
             val frise = construireFrise(journal, plex)
             _ui.update {
                 FriseUi(
@@ -229,6 +241,7 @@ class FriseViewModel(private val api: JournalApi, private val onUnauthenticated:
                     ensuite = frise.ensuite,
                     decennies = construireDecennies(frise),
                     plexConfigure = plex.configure,
+                    voyage = voyage.toVoyageUi(),
                     loading = false,
                 )
             }

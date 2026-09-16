@@ -47,6 +47,8 @@ fun DecennieScreen(
     onOuvrirVu: (JournalItem) -> Unit,
     onOuvrirAVoir: (PlexFilm) -> Unit,
     onOuvrirAnnee: (Int) -> Unit,
+    /** Le Voyage (brief du 16 septembre 2026) : les années verrouillées se grisent, ici aussi. */
+    voyage: VoyageUi = VoyageUi(),
 ) {
     Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
         Column(Modifier.fillMaxWidth().padding(padding).padding(vertical = 16.dp)) {
@@ -87,17 +89,20 @@ fun DecennieScreen(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 decennie.annees.forEach { annee ->
-                    // « Grisées si l'année n'a rien » (le constat, point 2) : opacité désactivée
-                    // du design (§6, 38 %), jamais retirées de la rangée — les dix puces restent
-                    // touchables, une année vide ouvrant simplement un `AnneeScreen` vide.
+                    // « Grisées si l'année n'a rien » (le constat, point 2), et désormais aussi si
+                    // le Voyage la déclare verrouillée (brief du 16 septembre 2026) : opacité
+                    // désactivée du design (§6, 38 %), jamais retirées de la rangée — les dix
+                    // puces restent touchables, une année vide ou verrouillée ouvrant simplement
+                    // l'écran correspondant.
                     val rien = annee.vus == 0 && annee.aVoir == 0
+                    val verrouillee = statutVoyage(annee.annee, voyage) == StatutAnneeVoyage.VERROUILLEE
                     Text(
                         annee.annee.toString(),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier
                             .weight(1f)
-                            .let { if (rien) it.alpha(0.38f) else it }
+                            .let { if (rien || verrouillee) it.alpha(0.38f) else it }
                             .clickable { onOuvrirAnnee(annee.annee) }
                             .padding(vertical = 6.dp),
                     )

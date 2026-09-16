@@ -15,6 +15,10 @@ import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.api.dto.SortiesResponse
 import fr.mediatheque.journal.api.dto.StatsResponse
 import fr.mediatheque.journal.api.dto.User
+import fr.mediatheque.journal.api.dto.ChroniqueAnneeResponse
+import fr.mediatheque.journal.api.dto.CartonFilmResponse
+import fr.mediatheque.journal.api.dto.DemanderVoyageResponse
+import fr.mediatheque.journal.api.dto.VoyageResponse
 import kotlinx.serialization.json.JsonObject
 
 /**
@@ -105,6 +109,20 @@ interface JournalApi {
 
     /** `DELETE /me/sagas/{tmdbId}/films/{filmId}` : le retire. Toujours `204`, même si le film n'avait pas été ajouté. */
     suspend fun retirerFilmSaga(tmdbId: Int, filmId: Int)
+
+    // --- Le Voyage (brief du 16 septembre 2026), phase 1 « le moteur ». ---
+
+    /** `GET /me/voyage` : ma progression, année par année, depuis 1895. Mise en cache 60 s côté back. */
+    suspend fun voyage(): VoyageResponse
+
+    /** `GET /reference/chroniques/annees/{annee}` : le récit et les essentiels d'une année, écrits par Claude. */
+    suspend fun chroniqueAnnee(annee: Int): ChroniqueAnneeResponse
+
+    /** `GET /reference/chroniques/films/{tmdbId}` : le carton « Et pendant ce temps… » d'un film. */
+    suspend fun cartonFilm(tmdbId: Int): CartonFilmResponse
+
+    /** `POST /me/voyage/demander/{tmdbId}` : demande l'essentiel sur Seerr. `201` à la création, `200` s'il l'était déjà. */
+    suspend fun demanderVoyage(tmdbId: Int): DemanderVoyageResponse
 }
 
 /**

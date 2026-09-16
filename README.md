@@ -183,6 +183,21 @@ au back.
   session (codes `auth/unauthenticated-user`, `api/invalid-token`, `api/missing-token`) déconnecte,
   comme un 401/403 HTTP ; toute autre erreur part en file, réessayée au prochain lancement.
 
+## Le chroniqueur
+
+Le Voyage (brief du 16 septembre 2026, phase 1 « le moteur ») : traverser l'histoire du cinéma
+année par année, depuis 1895. Le récit d'une année et le carton « Et pendant ce temps… » d'un film
+sont écrits par Claude, **côté back** — rien de tout ça ne vit dans l'appli. `ANTHROPIC_API_KEY` et
+`CHRONIQUES_MODEL` (`claude-opus-5` par défaut) sont des réglages de l'instance biblio-back
+(`.env`, `docs/self-hosting.md` de ce dépôt-là) ; sans clé, `GET /me/voyage` et les deux routes
+`/reference/chroniques/*` répondent `configure: false` et l'appli n'affiche ni cartouche ni carte,
+jamais une erreur. Chaque chronique et chaque carton s'écrit une fois et ne se regénère jamais — le
+coût, de l'ordre de quelques centimes par écriture, est facturé au propriétaire de la clé, pas à
+l'appli. Rien n'est stocké sur le téléphone au-delà de la session en cours : les récits et les
+cartons vivent dans les tables `chroniques_annees` et `chroniques_films` du back, relus à chaque
+ouverture d'écran (`GET /reference/chroniques/annees/{annee}`, `.../films/{tmdbId}`), jamais mis en
+cache localement.
+
 ## Vérifier
 
     bin/dans ./gradlew testDebugUnitTest
@@ -263,3 +278,7 @@ liste de contrôle à jouer, pas un journal de ce qui a déjà été vérifié.
 - [ ] Profil : sous les deux chiffres du haut, la carte « Bilan » — sept lignes (films vus dont cette année, séances en salle dont cette année, note moyenne, décennies couvertes, le plus ancien film vu, réalisateurs suivis et terminés, sagas idem), chacune en « … » un instant avant sa vraie valeur, jamais un chiffre qui saute d'une valeur à l'autre.
 - [ ] Profil, « Importer Letterboxd » : choisir le ZIP de l'export (ou `diary.csv` seul) affiche « Import en cours… » puis le rapport — comptes, non reconnus avec leurs candidats, erreurs ; un ZIP sans `diary.csv` affiche le message qui le dit.
 - [ ] Toucher un candidat non reconnu ouvre le formulaire avec la date et la note de sa ligne du fichier déjà remplies ; « Terminé » revient au profil, dont les deux chiffres du haut sont à jour.
+- [ ] Sur la Frise, la phrase de tête dit « Tu en es à *année* » (touchable) ou « *année* se prépare… » (pas touchable) ; le calendrier grise les années verrouillées avec un petit cadenas, et une année faite porte une petite étoile.
+- [ ] Ouvrir l'année en cours : le cartouche jauni montre le récit et les faits, ou « Le chroniqueur écrit… » s'il n'est pas encore prêt ; « Les essentiels » liste les films avec leur état (vu noté, « sur ton Plex », « Demander sur Sir », introuvable grisé) ; un appui long sur un non-vu propose « Marquer introuvable ».
+- [ ] Toucher « Demander sur Sir » sur un essentiel à trouver : la pastille passe à « demandé ».
+- [ ] Enregistrer un film : sous « Enregistré », la carte « Et pendant ce temps… » apparaît (ou « Le chroniqueur arrive… » puis, après un moment, le contexte) ; la fermer d'un geste. En correction d'un film déjà journalisé, la même carte apparaît en bas si son carton existe déjà.

@@ -44,6 +44,8 @@ import fr.mediatheque.journal.ui.Cover
 import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.Navigator
 import fr.mediatheque.journal.ui.films.FilmsViewModel
+import fr.mediatheque.journal.ui.form.CartonCard
+import fr.mediatheque.journal.ui.form.CartonViewModel
 import fr.mediatheque.journal.ui.suivis.EnCours
 import fr.mediatheque.journal.ui.suivis.titreEtAnnee
 import fr.mediatheque.journal.ui.showBriefly
@@ -71,6 +73,9 @@ fun HomeScreen(
     /** La saga en cours et son prochain film (brief du 15 septembre 2026, généralisé le même jour) — même règle, même composant que le réalisateur en cours ci-dessus. */
     ensuiteSaga: EnCours? = null,
     onOpenEnsuiteSaga: (EnCours) -> Unit = {},
+    /** Le Voyage (brief du 16 septembre 2026) : la carte « Et pendant ce temps… » sous le bandeau, après une création. Nulle hors de cette fenêtre. */
+    carton: CartonViewModel? = null,
+    onCartonDismiss: () -> Unit = {},
 ) {
     val ui by vm.ui.collectAsState()
     val snackbar = remember { SnackbarHostState() }
@@ -116,6 +121,19 @@ fun HomeScreen(
             val hauteurJaquette = largeurJaquette * 1.5f
 
             Column(Modifier.fillMaxSize()) {
+                // Le Voyage (brief du 16 septembre 2026) : « sous le bandeau » — juste après le
+                // « Enregistré » de la snackbar — la carte du film qu'on vient de journaliser, tant
+                // qu'elle existe (`carton` nul en dehors de cette fenêtre, `CartonCard` muette tant
+                // que le chroniqueur n'est pas configuré côté back).
+                carton?.let { vm ->
+                    val cartonUi by vm.ui.collectAsState()
+                    CartonCard(
+                        cartonUi,
+                        attente = true,
+                        onDismiss = onCartonDismiss,
+                        modifier = Modifier.padding(bottom = 12.dp),
+                    )
+                }
                 // Pas de chargement bloquant (brief du 15 septembre 2026) : la ligne n'existe
                 // simplement pas tant que `ensuite` est nul, que ce soit parce que
                 // `/reference/plex` n'a pas encore répondu ou parce qu'il n'y a rien à voir.

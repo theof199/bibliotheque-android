@@ -24,11 +24,13 @@ import fr.mediatheque.journal.ui.cinema.AuCineScreen
 import fr.mediatheque.journal.ui.cinema.AuCineViewModel
 import fr.mediatheque.journal.ui.films.FilmsScreen
 import fr.mediatheque.journal.ui.films.FilmsViewModel
+import fr.mediatheque.journal.ui.form.CartonViewModel
 import fr.mediatheque.journal.ui.form.FormMode
 import fr.mediatheque.journal.ui.form.FormScreen
 import fr.mediatheque.journal.ui.form.FormViewModel
 import fr.mediatheque.journal.ui.frise.AnneeFrise
 import fr.mediatheque.journal.ui.frise.AnneeScreen
+import fr.mediatheque.journal.ui.frise.AnneeViewModel
 import fr.mediatheque.journal.ui.frise.DecennieScreen
 import fr.mediatheque.journal.ui.frise.FriseScreen
 import fr.mediatheque.journal.ui.frise.FriseViewModel
@@ -131,6 +133,13 @@ fun Root(container: AppContainer) {
                 if (etaitSurSensCritique && nav.current != Screen.SensCritique) senscritique.clearCredentials()
                 etaitSurSensCritique = nav.current == Screen.SensCritique
             }
+            // Le Voyage (brief du 16 septembre 2026) : le `tmdb_id` posé par `nav.home(message,
+            // cartonTmdbId)` après une création, pour la carte « Et pendant ce temps… » de
+            // l'accueil — hoisté hors du `Crossfade` comme `etaitSurSensCritique` ci-dessus, sans
+            // quoi l'événement à un coup de `nav.cartonRequests` pourrait arriver avant que
+            // `Screen.Home` ne soit recomposé pour le collecter.
+            var cartonTmdbId by remember { mutableStateOf<Int?>(null) }
+            LaunchedEffect(Unit) { nav.cartonRequests.collect { cartonTmdbId = it } }
             Crossfade(targetState = nav.current, animationSpec = tween(200), label = "ecran") { screen ->
                 when (screen) {
                     Screen.Home -> {
@@ -161,12 +170,20 @@ fun Root(container: AppContainer) {
                         LaunchedEffect(Unit) { suivis.refresh(SourceSuivi.SAGAS) }
                         val friseUi by frise.ui.collectAsState()
                         val suivisUi by suivis.ui.collectAsState()
+                        // Le Voyage : une instance par film demandé, jamais réutilisée pour un
+                        // suivant (clé sur le `tmdb_id`) — `cartonTmdbId` retombe à `null` quand la
+                        // carte se ferme, ce qui la démonte plutôt que de la garder en mémoire.
+                        val carton: CartonViewModel? = cartonTmdbId?.let { id ->
+                            viewModel(key = "carton-home-$id") { CartonViewModel(container.api, id, poll = true, session::expire) }
+                        }
                         HomeScreen(
                             vm = films,
                             nav = nav,
                             ensuite = friseUi.ensuite,
                             ensuiteRealisateur = entiteEnCours(SourceSuivi.REALISATEURS, suivisUi.realisateurs.entites, suivisUi.realisateurs.filmographies),
                             ensuiteSaga = entiteEnCours(SourceSuivi.SAGAS, suivisUi.sagas.entites, suivisUi.sagas.filmographies),
+                            carton = carton,
+                            onCartonDismiss = { cartonTmdbId = null },
                             onAdd = { nav.push(Screen.Search) },
                             onOpen = { nav.push(Screen.Edit(it)) },
                             onOpenEnsuite = { nav.push(Screen.Form(it.toSearchResult())) },
@@ -283,7 +300,15 @@ fun Root(container: AppContainer) {
                         val form: FormViewModel = viewModel(key = "edit:${screen.item.entry.id}:${screen.item.hashCode()}") {
                             FormViewModel(container.api, FormMode.Edit(screen.item), container.sensCritiqueSync, session::expire)
                         }
-                        FormScreen(form, nav = nav, onBack = nav::pop)
+                        // Le Voyage (brief du 16 septembre 2026) : la carte « Et pendant ce
+                        // temps… » en bas de la correction, silencieuse tant que le carton n'est
+                        // pas prêt (`poll = false` — éditer un film ne doit jamais en déclencher
+                        // l'écriture, ni afficher « le chroniqueur arrive »).
+                        val cartonTmdbId = screen.item.media.external_id.toIntOrNull()
+                        val carton: CartonViewModel? = cartonTmdbId?.let { id ->
+                            viewModel(key = "carton-edit-$id") { CartonViewModel(container.api, id, poll = false, session::expire) }
+                        }
+                        FormScreen(form, nav = nav, onBack = nav::pop, carton = carton)
                     }
                     Screen.SensCritique -> SensCritiqueScreen(senscritique, onBack = nav::pop)
                     Screen.Cinema -> {
@@ -316,7 +341,9 @@ fun Root(container: AppContainer) {
                         LaunchedEffect(Unit) { frise.refresh() }
                         FriseScreen(
                             frise,
-                            onOpenAnnee = { nav.push(Screen.Annee(it)) },
+                            onOpenAnnee = { af ->
+                                nav.push(Screen.Annee(af, af.annee?.let { frise.ui.value.voyage.parAnnee[it] }))
+                            },
                             onOpenDecennie = { nav.push(Screen.Decennie(it)) },
                             bottomBar = {
                                 JournalBottomBar(
@@ -330,12 +357,21 @@ fun Root(container: AppContainer) {
                             },
                         )
                     }
-                    is Screen.Annee -> AnneeScreen(
-                        screen.annee,
-                        onBack = nav::pop,
-                        onOpenVu = { nav.push(Screen.Edit(it)) },
-                        onOpenAVoir = { nav.push(Screen.Form(it.toSearchResult())) },
-                    )
+                    is Screen.Annee -> {
+                        // Indexé sur l'année (et son statut Voyage, au cas où on rentre une
+                        // deuxième fois après qu'il ait changé) : chaque `Screen.Annee` a sa
+                        // propre chronique à relire, jamais celle de la précédente.
+                        val anneeVm: AnneeViewModel = viewModel(key = "annee-${screen.annee.annee}-${screen.voyage?.statut}") {
+                            AnneeViewModel(container.api, screen.annee.annee ?: 0, screen.voyage, session::expire)
+                        }
+                        AnneeScreen(
+                            screen.annee,
+                            anneeVm,
+                            onBack = nav::pop,
+                            onOpenVu = { nav.push(Screen.Edit(it)) },
+                            onOpenAVoir = { nav.push(Screen.Form(it.toSearchResult())) },
+                        )
+                    }
                     is Screen.Decennie -> {
                         // Snapshot déjà calculé par `FriseViewModel` (jumeau de `Screen.Annee`
                         // ci-dessus) : les puces année reconstruisent leur `AnneeFrise` depuis
@@ -349,8 +385,9 @@ fun Root(container: AppContainer) {
                             onOuvrirAVoir = { nav.push(Screen.Form(it.toSearchResult())) },
                             onOuvrirAnnee = { annee ->
                                 val groupe = friseUi.annees.firstOrNull { it.annee == annee } ?: AnneeFrise(annee, emptyList(), emptyList())
-                                nav.push(Screen.Annee(groupe))
+                                nav.push(Screen.Annee(groupe, friseUi.voyage.parAnnee[annee]))
                             },
+                            voyage = friseUi.voyage,
                         )
                     }
                     Screen.Suivis -> {

@@ -26,6 +26,10 @@ import fr.mediatheque.journal.api.dto.SuivreRealisateurBody
 import fr.mediatheque.journal.api.dto.SuivreSagaBody
 import fr.mediatheque.journal.api.dto.StatsResponse
 import fr.mediatheque.journal.api.dto.User
+import fr.mediatheque.journal.api.dto.ChroniqueAnneeResponse
+import fr.mediatheque.journal.api.dto.CartonFilmResponse
+import fr.mediatheque.journal.api.dto.DemanderVoyageResponse
+import fr.mediatheque.journal.api.dto.VoyageResponse
 import fr.mediatheque.journal.reactions.Reactions
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -224,6 +228,17 @@ class ApiClient(baseUrl: String, engine: HttpClientEngine) : JournalApi {
     override suspend fun retirerFilmSaga(tmdbId: Int, filmId: Int) {
         call<Unit> { client.delete(Endpoints.filmDeSaga(tmdbId, filmId)) }
     }
+
+    override suspend fun voyage(): VoyageResponse = call { client.get(Endpoints.voyage) }
+
+    override suspend fun chroniqueAnnee(annee: Int): ChroniqueAnneeResponse =
+        call { client.get(Endpoints.chroniqueAnnee(annee)) }
+
+    override suspend fun cartonFilm(tmdbId: Int): CartonFilmResponse =
+        call { client.get(Endpoints.chroniqueFilm(tmdbId)) }
+
+    override suspend fun demanderVoyage(tmdbId: Int): DemanderVoyageResponse =
+        call { client.post(Endpoints.demanderVoyage(tmdbId)) }
 
     private suspend inline fun <reified T> call(block: () -> HttpResponse): T {
         val response = try {

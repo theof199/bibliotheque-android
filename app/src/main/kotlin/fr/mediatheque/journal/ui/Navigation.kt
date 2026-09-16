@@ -26,6 +26,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import fr.mediatheque.journal.api.dto.AnneeVoyage
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.ui.frise.AnneeFrise
@@ -57,8 +58,13 @@ sealed interface Screen {
     data object Cinema : Screen
     /** La Frise : le cinéma du propriétaire, année par année (brief du 15 septembre 2026). */
     data object Frise : Screen
-    /** Le détail d'une année de la Frise : ses vus, et ce qui reste à voir sur le Plex. */
-    data class Annee(val annee: AnneeFrise) : Screen
+    /**
+     * Le détail d'une année de la Frise : ses vus, et ce qui reste à voir sur le Plex.
+     * `voyage` (brief du 16 septembre 2026) : le fragment déjà chargé par `FriseViewModel`
+     * (`GET /me/voyage`) pour cette année — nul si le Voyage n'est pas configuré côté back, ou si
+     * `/me/voyage` ne connaît pas encore cette année.
+     */
+    data class Annee(val annee: AnneeFrise, val voyage: AnneeVoyage? = null) : Screen
 
     /**
      * Le rayon d'une décennie (« Le calendrier devient un rayon », brief du 16 septembre 2026),
@@ -219,6 +225,15 @@ class Navigator {
     val messages: Flow<String> = _messages.receiveAsFlow()
 
     /**
+     * Le Voyage (brief du 16 septembre 2026) : le `tmdb_id` du film qu'on vient de journaliser,
+     * pour la carte « Et pendant ce temps… » sous le bandeau de l'accueil. Même raisonnement que
+     * `_messages` — un événement à un coup, jamais un `State` qu'un `null` de retour effacerait
+     * avant que la carte n'ait pu s'afficher.
+     */
+    private val _cartonRequests = Channel<Int>(Channel.BUFFERED)
+    val cartonRequests: Flow<Int> = _cartonRequests.receiveAsFlow()
+
+    /**
      * Compteur dédié à `Screen.Search`, incrémenté seulement quand `push` y entre — jamais à un
      * `pop`, jamais sur un `push` vers un autre écran. Il sert à ne remettre à zéro la recherche
      * qu'à l'entrée depuis l'accueil (revue de la vague finale, mineur 8) : voir le commentaire
@@ -237,9 +252,13 @@ class Navigator {
 
     fun pop() { if (canPop) stack = stack.dropLast(1) }
 
-    /** Retour à l'accueil, pile vidée, avec un mot à dire. */
-    fun home(message: String? = null) {
+    /**
+     * Retour à l'accueil, pile vidée, avec un mot à dire — et, sur une création réussie (brief du
+     * 16 septembre 2026), le `tmdb_id` dont l'accueil tire la carte « Et pendant ce temps… ».
+     */
+    fun home(message: String? = null, cartonTmdbId: Int? = null) {
         if (message != null) _messages.trySend(message)
+        if (cartonTmdbId != null) _cartonRequests.trySend(cartonTmdbId)
         stack = listOf(Screen.Home)
     }
 }
