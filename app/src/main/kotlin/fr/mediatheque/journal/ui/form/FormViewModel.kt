@@ -272,7 +272,10 @@ class FormViewModel(
 
     private fun date() = _ui.value.date.toString()
     private fun rating() = _ui.value.rating
-    private fun reactions() = Reactions.ordered(_ui.value.reactions)
+    // Correctif du 16 septembre 2026 : `null` quand aucune réaction n'est
+    // cochée, jamais `[]` — le POST omet alors la clé, comme pour `comment`
+    // ci-dessous, au lieu de vider un carnet déjà écrit ce jour-là.
+    private fun reactions() = Reactions.ordered(_ui.value.reactions).ifEmpty { null }
     private fun comment() = _ui.value.comment.trim().ifEmpty { null }
 
     private fun launch(block: suspend () -> Unit) {

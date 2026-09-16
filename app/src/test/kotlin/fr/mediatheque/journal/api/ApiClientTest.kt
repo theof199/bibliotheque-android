@@ -119,21 +119,24 @@ class ApiClientTest {
 
     // Le back ne remonte la note au suivi que si le corps porte `rating`
     // (`if (body.rating !== undefined)`) : un `rating: null` systématique
-    // défait cette garde. `reactions`, elle, n'a pas ce statut particulier :
-    // sa valeur par défaut (`[]`) doit tout de même sortir dans le corps.
+    // défait cette garde. Depuis le correctif du 16 septembre 2026 (repo
+    // back), le `POST` écrit aussi le carnet champ par champ, comme le
+    // `PATCH` : `reactions` et `comment` doivent donc être omis eux aussi
+    // quand ils sont nuls, sous peine de vider le carnet d'une entrée déjà
+    // journalisée ce jour-là.
     @Test
-    fun `un rating nul est omis du corps, mais reactions vide y reste`() = runTest {
+    fun `rating, reactions et comment nuls sont tous omis du corps`() = runTest {
         var corps = ""
         val api = client { request ->
             corps = String(request.body.toByteArray())
             respond(ITEM, HttpStatusCode.Created, json)
         }
         api.addViewing(
-            JournalCreateBody(media_id = "m", finished_at = "2026-09-03", rating = null, reactions = emptyList(), comment = null),
+            JournalCreateBody(media_id = "m", finished_at = "2026-09-03", rating = null, reactions = null, comment = null),
         )
         assertFalse(corps, corps.contains("\"rating\""))
         assertFalse(corps, corps.contains("\"comment\""))
-        assertTrue(corps, corps.contains("\"reactions\":[]"))
+        assertFalse(corps, corps.contains("\"reactions\""))
     }
 
     // `patchViewing` prend un `JsonObject` construit par l'appelant : un

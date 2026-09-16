@@ -48,7 +48,7 @@ class FormViewModelTest {
     @Test
     fun `un film nouveau — deux appels dans l ordre, tous les champs envoyes`() {
         var corps: JournalCreateBody? = null
-        api.onAddViewing = { b -> corps = b; FakeJournalApi.item(b.media_id, b.finished_at, b.rating, b.reactions, b.comment) }
+        api.onAddViewing = { b -> corps = b; FakeJournalApi.item(b.media_id, b.finished_at, b.rating, b.reactions ?: emptyList(), b.comment) }
         val vm = create()
         vm.setDate(LocalDate.of(2026, 9, 3))
         vm.toggleRating(8)
@@ -61,20 +61,23 @@ class FormViewModelTest {
         assertEquals("Enregistré", vm.ui.value.done)
     }
 
+    // Correctif du 16 septembre 2026 : `reactions` part désormais nulle, comme
+    // `rating` et `comment`, plutôt qu'en liste vide — le POST omet alors la
+    // clé au lieu d'écraser un carnet déjà écrit ce jour-là.
     @Test
-    fun `sans note ni commentaire, envoie null et une liste vide`() {
+    fun `sans note, reaction ni commentaire, tout est nul`() {
         var corps: JournalCreateBody? = null
-        api.onAddViewing = { b -> corps = b; FakeJournalApi.item(b.media_id, b.finished_at, b.rating, b.reactions, b.comment) }
+        api.onAddViewing = { b -> corps = b; FakeJournalApi.item(b.media_id, b.finished_at, b.rating, b.reactions ?: emptyList(), b.comment) }
         create().save()
         assertNull(corps!!.rating)
         assertNull(corps!!.comment)
-        assertTrue(corps!!.reactions.isEmpty())
+        assertNull(corps!!.reactions)
     }
 
     @Test
     fun `la date par defaut est aujourd hui`() {
         var corps: JournalCreateBody? = null
-        api.onAddViewing = { b -> corps = b; FakeJournalApi.item(b.media_id, b.finished_at, b.rating, b.reactions, b.comment) }
+        api.onAddViewing = { b -> corps = b; FakeJournalApi.item(b.media_id, b.finished_at, b.rating, b.reactions ?: emptyList(), b.comment) }
         create().save()
         assertEquals(LocalDate.now().toString(), corps!!.finished_at)
     }
@@ -118,7 +121,7 @@ class FormViewModelTest {
         assertTrue(vm.ui.value.error!!.retryable)
         assertEquals("Le film est ajouté, mais pas ton visionnage.", vm.ui.value.errorContext)
 
-        api.onAddViewing = { b -> FakeJournalApi.item(b.media_id, b.finished_at, b.rating, b.reactions, b.comment) }
+        api.onAddViewing = { b -> FakeJournalApi.item(b.media_id, b.finished_at, b.rating, b.reactions ?: emptyList(), b.comment) }
         vm.retry()
         assertEquals(listOf("addMedia 129", "addViewing m-129", "addViewing m-129"), api.calls)
         assertEquals("Enregistré", vm.ui.value.done)
@@ -210,7 +213,7 @@ class FormViewModelTest {
     // réactions et le commentaire de l'action qui vient de réussir.
     @Test
     fun `apres un enregistrement reussi, le brouillon repart a zero`() {
-        api.onAddViewing = { b -> FakeJournalApi.item(b.media_id, b.finished_at, b.rating, b.reactions, b.comment) }
+        api.onAddViewing = { b -> FakeJournalApi.item(b.media_id, b.finished_at, b.rating, b.reactions ?: emptyList(), b.comment) }
         val vm = create()
         vm.toggleRating(8)
         vm.toggleReaction("adore")
@@ -225,7 +228,7 @@ class FormViewModelTest {
 
     @Test
     fun `apres un enregistrement reussi, un second enregistrement rappelle addMedia`() {
-        api.onAddViewing = { b -> FakeJournalApi.item(b.media_id, b.finished_at, b.rating, b.reactions, b.comment) }
+        api.onAddViewing = { b -> FakeJournalApi.item(b.media_id, b.finished_at, b.rating, b.reactions ?: emptyList(), b.comment) }
         val vm = create()
         vm.save()
         vm.save()

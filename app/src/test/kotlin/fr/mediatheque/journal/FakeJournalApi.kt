@@ -34,7 +34,7 @@ class FakeJournalApi : JournalApi {
     var onSearch: suspend (String) -> List<SearchResult> = { emptyList() }
     var onAddMedia: suspend (SearchResult) -> AddMediaResponse = { r -> AddMediaResponse(true, AddedMedia("m-${r.external_id}", r.title)) }
     var onJournal: suspend (String?) -> JournalResponse = { JournalResponse(emptyList(), null) }
-    var onAddViewing: suspend (JournalCreateBody) -> JournalItem = { b -> item(b.media_id, b.finished_at, b.rating, b.reactions, b.comment) }
+    var onAddViewing: suspend (JournalCreateBody) -> JournalItem = { b -> item(b.media_id, b.finished_at, b.rating, b.reactions ?: emptyList(), b.comment) }
     // `patchViewing` reçoit un `JsonObject` (tâche 3, décision 1) : le corps ne porte que ce qui a
     // changé, la valeur par défaut ne le lit donc pas.
     var onPatchViewing: suspend (String, JsonObject) -> JournalItem = { id, _ -> item("m", "2026-01-01", null, emptyList(), null, id) }
