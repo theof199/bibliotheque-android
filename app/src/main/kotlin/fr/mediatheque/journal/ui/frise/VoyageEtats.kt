@@ -51,8 +51,17 @@ fun phraseFrontiere(voyage: VoyageUi): String? {
  */
 enum class EtatChronique { PRETE, EN_PREPARATION, ABANDON, NON_CONFIGURE }
 
-/** Le plafond de relectures avant abandon (le brief : « dix fois au plus »), commun à l'année et au film. */
+/** Le plafond de relectures avant abandon du carton d'un film (le brief : « dix fois au plus »), toutes les trois secondes. */
 const val CHRONIQUE_ESSAIS_MAX = 10
+
+/**
+ * Le plafond de la chronique d'une **année**, porté de dix à trente-six par le brief du
+ * 16 septembre 2026, phase 2 : à cinq secondes l'essai, trois minutes d'attente au lieu de
+ * cinquante secondes — le chroniqueur d'une année écrit beaucoup plus long que le carton d'un
+ * film, et la minute passée à cinquante secondes laissait le cartouche vide alors que le texte
+ * arrivait.
+ */
+const val CHRONIQUE_ANNEE_ESSAIS_MAX = 36
 
 /**
  * Décide l'état suivant à partir d'une réponse `{ configure, statut }` (les deux DTO du Voyage
@@ -62,10 +71,15 @@ const val CHRONIQUE_ESSAIS_MAX = 10
  * `ABANDON` est atteint au dixième essai `en_preparation`, pas au onzième — un appelant qui
  * s'arrête sur `ABANDON` ne redemande donc jamais une onzième fois.
  */
-fun etatChroniqueSuivant(configure: Boolean, statut: String?, essaisPrecedents: Int): Pair<EtatChronique, Int> {
+fun etatChroniqueSuivant(
+    configure: Boolean,
+    statut: String?,
+    essaisPrecedents: Int,
+    plafond: Int = CHRONIQUE_ESSAIS_MAX,
+): Pair<EtatChronique, Int> {
     if (!configure) return EtatChronique.NON_CONFIGURE to essaisPrecedents
     if (statut == "prete") return EtatChronique.PRETE to essaisPrecedents
 
     val essais = essaisPrecedents + 1
-    return if (essais >= CHRONIQUE_ESSAIS_MAX) EtatChronique.ABANDON to essais else EtatChronique.EN_PREPARATION to essais
+    return if (essais >= plafond) EtatChronique.ABANDON to essais else EtatChronique.EN_PREPARATION to essais
 }
