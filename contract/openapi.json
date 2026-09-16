@@ -41116,7 +41116,7 @@
         "tags": [
           "voyage"
         ],
-        "description": "La frontière (`frontiere`) est la première année pas encore faite. Une année est faite quand sa chronique existe et que tous ses essentiels sont vus (mon journal) ou marqués introuvables — une année sans essentiel compte faite. `frontiere_statut` dit si sa chronique existe déjà (`ouverte`) ou vient d’être enfilée (`en_preparation`).\n\n`annees` couvre 1895 à l’année courante. Pour une année verrouillée, `essentiels_total` et `essentiels_faits` restent nuls — on ne génère jamais une chronique d’avance — mais `vus` compte quand même ce que j’ai déjà vu de cette année-là, journalisé en avance.\n\n`essentiels` (le détail par film) n’est présent que sur l’année ouverte, et seulement si sa chronique existe déjà : `GET /reference/chroniques/annees/{annee}` sert cette même liste, sans le `etat` ni la `note`, qui eux dépendent du membre.\n\nRéponse mise en cache 60 s par membre.",
+        "description": "La frontière (`frontiere`) est la première année pas encore faite. Une année est faite quand sa chronique existe et que tous ses essentiels sont vus (mon journal) ou marqués introuvables — une année sans essentiel compte faite. `frontiere_statut` dit si sa chronique existe déjà (`ouverte`) ou vient d’être enfilée (`en_preparation`).\n\n`annees` couvre 1895 à l’année courante. Pour une année verrouillée, `essentiels_total` et `essentiels_faits` restent nuls — leur décompte se lit une fois l’année ouverte — mais `vus` compte quand même ce que j’ai déjà vu de cette année-là, journalisé en avance.\n\n`essentiels_apercu` n’apparaît que sur une année verrouillée dont la chronique existe déjà (le moteur en enfile une d’avance) : les affiches seules, sans titre, pour un carton « Prochainement » flouté. Absent quand la chronique manque encore — à distinguer d’un tableau vide, qui dit qu’aucun essentiel ne s’est résolu sur TMDB.\n\n`essentiels` (le détail par film) n’est présent que sur l’année ouverte, et seulement si sa chronique existe déjà : `GET /reference/chroniques/annees/{annee}` sert cette même liste, sans le `etat` ni la `note`, qui eux dépendent du membre.\n\nRéponse mise en cache 60 s par membre.",
         "responses": {
           "200": {
             "description": "Ma progression dans le Voyage",
@@ -41283,6 +41283,32 @@
                               "additionalProperties": false,
                               "description": "Un essentiel de l’année ouverte, avec mon état sur ce film"
                             }
+                          },
+                          "essentiels_apercu": {
+                            "description": "Présent seulement pour une année **verrouillée** dont la chronique existe déjà — le moteur en enfile toujours une d’avance. Les affiches seules, sans titre : de quoi flouter le carton « Prochainement » de l’appli sans jamais nommer un film avant l’heure. Absent quand la chronique manque encore, et à distinguer d’un tableau vide (une année dont aucun essentiel ne s’est résolu sur TMDB).",
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "cover_url": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "uri"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "description": "Affiche en URL absolue, nulle si TMDB n’en a pas — l’affiche seule, jamais le titre"
+                                }
+                              },
+                              "required": [
+                                "cover_url"
+                              ],
+                              "additionalProperties": false,
+                              "description": "L’affiche d’un essentiel encore verrouillé, sans rien qui le nomme"
+                            }
                           }
                         },
                         "required": [
@@ -41370,7 +41396,18 @@
                           "statut": "verrouillee",
                           "vus": 1,
                           "essentiels_total": null,
-                          "essentiels_faits": null
+                          "essentiels_faits": null,
+                          "essentiels_apercu": [
+                            {
+                              "cover_url": "https://image.tmdb.org/t/p/w500/5jkE2SzR5uR2egEb1rRhF22JyWA.jpg"
+                            },
+                            {
+                              "cover_url": "https://image.tmdb.org/t/p/w500/wJ7nApfEnkVEtBQKfYRGHHeSCRS.jpg"
+                            },
+                            {
+                              "cover_url": null
+                            }
+                          ]
                         }
                       ]
                     }
