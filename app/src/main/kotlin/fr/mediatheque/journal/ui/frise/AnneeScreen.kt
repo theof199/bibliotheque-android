@@ -20,7 +20,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -43,6 +42,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
@@ -50,7 +51,10 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.PlexFilm
@@ -59,12 +63,17 @@ import fr.mediatheque.journal.ui.showBriefly
 import fr.mediatheque.journal.ui.theme.CadrePapier
 import fr.mediatheque.journal.ui.theme.PapierJauni
 import fr.mediatheque.journal.ui.theme.TextePapier
+import java.time.LocalDate
 
 /**
  * Le détail d'une année de la Frise (brief du 15 septembre 2026), augmenté du Voyage (brief du
- * 16 septembre 2026, phase 1 « le moteur ») : le cartouche kitsch (récit et faits, ou plié sur une
- * année verrouillée) puis « Les essentiels » — une ligne par film essentiel, avec mon état sur
- * chacun — avant la grille des films vus cette année-là, inchangée.
+ * 16 septembre 2026, phase 1 « le moteur ») : le cartouche kitsch (récit et faits, ou le carton
+ * « Prochainement » d'une année verrouillée) puis « Les essentiels » — une ligne par film
+ * essentiel, avec mon état sur chacun — avant la grille des films vus cette année-là, inchangée.
+ *
+ * Phase 2 « la carte » : l'écran prend **la palette de son monde** (`Mondes.kt`) — le fond de la
+ * décennie et sa couleur d'accent —, et la relecture de la chronique repart à chaque entrée
+ * (`vm.relire()`), l'instance de `ViewModel` survivant à la sortie de l'écran.
  */
 @Composable
 fun AnneeScreen(
@@ -78,9 +87,11 @@ fun AnneeScreen(
     var feuillePour by remember { mutableStateOf<EssentielAnneeUi?>(null) }
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(Unit) { vm.messages.collect { snackbar.showBriefly(it) } }
+    LaunchedEffect(Unit) { vm.relire() }
+    val monde = mondeDe(annee.annee ?: LocalDate.now().year)
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = monde.fond,
         snackbarHost = { SnackbarHost(snackbar) { data -> Snackbar(snackbarData = data) } },
     ) { padding ->
         BoxWithConstraints(Modifier.fillMaxWidth().padding(padding).padding(16.dp)) {
@@ -94,12 +105,19 @@ fun AnneeScreen(
                         IconButton(onClick = onBack) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
                         }
-                        Text(annee.annee?.toString() ?: "Sans année", style = MaterialTheme.typography.titleLarge)
+                        Column {
+                            Text(annee.annee?.toString() ?: "Sans année", style = MaterialTheme.typography.titleLarge)
+                            Text(
+                                "${monde.nom} · ${monde.sousTitre}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = monde.accent,
+                            )
+                        }
                     }
                 }
 
                 if (ui.statutVoyage != null) {
-                    item { Cartouche(ui) }
+                    item { Cartouche(ui, monde) }
                 }
 
                 if (ui.essentiels.isNotEmpty()) {
@@ -177,69 +195,130 @@ fun AnneeScreen(
 }
 
 /**
- * Le cartouche kitsch (papier jauni sur le fond noir, cadre ornementé simple) : le récit et les
- * faits d'une année faite ou ouverte, relus toutes les cinq secondes tant que la chronique est en
- * préparation (dix fois au plus) ; plié — fond, cadenas, compte — sur une année verrouillée.
+ * Le cartouche kitsch (papier jauni sur le fond du monde, cadre ornementé simple) : le récit et
+ * les faits d'une année faite ou ouverte, relus toutes les cinq secondes tant que la chronique est
+ * en préparation (trente-six fois au plus — trois minutes, brief du 16 septembre 2026, phase 2).
+ *
+ * Sur une année verrouillée, le cadenas de la phase 1 laisse place au carton « Prochainement »,
+ * façon bande-annonce : le lettrage, la palette du monde, et les affiches des essentiels
+ * **floutées** quand le back en donne un aperçu. Tant qu'il n'en donne pas (`essentiels_apercu`
+ * absent ou vide — l'instance en ligne ne le sert pas encore), le carton se contente de compter ce
+ * qui attend : jamais un cadre vide en guise d'aperçu.
  */
 @Composable
-private fun Cartouche(ui: AnneeUi) {
+private fun Cartouche(ui: AnneeUi, monde: Monde) {
     val shape = RoundedCornerShape(8.dp)
-    val plie = ui.statutVoyage == StatutAnneeVoyage.VERROUILLEE
+    if (ui.statutVoyage == StatutAnneeVoyage.VERROUILLEE) {
+        CartonProchainement(ui, monde, shape)
+        return
+    }
 
     Box(
         Modifier
             .fillMaxWidth()
-            .background(if (plie) MaterialTheme.colorScheme.surfaceContainerHigh else PapierJauni, shape)
-            .let { if (plie) it else it.border(1.dp, CadrePapier, shape).ornemente() }
+            .background(PapierJauni, shape)
+            .border(1.dp, CadrePapier, shape)
+            .ornemente()
             .padding(16.dp),
     ) {
-        if (plie) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(Icons.Filled.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(
-                    ui.essentielsTotal?.let { total ->
-                        val restants = total - (ui.essentielsFaits ?: 0)
-                        val motEssentiel = if (restants == 1) "essentiel t’attend" else "essentiels t’attendent"
-                        val avance = (ui.essentielsFaits ?: 0).takeIf { it > 0 }
-                        "$restants $motEssentiel" + (avance?.let { " · $it vus en avance" } ?: "")
-                    } ?: "Cette année n’est pas encore ouverte",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(ui.annee.toString(), style = MaterialTheme.typography.titleLarge, color = TextePapier)
-                    if (ui.statutVoyage == StatutAnneeVoyage.FAITE) {
-                        Text("★", style = MaterialTheme.typography.titleMedium, color = TextePapier)
-                    }
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(ui.annee.toString(), style = MaterialTheme.typography.titleLarge, color = TextePapier)
+                // La récompense de festival a remplacé l'étoile de la phase 1 (brief, item 5) :
+                // ce que vaut l'année se lit ici comme sur la carte, jamais deux langages.
+                ui.recompenseObtenue?.let { recompense ->
+                    Box(
+                        Modifier
+                            .size(16.dp)
+                            .drawBehind { glypheRecompense(recompense, TextePapier, PapierJauni) }
+                            .clearAndSetSemantics { contentDescription = recompense.singulier },
+                    )
                 }
-                when (ui.etatChronique) {
-                    EtatChronique.PRETE -> {
-                        ui.recit?.let { Text(it, style = MaterialTheme.typography.bodyLarge, color = TextePapier) }
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            ui.faits.forEach { fait ->
-                                Text("· $fait", style = MaterialTheme.typography.bodyMedium, color = TextePapier)
-                            }
+            }
+            when (ui.etatChronique) {
+                EtatChronique.PRETE -> {
+                    ui.recit?.let { Text(it, style = MaterialTheme.typography.bodyLarge, color = TextePapier) }
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        ui.faits.forEach { fait ->
+                            Text("· $fait", style = MaterialTheme.typography.bodyMedium, color = TextePapier)
                         }
                     }
-                    EtatChronique.EN_PREPARATION -> Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = TextePapier)
-                        Text("Le chroniqueur écrit…", style = MaterialTheme.typography.bodyMedium, color = TextePapier)
-                    }
-                    EtatChronique.ABANDON -> Text(
-                        "Le chroniqueur reviendra plus tard.",
+                }
+                EtatChronique.EN_PREPARATION -> Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = TextePapier)
+                    Text(
+                        "Le chroniqueur écrit… ça prend une minute ou deux",
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextePapier,
                     )
-                    EtatChronique.NON_CONFIGURE -> {}
+                }
+                EtatChronique.ABANDON -> Text(
+                    "Le chroniqueur reviendra plus tard.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextePapier,
+                )
+                EtatChronique.NON_CONFIGURE -> {}
+            }
+        }
+    }
+}
+
+/**
+ * Le carton « Prochainement » d'une année verrouillée (brief du 16 septembre 2026, phase 2) : le
+ * cadre et le lettrage d'une bande-annonce, dans la palette du monde.
+ *
+ * Les affiches sont floutées de 12 dp **et** voilées : `Modifier.blur` ne fait rien avant
+ * Android 12, et un aperçu net déflorerait l'année sur un téléphone plus ancien — le voile, lui,
+ * marche partout.
+ */
+@Composable
+private fun CartonProchainement(ui: AnneeUi, monde: Monde, shape: androidx.compose.ui.graphics.Shape) {
+    val restants = (ui.essentielsTotal ?: 0) - (ui.essentielsFaits ?: 0)
+    val motEssentiel = if (restants == 1) "essentiel t’attend" else "essentiels t’attendent"
+    val avance = (ui.essentielsFaits ?: 0).takeIf { it > 0 }
+
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(Color.Black.copy(alpha = 0.45f), shape)
+            .border(2.dp, monde.accent.copy(alpha = 0.7f), shape)
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(
+            "PROCHAINEMENT",
+            style = MaterialTheme.typography.titleLarge.copy(letterSpacing = 4.sp, fontWeight = FontWeight.Bold),
+            color = monde.accent,
+            textAlign = TextAlign.Center,
+        )
+        if (ui.apercu.isNotEmpty()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ui.apercu.take(4).forEach { affiche ->
+                    Box {
+                        Cover(affiche, "un essentiel à venir", 48.dp, 72.dp, Modifier.blur(12.dp))
+                        Box(
+                            Modifier
+                                .size(48.dp, 72.dp)
+                                .background(monde.fond.copy(alpha = 0.45f), MaterialTheme.shapes.small),
+                        )
+                    }
                 }
             }
         }
+        Text(
+            if (ui.essentielsTotal == null) {
+                "Cette année n’est pas encore ouverte"
+            } else {
+                "$restants $motEssentiel" + (avance?.let { " · $it vus en avance" } ?: "")
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
     }
 }
 

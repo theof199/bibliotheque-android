@@ -31,6 +31,7 @@ import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.ui.frise.AnneeFrise
 import fr.mediatheque.journal.ui.frise.DecennieFrise
+import fr.mediatheque.journal.ui.frise.TamponDecennie
 import fr.mediatheque.journal.ui.suivis.SourceSuivi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -38,7 +39,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.withTimeoutOrNull
 import java.time.LocalDate
 
-/** Les seize écrans. Un écran qui a besoin d'une donnée la porte. */
+/** Les dix-sept écrans. Un écran qui a besoin d'une donnée la porte. */
 sealed interface Screen {
     data object Home : Screen
     data object Search : Screen
@@ -116,6 +117,13 @@ sealed interface Screen {
      * l'écran sans annuler la requête, qui continue sur cette instance.
      */
     data object RapportImport : Screen
+
+    /**
+     * Le générique de fin d'une décennie bouclée (brief du 16 septembre 2026, phase 2) : plein
+     * écran, sans barre du bas, empilé depuis le Voyage au moment où la frontière change de monde,
+     * ou depuis un tampon du passeport (profil). Porte le tampon entier — l'écran ne recharge rien.
+     */
+    data class Generique(val tampon: TamponDecennie) : Screen
 }
 
 /** Les cinq entrées de la barre de navigation du bas (décision du propriétaire du 14 septembre 2026 ; Cinema ajoutée le même jour ; Frise le 15 septembre 2026, entre Home et Cinema ; Suivis le même jour, entre Frise et Cinema, sous le nom « Réalisateurs » jusqu'aux sagas, le même jour encore). */
@@ -124,7 +132,7 @@ enum class BottomTab { Home, Frise, Suivis, Cinema, Profile }
 /**
  * Décide, pour un écran donné, si la barre du bas est visible et laquelle de ses entrées est
  * sélectionnée : `null` la cache. Fonction pure, sans dépendance à Compose, testée en JVM
- * (`NavigationTest.kt`) — c'est elle, et elle seule, qui fixe la matrice des seize écrans, plutôt
+ * (`NavigationTest.kt`) — c'est elle, et elle seule, qui fixe la matrice des dix-sept écrans, plutôt
  * que de la reposer à chaque site d'appel.
  *
  * « Mes films » affiche « Profil » sélectionnée, pas « Accueil » : dans `Root.kt`, cet écran ne
@@ -141,6 +149,7 @@ fun Screen.bottomBarTab(): BottomTab? = when (this) {
     Screen.Profile, Screen.Films -> BottomTab.Profile
     Screen.Search, is Screen.Form, is Screen.Edit, Screen.SensCritique, is Screen.Annee, is Screen.Decennie,
     Screen.ChercherSuivi, is Screen.FicheSuivi, is Screen.ChoisirFilmDeSaga, Screen.RapportImport,
+    is Screen.Generique,
     -> null
 }
 

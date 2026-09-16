@@ -23,6 +23,8 @@ fun statutAnneeVoyage(brut: String?): StatutAnneeVoyage? = when (brut) {
 /** Ma progression, mise en forme pour l'écran — `VoyageResponse.toVoyageUi()` plus bas. */
 data class VoyageUi(
     val configure: Boolean = false,
+    /** La première année du Voyage (1895) — la carte commence là, quoi que le journal contienne de plus ancien. */
+    val depart: Int = 1895,
     val frontiere: Int? = null,
     val frontiereOuverte: Boolean = false,
     val parAnnee: Map<Int, AnneeVoyage> = emptyMap(),
@@ -30,6 +32,7 @@ data class VoyageUi(
 
 fun VoyageResponse.toVoyageUi(): VoyageUi = VoyageUi(
     configure = configure,
+    depart = depart,
     frontiere = frontiere,
     frontiereOuverte = frontiere_statut == "ouverte",
     parAnnee = annees.associateBy { it.annee },

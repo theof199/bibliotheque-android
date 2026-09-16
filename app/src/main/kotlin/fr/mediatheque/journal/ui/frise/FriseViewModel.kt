@@ -1,6 +1,5 @@
 package fr.mediatheque.journal.ui.frise
 
-import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import fr.mediatheque.journal.api.ApiError
@@ -12,10 +11,12 @@ import fr.mediatheque.journal.api.dto.PlexResponse
 import fr.mediatheque.journal.api.dto.SearchMetadata
 import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.api.dto.VoyageResponse
-import fr.mediatheque.journal.ui.theme.Corail
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -80,20 +81,6 @@ fun construireFrise(journal: List<JournalItem>, plex: PlexResponse): Frise {
     val ensuite = aVoir.minWithOrNull(compareBy({ it.year ?: Int.MAX_VALUE }, { it.title }))
 
     return Frise(annees = groupes + sansAnnee, anneeEnCours = anneeEnCours, ensuite = ensuite)
-}
-
-/**
- * La couleur d'une case du calendrier (`FriseScreen`), selon son nombre de vus — brief du
- * 16 septembre 2026. `null` pour 0 : l'appelant pose alors le fond et le liseré par défaut
- * (`surfaceContainerHigh`/`outline`), aucune des deux teintes n'étant du ressort de cette
- * fonction pure. Au-delà, quatre teintes qui montent vers le corail plein à 5 vus et plus.
- */
-fun couleurDeCase(vus: Int): Color? = when {
-    vus <= 0 -> null
-    vus == 1 -> Color(0xFF5A2E27)
-    vus == 2 -> Color(0xFF93412F)
-    vus <= 4 -> Color(0xFFC9553E)
-    else -> Corail
 }
 
 /** Le compte de vus et d'à-voir d'une année, à l'intérieur d'une décennie (`DecennieFrise.annees`). */
@@ -188,8 +175,12 @@ data class FriseUi(
     val decennies: List<DecennieFrise> = emptyList(),
     /** Faux si Seerr n'est pas configuré côté back : la Frise ne montre alors que les vus. */
     val plexConfigure: Boolean = false,
-    /** Ma progression dans le Voyage (brief du 16 septembre 2026) — la phrase de tête et la couleur des cases en dépendent désormais. */
+    /** Ma progression dans le Voyage (brief du 16 septembre 2026) — la carte tout entière en dépend. */
     val voyage: VoyageUi = VoyageUi(),
+    /** Les décennies déjà bouclées (brief du 16 septembre 2026, phase 2), pour le passeport du profil et les génériques de fin. */
+    val passeport: List<TamponDecennie> = emptyList(),
+    /** Les `tmdb_id` demandés sur Seerr depuis cet écran — locaux : le back ne les redit pas (jumeau d'`EssentielAnneeUi.demande`). */
+    val demandes: Set<Int> = emptySet(),
     val loading: Boolean = false,
     val error: ApiError? = null,
 )
@@ -198,6 +189,21 @@ class FriseViewModel(private val api: JournalApi, private val onUnauthenticated:
     private val _ui = MutableStateFlow(FriseUi())
     val ui: StateFlow<FriseUi> = _ui
     private var job: Job? = null
+
+    /**
+     * La frontière du chargement précédent (brief du 16 septembre 2026, phase 2). Nulle au premier
+     * chargement, et c'est voulu : `detecterFrontiereAvancee` ne boucle alors rien — sans quoi la
+     * première ouverture de l'écran fêterait une année qu'on n'a pas finie pendant qu'on regardait.
+     */
+    private var frontierePrecedente: Int? = null
+
+    /** Ce qu'une frontière qui avance vient de boucler : la snackbar, le claquement, le générique. */
+    private val _avancees = Channel<FrontiereAvancee>(Channel.BUFFERED)
+    val avancees: Flow<FrontiereAvancee> = _avancees.receiveAsFlow()
+
+    /** Les échecs de « Demander sur Sir » depuis la carte « Prochaine étape » (jumeau d'`AnneeViewModel.messages`). */
+    private val _messages = Channel<String>(Channel.BUFFERED)
+    val messages: Flow<String> = _messages.receiveAsFlow()
 
     // Pas d'`init { refresh() }` (jumeau de `FilmsViewModel`/`AuCineViewModel`) : `Root.kt`
     // déclenche le premier chargement par `LaunchedEffect(Unit)` à l'entrée sur l'écran.
@@ -234,6 +240,7 @@ class FriseViewModel(private val api: JournalApi, private val onUnauthenticated:
             }
 
             val frise = construireFrise(journal, plex)
+            val voyageUi = voyage.toVoyageUi()
             _ui.update {
                 FriseUi(
                     annees = frise.annees,
@@ -241,10 +248,32 @@ class FriseViewModel(private val api: JournalApi, private val onUnauthenticated:
                     ensuite = frise.ensuite,
                     decennies = construireDecennies(frise),
                     plexConfigure = plex.configure,
-                    voyage = voyage.toVoyageUi(),
+                    voyage = voyageUi,
+                    passeport = tamponsPasseport(voyageUi, journal),
+                    // Les demandes déjà posées survivent au rafraîchissement : le back ne rend pas
+                    // « demandé », seule cette session le sait.
+                    demandes = it.demandes,
                     loading = false,
                 )
             }
+
+            // Après la mise à jour de l'état, jamais avant : l'écran qui reçoit l'avancée doit
+            // trouver la décennie bouclée déjà dans `passeport` quand il ouvre son générique.
+            detecterFrontiereAvancee(frontierePrecedente, voyageUi.frontiere)?.let { _avancees.trySend(it) }
+            frontierePrecedente = voyageUi.frontiere
+        }
+    }
+
+    /** Le bouton « Demander sur Sir » de la carte « Prochaine étape » — jumeau d'`AnneeViewModel.demander`. */
+    fun demander(tmdbId: Int) {
+        viewModelScope.launch {
+            try {
+                api.demanderVoyage(tmdbId)
+            } catch (e: ApiError) {
+                if (e.isUnauthenticated) onUnauthenticated() else _messages.trySend(e.message ?: "Impossible pour l’instant")
+                return@launch
+            }
+            _ui.update { it.copy(demandes = it.demandes + tmdbId) }
         }
     }
 }

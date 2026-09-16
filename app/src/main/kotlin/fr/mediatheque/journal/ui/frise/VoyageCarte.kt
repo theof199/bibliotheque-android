@@ -33,11 +33,14 @@ fun recompense(essentielsTotal: Int, essentielsFaits: Int): Recompense {
     }
 }
 
+/** La récompense d'une année dont on a déjà le statut et les comptes sous la main — nulle hors d'une année faite. */
+fun recompenseFaite(statut: StatutAnneeVoyage?, essentielsTotal: Int?, essentielsFaits: Int?): Recompense? =
+    if (statut != StatutAnneeVoyage.FAITE) null else recompense(essentielsTotal ?: 0, essentielsFaits ?: 0)
+
 /** La récompense d'une année du Voyage — nulle tant que l'année n'est pas faite. */
 fun recompenseDeLAnnee(annee: Int, voyage: VoyageUi): Recompense? {
     val fragment = voyage.parAnnee[annee] ?: return null
-    if (statutAnneeVoyage(fragment.statut) != StatutAnneeVoyage.FAITE) return null
-    return recompense(fragment.essentiels_total ?: 0, fragment.essentiels_faits ?: 0)
+    return recompenseFaite(statutAnneeVoyage(fragment.statut), fragment.essentiels_total, fragment.essentiels_faits)
 }
 
 /** « 3 Palmes · 1 Lion » : le compte du HUD, dans l'ordre Palme, Lion, Ours, sans les zéros. */

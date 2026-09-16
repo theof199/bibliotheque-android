@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
@@ -34,7 +35,7 @@ import fr.mediatheque.journal.ui.Cover
 import kotlin.math.roundToInt
 
 /**
- * Le rayon d'une décennie (brief du 16 septembre 2026) : son anneau de progression, puis une
+ * Le rayon d'une décennie (brief du 16 septembre 2026) : sa marquise, son anneau de progression, puis une
  * étagère horizontale de ses films — vus en tuiles d'affiche notées, à voir en tuiles
  * pointillées corail — et dix puces année en dessous. Empilé depuis le calendrier de la Frise
  * (`Screen.Decennie`), sans barre du bas, comme `AnneeScreen`. Le retour système revient au
@@ -50,13 +51,24 @@ fun DecennieScreen(
     /** Le Voyage (brief du 16 septembre 2026) : les années verrouillées se grisent, ici aussi. */
     voyage: VoyageUi = VoyageUi(),
 ) {
-    Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
+    // La palette du monde (brief du 16 septembre 2026, phase 2) : le rayon et la page d'année
+    // prennent le fond et l'accent de leur décennie, le reste de l'appli ne change pas.
+    val monde = mondeDeLaDecennie(decennie.decennie)
+
+    Scaffold(containerColor = monde.fond) { padding ->
         Column(Modifier.fillMaxWidth().padding(padding).padding(vertical = 16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 8.dp)) {
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
                 }
-                Text("Années ${decennie.decennie}", style = MaterialTheme.typography.titleLarge)
+                Column {
+                    Text("Années ${decennie.decennie}", style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        "${monde.nom} · ${monde.sousTitre}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = monde.accent,
+                    )
+                }
             }
 
             Row(
@@ -64,7 +76,7 @@ fun DecennieScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
             ) {
-                AnneauProgression(decennie.vus, decennie.aVoir)
+                AnneauProgression(decennie.vus, decennie.aVoir, monde.accent)
                 Text(
                     if (decennie.aVoir == 0) "${decennie.vus} vus" else "${decennie.vus} vus · ${decennie.aVoir} à voir",
                     style = MaterialTheme.typography.bodyLarge,
@@ -113,7 +125,7 @@ fun DecennieScreen(
 }
 
 @Composable
-private fun AnneauProgression(vus: Int, aVoir: Int) {
+private fun AnneauProgression(vus: Int, aVoir: Int, accent: Color) {
     val total = vus + aVoir
     val progression = if (total == 0) 1f else vus.toFloat() / total
     val pourcent = (progression * 100).roundToInt()
@@ -121,7 +133,7 @@ private fun AnneauProgression(vus: Int, aVoir: Int) {
         CircularProgressIndicator(
             progress = { progression },
             modifier = Modifier.size(56.dp),
-            color = MaterialTheme.colorScheme.primary,
+            color = accent,
             trackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             strokeWidth = 4.dp,
         )

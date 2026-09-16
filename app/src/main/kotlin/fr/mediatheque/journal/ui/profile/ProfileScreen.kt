@@ -43,6 +43,8 @@ import androidx.compose.ui.unit.dp
 import fr.mediatheque.journal.R
 import fr.mediatheque.journal.api.dto.User
 import fr.mediatheque.journal.ui.ErrorBlock
+import fr.mediatheque.journal.ui.frise.TamponDecennie
+import fr.mediatheque.journal.ui.frise.TamponPasseport
 import fr.mediatheque.journal.ui.suivis.SuiviState
 import fr.mediatheque.journal.ui.suivis.SuivisViewModel
 import fr.mediatheque.journal.ui.suivis.pret
@@ -54,10 +56,13 @@ fun ProfileScreen(
     senscritique: SensCritiqueViewModel,
     bilan: BilanViewModel,
     suivis: SuivisViewModel,
+    /** Le passeport du Voyage (brief du 16 septembre 2026, phase 2) : une ligne par décennie bouclée. */
+    passeport: List<TamponDecennie>,
     onBack: () -> Unit,
     onFilms: () -> Unit,
     onSensCritique: () -> Unit,
     onSignOut: () -> Unit,
+    onOuvrirGenerique: (TamponDecennie) -> Unit,
     onImportLetterboxd: (ByteArray) -> Unit,
     bottomBar: @Composable () -> Unit,
 ) {
@@ -119,6 +124,7 @@ fun ProfileScreen(
                         // réponse (décision 3 de la tâche 7).
                     }
                     BilanCard(bilanUi.journal, suivisUi.realisateurs, suivisUi.sagas)
+                    PasseportCard(passeport, onOuvrirGenerique)
                     ListItem(
                         headlineContent = { Text("Mes films", style = MaterialTheme.typography.titleMedium) },
                         trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null) },
@@ -234,6 +240,32 @@ private fun BilanCard(journal: BilanJournal?, realisateurs: SuiviState, sagas: S
                 "${b.suivis} sagas suivies, dont ${b.termines} terminées"
             },
         )
+    }
+}
+
+/**
+ * Le passeport (brief du 16 septembre 2026, phase 2, item 10), sous le Bilan : un tampon par
+ * décennie bouclée, qui rejoue son générique de fin. « Aucun tampon encore » tant qu'aucune
+ * décennie n'est bouclée — jamais une carte vide, jamais une carte absente : le passeport se voit
+ * avant d'être rempli, sinon on ne sait pas qu'il existe.
+ */
+@Composable
+private fun PasseportCard(passeport: List<TamponDecennie>, onOuvrirGenerique: (TamponDecennie) -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceContainer, MaterialTheme.shapes.medium)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text("Passeport", style = MaterialTheme.typography.titleMedium)
+        if (passeport.isEmpty()) {
+            LigneBilan("Aucun tampon encore")
+        } else {
+            passeport.forEach { tampon ->
+                TamponPasseport(tampon) { onOuvrirGenerique(tampon) }
+            }
+        }
     }
 }
 

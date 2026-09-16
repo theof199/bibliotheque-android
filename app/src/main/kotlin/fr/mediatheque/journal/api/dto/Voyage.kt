@@ -65,6 +65,14 @@ data class EssentielVoyage(
     val note: Int? = null,
 )
 
+/**
+ * Une affiche d'essentiel d'une année **verrouillée** — le carton « Prochainement » d'`AnneeScreen`
+ * la montre floutée (brief du 16 septembre 2026, phase 2). Sans titre ni rien d'autre : une année
+ * pas encore ouverte ne se déflore pas.
+ */
+@Serializable
+data class ApercuEssentiel(val cover_url: String? = null)
+
 @Serializable
 data class AnneeVoyage(
     val annee: Int,
@@ -75,6 +83,13 @@ data class AnneeVoyage(
     val essentiels_faits: Int? = null,
     /** Seulement sur l'année ouverte, et seulement si sa chronique existe déjà. */
     val essentiels: List<EssentielVoyage>? = null,
+    /**
+     * Les affiches des essentiels d'une année **verrouillée**, quand sa chronique existe déjà
+     * (brief du 16 septembre 2026, phase 2). Optionnel et nullable : le lot back qui l'ajoute
+     * vient après celui-ci, et l'instance en ligne ne le sert pas encore — absent ou vide, le
+     * carton « Prochainement » se contente de compter les essentiels qui attendent.
+     */
+    val essentiels_apercu: List<ApercuEssentiel>? = null,
 )
 
 /** `GET /me/voyage` — ma progression. */

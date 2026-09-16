@@ -32,8 +32,9 @@ import fr.mediatheque.journal.ui.frise.AnneeFrise
 import fr.mediatheque.journal.ui.frise.AnneeScreen
 import fr.mediatheque.journal.ui.frise.AnneeViewModel
 import fr.mediatheque.journal.ui.frise.DecennieScreen
-import fr.mediatheque.journal.ui.frise.FriseScreen
 import fr.mediatheque.journal.ui.frise.FriseViewModel
+import fr.mediatheque.journal.ui.frise.GeneriqueScreen
+import fr.mediatheque.journal.ui.frise.VoyageScreen
 import fr.mediatheque.journal.ui.frise.toSearchResult
 import fr.mediatheque.journal.ui.home.HomeScreen
 import fr.mediatheque.journal.ui.login.LoginScreen
@@ -228,16 +229,23 @@ fun Root(container: AppContainer) {
                         LaunchedEffect(Unit) { bilan.refresh() }
                         LaunchedEffect(Unit) { suivis.refresh(SourceSuivi.REALISATEURS) }
                         LaunchedEffect(Unit) { suivis.refresh(SourceSuivi.SAGAS) }
+                        // Le passeport (brief du 16 septembre 2026, phase 2) se lit sur l'instance
+                        // partagée de `FriseViewModel`, déjà chargée par l'accueil : aucun appel
+                        // réseau de plus pour le profil, `BilanViewModel` tirant déjà le journal
+                        // complet de son côté.
+                        val friseUi by frise.ui.collectAsState()
                         ProfileScreen(
                             s.user,
                             profile,
                             senscritique,
                             bilan,
                             suivis,
+                            passeport = friseUi.passeport,
                             onBack = nav::pop,
                             onFilms = { nav.push(Screen.Films) },
                             onSensCritique = { nav.push(Screen.SensCritique) },
                             onSignOut = session::signOut,
+                            onOuvrirGenerique = { nav.push(Screen.Generique(it)) },
                             onImportLetterboxd = { bytes -> letterboxd.start(bytes); nav.push(Screen.RapportImport) },
                             bottomBar = {
                                 JournalBottomBar(
@@ -339,12 +347,14 @@ fun Root(container: AppContainer) {
                         // sans ce rechargement à chaque entrée, la Frise resterait celle de la
                         // première visite après l'ajout d'un visionnage depuis l'un de ses écrans.
                         LaunchedEffect(Unit) { frise.refresh() }
-                        FriseScreen(
+                        VoyageScreen(
                             frise,
                             onOpenAnnee = { af ->
                                 nav.push(Screen.Annee(af, af.annee?.let { frise.ui.value.voyage.parAnnee[it] }))
                             },
                             onOpenDecennie = { nav.push(Screen.Decennie(it)) },
+                            onOpenGenerique = { nav.push(Screen.Generique(it)) },
+                            onVoirEssentiel = { nav.push(Screen.Form(it.toSearchResult())) },
                             bottomBar = {
                                 JournalBottomBar(
                                     screen,
@@ -390,6 +400,8 @@ fun Root(container: AppContainer) {
                             voyage = friseUi.voyage,
                         )
                     }
+                    is Screen.Generique -> GeneriqueScreen(screen.tampon, s.user.pseudo, onFermer = nav::pop)
+
                     Screen.Suivis -> {
                         // Jumeau de `Screen.Frise` : le `ViewModel` est partagé avec l'accueil, et
                         // sans ce rechargement à chaque entrée, les deux segments resteraient ceux

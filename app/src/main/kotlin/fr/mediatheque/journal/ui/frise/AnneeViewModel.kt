@@ -54,7 +54,13 @@ data class AnneeUi(
     val faits: List<String> = emptyList(),
     val etatChronique: EtatChronique = EtatChronique.NON_CONFIGURE,
     val essaisChronique: Int = 0,
-)
+    /** Les affiches des essentiels d'une année verrouillée, pour le carton « Prochainement » — vide tant que le back ne les sert pas. */
+    val apercu: List<String> = emptyList(),
+) {
+    /** La récompense de festival de l'année (brief du 16 septembre 2026, phase 2) — nulle hors d'une année faite. */
+    val recompenseObtenue: Recompense?
+        get() = recompenseFaite(statutVoyage, essentielsTotal, essentielsFaits)
+}
 
 /** Construit l'état initial depuis le fragment déjà chargé par `FriseViewModel` — fonction pure, testée en JVM. */
 fun anneeUiInitiale(annee: Int, snapshot: AnneeVoyage?): AnneeUi = AnneeUi(
@@ -77,6 +83,7 @@ fun anneeUiInitiale(annee: Int, snapshot: AnneeVoyage?): AnneeUi = AnneeUi(
             note = essentiel.note,
         )
     },
+    apercu = (snapshot?.essentiels_apercu ?: emptyList()).mapNotNull { it.cover_url },
 )
 
 class AnneeViewModel(
@@ -94,12 +101,22 @@ class AnneeViewModel(
 
     private var pollJob: Job? = null
 
-    init {
-        // Pas de récit pour une année verrouillée (le brief : « pas de génération d'avance ») —
-        // rien à relire. Faite ou ouverte, la chronique existe ou vient d'être enfilée.
-        if (_ui.value.statutVoyage == StatutAnneeVoyage.OUVERTE || _ui.value.statutVoyage == StatutAnneeVoyage.FAITE) {
-            chargerChronique()
-        }
+    /**
+     * Relance la relecture de la chronique (brief du 16 septembre 2026, phase 2 : « quand on
+     * revient sur la page, la relecture repart »). Appelée par `AnneeScreen` à chaque entrée —
+     * l'instance de `ViewModel`, elle, survit à la sortie de l'écran, et son compteur d'essais
+     * avec elle : sans cette remise à zéro, une page rouverte après un abandon resterait vide
+     * pour toujours.
+     *
+     * Pas de récit pour une année verrouillée (le brief de la phase 1 : « pas de génération
+     * d'avance ») — rien à relire. Et rien à refaire non plus sur une chronique déjà prête.
+     */
+    fun relire() {
+        val statut = _ui.value.statutVoyage
+        if (statut != StatutAnneeVoyage.OUVERTE && statut != StatutAnneeVoyage.FAITE) return
+        if (_ui.value.etatChronique == EtatChronique.PRETE) return
+        _ui.update { it.copy(essaisChronique = 0) }
+        chargerChronique()
     }
 
     private fun chargerChronique() {
@@ -112,7 +129,12 @@ class AnneeViewModel(
                     if (e.isUnauthenticated) onUnauthenticated()
                     return@launch
                 }
-                val (etat, essais) = etatChroniqueSuivant(reponse.configure, reponse.statut, _ui.value.essaisChronique)
+                val (etat, essais) = etatChroniqueSuivant(
+                    reponse.configure,
+                    reponse.statut,
+                    _ui.value.essaisChronique,
+                    plafond = CHRONIQUE_ANNEE_ESSAIS_MAX,
+                )
                 _ui.update { it.copy(etatChronique = etat, essaisChronique = essais, recit = reponse.recit, faits = reponse.faits) }
                 if (etat != EtatChronique.EN_PREPARATION) return@launch
                 delay(POLL_INTERVAL_MS)

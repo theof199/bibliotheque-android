@@ -1,19 +1,19 @@
 package fr.mediatheque.journal.ui.frise
 
-import androidx.compose.ui.graphics.Color
 import fr.mediatheque.journal.FakeJournalApi
 import fr.mediatheque.journal.api.dto.PlexFilm
 import fr.mediatheque.journal.api.dto.PlexResponse
-import fr.mediatheque.journal.ui.theme.Corail
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * `construireFrise`, `construireDecennies` et `couleurDeCase` (`FriseViewModel.kt`) — fonctions
- * pures du chantier « La Frise et Ensuite » (15 septembre 2026), puis « Le calendrier du siècle »
- * (16 septembre 2026), testées sans réseau ni `ViewModel`.
+ * `construireFrise` et `construireDecennies` (`FriseViewModel.kt`) — fonctions pures du chantier
+ * « La Frise et Ensuite » (15 septembre 2026), puis « Le calendrier du siècle » (16 septembre
+ * 2026), testées sans réseau ni `ViewModel`. `couleurDeCase` les accompagnait jusqu'à ce que la
+ * carte du Voyage remplace le calendrier (16 septembre 2026, phase 2) : plus de cases, plus de
+ * teintes — les photogrammes portent une affiche, pas un dégradé de vus.
  */
 class FriseTest {
     // Tous vus en 2026 : la frise range par annee de SORTIE du film (`media.year`), jamais par
@@ -136,21 +136,6 @@ class FriseTest {
     fun `ensuite est nul si rien n est a voir`() {
         val frise = construireFrise(emptyList(), PlexResponse(configure = true))
         assertNull(frise.ensuite)
-    }
-
-    // `couleurDeCase` (calendrier de la Frise, 16 septembre 2026) : nulle pour 0 (l'appelant pose
-    // alors le fond et le liseré par défaut), puis quatre paliers jusqu'au corail plein à 5 et
-    // plus. Mutation : décaler une seule borne (`vus <= 4` en `vus < 4`, par exemple) fait
-    // échouer l'assertion sur 4 sans toucher à celle sur 3, ou l'inverse.
-    @Test
-    fun `couleurDeCase suit ses quatre paliers, aux bornes`() {
-        assertNull(couleurDeCase(0))
-        assertEquals(Color(0xFF5A2E27), couleurDeCase(1))
-        assertEquals(Color(0xFF93412F), couleurDeCase(2))
-        assertEquals(Color(0xFFC9553E), couleurDeCase(3))
-        assertEquals(Color(0xFFC9553E), couleurDeCase(4))
-        assertEquals(Corail, couleurDeCase(5))
-        assertEquals(Corail, couleurDeCase(12))
     }
 
     // Une décennie sans le moindre vu ni à-voir, entre deux décennies peuplées, apparaît quand
