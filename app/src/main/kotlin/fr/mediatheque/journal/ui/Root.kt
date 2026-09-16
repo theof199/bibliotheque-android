@@ -27,7 +27,9 @@ import fr.mediatheque.journal.ui.films.FilmsViewModel
 import fr.mediatheque.journal.ui.form.FormMode
 import fr.mediatheque.journal.ui.form.FormScreen
 import fr.mediatheque.journal.ui.form.FormViewModel
+import fr.mediatheque.journal.ui.frise.AnneeFrise
 import fr.mediatheque.journal.ui.frise.AnneeScreen
+import fr.mediatheque.journal.ui.frise.DecennieScreen
 import fr.mediatheque.journal.ui.frise.FriseScreen
 import fr.mediatheque.journal.ui.frise.FriseViewModel
 import fr.mediatheque.journal.ui.frise.toSearchResult
@@ -315,6 +317,7 @@ fun Root(container: AppContainer) {
                         FriseScreen(
                             frise,
                             onOpenAnnee = { nav.push(Screen.Annee(it)) },
+                            onOpenDecennie = { nav.push(Screen.Decennie(it)) },
                             bottomBar = {
                                 JournalBottomBar(
                                     screen,
@@ -333,6 +336,23 @@ fun Root(container: AppContainer) {
                         onOpenVu = { nav.push(Screen.Edit(it)) },
                         onOpenAVoir = { nav.push(Screen.Form(it.toSearchResult())) },
                     )
+                    is Screen.Decennie -> {
+                        // Snapshot déjà calculé par `FriseViewModel` (jumeau de `Screen.Annee`
+                        // ci-dessus) : les puces année reconstruisent leur `AnneeFrise` depuis
+                        // `frise.ui`, seule source qui garde encore les listes de vus et d'à-voir
+                        // par année (`DecennieFrise.annees` n'en porte que les comptes).
+                        val friseUi by frise.ui.collectAsState()
+                        DecennieScreen(
+                            screen.decennie,
+                            onBack = nav::pop,
+                            onOuvrirVu = { nav.push(Screen.Edit(it)) },
+                            onOuvrirAVoir = { nav.push(Screen.Form(it.toSearchResult())) },
+                            onOuvrirAnnee = { annee ->
+                                val groupe = friseUi.annees.firstOrNull { it.annee == annee } ?: AnneeFrise(annee, emptyList(), emptyList())
+                                nav.push(Screen.Annee(groupe))
+                            },
+                        )
+                    }
                     Screen.Suivis -> {
                         // Jumeau de `Screen.Frise` : le `ViewModel` est partagé avec l'accueil, et
                         // sans ce rechargement à chaque entrée, les deux segments resteraient ceux

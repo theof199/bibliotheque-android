@@ -29,6 +29,7 @@ import androidx.compose.runtime.setValue
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.ui.frise.AnneeFrise
+import fr.mediatheque.journal.ui.frise.DecennieFrise
 import fr.mediatheque.journal.ui.suivis.SourceSuivi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -36,7 +37,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.withTimeoutOrNull
 import java.time.LocalDate
 
-/** Les quinze écrans. Un écran qui a besoin d'une donnée la porte. */
+/** Les seize écrans. Un écran qui a besoin d'une donnée la porte. */
 sealed interface Screen {
     data object Home : Screen
     data object Search : Screen
@@ -58,6 +59,14 @@ sealed interface Screen {
     data object Frise : Screen
     /** Le détail d'une année de la Frise : ses vus, et ce qui reste à voir sur le Plex. */
     data class Annee(val annee: AnneeFrise) : Screen
+
+    /**
+     * Le rayon d'une décennie (« Le calendrier devient un rayon », brief du 16 septembre 2026),
+     * ouvert en touchant l'étiquette d'une décennie sur le calendrier de la Frise. Porte
+     * l'agrégat déjà calculé par `FriseViewModel` (jumeau de `Screen.Annee` ci-dessus) : un
+     * rayon ne recharge rien, il relit l'instantané du calendrier au moment du geste.
+     */
+    data class Decennie(val decennie: DecennieFrise) : Screen
 
     /**
      * Ce que je suis, réalisateurs ou sagas (brief du 15 septembre 2026, puis
@@ -109,7 +118,7 @@ enum class BottomTab { Home, Frise, Suivis, Cinema, Profile }
 /**
  * Décide, pour un écran donné, si la barre du bas est visible et laquelle de ses entrées est
  * sélectionnée : `null` la cache. Fonction pure, sans dépendance à Compose, testée en JVM
- * (`NavigationTest.kt`) — c'est elle, et elle seule, qui fixe la matrice des quinze écrans, plutôt
+ * (`NavigationTest.kt`) — c'est elle, et elle seule, qui fixe la matrice des seize écrans, plutôt
  * que de la reposer à chaque site d'appel.
  *
  * « Mes films » affiche « Profil » sélectionnée, pas « Accueil » : dans `Root.kt`, cet écran ne
@@ -124,7 +133,7 @@ fun Screen.bottomBarTab(): BottomTab? = when (this) {
     Screen.Suivis -> BottomTab.Suivis
     Screen.Cinema -> BottomTab.Cinema
     Screen.Profile, Screen.Films -> BottomTab.Profile
-    Screen.Search, is Screen.Form, is Screen.Edit, Screen.SensCritique, is Screen.Annee,
+    Screen.Search, is Screen.Form, is Screen.Edit, Screen.SensCritique, is Screen.Annee, is Screen.Decennie,
     Screen.ChercherSuivi, is Screen.FicheSuivi, is Screen.ChoisirFilmDeSaga, Screen.RapportImport,
     -> null
 }

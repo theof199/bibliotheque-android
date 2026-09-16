@@ -132,8 +132,10 @@ private fun <T> TuilesEnLignes(rangees: List<List<T>>, ecart: Dp, tuile: @Compos
 /**
  * Le liseré pointillé qui distingue une tuile « à voir » d'une tuile vue
  * (brief du 15 septembre 2026) : pas de note, pas de coche, juste ce contour.
+ * Repris tel quel (couleur libre) par l'étagère du rayon d'une décennie
+ * (`DecennieScreen`, brief du 16 septembre 2026), d'où la visibilité de paquet.
  */
-private fun Modifier.dashedBorder(color: Color, cornerRadius: Dp, strokeWidth: Dp = 1.5.dp): Modifier =
+internal fun Modifier.dashedBorder(color: Color, cornerRadius: Dp, strokeWidth: Dp = 1.5.dp): Modifier =
     drawWithContent {
         drawContent()
         drawRoundRect(
