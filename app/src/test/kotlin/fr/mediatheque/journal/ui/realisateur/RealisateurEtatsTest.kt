@@ -104,4 +104,20 @@ class RealisateurEtatsTest {
     fun `resultatTapRealisateur ne mene nulle part sans credit`() {
         assertEquals(ResultatRealisateur.Aucun, resultatTapRealisateur(emptyList()))
     }
+
+    // Le nom du réalisateur devient touchable à la création aussi (retouche du 21 septembre 2026) :
+    // seulement quand la source du résultat est TMDB, l'unique fournisseur dont `external_id` est
+    // un `tmdb_id` de film. Mutation : rendre l'identifiant quelle que soit la source casse cette
+    // assertion.
+    @Test
+    fun `filmTmdbIdTouchable rend l id sur une source tmdb`() {
+        assertEquals(27205, filmTmdbIdTouchable("tmdb", "27205"))
+    }
+
+    // Une autre source (SensCritique, Letterboxd, …) ne connaît pas de `tmdb_id` : nul, le nom
+    // reste affiché mais inerte. Mutation : rendre l'identifiant quand même casse cette assertion.
+    @Test
+    fun `filmTmdbIdTouchable est nul sur une autre source`() {
+        assertEquals(null, filmTmdbIdTouchable("senscritique", "27205"))
+    }
 }

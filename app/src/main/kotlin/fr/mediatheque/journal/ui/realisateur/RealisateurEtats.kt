@@ -83,3 +83,13 @@ fun resultatTapRealisateur(realisateurs: List<RealisateurCredit>): ResultatReali
     realisateurs.size == 1 -> ResultatRealisateur.Un(realisateurs[0].tmdb_id)
     else -> ResultatRealisateur.Plusieurs(realisateurs)
 }
+
+/**
+ * Le `tmdb_id` du film pour un nom de réalisateur touchable (retouche du 21 septembre 2026, sur
+ * `Screen.Form` comme sur `Screen.Edit`) : `SearchResult.external_id` n'est le `tmdb_id` du film
+ * que si `source` vaut `"tmdb"` — une autre source (SensCritique, Letterboxd, …) ne connaît pas cet
+ * identifiant-là, `GET /reference/films/{tmdbId}/realisateurs` ne saurait pas quoi en faire. Nul
+ * dans ce cas : le nom reste affiché, mais inerte.
+ */
+fun filmTmdbIdTouchable(source: String, externalId: String): Int? =
+    if (source == "tmdb") externalId.toIntOrNull() else null

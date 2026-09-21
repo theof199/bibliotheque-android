@@ -64,6 +64,7 @@ import fr.mediatheque.journal.ui.frise.ChroniqueViewModel
 import fr.mediatheque.journal.ui.frise.EtatBoutonChronique
 import fr.mediatheque.journal.ui.realisateur.NomRealisateurTouchable
 import fr.mediatheque.journal.ui.realisateur.RealisateurResolveur
+import fr.mediatheque.journal.ui.realisateur.filmTmdbIdTouchable
 import fr.mediatheque.journal.ui.subtitle
 import java.time.Instant
 import java.time.LocalDate
@@ -105,6 +106,15 @@ fun FormScreen(
         is FormMode.Create -> Triple(m.result.title, m.result.cover_url, subtitle(m.result.metadata.director, m.result.year))
         is FormMode.Edit -> Triple(m.item.media.title, m.item.media.cover_url, subtitle(m.item.media.director, m.item.media.year))
     }
+    // Le réalisateur des métadonnées, touchable (décision 3 du brief du 21 septembre 2026, « la
+    // page réalisateur », retouche du même jour : sur la création aussi, pas seulement en
+    // correction). `filmTmdbIdTouchable` (`RealisateurEtats.kt`) ne rend un identifiant que pour
+    // une source TMDB : `SearchResult` peut en porter une autre (SensCritique, Letterboxd, …) dont
+    // l'`external_id` n'est pas un `tmdb_id`. Le journal, lui, ne connaît que des films TMDB.
+    val (filmTmdbId, realisateur, anneeAffichee) = when (val m = vm.mode) {
+        is FormMode.Create -> Triple(filmTmdbIdTouchable(m.result.source, m.result.external_id), m.result.metadata.director, m.result.year)
+        is FormMode.Edit -> Triple(filmTmdbIdTouchable("tmdb", m.item.media.external_id), m.item.media.director, m.item.media.year)
+    }
 
     Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -118,20 +128,14 @@ fun FormScreen(
                 Cover(coverUrl, title, 96.dp, 144.dp)
                 Column(Modifier.align(Alignment.CenterVertically)) {
                     Text(title, style = MaterialTheme.typography.titleLarge)
-                    // Le réalisateur des métadonnées, touchable, seulement en correction (décision
-                    // 3 du brief du 21 septembre 2026, « la page réalisateur ») : `Screen.Edit`
-                    // seul connaît le `tmdb_id` du film déjà journalisé ; une création n'a que le
-                    // nom que la recherche a rendu, jamais son propre identifiant de personne.
-                    val filmTmdbIdEdition = (vm.mode as? FormMode.Edit)?.item?.media?.external_id?.toIntOrNull()
-                    val realisateurEdition = (vm.mode as? FormMode.Edit)?.item?.media?.director
-                    if (filmTmdbIdEdition != null && !realisateurEdition.isNullOrBlank()) {
+                    if (filmTmdbId != null && !realisateur.isNullOrBlank()) {
                         NomRealisateurTouchable(
-                            filmTmdbId = filmTmdbIdEdition,
-                            nomConnu = realisateurEdition,
+                            filmTmdbId = filmTmdbId,
+                            nomConnu = realisateur,
                             resolveur = realisateurResolveur,
                             onOuvrirRealisateur = { nav.push(Screen.Realisateur(it)) },
                         )
-                        (vm.mode as? FormMode.Edit)?.item?.media?.year?.let { annee ->
+                        anneeAffichee?.let { annee ->
                             Text(annee.toString(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     } else {
