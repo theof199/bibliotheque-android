@@ -14,7 +14,7 @@ minutes, le SDK pèse). Une fois :
     printf 'UID=%s\nGID=%s\n' "$(id -u)" "$(id -g)" > .env
     cp local.properties.example local.properties   # puis l'IP du poste
     bin/pair ip:port                                # le code de « Associer l'appareil »
-    # ADB_DEVICE=ip:port dans .env                  # le port de « Débogage sans fil »
+    # ADB_DEVICE=ip:port dans .env                  # le port de « Débogage sans fil » — bin/install le retrouve seul (voir plus bas)
 
 `UID` et `GID` ne sont pas décoratifs : l'image recrée l'utilisateur de l'hôte
 (`ARG UID/GID`), sans quoi `build/` et `.gradle/` reviennent en `root` et ne
@@ -53,6 +53,14 @@ plus par ce chemin ; le tampon des plantages, lui, la garde :
 
 (les guillemets simples comptent : `ADB_DEVICE` n'existe que dans le conteneur,
 le développer sur le poste ne rendrait rien.)
+
+Le port du débogage sans fil change à chaque extinction d'écran. `bin/install`
+le retrouve avant de se connecter : le téléphone l'annonce en mDNS (service
+`_adb-tls-connect._tcp`), que le poste écoute avec `avahi-browse` — le conteneur,
+lui, ne reçoit pas le multicast. Trouvé, il remplace `ADB_DEVICE` dans `.env`
+(`bin/logs` en profite) ; absent, le script le dit et garde la valeur de `.env` :
+c'est le moment de rallumer l'écran, ou de refaire `bin/pair` si l'association
+a sauté (« failed to connect » avec un téléphone qui répond au ping).
 
 Repli sans `adb` (téléphone trop ancien, réseau qui isole ses clients) : copier
 `app/build/outputs/apk/debug/app-debug.apk` sur le téléphone et l'ouvrir.

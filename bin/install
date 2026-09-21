@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
-# bin/install [debug|release] — connecte le téléphone (ADB_DEVICE dans .env)
-# et installe l'APK par-dessus la version en place.
+# bin/install [debug|release] — retrouve le port du téléphone, le connecte et
+# installe l'APK par-dessus la version en place.
+#
+# Le port du « Débogage sans fil » change à chaque extinction d'écran. Le
+# téléphone l'annonce en mDNS (service `_adb-tls-connect._tcp`) ; c'est le
+# poste qui écoute (`avahi-browse`), pas le conteneur, dont le réseau ne
+# reçoit pas le multicast. Trouvé → il remplace `ADB_DEVICE` pour cette
+# commande et dans `.env`, pour `bin/logs`. Pas trouvé → `ADB_DEVICE` de
+# `.env` tel quel, et un mot pour le dire.
 set -euo pipefail
 variante="${1:-debug}"
 case "$variante" in
@@ -8,7 +15,26 @@ case "$variante" in
   *) echo "variante inconnue : $variante (debug ou release)" >&2; exit 2 ;;
 esac
 apk="app/build/outputs/apk/${variante}/app-${variante}.apk"
-exec "$(dirname "$0")/dans" sh -c '
+cd "$(dirname "$0")/.."
+
+decouvert=""
+if command -v avahi-browse >/dev/null 2>&1; then
+  decouvert="$(timeout 6 avahi-browse -rtp _adb-tls-connect._tcp 2>/dev/null \
+    | awk -F';' '$1 == "=" && $3 == "IPv4" { print $8 ":" $9; exit }')" || true
+fi
+if [ -n "$decouvert" ]; then
+  echo "téléphone vu en mDNS : $decouvert"
+  export ADB_DEVICE="$decouvert"
+  if grep -q '^ADB_DEVICE=' .env 2>/dev/null; then
+    sed -i "s#^ADB_DEVICE=.*#ADB_DEVICE=$decouvert#" .env
+  else
+    printf 'ADB_DEVICE=%s\n' "$decouvert" >> .env
+  fi
+else
+  echo "téléphone absent du mDNS : ADB_DEVICE de .env tel quel" >&2
+fi
+
+exec bin/dans sh -c '
   set -e
   [ -n "$ADB_DEVICE" ] || { echo "ADB_DEVICE manque dans .env" >&2; exit 2; }
   adb connect "$ADB_DEVICE"
