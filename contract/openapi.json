@@ -41545,6 +41545,194 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "paragraphes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "tmdb_id": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "programme_id": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "titre": {
+                                "type": "string",
+                                "description": "Une ligne"
+                              },
+                              "texte": {
+                                "type": "string",
+                                "description": "Trois à cinq phrases qui relient ce film à l’année et aux films déjà vus"
+                              },
+                              "ecrit_le": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                              },
+                              "film": {
+                                "type": "object",
+                                "properties": {
+                                  "title": {
+                                    "type": "string"
+                                  },
+                                  "cover_url": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "uri"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "title",
+                                  "cover_url"
+                                ],
+                                "additionalProperties": false,
+                                "description": "Le film auquel ce paragraphe se rattache"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "tmdb_id",
+                              "programme_id",
+                              "titre",
+                              "texte",
+                              "ecrit_le",
+                              "film"
+                            ],
+                            "additionalProperties": false,
+                            "description": "Un paragraphe de la chronique, ajouté à la demande sur un film — jamais regénéré"
+                          },
+                          "description": "Par ecrit_le croissant"
+                        },
+                        "paragraphes_en_cours": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "tmdb_id": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "programme_id": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "tmdb_id",
+                              "programme_id"
+                            ],
+                            "additionalProperties": false,
+                            "description": "Un paragraphe en cours d’écriture"
+                          },
+                          "description": "Les verrous : un paragraphe en cours d’écriture"
+                        },
+                        "demande_salle": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "demande": {
+                                  "type": "string"
+                                },
+                                "statut": {
+                                  "type": "string",
+                                  "enum": [
+                                    "en_cours",
+                                    "creee",
+                                    "refusee"
+                                  ]
+                                },
+                                "motif": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "description": "Pourquoi il n’y avait pas de quoi — seulement si refusée"
+                                },
+                                "salle_id": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "description": "La salle créée — seulement si acceptée"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "demande",
+                                "statut",
+                                "motif",
+                                "salle_id"
+                              ],
+                              "additionalProperties": false,
+                              "description": "La dernière demande de nouvelle salle, tant qu’elle compte encore : en_cours, ou refusée et pas encore vue"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "La dernière demande de salle, tant qu’elle est en_cours ou refusée et non vue ; nulle sinon"
                         }
                       },
                       "required": [
@@ -41558,7 +41746,10 @@
                         "salles",
                         "podium",
                         "maturite",
-                        "ticket"
+                        "ticket",
+                        "paragraphes",
+                        "paragraphes_en_cours",
+                        "demande_salle"
                       ],
                       "additionalProperties": false,
                       "description": "L’année, prête à afficher"
@@ -41774,6 +41965,33 @@
                         "annee": 1942,
                         "emis_le": "2026-09-21T21:00:00.000Z",
                         "utilise_le": null
+                      },
+                      "paragraphes": [
+                        {
+                          "id": "e7b2c9d5-5f3d-4c6e-9f1b-0d5e6f708192",
+                          "tmdb_id": 15,
+                          "programme_id": null,
+                          "titre": "Un journaliste et son miroir",
+                          "texte": "Tu retrouves Kane comme le premier grand portrait du pouvoir américain que le Voyage t’ait montré : un homme qui rachète le réel à coups de journaux, avant que Rosebud ne le lui rappelle. Aucun autre film de 1941 ne creuse aussi loin un seul homme, et c’est ce vertige qui a marqué Hollywood pour un siècle.",
+                          "ecrit_le": "2026-09-21T21:30:00.000Z",
+                          "film": {
+                            "title": "Citizen Kane",
+                            "cover_url": "https://image.tmdb.org/t/p/w185/sav0jxhqiH0bPr2vZFU0Kjt2nZL.jpg"
+                          }
+                        }
+                      ],
+                      "paragraphes_en_cours": [
+                        {
+                          "tmdb_id": 963,
+                          "programme_id": null
+                        }
+                      ],
+                      "demande_salle": {
+                        "id": "f8c3d0e6-6a4e-4d7f-8072-1e6f708192a3",
+                        "demande": "La comédie italienne cette année-là",
+                        "statut": "en_cours",
+                        "motif": null,
+                        "salle_id": null
                       }
                     }
                   }
@@ -42207,6 +42425,420 @@
             }
           },
           "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/voyage/annees/{annee}/chronique": {
+      "post": {
+        "summary": "« Ajouter à la chronique » un paragraphe sur un film",
+        "tags": [
+          "voyage"
+        ],
+        "description": "Corps `{ tmdb_id }` **ou** `{ programme_id }`, exactement l’un des deux. `tmdb_id` doit être un film de mon journal sorti cette année-là, sinon `400 VALIDATION`. `programme_id` doit être une ligne de mes salles de cette année (film ou programme) entièrement vue — même calcul d’état que `GET /me/voyage/annees/{annee}` — sinon `400 VALIDATION` ; d’un autre membre, d’une autre année, ou inconnue → `404`. Un film vu hors de toute salle a droit à son paragraphe tout autant qu’un film d’une salle.\n\nAnnée verrouillée ou sans ouverture → `404`.\n\n`200 { statut: \"ecrit\", paragraphe }` si un paragraphe existe déjà pour cette cible — jamais regénéré, aucun appel. Sinon enfile la génération (`paragraphe:<userId>:<annee>:<tmdbId>` ou `…:p:<programmeId>`, mêmes verrous que le reste du Voyage) et répond `202 { statut: \"en_preparation\" }`, qu’il vienne d’être enfilé ou qu’une génération soit déjà en cours.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "tmdb_id": {
+                    "description": "Un film de mon journal, vu, sorti cette année-là",
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "programme_id": {
+                    "description": "Un film ou un programme de mes salles de cette année, entièrement vu",
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "description": "Le film ou le programme dont on ajoute le paragraphe à la chronique"
+              }
+            }
+          },
+          "description": "Le film ou le programme dont on ajoute le paragraphe à la chronique"
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1895,
+              "maximum": 2027
+            },
+            "in": "path",
+            "name": "annee",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ce paragraphe existait déjà — rendu sans appel",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "statut": {
+                      "type": "string",
+                      "enum": [
+                        "ecrit"
+                      ]
+                    },
+                    "paragraphe": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "tmdb_id": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "programme_id": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "titre": {
+                          "type": "string",
+                          "description": "Une ligne"
+                        },
+                        "texte": {
+                          "type": "string",
+                          "description": "Trois à cinq phrases qui relient ce film à l’année et aux films déjà vus"
+                        },
+                        "ecrit_le": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                        },
+                        "film": {
+                          "type": "object",
+                          "properties": {
+                            "title": {
+                              "type": "string"
+                            },
+                            "cover_url": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uri"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "title",
+                            "cover_url"
+                          ],
+                          "additionalProperties": false,
+                          "description": "Le film auquel ce paragraphe se rattache"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "tmdb_id",
+                        "programme_id",
+                        "titre",
+                        "texte",
+                        "ecrit_le",
+                        "film"
+                      ],
+                      "additionalProperties": false,
+                      "description": "Un paragraphe de la chronique, ajouté à la demande sur un film — jamais regénéré"
+                    }
+                  },
+                  "required": [
+                    "statut",
+                    "paragraphe"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Ce paragraphe existait déjà — rendu sans appel"
+                },
+                "examples": {
+                  "Réponse type": {
+                    "value": {
+                      "statut": "ecrit",
+                      "paragraphe": {
+                        "id": "e7b2c9d5-5f3d-4c6e-9f1b-0d5e6f708192",
+                        "tmdb_id": 15,
+                        "programme_id": null,
+                        "titre": "Un journaliste et son miroir",
+                        "texte": "Tu retrouves Kane comme le premier grand portrait du pouvoir américain que le Voyage t’ait montré : un homme qui rachète le réel à coups de journaux, avant que Rosebud ne le lui rappelle. Aucun autre film de 1941 ne creuse aussi loin un seul homme, et c’est ce vertige qui a marqué Hollywood pour un siècle.",
+                        "ecrit_le": "2026-09-21T21:30:00.000Z",
+                        "film": {
+                          "title": "Citizen Kane",
+                          "cover_url": "https://image.tmdb.org/t/p/w185/sav0jxhqiH0bPr2vZFU0Kjt2nZL.jpg"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Le paragraphe vient d’être enfilé, ou en était déjà un en cours",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "statut": {
+                      "type": "string",
+                      "enum": [
+                        "en_preparation"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "statut"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Le paragraphe vient d’être enfilé, ou en était déjà un en cours"
+                },
+                "examples": {
+                  "Réponse type": {
+                    "value": {
+                      "statut": "en_preparation"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/voyage/annees/{annee}/salles": {
+      "post": {
+        "summary": "« Ouvrir une nouvelle salle » sur une phrase",
+        "tags": [
+          "voyage"
+        ],
+        "description": "Corps `{ demande }`, une phrase de 1 à 200 caractères (« la comédie italienne cette année-là »). Année verrouillée ou sans ouverture → `404`. Une demande `en_cours` existe déjà pour cette année → `409 CONFLICT`.\n\nEnfile la génération (`salle:<userId>:<demandeId>`) et répond toujours `202 { statut: \"en_preparation\", demande_id }`. Douze salles déjà ouvertes cette année-là ? La demande se refuse dès sa génération, **sans appel au chroniqueur** — la réponse à cette route reste `202`, et `demande_salle` (`GET /me/voyage/annees/{annee}`) montre `refusee` juste après.\n\nLa génération crée la salle en dernier rang si elle est acceptée et qu’au moins un film s’est résolu, sinon refuse la demande avec un motif. Invalide dans les deux cas le cache de `GET /me/voyage`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "demande": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "Une phrase qui décrit la salle demandée"
+                  }
+                },
+                "required": [
+                  "demande"
+                ],
+                "description": "La salle que je demande, en une phrase"
+              }
+            }
+          },
+          "description": "La salle que je demande, en une phrase"
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1895,
+              "maximum": 2027
+            },
+            "in": "path",
+            "name": "annee",
+            "required": true
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "La demande vient d’être enfilée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "statut": {
+                      "type": "string",
+                      "enum": [
+                        "en_preparation"
+                      ]
+                    },
+                    "demande_id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  },
+                  "required": [
+                    "statut",
+                    "demande_id"
+                  ],
+                  "additionalProperties": false,
+                  "description": "La demande vient d’être enfilée"
+                },
+                "examples": {
+                  "Réponse type": {
+                    "value": {
+                      "statut": "en_preparation",
+                      "demande_id": "f8c3d0e6-6a4e-4d7f-8072-1e6f708192a3"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/voyage/demandes-salles/{id}/vue": {
+      "post": {
+        "summary": "Marquer une demande de nouvelle salle comme vue",
+        "tags": [
+          "voyage"
+        ],
+        "description": "Pose `vue_le` sur la demande — la première fois que sa réponse (typiquement un refus) s’affiche à l’écran. **Idempotent** : `204` même si `vue_le` était déjà posé, sans le réécrire. `404` sans demande pour cet identifiant — la mienne seulement.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response"
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
             "description": "Default Response",
             "content": {
               "application/json": {
