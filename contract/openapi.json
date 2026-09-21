@@ -40887,7 +40887,7 @@
         "tags": [
           "voyage"
         ],
-        "description": "`annee_en_cours` sépare les trois statuts : `ouverte` avant elle (je peux toujours y revenir creuser), `en_cours` sur elle, `verrouillee` après (rien ne s’y ouvre encore).\n\n`visitee` dit si une ouverture existe déjà pour cette année, quel que soit son statut. `profondeur` compte les films de mon journal sortis cette année-là, y compris ceux vus avant d’y arriver ; un programme compte un, jamais ses bobines séparément.\n\nRéponse mise en cache 60 s par membre, invalidée par une écriture au journal (`/me/journal`), l’ouverture d’une année et une fournée.",
+        "description": "`annee_en_cours` sépare les trois statuts : `ouverte` avant elle (je peux toujours y revenir creuser), `en_cours` sur elle, `verrouillee` après (rien ne s’y ouvre encore).\n\n`visitee` dit si une ouverture existe déjà pour cette année, quel que soit son statut. `profondeur` compte les films de mon journal sortis cette année-là, y compris ceux vus avant d’y arriver ; un programme compte un, jamais ses bobines séparément. `affiche_url` est l’affiche du n°1 de mon podium cette année-là, nulle si la marche est vide.\n\nRéponse mise en cache 60 s par membre, invalidée par une écriture au journal (`/me/journal`), l’ouverture d’une année, une fournée et une écriture au podium.",
         "responses": {
           "200": {
             "description": "Ma progression dans le Voyage",
@@ -40939,13 +40939,26 @@
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991,
                             "description": "Films de mon journal sortis cette année-là ; un programme compte un"
+                          },
+                          "affiche_url": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uri"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "L’affiche du n°1 du podium — nulle si la marche 1 est vide"
                           }
                         },
                         "required": [
                           "annee",
                           "statut",
                           "visitee",
-                          "profondeur"
+                          "profondeur",
+                          "affiche_url"
                         ],
                         "additionalProperties": false,
                         "description": "Une année, telle qu’elle apparaît sur la carte"
@@ -40973,19 +40986,22 @@
                           "annee": 1895,
                           "statut": "ouverte",
                           "visitee": true,
-                          "profondeur": 6
+                          "profondeur": 6,
+                          "affiche_url": null
                         },
                         {
                           "annee": 1941,
                           "statut": "en_cours",
                           "visitee": true,
-                          "profondeur": 4
+                          "profondeur": 4,
+                          "affiche_url": "https://image.tmdb.org/t/p/w500/sav0jxhqiH0bPr2vZFU0Kjt2nZL.jpg"
                         },
                         {
                           "annee": 1942,
                           "statut": "verrouillee",
                           "visitee": false,
-                          "profondeur": 0
+                          "profondeur": 0,
+                          "affiche_url": null
                         }
                       ]
                     }
@@ -41013,7 +41029,7 @@
         "tags": [
           "voyage"
         ],
-        "description": "`prete` (`200`) si l’ouverture existe déjà pour ce membre : ses salles, dans l’ordre, avec chaque film (état et note calculés à la lecture). `en_preparation` (`202`) à la première visite d’une année ouverte ou en cours — la demande enfile l’ouverture, à redemander dans quelques secondes. `verrouillee` (`200`) après mon année en cours : rien ne s’enfile, même en visitant. `{ configure: false }` (`200`) si `ANTHROPIC_API_KEY` manque et que l’année n’a pas encore d’ouverture.\n\n`etat` d’un film vaut `vu`, `sur_le_plex`, `demande`, `a_demander` ou `introuvable`. Pour un programme, `etat` ne vaut `vu` que quand **toutes** ses bobines le sont — chaque bobine porte le sien.",
+        "description": "`prete` (`200`) si l’ouverture existe déjà pour ce membre : ses salles, dans l’ordre, avec chaque film (état et note calculés à la lecture). `en_preparation` (`202`) à la première visite d’une année ouverte ou en cours — la demande enfile l’ouverture, à redemander dans quelques secondes. `verrouillee` (`200`) après mon année en cours : rien ne s’enfile, même en visitant. `{ configure: false }` (`200`) si `ANTHROPIC_API_KEY` manque et que l’année n’a pas encore d’ouverture.\n\n`etat` d’un film vaut `vu`, `sur_le_plex`, `demande`, `a_demander` ou `introuvable`. Pour un programme, `etat` ne vaut `vu` que quand **toutes** ses bobines le sont — chaque bobine porte le sien.\n\n`podium` porte les trois marches (`PUT`/`DELETE /me/voyage/annees/{annee}/podium/{place}`), `null` pour une place vide — présent sur `prete` et `verrouillee` (toujours vide sur cette dernière, le podium ne se posant que sur une année non verrouillée).",
         "parameters": [
           {
             "schema": {
@@ -41346,6 +41362,76 @@
                             "additionalProperties": false,
                             "description": "Une salle de l’année, avec ses films dans l’ordre"
                           }
+                        },
+                        "podium": {
+                          "minItems": 3,
+                          "maxItems": 3,
+                          "type": "array",
+                          "items": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "place": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 3
+                                  },
+                                  "tmdb_id": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "programme_id": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  },
+                                  "cover_url": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "uri"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "place",
+                                  "tmdb_id",
+                                  "programme_id",
+                                  "title",
+                                  "cover_url"
+                                ],
+                                "additionalProperties": false,
+                                "description": "Une marche du podium, occupée"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "description": "Les trois marches, dans l’ordre"
                         }
                       },
                       "required": [
@@ -41356,7 +41442,8 @@
                         "ouverture",
                         "faits",
                         "ecrite_le",
-                        "salles"
+                        "salles",
+                        "podium"
                       ],
                       "additionalProperties": false,
                       "description": "L’année, prête à afficher"
@@ -41385,13 +41472,84 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "podium": {
+                          "minItems": 3,
+                          "maxItems": 3,
+                          "type": "array",
+                          "items": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "place": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 3
+                                  },
+                                  "tmdb_id": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "programme_id": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  },
+                                  "cover_url": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "uri"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "place",
+                                  "tmdb_id",
+                                  "programme_id",
+                                  "title",
+                                  "cover_url"
+                                ],
+                                "additionalProperties": false,
+                                "description": "Une marche du podium, occupée"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "description": "Toujours trois marches vides : le podium ne se pose que sur une année non verrouillée"
                         }
                       },
                       "required": [
                         "configure",
                         "statut",
                         "annee",
-                        "profondeur"
+                        "profondeur",
+                        "podium"
                       ],
                       "additionalProperties": false,
                       "description": "Après mon année en cours : rien ne s’enfile, même une visite ne l’ouvre pas"
@@ -41480,6 +41638,17 @@
                           "fournee_en_cours": true,
                           "films": []
                         }
+                      ],
+                      "podium": [
+                        {
+                          "place": 1,
+                          "tmdb_id": 15,
+                          "programme_id": null,
+                          "title": "Citizen Kane",
+                          "cover_url": "https://image.tmdb.org/t/p/w500/sav0jxhqiH0bPr2vZFU0Kjt2nZL.jpg"
+                        },
+                        null,
+                        null
                       ]
                     }
                   }
@@ -41531,6 +41700,253 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/voyage/annees/{annee}/podium/{place}": {
+      "put": {
+        "summary": "Poser un film ou un programme sur une marche du podium",
+        "tags": [
+          "voyage"
+        ],
+        "description": "Corps `{ tmdb_id }` **ou** `{ programme_id }`, exactement l’un des deux. `tmdb_id` doit être dans mon journal avec cette année de sortie, sinon `400 VALIDATION`. `programme_id` doit être une ligne de mes salles de cette année (film ou programme) entièrement vue — même calcul d’état que `GET /me/voyage/annees/{annee}` — sinon `400 VALIDATION` ; d’un autre membre, d’une autre année, ou inconnue → `404`.\n\nLe podium se pose sur toute année **non verrouillée** (≤ mon année en cours), visitée ou non : `404` au-delà. Poser sur une marche déjà occupée remplace l’occupant ; poser un film ou un programme déjà présent sur une autre marche l’y **déplace** (l’ancienne marche se vide) — jamais de `409`.\n\nRépond le podium complet après l’écriture, et invalide le cache de `GET /me/voyage`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "tmdb_id": {
+                    "description": "Un film de mon journal, sorti cette année-là",
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "programme_id": {
+                    "description": "Un film ou un programme de mes salles de cette année, entièrement vu",
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "description": "Le film ou le programme à poser sur cette marche"
+              }
+            }
+          },
+          "description": "Le film ou le programme à poser sur cette marche"
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1895,
+              "maximum": 2027
+            },
+            "in": "path",
+            "name": "annee",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3
+            },
+            "in": "path",
+            "name": "place",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Le podium de l’année après l’écriture",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "podium": {
+                      "minItems": 3,
+                      "maxItems": 3,
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "place": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 3
+                              },
+                              "tmdb_id": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "programme_id": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "cover_url": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "uri"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "place",
+                              "tmdb_id",
+                              "programme_id",
+                              "title",
+                              "cover_url"
+                            ],
+                            "additionalProperties": false,
+                            "description": "Une marche du podium, occupée"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "description": "Les trois marches, dans l’ordre"
+                    }
+                  },
+                  "required": [
+                    "podium"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Le podium de l’année après l’écriture"
+                },
+                "examples": {
+                  "Réponse type": {
+                    "value": {
+                      "podium": [
+                        {
+                          "place": 1,
+                          "tmdb_id": 15,
+                          "programme_id": null,
+                          "title": "Citizen Kane",
+                          "cover_url": "https://image.tmdb.org/t/p/w500/sav0jxhqiH0bPr2vZFU0Kjt2nZL.jpg"
+                        },
+                        null,
+                        null
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Vider une marche du podium",
+        "tags": [
+          "voyage"
+        ],
+        "description": "**Idempotent** : `204` que la marche portait un film, un programme, ou rien. Invalide le cache de `GET /me/voyage`.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1895,
+              "maximum": 2027
+            },
+            "in": "path",
+            "name": "annee",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3
+            },
+            "in": "path",
+            "name": "place",
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response"
           },
           "400": {
             "description": "Default Response",
