@@ -43419,7 +43419,7 @@
         "tags": [
           "voyage"
         ],
-        "description": "Corps `{ morceau: \"long\" | \"court\", film_id, bobine_tmdb_id? }`. `film_id` doit être une ligne de mes salles de cette année-là, sinon `404` (une autre séance, un autre membre, une autre année, ou inconnue).\n\nPour `morceau: \"long\"` : `film_id` doit être un long (sans programme), non vu, non introuvable, et `bobine_tmdb_id` doit être absent — sinon `400 VALIDATION`. Pour `morceau: \"court\"` : `film_id` doit être un programme ; sans `bobine_tmdb_id`, le programme entier doit n’être ni entièrement vu ni introuvable ; avec, `bobine_tmdb_id` doit appartenir à ce programme et n’être ni vu ni introuvable — sinon `400 VALIDATION`.\n\nRépond `200 { seance }` après l’écriture, et invalide le cache de `GET /me/voyage`.",
+        "description": "Corps `{ morceau: \"long\" | \"court\", film_id, bobine_tmdb_id? }`. `film_id` doit être une ligne de mes salles de cette année-là, sinon `404` (une autre séance, un autre membre, une autre année, ou inconnue).\n\nPour `morceau: \"long\"` : `film_id` doit être un long (sans programme), non vu, non introuvable, et `bobine_tmdb_id` doit être absent — sinon `400 VALIDATION`. Pour `morceau: \"court\"` : `film_id` est un film sans programme (non vu, non introuvable, sans `bobine_tmdb_id`) ou un programme ; pour un programme, sans `bobine_tmdb_id`, le programme entier doit n’être ni entièrement vu ni introuvable ; avec, `bobine_tmdb_id` doit appartenir à ce programme et n’être ni vu ni introuvable — sinon `400 VALIDATION`.\n\nRépond `200 { seance }` après l’écriture, et invalide le cache de `GET /me/voyage`.",
         "requestBody": {
           "required": true,
           "content": {
