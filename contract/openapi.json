@@ -29329,7 +29329,7 @@
         "tags": [
           "réalisateurs"
         ],
-        "description": "Le paramètre est le `tmdb_id` d’un **film**, et non d’une personne : celui rendu par `GET /me/realisateurs/{tmdbId}/films`.\n\n**Idempotent.** Marquer un film déjà marqué ne crée pas de seconde ligne et répond `204` comme la première fois — l’unicité `(membre, film)` en base le garantit de toute façon.\n\nLa marque est strictement personnelle : elle ne modifie que `GET /me/realisateurs/{tmdbId}/films` **pour moi**, jamais pour un autre membre.",
+        "description": "Le paramètre est le `tmdb_id` d’un **film**, et non d’une personne : celui rendu par `GET /me/realisateurs/{tmdbId}/films`.\n\n**Idempotent.** Marquer un film déjà marqué ne crée pas de seconde ligne et répond `204` comme la première fois — l’unicité `(membre, film)` en base le garantit de toute façon.\n\nLa marque est strictement personnelle : elle ne modifie que `GET /me/realisateurs/{tmdbId}/films` **pour moi**, jamais pour un autre membre. Invalide aussi le cache de `GET /me/voyage` : un film marqué introuvable peut compléter une salle du Voyage (Lion, Palme).",
         "parameters": [
           {
             "schema": {
@@ -29373,7 +29373,7 @@
         "tags": [
           "réalisateurs"
         ],
-        "description": "Le paramètre est le `tmdb_id` d’un **film**, comme sur `PUT /me/introuvables/{tmdbId}`.\n\n**204 dans tous les cas**, y compris quand le film n’était pas marqué : retirer une marque absente ne fait rien de plus, et ce n’est pas une erreur.",
+        "description": "Le paramètre est le `tmdb_id` d’un **film**, comme sur `PUT /me/introuvables/{tmdbId}`.\n\n**204 dans tous les cas**, y compris quand le film n’était pas marqué : retirer une marque absente ne fait rien de plus, et ce n’est pas une erreur. Invalide tout de même le cache de `GET /me/voyage`, pour la même raison que la pose de la marque.",
         "parameters": [
           {
             "schema": {
@@ -40887,7 +40887,7 @@
         "tags": [
           "voyage"
         ],
-        "description": "`annee_en_cours` sépare les trois statuts : `ouverte` avant elle (je peux toujours y revenir creuser), `en_cours` sur elle, `verrouillee` après (rien ne s’y ouvre encore).\n\n`visitee` dit si une ouverture existe déjà pour cette année, quel que soit son statut. `profondeur` compte les films de mon journal sortis cette année-là, y compris ceux vus avant d’y arriver ; un programme compte un, jamais ses bobines séparément. `affiche_url` est l’affiche du n°1 de mon podium cette année-là, nulle si la marche est vide.\n\nRéponse mise en cache 60 s par membre, invalidée par une écriture au journal (`/me/journal`), l’ouverture d’une année, une fournée et une écriture au podium.",
+        "description": "`annee_en_cours` sépare les trois statuts : `ouverte` avant elle (je peux toujours y revenir creuser), `en_cours` sur elle, `verrouillee` après (rien ne s’y ouvre encore).\n\n`visitee` dit si une ouverture existe déjà pour cette année, quel que soit son statut. `profondeur` compte les films de mon journal sortis cette année-là, y compris ceux vus avant d’y arriver ; un programme compte un, jamais ses bobines séparément. `affiche_url` est l’affiche du n°1 de mon podium cette année-là, nulle si la marche est vide.\n\n`recompense` vaut `ours` (profondeur ≥ 1, même sans ouverture), `lion` (« Les essentiels » entièrement vus ou introuvables) ou `palme` (`lion`, et au moins deux autres salles, à au moins un film, complètes au même sens) — `null` sinon.\n\n`tampons` porte le passeport : une ligne par décennie bouclée (`decennie` croissant, `boucle_le`), où chacune de ses années a un `ours` et où le ticket de la première année de la décennie suivante est `utilise_le`.\n\nRéponse mise en cache 60 s par membre, invalidée par une écriture au journal (`/me/journal`), une marque « introuvable » (`PUT`/`DELETE /me/introuvables/{tmdbId}`), l’ouverture d’une année, une fournée et une écriture au podium.",
         "responses": {
           "200": {
             "description": "Ma progression dans le Voyage",
@@ -40951,6 +40951,22 @@
                               }
                             ],
                             "description": "L’affiche du n°1 du podium — nulle si la marche 1 est vide"
+                          },
+                          "recompense": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "ours",
+                                  "lion",
+                                  "palme"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Ours, Lion ou Palme — une année sans ouverture ne peut avoir que l’Ours"
                           }
                         },
                         "required": [
@@ -40958,7 +40974,8 @@
                           "statut",
                           "visitee",
                           "profondeur",
-                          "affiche_url"
+                          "affiche_url",
+                          "recompense"
                         ],
                         "additionalProperties": false,
                         "description": "Une année, telle qu’elle apparaît sur la carte"
@@ -40998,6 +41015,33 @@
                         }
                       ],
                       "description": "Un ticket gagné et pas encore montré — à afficher une fois, puis `POST .../montre`"
+                    },
+                    "tampons": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "decennie": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "1890, 1900… la décennie bouclée"
+                          },
+                          "boucle_le": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                            "description": "La plus tardive entre l’usage du ticket de la décennie suivante et le dernier premier-film-de-l’année qui manquait à celle-ci"
+                          }
+                        },
+                        "required": [
+                          "decennie",
+                          "boucle_le"
+                        ],
+                        "additionalProperties": false,
+                        "description": "Une décennie bouclée, dans le passeport"
+                      },
+                      "description": "Le passeport : les décennies bouclées, croissantes"
                     }
                   },
                   "required": [
@@ -41005,7 +41049,8 @@
                     "depart",
                     "annee_en_cours",
                     "annees",
-                    "ticket_a_montrer"
+                    "ticket_a_montrer",
+                    "tampons"
                   ],
                   "additionalProperties": false,
                   "description": "Ma progression dans le Voyage"
@@ -41022,28 +41067,37 @@
                           "statut": "ouverte",
                           "visitee": true,
                           "profondeur": 6,
-                          "affiche_url": null
+                          "affiche_url": null,
+                          "recompense": "ours"
                         },
                         {
                           "annee": 1941,
                           "statut": "en_cours",
                           "visitee": true,
                           "profondeur": 4,
-                          "affiche_url": "https://image.tmdb.org/t/p/w500/sav0jxhqiH0bPr2vZFU0Kjt2nZL.jpg"
+                          "affiche_url": "https://image.tmdb.org/t/p/w500/sav0jxhqiH0bPr2vZFU0Kjt2nZL.jpg",
+                          "recompense": "lion"
                         },
                         {
                           "annee": 1942,
                           "statut": "verrouillee",
                           "visitee": false,
                           "profondeur": 0,
-                          "affiche_url": null
+                          "affiche_url": null,
+                          "recompense": null
                         }
                       ],
                       "ticket_a_montrer": {
                         "annee": 1942,
                         "motif": "1941 t’a bien occupé, 1942 t’attend.",
                         "emis_le": "2026-09-21T21:00:00.000Z"
-                      }
+                      },
+                      "tampons": [
+                        {
+                          "decennie": 1890,
+                          "boucle_le": "2026-01-14T10:00:00.000Z"
+                        }
+                      ]
                     }
                   }
                 }
@@ -41069,7 +41123,7 @@
         "tags": [
           "voyage"
         ],
-        "description": "`prete` (`200`) si l’ouverture existe déjà pour ce membre : ses salles, dans l’ordre, avec chaque film (état et note calculés à la lecture). `en_preparation` (`202`) à la première visite d’une année ouverte ou en cours — la demande enfile l’ouverture, à redemander dans quelques secondes. `verrouillee` (`200`) après mon année en cours : rien ne s’enfile, même en visitant. `{ configure: false }` (`200`) si `ANTHROPIC_API_KEY` manque et que l’année n’a pas encore d’ouverture.\n\n`etat` d’un film vaut `vu`, `sur_le_plex`, `demande`, `a_demander` ou `introuvable`. Pour un programme, `etat` ne vaut `vu` que quand **toutes** ses bobines le sont — chaque bobine porte le sien.\n\n`podium` porte les trois marches (`PUT`/`DELETE /me/voyage/annees/{annee}/podium/{place}`), `null` pour une place vide — présent sur `prete` et `verrouillee` (toujours vide sur cette dernière, le podium ne se posant que sur une année non verrouillée).\n\n`maturite` (`prete` seulement) porte le dernier jugement du chroniqueur sur cette année — `null` tant qu’aucun film de l’année n’a encore été noté. `ticket` (`prete` seulement) porte le ticket vers `annee + 1`, s’il a été gagné — `null` sinon.",
+        "description": "`prete` (`200`) si l’ouverture existe déjà pour ce membre : ses salles, dans l’ordre, avec chaque film (état et note calculés à la lecture). `en_preparation` (`202`) à la première visite d’une année ouverte ou en cours — la demande enfile l’ouverture, à redemander dans quelques secondes. `verrouillee` (`200`) après mon année en cours : rien ne s’enfile, même en visitant. `{ configure: false }` (`200`) si `ANTHROPIC_API_KEY` manque et que l’année n’a pas encore d’ouverture.\n\n`etat` d’un film vaut `vu`, `sur_le_plex`, `demande`, `a_demander` ou `introuvable`. Pour un programme, `etat` ne vaut `vu` que quand **toutes** ses bobines le sont — chaque bobine porte le sien.\n\n`podium` porte les trois marches (`PUT`/`DELETE /me/voyage/annees/{annee}/podium/{place}`), `null` pour une place vide — présent sur `prete` et `verrouillee` (toujours vide sur cette dernière, le podium ne se posant que sur une année non verrouillée).\n\n`maturite` (`prete` seulement) porte le dernier jugement du chroniqueur sur cette année — `null` tant qu’aucun film de l’année n’a encore été noté. `ticket` (`prete` seulement) porte le ticket vers `annee + 1`, s’il a été gagné — `null` sinon.\n\n`recompense` et `progression` (`prete` seulement) : la récompense de cette année (voir `GET /me/voyage`) et de quoi dessiner sa barre — `essentiels_vus`/`essentiels_total` (strictement vus, un introuvable n’y compte pas), `salles_completes`/`salles_autres` (salles hors essentiels, à au moins un film, entièrement vues ou introuvables).",
         "parameters": [
           {
             "schema": {
@@ -41114,6 +41168,58 @@
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991,
                           "description": "Films vus, toutes salles confondues — un programme compte un, jamais ses bobines séparément"
+                        },
+                        "recompense": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "ours",
+                                "lion",
+                                "palme"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Ours, Lion ou Palme — null tant qu’aucun film de l’année n’est vu"
+                        },
+                        "progression": {
+                          "type": "object",
+                          "properties": {
+                            "essentiels_vus": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991,
+                              "description": "Essentiels strictement vus — un introuvable n’y compte pas, même s’il compte pour le Lion"
+                            },
+                            "essentiels_total": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "salles_completes": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991,
+                              "description": "Parmi salles_autres, celles entièrement vues ou introuvables"
+                            },
+                            "salles_autres": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991,
+                              "description": "Salles hors essentiels, à au moins un film — une salle vide ne compte pas"
+                            }
+                          },
+                          "required": [
+                            "essentiels_vus",
+                            "essentiels_total",
+                            "salles_completes",
+                            "salles_autres"
+                          ],
+                          "additionalProperties": false,
+                          "description": "Ma progression vers le Lion et la Palme, pour cette année"
                         },
                         "ouverture": {
                           "type": "string",
@@ -41740,6 +41846,8 @@
                         "statut",
                         "annee",
                         "profondeur",
+                        "recompense",
+                        "progression",
                         "ouverture",
                         "faits",
                         "ecrite_le",
@@ -41885,6 +41993,13 @@
                       "statut": "prete",
                       "annee": 1941,
                       "profondeur": 1,
+                      "recompense": "ours",
+                      "progression": {
+                        "essentiels_vus": 1,
+                        "essentiels_total": 2,
+                        "salles_completes": 0,
+                        "salles_autres": 0
+                      },
                       "ouverture": "L'Amérique découvre le cinéma d'un journaliste devenu magnat de la presse, un film que les studios ont tenté d'étouffer. À Hollywood, le Code Hays règne encore sur les scénarios pendant qu'en Europe la guerre vide les salles. Le noir et blanc se réinvente : profondeur de champ, contre-plongées, une grammaire neuve dont le cinéma parlera encore un siècle plus tard. Pearl Harbor, en décembre, referme l'année sur l'entrée en guerre des États-Unis.",
                       "faits": [
                         "Citizen Kane sort en mai après un an de pressions de William Randolph Hearst pour l'empêcher",
