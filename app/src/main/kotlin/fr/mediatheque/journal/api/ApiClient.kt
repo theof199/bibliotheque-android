@@ -30,6 +30,7 @@ import fr.mediatheque.journal.api.dto.SuivreSagaBody
 import fr.mediatheque.journal.api.dto.StatsResponse
 import fr.mediatheque.journal.api.dto.User
 import fr.mediatheque.journal.api.dto.AnneeVoyageDetailResponse
+import fr.mediatheque.journal.api.dto.CarnetFabricationResponse
 import fr.mediatheque.journal.api.dto.CartonFilmResponse
 import fr.mediatheque.journal.api.dto.ChroniqueBody
 import fr.mediatheque.journal.api.dto.ChroniqueEcritureResponse
@@ -43,6 +44,7 @@ import fr.mediatheque.journal.api.dto.SeanceComposerResponse
 import fr.mediatheque.journal.api.dto.SeanceEcritureResponse
 import fr.mediatheque.journal.api.dto.SeanceRemplacerBody
 import fr.mediatheque.journal.api.dto.TicketUtiliseResponse
+import fr.mediatheque.journal.api.dto.VoyageCarnetsResponse
 import fr.mediatheque.journal.api.dto.VoyageDepensesResponse
 import fr.mediatheque.journal.api.dto.VoyageResponse
 import fr.mediatheque.journal.api.dto.VoyageTicketsResponse
@@ -324,6 +326,17 @@ class ApiClient(baseUrl: String, engine: HttpClientEngine) : JournalApi {
 
     override suspend fun voyageIgnorerSeance(id: String): SeanceEcritureResponse =
         call { client.post(Endpoints.voyageSeanceIgnorer(id)) }
+
+    override suspend fun voyageFabriquerCarnet(annee: Int): CarnetFabricationResponse =
+        call { client.post(Endpoints.voyageCarnet(annee)) }
+
+    override suspend fun voyageCarnets(): VoyageCarnetsResponse = call { client.get(Endpoints.voyageCarnets) }
+
+    // Les octets bruts du PDF : le même `call` générique les lit directement (`response.body<ByteArray>()`),
+    // `ContentNegotiation` ne s'appliquant qu'aux types qu'elle sait convertir — `application/pdf` n'en est
+    // pas un, la transformation par défaut du moteur (octets bruts) s'applique donc telle quelle.
+    override suspend fun telechargerCarnetPdf(annee: Int): ByteArray =
+        call { client.get(Endpoints.voyageCarnetPdf(annee)) }
 
     private suspend inline fun <reified T> call(block: () -> HttpResponse): T {
         val response = try {

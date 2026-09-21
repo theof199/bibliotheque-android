@@ -5,6 +5,8 @@ import fr.mediatheque.journal.MainDispatcherRule
 import fr.mediatheque.journal.api.ApiError
 import fr.mediatheque.journal.api.dto.AnneeVoyage
 import fr.mediatheque.journal.api.dto.AnneeVoyageDetailResponse
+import fr.mediatheque.journal.api.dto.CarnetAnneeVoyage
+import fr.mediatheque.journal.api.dto.CarnetFabricationResponse
 import fr.mediatheque.journal.api.dto.ChroniqueEcritureResponse
 import fr.mediatheque.journal.api.dto.DemandeSalleEcritureResponse
 import fr.mediatheque.journal.api.dto.DemandeSalleVoyage
@@ -757,5 +759,58 @@ class AnneeViewModelTest {
         assertEquals("f-autre", corpsRecu?.film_id)
         assertEquals(2, vm.ui.value.seances.single().rang)
         assertEquals(listOf("voyageRemplacerSeance sc-1 long f-autre null"), api.calls.filter { it.startsWith("voyageRemplacerSeance") })
+    }
+
+    // Le carnet (décision 2 du brief du 22 septembre 2026, « le carnet ») : jumeau de
+    // `composerSeance marque en cours puis relit...` — la relecture s'arrête dès que
+    // `carnet_en_cours` retombe, avec le carnet frais dans la dernière réponse.
+    @Test
+    fun `fabriquerCarnet marque en cours puis relit jusqu'a ce que carnet_en_cours retombe`() = runTest(dispatcher) {
+        var relectures = 0
+        api.onVoyageAnnee = {
+            relectures++
+            when (relectures) {
+                1 -> prete(salle("s1")).copy(carnet_en_cours = false)
+                2 -> prete(salle("s1")).copy(carnet_en_cours = true)
+                else -> prete(salle("s1")).copy(carnet_en_cours = false, carnet = CarnetAnneeVoyage("2026-09-21T10:00:00.000Z", 12))
+            }
+        }
+        api.onVoyageFabriquerCarnet = { CarnetFabricationResponse(statut = "en_preparation") }
+        val vm = AnneeViewModel(api, 1941, null) {}
+        vm.relire()
+        runCurrent()
+        assertNull(vm.ui.value.carnet)
+
+        vm.fabriquerCarnet()
+        // Le bouton passe en cours tout de suite, avant même la première relecture.
+        runCurrent()
+        assertTrue(vm.ui.value.carnetEnCours)
+
+        testScheduler.advanceUntilIdle()
+
+        assertFalse(vm.ui.value.carnetEnCours)
+        assertEquals(12, vm.ui.value.carnet?.pages)
+        assertEquals(listOf("voyageFabriquerCarnet 1941"), api.calls.filter { it.startsWith("voyageFabriquerCarnet") })
+    }
+
+    // Une fabrication déjà en cours (`409`) : le message du back remonte, sans marquer le bouton en
+    // cours — jumeau de `composerSeance en echec envoie le message du back au bandeau...`.
+    @Test
+    fun `fabriquerCarnet en echec 409 envoie le message du back au bandeau, sans marquer en cours`() = runTest(dispatcher) {
+        api.onVoyageAnnee = { prete(salle("s1")) }
+        api.onVoyageFabriquerCarnet = { throw ApiError("CONFLICT", "Le carnet de cette année se fabrique déjà.", retryable = false, status = 409) }
+        val vm = AnneeViewModel(api, 1941, null) {}
+        vm.relire()
+        runCurrent()
+
+        val messages = mutableListOf<String>()
+        val job = launch { vm.messages.collect { messages += it } }
+
+        vm.fabriquerCarnet()
+        runCurrent()
+
+        assertEquals(listOf("Le carnet de cette année se fabrique déjà."), messages)
+        assertFalse(vm.ui.value.carnetEnCours)
+        job.cancel()
     }
 }

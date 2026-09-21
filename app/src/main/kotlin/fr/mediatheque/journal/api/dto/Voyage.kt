@@ -211,6 +211,10 @@ data class AnneeVoyageDetailResponse(
     val seances: List<SeanceVoyage> = emptyList(),
     /** Une composition vient d'être demandée et s'écrit encore — `prete` seulement. */
     val seance_en_cours: Boolean = false,
+    /** Le carnet de cette année (brief du 22 septembre 2026, « le carnet »), s'il a déjà été fabriqué — `prete` seulement. */
+    val carnet: CarnetAnneeVoyage? = null,
+    /** La fabrication du carnet de cette année tourne encore — `prete` seulement. */
+    val carnet_en_cours: Boolean = false,
 )
 
 /** Corps de `POST /me/voyage/annees/{annee}/chronique` : `tmdb_id` **ou** `programme_id`, jamais les deux. */
@@ -363,3 +367,21 @@ data class DepenseMoisVoyage(
 /** `GET /me/voyage/depenses` — mes dépenses au chroniqueur, du plus ancien au plus récent. */
 @Serializable
 data class VoyageDepensesResponse(val mois: List<DepenseMoisVoyage> = emptyList())
+
+// --- Le carnet (brief du 22 septembre 2026, « le carnet »). ---
+
+/** Le carnet d'une année, tel que `GET /me/voyage/annees/{annee}` le donne dans `carnet`. */
+@Serializable
+data class CarnetAnneeVoyage(val fabrique_le: String, val pages: Int)
+
+/** `POST /me/voyage/annees/{annee}/carnet` — la fabrication vient de s'enfiler, toujours `202`. */
+@Serializable
+data class CarnetFabricationResponse(val statut: String = "en_preparation")
+
+/** Un carnet déjà fabriqué, tel que `GET /me/voyage/carnets` le donne dans sa liste, par année croissante. */
+@Serializable
+data class CarnetVoyage(val annee: Int, val fabrique_le: String, val pages: Int)
+
+/** `GET /me/voyage/carnets` — mes carnets déjà fabriqués, et les années dont la fabrication tourne encore. */
+@Serializable
+data class VoyageCarnetsResponse(val carnets: List<CarnetVoyage> = emptyList(), val en_cours: List<Int> = emptyList())

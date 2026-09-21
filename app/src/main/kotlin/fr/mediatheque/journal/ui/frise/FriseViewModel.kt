@@ -349,6 +349,25 @@ class FriseViewModel(private val api: JournalApi, private val onUnauthenticated:
         }
     }
 
+    /**
+     * « Oui » sur la proposition de carnet (décision 1 du brief du 22 septembre 2026, « le
+     * carnet »), après que l'usage d'un ticket a fait avancer l'année en cours (`avancees`
+     * ci-dessus) : lance sa fabrication, sans rien attendre de plus — la fiche de l'année ou le
+     * profil disent son avancement. `onMessage` reçoit le message bref de succès, ou celui du back
+     * sur une `409` (une fabrication déjà en cours pour cette année).
+     */
+    fun proposerCarnet(annee: Int, onMessage: suspend (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                api.voyageFabriquerCarnet(annee)
+            } catch (e: ApiError) {
+                if (e.isUnauthenticated) onUnauthenticated() else onMessage(e.message ?: "Impossible pour l’instant")
+                return@launch
+            }
+            onMessage("Le carnet de $annee se fabrique")
+        }
+    }
+
     companion object {
         /** La relecture du ticket après un enregistrement (décision 2) : cinq secondes l'essai, comme la chronique d'une année. */
         const val TICKET_RELECTURE_INTERVAL_MS = 5_000L

@@ -86,4 +86,15 @@ object Endpoints {
     fun voyageSeanceRemplacer(id: String): String = "me/voyage/seances/$id/remplacer"
     fun voyageSeancePrendre(id: String): String = "me/voyage/seances/$id/prendre"
     fun voyageSeanceIgnorer(id: String): String = "me/voyage/seances/$id/ignorer"
+
+    // --- Le carnet (brief du 22 septembre 2026, « le carnet »). ---
+
+    /** `POST /me/voyage/annees/{annee}/carnet` : lance ou relance sa fabrication. */
+    fun voyageCarnet(annee: Int): String = "${voyageAnnee(annee)}/carnet"
+
+    /** `GET /me/voyage/carnets` : mes carnets déjà fabriqués, et ceux dont la fabrication tourne encore. */
+    const val voyageCarnets = "me/voyage/carnets"
+
+    /** `GET /me/voyage/carnets/{annee}/pdf` : le PDF lui-même. */
+    fun voyageCarnetPdf(annee: Int): String = "$voyageCarnets/$annee/pdf"
 }

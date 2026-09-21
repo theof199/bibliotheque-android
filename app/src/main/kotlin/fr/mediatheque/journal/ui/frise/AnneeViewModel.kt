@@ -7,6 +7,7 @@ import fr.mediatheque.journal.api.JournalApi
 import fr.mediatheque.journal.api.dto.AnneeVoyage
 import fr.mediatheque.journal.api.dto.AnneeVoyageDetailResponse
 import fr.mediatheque.journal.api.dto.BobineVoyage
+import fr.mediatheque.journal.api.dto.CarnetAnneeVoyage
 import fr.mediatheque.journal.api.dto.ChroniqueBody
 import fr.mediatheque.journal.api.dto.DemandeSalleVoyage
 import fr.mediatheque.journal.api.dto.FilmSalleVoyage
@@ -208,6 +209,10 @@ data class AnneeUi(
     val seances: List<SeanceUi> = emptyList(),
     /** Une composition vient d'être demandée et s'écrit encore (décision 1) — `prete` seulement. */
     val seanceEnCours: Boolean = false,
+    /** Le carnet de cette année (décision 2 du brief du 22 septembre 2026, « le carnet ») — nul tant qu'il n'a pas été fabriqué. */
+    val carnet: CarnetUi? = null,
+    /** Sa fabrication tourne encore (décision 2) — `prete` seulement. */
+    val carnetEnCours: Boolean = false,
 )
 
 private fun BobineVoyage.versUi() = BobineUi(tmdb_id, title, duree_min, cover_url, plex_url, etat)
@@ -237,6 +242,7 @@ private fun ProgressionVoyage.versUi() = ProgressionUi(essentiels_vus, essentiel
 private fun SeanceBobineVoyage.versUi() = SeanceBobineUi(tmdb_id, title)
 private fun SeanceFilmVoyage.versUi() = SeanceFilmUi(film_id, tmdb_id, title, cover_url, salle, etat, plex_url, bobine?.versUi())
 private fun SeanceVoyage.versUi() = SeanceUi(id, rang, statut, composee_le, anecdote, long.versUi(), court?.versUi())
+private fun CarnetAnneeVoyage.versUi() = CarnetUi(fabrique_le, pages)
 
 /** Toujours trois marches, une entrée nulle pour chacune que le back ne sert pas (encore vide, ou réponse plus courte). */
 private fun List<PodiumMarcheVoyage?>.versPodiumUi(): List<PodiumMarcheUi?> = (0..2).map { i -> getOrNull(i)?.versUi() }
@@ -346,6 +352,8 @@ class AnneeViewModel(
                 progression = if (etat == EtatAnnee.PRETE) reponse.progression?.versUi() else it.progression,
                 seances = if (etat == EtatAnnee.PRETE) reponse.seances.sortedBy { s -> s.rang }.map { s -> s.versUi() } else it.seances,
                 seanceEnCours = if (etat == EtatAnnee.PRETE) reponse.seance_en_cours else it.seanceEnCours,
+                carnet = if (etat == EtatAnnee.PRETE) reponse.carnet?.versUi() else it.carnet,
+                carnetEnCours = if (etat == EtatAnnee.PRETE) reponse.carnet_en_cours else it.carnetEnCours,
             )
         }
         if (etat == EtatAnnee.PRETE) appliquerDemandeSalle(reponse.demande_salle)
@@ -778,6 +786,65 @@ class AnneeViewModel(
                 return@launch
             }
             relireApresSeance()
+        }
+    }
+
+    // --- Le carnet (brief du 22 septembre 2026, « le carnet »). ---
+
+    private var carnetJob: Job? = null
+
+    /**
+     * « Faire le carnet »/« Refaire le carnet » (décision 2) : lance ou relance la fabrication,
+     * marque tout de suite `carnetEnCours` (optimiste, jumeau de `voirPlus`/`composerSeance`), puis
+     * relit l'année toutes les cinq secondes jusqu'à ce que `carnet_en_cours` retombe, abandon au
+     * plafond de l'année (`etatFourneeSuivant`, même plafond que la chronique et les salles —
+     * `CHRONIQUE_ANNEE_ESSAIS_MAX`). Une erreur (dont une `409`, une fabrication déjà en cours)
+     * envoie le message du back au bandeau, sans marquer en cours.
+     */
+    fun fabriquerCarnet() {
+        if (carnetJob?.isActive == true) return
+        carnetJob = viewModelScope.launch {
+            try {
+                api.voyageFabriquerCarnet(annee)
+            } catch (e: ApiError) {
+                if (e.isUnauthenticated) onUnauthenticated() else _messages.trySend(e.message ?: "Impossible pour l’instant")
+                return@launch
+            }
+            _ui.update { it.copy(carnetEnCours = true) }
+
+            var essais = 0
+            while (true) {
+                delay(POLL_INTERVAL_MS)
+                val detail = try {
+                    api.voyageAnnee(annee)
+                } catch (e: ApiError) {
+                    if (e.isUnauthenticated) onUnauthenticated()
+                    return@launch
+                }
+                if (detail.configure && detail.statut == "prete") {
+                    _ui.update { it.copy(carnet = detail.carnet?.versUi(), carnetEnCours = detail.carnet_en_cours) }
+                }
+                val (etat, prochainEssai) = etatFourneeSuivant(_ui.value.carnetEnCours, essais, plafond = CHRONIQUE_ANNEE_ESSAIS_MAX)
+                essais = prochainEssai
+                if (etat != EtatFournee.EN_COURS) return@launch
+            }
+        }
+    }
+
+    /**
+     * Un tap sur « Fabriqué le… » (décision 4) : les octets seuls — c'est l'appelant (`AnneeScreen`,
+     * `ouvrirCarnet`) qui les écrit dans `cacheDir` et ouvre l'intention, avec le `Context` qu'un
+     * `ViewModel` ne doit pas tenir. `null` après une session expirée, déjà traitée ici comme
+     * partout ailleurs.
+     */
+    suspend fun telechargerCarnetPdf(): ByteArray? = try {
+        api.telechargerCarnetPdf(annee)
+    } catch (e: ApiError) {
+        if (e.isUnauthenticated) {
+            onUnauthenticated()
+            null
+        } else {
+            throw e
         }
     }
 

@@ -47,6 +47,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -79,6 +80,7 @@ import fr.mediatheque.journal.ui.showBriefly
 import fr.mediatheque.journal.ui.theme.CadrePapier
 import fr.mediatheque.journal.ui.theme.PapierJauni
 import fr.mediatheque.journal.ui.theme.TextePapier
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 /**
@@ -116,6 +118,8 @@ fun AnneeScreen(
 ) {
     val ui by vm.ui.collectAsState()
     val snackbar = remember { SnackbarHostState() }
+    val contexte = LocalContext.current
+    val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) { vm.messages.collect { snackbar.showBriefly(it) } }
     LaunchedEffect(Unit) { vm.relire() }
     val millesime = annee.annee ?: LocalDate.now().year
@@ -204,6 +208,44 @@ fun AnneeScreen(
             if (ui.statutVoyage == StatutAnneeVoyage.EN_COURS) {
                 item { LigneBasAnneeEnCours(ligneBasAnnee(ui.ticket, ui.maturite), onUtiliserTicket = { vm.utiliserTicket(onTicketChange) }) }
             }
+
+            // Le carnet (décision 2 du brief du 22 septembre 2026, « le carnet »), sous la ligne du
+            // ticket : toute année qui a une ouverture (etat PRETE, la seule condition qui gouverne
+            // déjà le podium et les salles ci-dessus), pas seulement l'année en cours.
+            if (ui.etat == EtatAnnee.PRETE) {
+                item {
+                    BlocCarnet(
+                        carnet = ui.carnet,
+                        carnetEnCours = ui.carnetEnCours,
+                        onFaireCarnet = vm::fabriquerCarnet,
+                        onOuvrirCarnet = {
+                            scope.launch { ouvrirCarnet(contexte, millesime, vm::telechargerCarnetPdf) { message -> snackbar.showBriefly(message) } }
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * « Faire le carnet »/« Refaire le carnet » (décision 2 du brief du 22 septembre 2026, « le
+ * carnet »), désactivé et « Le carnet se fabrique… » pendant `carnetEnCours` ; en dessous, dès
+ * qu'un carnet existe déjà, « Fabriqué le… » — un tap l'ouvre (décision 4).
+ */
+@Composable
+private fun BlocCarnet(carnet: CarnetUi?, carnetEnCours: Boolean, onFaireCarnet: () -> Unit, onOuvrirCarnet: () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        OutlinedButton(onClick = onFaireCarnet, enabled = !carnetEnCours, modifier = Modifier.fillMaxWidth()) {
+            Text(libelleBoutonCarnet(carnet, carnetEnCours))
+        }
+        carnet?.let {
+            Text(
+                ligneFabriqueLeCarnet(it),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.clickable(onClick = onOuvrirCarnet),
+            )
         }
     }
 }

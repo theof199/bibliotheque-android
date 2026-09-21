@@ -45,6 +45,7 @@ import fr.mediatheque.journal.ui.login.LoginScreen
 import fr.mediatheque.journal.ui.login.LoginViewModel
 import fr.mediatheque.journal.ui.frise.TicketCalque
 import fr.mediatheque.journal.ui.profile.BilanViewModel
+import fr.mediatheque.journal.ui.profile.CarnetsViewModel
 import fr.mediatheque.journal.ui.profile.DepensesViewModel
 import fr.mediatheque.journal.ui.profile.LetterboxdImportViewModel
 import fr.mediatheque.journal.ui.profile.PasseportViewModel
@@ -282,6 +283,13 @@ fun Root(container: AppContainer) {
                             DepensesViewModel(container.api, session::expire)
                         }
                         LaunchedEffect(Unit) { depenses.refresh() }
+                        // Les carnets (décision 3 du brief du 22 septembre 2026, « le carnet »),
+                        // sous les dépenses : jumeau des deux ci-dessus, sa propre liste
+                        // (`GET /me/voyage/carnets`).
+                        val carnets: CarnetsViewModel = viewModel(key = "carnets") {
+                            CarnetsViewModel(container.api, session::expire)
+                        }
+                        LaunchedEffect(Unit) { carnets.refresh() }
                         // Le passeport (décision 3 du brief du 21 septembre 2026, « les
                         // récompenses ») charge ses données lui-même (`GET /me/voyage`), pas depuis
                         // `FriseViewModel` : plus jamais vide quand Profil s'ouvre en premier.
@@ -299,6 +307,7 @@ fun Root(container: AppContainer) {
                             passeport = passeportUi.tampons ?: emptyList(),
                             portefeuille = portefeuille,
                             depenses = depenses,
+                            carnets = carnets,
                             onBack = nav::pop,
                             onFilms = { nav.push(Screen.Films) },
                             onSensCritique = { nav.push(Screen.SensCritique) },

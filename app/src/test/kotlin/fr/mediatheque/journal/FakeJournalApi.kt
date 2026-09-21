@@ -28,6 +28,7 @@ import fr.mediatheque.journal.api.dto.StatsResponse
 import fr.mediatheque.journal.api.dto.User
 import fr.mediatheque.journal.api.dto.VuDuFilm
 import fr.mediatheque.journal.api.dto.AnneeVoyageDetailResponse
+import fr.mediatheque.journal.api.dto.CarnetFabricationResponse
 import fr.mediatheque.journal.api.dto.CartonFilmResponse
 import fr.mediatheque.journal.api.dto.ChroniqueBody
 import fr.mediatheque.journal.api.dto.ChroniqueEcritureResponse
@@ -43,6 +44,7 @@ import fr.mediatheque.journal.api.dto.SeanceRemplacerBody
 import fr.mediatheque.journal.api.dto.SeanceVoyage
 import fr.mediatheque.journal.api.dto.TicketUtiliseResponse
 import fr.mediatheque.journal.api.dto.VoyageDeFilmographie
+import fr.mediatheque.journal.api.dto.VoyageCarnetsResponse
 import fr.mediatheque.journal.api.dto.VoyageDepensesResponse
 import fr.mediatheque.journal.api.dto.VoyageResponse
 import fr.mediatheque.journal.api.dto.VoyageTicketsResponse
@@ -107,6 +109,9 @@ class FakeJournalApi : JournalApi {
         { id, _ -> SeanceEcritureResponse(seance(id)) }
     var onVoyagePrendreSeance: suspend (String) -> SeanceEcritureResponse = { id -> SeanceEcritureResponse(seance(id)) }
     var onVoyageIgnorerSeance: suspend (String) -> SeanceEcritureResponse = { id -> SeanceEcritureResponse(seance(id)) }
+    var onVoyageFabriquerCarnet: suspend (Int) -> CarnetFabricationResponse = { CarnetFabricationResponse() }
+    var onVoyageCarnets: suspend () -> VoyageCarnetsResponse = { VoyageCarnetsResponse() }
+    var onTelechargerCarnetPdf: suspend (Int) -> ByteArray = { ByteArray(0) }
 
     override suspend fun login(pseudo: String, password: String) = track("login $pseudo") { onLogin(pseudo, password) }
     override suspend fun me() = track("me") { onMe() }
@@ -162,6 +167,9 @@ class FakeJournalApi : JournalApi {
         track("voyageRemplacerSeance $id ${corps.morceau} ${corps.film_id} ${corps.bobine_tmdb_id}") { onVoyageRemplacerSeance(id, corps) }
     override suspend fun voyagePrendreSeance(id: String) = track("voyagePrendreSeance $id") { onVoyagePrendreSeance(id) }
     override suspend fun voyageIgnorerSeance(id: String) = track("voyageIgnorerSeance $id") { onVoyageIgnorerSeance(id) }
+    override suspend fun voyageFabriquerCarnet(annee: Int) = track("voyageFabriquerCarnet $annee") { onVoyageFabriquerCarnet(annee) }
+    override suspend fun voyageCarnets() = track("voyageCarnets") { onVoyageCarnets() }
+    override suspend fun telechargerCarnetPdf(annee: Int) = track("telechargerCarnetPdf $annee") { onTelechargerCarnetPdf(annee) }
 
     private suspend fun <T> track(name: String, block: suspend () -> T): T {
         calls += name

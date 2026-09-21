@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Le carnet (brief du 22 septembre 2026, « le carnet », décision 4) : seul `cacheDir/carnets/`
+    est exposé par le `FileProvider`, jamais tout `cacheDir` — le PDF téléchargé y vit seul.
+-->
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <cache-path name="carnets" path="carnets/" />
+</paths>

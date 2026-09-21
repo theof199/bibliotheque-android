@@ -26,6 +26,9 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -34,6 +37,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,13 +50,19 @@ import androidx.compose.ui.unit.dp
 import fr.mediatheque.journal.R
 import fr.mediatheque.journal.api.dto.User
 import fr.mediatheque.journal.ui.ErrorBlock
+import fr.mediatheque.journal.ui.frise.LigneCarnetProfil
 import fr.mediatheque.journal.ui.frise.LigneTicketPortefeuille
 import fr.mediatheque.journal.ui.frise.TamponDecennie
 import fr.mediatheque.journal.ui.frise.TamponPasseport
 import fr.mediatheque.journal.ui.frise.TicketPortefeuilleUi
+import fr.mediatheque.journal.ui.frise.lignesCarnetsProfil
+import fr.mediatheque.journal.ui.frise.ouvrirCarnet
+import fr.mediatheque.journal.ui.frise.texteLigneCarnetProfil
+import fr.mediatheque.journal.ui.showBriefly
 import fr.mediatheque.journal.ui.suivis.SuiviState
 import fr.mediatheque.journal.ui.suivis.SuivisViewModel
 import fr.mediatheque.journal.ui.suivis.pret
+import kotlinx.coroutines.launch
 import java.time.YearMonth
 
 @Composable
@@ -68,6 +78,8 @@ fun ProfileScreen(
     portefeuille: PortefeuilleViewModel,
     /** Les dépenses au chroniqueur (décision 2 du brief du 21 septembre 2026, « les dépenses »), sous le portefeuille. */
     depenses: DepensesViewModel,
+    /** Les carnets (décision 3 du brief du 22 septembre 2026, « le carnet »), sous les dépenses. */
+    carnets: CarnetsViewModel,
     onBack: () -> Unit,
     onFilms: () -> Unit,
     onSensCritique: () -> Unit,
@@ -83,6 +95,11 @@ fun ProfileScreen(
     val suivisUi by suivis.ui.collectAsState()
     val portefeuilleUi by portefeuille.ui.collectAsState()
     val depensesUi by depenses.ui.collectAsState()
+    val carnetsUi by carnets.ui.collectAsState()
+    // Le carnet (décision 4 du brief du 22 septembre 2026, « le carnet ») : le message d'échec du
+    // téléchargement ou de l'ouverture, jumeau du `snackbar` d'`AnneeScreen`.
+    val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     // Sélecteur de fichiers système (brief « importer Letterboxd », 16 septembre 2026) : le ZIP de
     // l'export ou `diary.csv` seul, `*/*` en repli pour les lecteurs qui ne déclarent aucun des deux
@@ -112,7 +129,11 @@ fun ProfileScreen(
     // `Scaffold` plutôt que `safeDrawingPadding()` : son `bottomBar` (la barre du 14 septembre
     // 2026, « Profil » sélectionnée) réserve sa propre place dans le `padding` reçu ci-dessous,
     // comme les insets système que `safeDrawingPadding()` réservait seul avant elle.
-    Scaffold(containerColor = MaterialTheme.colorScheme.background, bottomBar = bottomBar) { padding ->
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        bottomBar = bottomBar,
+        snackbarHost = { SnackbarHost(snackbar) { data -> Snackbar(snackbarData = data) } },
+    ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour") }
@@ -140,6 +161,14 @@ fun ProfileScreen(
                     PasseportCard(passeport, onOuvrirGenerique)
                     PortefeuilleCard(portefeuilleUi.tickets, onUtiliserTicket)
                     DepensesCard(depensesUi.mois)
+                    CarnetsCard(
+                        carnetsUi,
+                        onOuvrir = { annee ->
+                            scope.launch {
+                                ouvrirCarnet(context, annee, { carnets.telechargerCarnetPdf(annee) }) { message -> snackbar.showBriefly(message) }
+                            }
+                        },
+                    )
                     ListItem(
                         headlineContent = { Text("Mes films", style = MaterialTheme.typography.titleMedium) },
                         trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null) },
@@ -343,6 +372,40 @@ private fun DepensesCard(mois: List<DepenseMoisUi>?) {
             )
             if (deplie) {
                 triMoisPrecedents(mois, moisCourant).forEach { m -> LigneBilan(ligneMoisPrecedent(m)) }
+            }
+        }
+    }
+}
+
+/**
+ * Les carnets (décision 3 du brief du 22 septembre 2026, « le carnet »), sous les Dépenses, dans un
+ * bloc jumeau des leurs : une ligne par carnet déjà fabriqué (`lignesCarnetsProfil`), un tap ouvre
+ * son PDF (décision 4) ; les années en fabrication en ligne grisée, inertes ; « Aucun carnet pour
+ * l'instant » une fois la réponse là, vide. `carnets == null` tant que `GET /me/voyage/carnets`
+ * n'a pas répondu.
+ */
+@Composable
+private fun CarnetsCard(carnetsUi: CarnetsUi, onOuvrir: (Int) -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceContainer, MaterialTheme.shapes.medium)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text("Carnets", style = MaterialTheme.typography.titleMedium)
+        val carnets = carnetsUi.carnets
+        when {
+            carnets == null -> LigneBilan("…")
+            carnets.isEmpty() && carnetsUi.enCours.isEmpty() -> LigneBilan("Aucun carnet pour l’instant")
+            else -> lignesCarnetsProfil(carnets, carnetsUi.enCours).forEach { ligne ->
+                val enFabrication = ligne is LigneCarnetProfil.EnFabrication
+                Text(
+                    texteLigneCarnetProfil(ligne),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enFabrication) 0.5f else 1f),
+                    modifier = if (enFabrication) Modifier.fillMaxWidth() else Modifier.fillMaxWidth().clickable { onOuvrir(ligne.annee) },
+                )
             }
         }
     }

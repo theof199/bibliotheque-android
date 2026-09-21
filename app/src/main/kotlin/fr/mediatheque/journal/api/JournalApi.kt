@@ -18,6 +18,7 @@ import fr.mediatheque.journal.api.dto.SortiesResponse
 import fr.mediatheque.journal.api.dto.StatsResponse
 import fr.mediatheque.journal.api.dto.User
 import fr.mediatheque.journal.api.dto.AnneeVoyageDetailResponse
+import fr.mediatheque.journal.api.dto.CarnetFabricationResponse
 import fr.mediatheque.journal.api.dto.CartonFilmResponse
 import fr.mediatheque.journal.api.dto.ChroniqueBody
 import fr.mediatheque.journal.api.dto.ChroniqueEcritureResponse
@@ -30,6 +31,7 @@ import fr.mediatheque.journal.api.dto.SeanceComposerResponse
 import fr.mediatheque.journal.api.dto.SeanceEcritureResponse
 import fr.mediatheque.journal.api.dto.SeanceRemplacerBody
 import fr.mediatheque.journal.api.dto.TicketUtiliseResponse
+import fr.mediatheque.journal.api.dto.VoyageCarnetsResponse
 import fr.mediatheque.journal.api.dto.VoyageDepensesResponse
 import fr.mediatheque.journal.api.dto.VoyageResponse
 import fr.mediatheque.journal.api.dto.VoyageTicketsResponse
@@ -222,6 +224,25 @@ interface JournalApi {
 
     /** `POST /me/voyage/seances/{id}/ignorer` : ignore la séance. */
     suspend fun voyageIgnorerSeance(id: String): SeanceEcritureResponse
+
+    // --- Le carnet (brief du 22 septembre 2026, « le carnet »). ---
+
+    /**
+     * `POST /me/voyage/annees/{annee}/carnet` : lance ou relance la fabrication du carnet de cette
+     * année. Toujours `202`. `404` sans ouverture pour cette année, `409` si une fabrication est
+     * déjà en cours.
+     */
+    suspend fun voyageFabriquerCarnet(annee: Int): CarnetFabricationResponse
+
+    /** `GET /me/voyage/carnets` : mes carnets déjà fabriqués, et les années dont la fabrication tourne encore. */
+    suspend fun voyageCarnets(): VoyageCarnetsResponse
+
+    /**
+     * `GET /me/voyage/carnets/{annee}/pdf` : le PDF lui-même, en octets bruts — jamais affiché dans
+     * l'appli, seulement écrit dans `cacheDir` puis remis au système. `404` sans carnet pour cette
+     * année.
+     */
+    suspend fun telechargerCarnetPdf(annee: Int): ByteArray
 }
 
 /**

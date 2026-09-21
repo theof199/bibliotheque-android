@@ -21,5 +21,18 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Le carnet (brief du 22 septembre 2026, « le carnet », décision 4) : le PDF téléchargé
+             dans cacheDir/carnets/ est remis au système par une URI de ce fournisseur, jamais un
+             file:// direct — Android l'interdit aux applications ciblant 24 et plus. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 </manifest>

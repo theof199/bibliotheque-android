@@ -20,17 +20,20 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -91,6 +94,9 @@ fun VoyageScreen(
     val snackbar = remember { SnackbarHostState() }
     var claques by remember { mutableIntStateOf(0) }
     var decennieAllumee by remember { mutableIntStateOf(0) }
+    // La proposition de carnet (décision 1 du brief du 22 septembre 2026, « le carnet ») : nulle
+    // hors dialogue, sinon l'année à proposer.
+    var carnetPropose by remember { mutableStateOf<Int?>(null) }
 
     val cellules = remember(ui.voyage, ui.annees, ui.decennies, ui.passeport, anneeActuelle) {
         construireCarte(ui, anneeActuelle)
@@ -105,11 +111,15 @@ fun VoyageScreen(
         if (index >= 0) liste.scrollToItem(index)
     }
 
-    // L'année en cours qui avance : le clap claque, la snackbar dit l'année dans la boîte.
+    // L'année en cours qui avance : le clap claque, la snackbar dit l'année dans la boîte, et la
+    // proposition de carnet s'ouvre pour l'année qu'on quitte (décision 1 du brief du 22 septembre
+    // 2026, « le carnet ») — même site quelle que soit la façon dont le ticket a été encaissé (la
+    // fiche d'une année, le calque ou le portefeuille), tous relisent `GET /me/voyage` en retour.
     LaunchedEffect(Unit) {
         vm.avancees.collect { avancee ->
             claques += 1
             snackbar.showBriefly("${avancee.anneeBouclee} dans la boîte !")
+            carnetPropose = anneeProposeeCarnet(avancee)
         }
     }
 
@@ -121,6 +131,25 @@ fun VoyageScreen(
             decennieAllumee = tampon.decennie
             onOpenGenerique(tampon)
         }
+    }
+
+    // La proposition de carnet (décision 1 du brief du 22 septembre 2026, « le carnet ») : « Oui »
+    // lance la fabrication et referme le dialogue tout de suite (optimiste, jumeau des autres
+    // gestes du Voyage) — `vm.proposerCarnet` porte le message bref de succès, ou celui du back sur
+    // une `409` (une fabrication déjà en cours pour cette année).
+    carnetPropose?.let { annee ->
+        AlertDialog(
+            onDismissRequest = { carnetPropose = null },
+            title = { Text("$annee est bouclée") },
+            text = { Text("Veux-tu son carnet ?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    carnetPropose = null
+                    vm.proposerCarnet(annee) { message -> snackbar.showBriefly(message) }
+                }) { Text("Oui") }
+            },
+            dismissButton = { TextButton(onClick = { carnetPropose = null }) { Text("Plus tard") } },
+        )
     }
 
     Scaffold(
