@@ -36,8 +36,8 @@ class SeanceEtatsTest {
     private fun seanceFilm(filmId: String = "f-long", tmdbId: Int = 1, etat: String = "a_demander", plexUrl: String? = null, bobine: SeanceBobineUi? = null) =
         SeanceFilmUi(filmId, tmdbId, "Film $tmdbId", null, "Les essentiels", etat, plexUrl, bobine)
 
-    private fun seance(id: String = "sc-1", rang: Int = 1, statut: String = "proposee", court: SeanceFilmUi? = null) =
-        SeanceUi(id, rang, statut, "2026-09-21T22:00:00.000Z", "Une anecdote.", seanceFilm(), court)
+    private fun seance(id: String = "sc-1", rang: Int = 1, statut: String = "proposee", court: SeanceFilmUi? = null, longEtat: String = "a_demander") =
+        SeanceUi(id, rang, statut, "2026-09-21T22:00:00.000Z", "Une anecdote.", seanceFilm(etat = longEtat), court)
 
     // Jamais un programme, jamais un vu ni un introuvable (décision 3 du brief).
     // Mutation : retirer un des deux filtres d'état laisserait passer un film déjà vu ou introuvable.
@@ -201,6 +201,28 @@ class SeanceEtatsTest {
         assertEquals(listOf("sc-1"), passees.map { it.id })
     }
 
+    // Corrigé le 21 septembre 2026 (le propriétaire s'était trompé en disant l'inverse) : une
+    // séance prise dont le long est vu est terminée — elle rejoint « Séances passées » même si
+    // elle est la plus récente, puisqu'elle ne tient plus la carte.
+    // Mutation : retirer la condition sur `long.etat == "vu"` (par exemple garder la plus récente
+    // toujours exclue) ferait échouer cette assertion, qui attend `sc-1` malgré son rang le plus haut.
+    @Test
+    fun `seancesPassees inclut la plus recente si elle est prise et son long vu`() {
+        val priseEtVue = seance("sc-1", rang = 1, statut = "prise", longEtat = "vu")
+
+        val passees = seancesPassees(listOf(priseEtVue))
+
+        assertEquals(listOf("sc-1"), passees.map { it.id })
+    }
+
+    // Une prise dont le long n'est pas encore vu reste la carte, jamais dans les passées.
+    @Test
+    fun `seancesPassees exclut toujours la plus recente prise dont le long n'est pas vu`() {
+        val prise = seance("sc-1", rang = 1, statut = "prise", longEtat = "a_demander")
+
+        assertTrue(seancesPassees(listOf(prise)).isEmpty())
+    }
+
     // L'état de la zone séance : bouton (rien, ou la plus récente ignorée), en cours (prime sur
     // tout), carte proposée, carte prise (décision 1-2, corrigée le 21 septembre 2026 : « ignorer »
     // n'est pas terminal — la carte disparaît et le bouton revient aussitôt, comme s'il n'y avait
@@ -226,6 +248,28 @@ class SeanceEtatsTest {
             etatZoneSeance(seanceEnCours = false, seances = listOf(seance(statut = "ignoree"))),
         )
         assertEquals(EtatZoneSeance.BOUTON, etatZoneSeance(seanceEnCours = false, seances = listOf(seance(statut = "ignoree"))))
+    }
+
+    // Corrigé le 21 septembre 2026 (le propriétaire s'était trompé en disant l'inverse) : une
+    // séance prise dont le long est vu est terminée, comme une ignorée — le bouton revient plutôt
+    // que la carte « Prise ».
+    // Mutation : retirer la condition sur `long.etat == "vu"` (garder `CARTE_PRISE` inconditionnel
+    // sur `prise`) fait échouer cette assertion, qui attend `BOUTON`.
+    @Test
+    fun `etatZoneSeance rend le bouton quand la plus recente est prise et son long vu`() {
+        assertEquals(
+            EtatZoneSeance.BOUTON,
+            etatZoneSeance(seanceEnCours = false, seances = listOf(seance(statut = "prise", longEtat = "vu"))),
+        )
+    }
+
+    // Tant que le long n'est pas vu, la carte « Prise » tient — seul « Ignorer » ou le long vu la libèrent.
+    @Test
+    fun `etatZoneSeance garde la carte prise tant que le long n'est pas vu`() {
+        assertEquals(
+            EtatZoneSeance.CARTE_PRISE,
+            etatZoneSeance(seanceEnCours = false, seances = listOf(seance(statut = "prise", longEtat = "a_demander"))),
+        )
     }
 
     // Toujours un texte, même sur « à demander » (contrairement à `etiquetteEtatFilm`, qui rend

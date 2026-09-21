@@ -718,14 +718,20 @@ private fun LigneActionsFilmSeance(film: SeanceFilmUi, onDemander: (Int) -> Unit
     }
 }
 
-/** « Séances passées » (décision 2) : titre du long · date, repliées sous ce titre — un tap sur une ligne ne fait rien. */
+/**
+ * « Séances passées » (décision 2) : titre du long · date, repliées sous ce titre — un tap sur une
+ * ligne ne fait rien. Une séance prise dont le long est vu porte la mention « · vue » (corrigé le
+ * 21 septembre 2026 : elle est terminée, comme une ignorée, plutôt que de tenir la carte pour
+ * toujours).
+ */
 @Composable
 private fun SeancesPasseesBloc(passees: List<SeanceUi>) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text("Séances passées", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         passees.forEach { seance ->
+            val vue = seance.statut == "prise" && seance.long.etat == "vu"
             Text(
-                "${seance.long.title} · ${formatDateTime(seance.composeeLe)}",
+                "${seance.long.title} · ${formatDateTime(seance.composeeLe)}" + if (vue) " · vue" else "",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

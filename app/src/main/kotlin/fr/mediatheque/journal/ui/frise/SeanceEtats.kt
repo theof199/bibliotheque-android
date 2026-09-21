@@ -107,13 +107,16 @@ fun seanceRecente(seances: List<SeanceUi>): SeanceUi? = seances.maxByOrNull { it
 
 /**
  * Les séances précédentes, prises ou ignorées, repliées sous « Séances passées » (décision 2) —
- * jamais la plus récente, même si elle est déjà prise ou ignorée. Rang décroissant : la plus
- * récente des passées en tête.
+ * jamais la plus récente tant qu'elle tient encore la carte, **sauf** si elle est prise et que son
+ * long est vu : elle est alors terminée (corrigé le 21 septembre 2026, le propriétaire s'était
+ * trompé en disant l'inverse) et rejoint les passées elle aussi, jumeau d'`etatZoneSeance`. Rang
+ * décroissant : la plus récente des passées en tête.
  */
 fun seancesPassees(seances: List<SeanceUi>): List<SeanceUi> {
     val recente = seanceRecente(seances)
+    val recenteTerminee = recente != null && recente.statut == "prise" && recente.long.etat == "vu"
     return seances
-        .filter { it.id != recente?.id && (it.statut == "prise" || it.statut == "ignoree") }
+        .filter { (it.id != recente?.id || recenteTerminee) && (it.statut == "prise" || it.statut == "ignoree") }
         .sortedByDescending { it.rang }
 }
 
@@ -124,15 +127,19 @@ enum class EtatZoneSeance { BOUTON, EN_COURS, CARTE_PROPOSEE, CARTE_PRISE, RIEN 
  * `seanceEnCours` (une composition en vol) prime sur tout le reste ; sinon la séance la plus
  * récente décide : aucune, ou `ignoree` -> le bouton (« ignorer » n'est pas terminal : la spec dit
  * « la prendre, en changer un morceau, ou l'ignorer » — ignorer, c'est en redemander une autre plus
- * tard, comme s'il n'y en avait pas), `proposee` -> sa carte, `prise` -> sa carte étiquetée, tant
- * qu'elle reste prise — seul « Ignorer » libère le bouton, jamais le fait que son long soit vu.
+ * tard, comme s'il n'y en avait pas), `proposee` -> sa carte, `prise` -> sa carte étiquetée tant que
+ * son long n'est pas vu — une fois vu, la séance est **terminée** (corrigé le 21 septembre 2026 :
+ * le propriétaire s'était trompé en disant l'inverse) et le bouton revient, comme après « Ignorer ».
  */
 fun etatZoneSeance(seanceEnCours: Boolean, seances: List<SeanceUi>): EtatZoneSeance {
     if (seanceEnCours) return EtatZoneSeance.EN_COURS
-    return when (seanceRecente(seances)?.statut) {
-        null, "ignoree" -> EtatZoneSeance.BOUTON
-        "proposee" -> EtatZoneSeance.CARTE_PROPOSEE
-        "prise" -> EtatZoneSeance.CARTE_PRISE
+    val recente = seanceRecente(seances)
+    return when {
+        recente == null -> EtatZoneSeance.BOUTON
+        recente.statut == "ignoree" -> EtatZoneSeance.BOUTON
+        recente.statut == "prise" && recente.long.etat == "vu" -> EtatZoneSeance.BOUTON
+        recente.statut == "proposee" -> EtatZoneSeance.CARTE_PROPOSEE
+        recente.statut == "prise" -> EtatZoneSeance.CARTE_PRISE
         else -> EtatZoneSeance.RIEN
     }
 }
