@@ -128,9 +128,10 @@ class AnneeViewModelTest {
     // préparation » (mutation : la faire passer par `etatChroniqueSuivant` sans ce garde-fou
     // ferait sonder l'année 36 fois pour rien, une année verrouillée ne devenant jamais « prête »).
     @Test
-    fun `relire sur une annee verrouillee s'arrete tout de suite, sans compter d'essai`() = runTest(dispatcher) {
+    fun `relire sur une annee verrouillee ne compte pas d'essai, et se relit a l'entree suivante`() = runTest(dispatcher) {
         var appels = 0
-        api.onVoyageAnnee = { appels++; AnneeVoyageDetailResponse(configure = true, statut = "verrouillee", annee = 1999, profondeur = 2) }
+        var statut = "verrouillee"
+        api.onVoyageAnnee = { appels++; AnneeVoyageDetailResponse(configure = true, statut = statut, annee = 1999, profondeur = 2) }
         val vm = AnneeViewModel(api, 1999, null) {}
 
         vm.relire()
@@ -142,10 +143,12 @@ class AnneeViewModelTest {
         assertEquals(0, vm.ui.value.essais)
         assertEquals(1, appels)
 
-        // Une deuxième entrée sur l'écran ne relance rien de plus.
+        // Une deuxième entrée relit : un ticket a pu ouvrir l'année entre-temps.
+        statut = "en_preparation"
         vm.relire()
         runCurrent()
-        assertEquals(1, appels)
+        assertEquals(2, appels)
+        assertEquals(EtatAnnee.EN_PREPARATION, vm.ui.value.etat)
     }
 
     @Test

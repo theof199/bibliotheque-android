@@ -184,11 +184,12 @@ class AnneeViewModel(
      * sortie de l'écran, et son compteur d'essais avec elle : sans cette remise à zéro, une page
      * rouverte après un abandon resterait vide pour toujours.
      *
-     * Rien à relire sur une année déjà prête, ni sur une année verrouillée qu'une visite ne peut
-     * pas ouvrir (le back le refuse, `enfiler l'ouverture` n'étant tenté qu'une fois par année).
+     * Rien à relire sur une année déjà prête. Une année **verrouillée**, elle, se relit à chaque
+     * entrée : un ticket a pu être utilisé depuis (21 septembre 2026 : 1896 restait sur
+     * « Prochainement » après le ticket, jusqu'au redémarrage de l'appli).
      */
     fun relire() {
-        if (_ui.value.etat == EtatAnnee.PRETE || _ui.value.etat == EtatAnnee.VERROUILLEE) return
+        if (_ui.value.etat == EtatAnnee.PRETE) return
         _ui.update { it.copy(essais = 0) }
         charger()
     }
