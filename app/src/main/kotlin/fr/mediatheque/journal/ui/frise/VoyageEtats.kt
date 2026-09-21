@@ -1,6 +1,7 @@
 package fr.mediatheque.journal.ui.frise
 
 import fr.mediatheque.journal.api.dto.AnneeVoyage
+import fr.mediatheque.journal.api.dto.TamponVoyage
 import fr.mediatheque.journal.api.dto.VoyageResponse
 
 /**
@@ -38,6 +39,8 @@ data class VoyageUi(
     val parAnnee: Map<Int, AnneeVoyage> = emptyMap(),
     /** Non nul une seule fois, tant que je ne l'ai pas montré (brief du 21 septembre 2026, « le ticket »). */
     val ticketAMontrer: TicketAMontrerUi? = null,
+    /** Le passeport : les décennies bouclées, décennie croissante (étape 5, « les récompenses »). */
+    val tampons: List<TamponVoyage> = emptyList(),
 )
 
 fun VoyageResponse.toVoyageUi(): VoyageUi = VoyageUi(
@@ -46,6 +49,7 @@ fun VoyageResponse.toVoyageUi(): VoyageUi = VoyageUi(
     anneeEnCours = annee_en_cours,
     parAnnee = annees.associateBy { it.annee },
     ticketAMontrer = ticket_a_montrer?.let { TicketAMontrerUi(it.annee, it.motif) },
+    tampons = tampons,
 )
 
 /** Le statut d'une année précise, tel que la carte et `Screen.Decennie` le colorent. */

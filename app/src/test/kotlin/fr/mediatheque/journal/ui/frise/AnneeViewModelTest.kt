@@ -15,6 +15,7 @@ import fr.mediatheque.journal.api.dto.ParagrapheFilmVoyage
 import fr.mediatheque.journal.api.dto.ParagrapheVoyage
 import fr.mediatheque.journal.api.dto.PodiumMarcheVoyage
 import fr.mediatheque.journal.api.dto.PodiumResponse
+import fr.mediatheque.journal.api.dto.ProgressionVoyage
 import fr.mediatheque.journal.api.dto.SalleVoyage
 import fr.mediatheque.journal.api.dto.SallePlusResponse
 import fr.mediatheque.journal.api.dto.TicketAnneeVoyage
@@ -541,5 +542,52 @@ class AnneeViewModelTest {
     @Test
     fun `ligneBasAnnee ne montre rien sans ticket ni maturite`() {
         assertEquals(LigneBasAnnee.Rien, ligneBasAnnee(null, null))
+    }
+
+    // La ligne de progression, sous la profondeur (décision 2 du brief du 21 septembre 2026,
+    // « les récompenses »), fonction pure : « Aucun essentiel encore » avant `essentiels_total`,
+    // « *N* sur *M* » ensuite, le pluriel sur chaque compte. Mutation : accorder « essentiel(s) »
+    // ou « salle(s) complète(s) » sur l'autre nombre du couple ferait échouer les deux dernières
+    // assertions ; ne pas court-circuiter sur `essentielsTotal == 0` ferait apparaître « 0 essentiel
+    // sur 0 » au lieu du message dédié.
+    @Test
+    fun `ligneProgression donne le compte au pluriel, ou Aucun essentiel encore`() {
+        assertEquals("Aucun essentiel encore", ligneProgression(ProgressionUi(0, 0, 0, 0)))
+        assertEquals(
+            "1 essentiel sur 5 · 1 salle complète sur 4",
+            ligneProgression(ProgressionUi(essentielsVus = 1, essentielsTotal = 5, sallesCompletes = 1, sallesAutres = 4)),
+        )
+        assertEquals(
+            "3 essentiels sur 5 · 2 salles complètes sur 4",
+            ligneProgression(ProgressionUi(essentielsVus = 3, essentielsTotal = 5, sallesCompletes = 2, sallesAutres = 4)),
+        )
+    }
+
+    // Nulle (la ligne ne s'affiche pas) tant que la progression n'est pas encore chargée — jamais
+    // confondue avec « Aucun essentiel encore », qui dit que le back a répondu sans essentiel.
+    @Test
+    fun `ligneProgression est nulle sans progression chargee`() {
+        assertNull(ligneProgression(null))
+    }
+
+    // La récompense et la progression se lisent sur une année prête (étape 5, « les récompenses »)
+    // — jumeau du test `relire charge l'annee...` plus haut, qui vérifie déjà `ouverture` et
+    // `profondeur`. Mutation : lire `reponse.recompense`/`reponse.progression` sans passer par
+    // `recompenseDe`/`versUi`, ou les ignorer, laisserait `ui.recompense`/`ui.progression` à `null`.
+    @Test
+    fun `relire charge la recompense et la progression sur une annee prete`() = runTest(dispatcher) {
+        api.onVoyageAnnee = {
+            prete(salle("s1")).copy(
+                recompense = "lion",
+                progression = ProgressionVoyage(essentiels_vus = 3, essentiels_total = 5, salles_completes = 2, salles_autres = 4),
+            )
+        }
+        val vm = AnneeViewModel(api, 1941, null) {}
+
+        vm.relire()
+        runCurrent()
+
+        assertEquals(Recompense.LION, vm.ui.value.recompense)
+        assertEquals(ProgressionUi(3, 5, 2, 4), vm.ui.value.progression)
     }
 }

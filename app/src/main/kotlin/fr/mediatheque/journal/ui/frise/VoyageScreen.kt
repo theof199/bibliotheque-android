@@ -66,10 +66,13 @@ import java.time.LocalDate
  * cours) reste creusable pour toujours, elle n'est jamais « faite ». Le photogramme d'une année
  * ouverte montre donc sa profondeur et l'affiche de son n°1 du podium, ou celle de son dernier film
  * vu tant qu'aucun podium n'y est posé (`afficheAnnee`, `VoyageCarte.kt`) — et la carte « Prochaine
- * étape » a disparu avec les essentiels qui la nourrissaient. Les glyphes de récompense, le compte
- * du HUD, la marquise allumée et le passeport restent dans le code (`Recompense`,
- * `phraseRecompenses`, `tamponsPasseport`) mais ne s'affichent que si le back en donne — il n'en
- * donne aucun à cette étape.
+ * étape » a disparu avec les essentiels qui la nourrissaient.
+ *
+ * Étape 5 (« les récompenses ») : le glyphe de récompense sous chaque photogramme, le compte du
+ * HUD et la marquise allumée lisent désormais de vraies données (`recompenseDe`, `ui.passeport`).
+ * Le générique, lui, ne se déclenche plus par la frontière qui change de monde mais par un tampon
+ * jamais vu (`vm.nouveauxTampons`, décision 1 du brief du 21 septembre 2026) — la mécanique du clap
+ * qui claque quand `annee_en_cours` avance reste sur `vm.avancees`.
  *
  * L'écran ne charge rien lui-même : `FriseViewModel` tient déjà le journal, le Plex et
  * `GET /me/voyage` pour l'accueil comme pour ici (`Root.kt`, clé « frise »).
@@ -102,17 +105,21 @@ fun VoyageScreen(
         if (index >= 0) liste.scrollToItem(index)
     }
 
-    // L'année en cours qui avance : le clap claque, la snackbar dit l'année dans la boîte, et une
-    // décennie bouclée allume sa marquise puis ouvre son générique — silencieux à cette étape, le
-    // passeport restant vide tant que le back ne boucle aucune décennie (§6 de la spec).
+    // L'année en cours qui avance : le clap claque, la snackbar dit l'année dans la boîte.
     LaunchedEffect(Unit) {
         vm.avancees.collect { avancee ->
             claques += 1
             snackbar.showBriefly("${avancee.anneeBouclee} dans la boîte !")
-            avancee.decennieBouclee?.let { decennie ->
-                decennieAllumee = decennie
-                vm.ui.value.passeport.firstOrNull { it.decennie == decennie }?.let(onOpenGenerique)
-            }
+        }
+    }
+
+    // Une décennie bouclée (étape 5, « les récompenses ») : allume sa marquise puis ouvre son
+    // générique — découplé de la frontière ci-dessus, une décennie pouvant se boucler sans que
+    // l'année en cours ne la quitte au même moment (spec du 19 septembre 2026, §6).
+    LaunchedEffect(Unit) {
+        vm.nouveauxTampons.collect { tampon ->
+            decennieAllumee = tampon.decennie
+            onOpenGenerique(tampon)
         }
     }
 
@@ -158,7 +165,7 @@ private sealed interface Cellule {
         val monde: Monde,
         val statut: StatutAnneeVoyage?,
         val affiche: String?,
-        /** Nulle à cette étape : le back ne sert encore aucune récompense (`VoyageCarte.kt`). */
+        /** Nulle sans aucun film vu (`AnneeVoyage.recompense`, étape 5, « les récompenses »). */
         val recompense: Recompense?,
         val profondeur: Int,
         val groupe: AnneeFrise,
@@ -201,7 +208,7 @@ private fun construireCarte(ui: FriseUi, anneeActuelle: Int): List<Cellule> {
                 monde = monde,
                 statut = statutAnneeVoyage(fragment?.statut),
                 affiche = afficheAnnee(fragment?.affiche_url, groupe.vus.firstNotNullOfOrNull { it.media.cover_url }),
-                recompense = null,
+                recompense = recompenseDe(fragment?.recompense),
                 profondeur = fragment?.profondeur ?: groupe.vus.size,
                 groupe = groupe,
                 xEntree = ancreDe(rang - 1) / 2f + ancreDe(rang) / 2f,
@@ -212,8 +219,8 @@ private fun construireCarte(ui: FriseUi, anneeActuelle: Int): List<Cellule> {
         }
         cellules += Cellule.Marquise(
             monde = monde,
-            // Toujours éteinte à cette étape : une décennie ne se boucle qu'à l'étape 3 (le
-            // ticket) et l'étape 5 (l'Ours par année) — `ui.passeport` reste vide jusque-là.
+            // Allumée dès que `ui.passeport` (le tampon envoyé par `GET /me/voyage`) porte cette
+            // décennie — étape 5, « les récompenses ».
             bouclee = ui.passeport.any { it.decennie == decennie },
             rayon = ui.decennies.firstOrNull { it.decennie == decennie }
                 ?: DecennieFrise(decennie, 0, 0, emptyList(), (decennie until decennie + 10).map { AnneeDecennie(it, 0, 0) }),
@@ -228,9 +235,9 @@ private fun construireCarte(ui: FriseUi, anneeActuelle: Int): List<Cellule> {
 @Composable
 private fun Hud(voyage: VoyageUi) {
     val visitees = voyage.parAnnee.values.count { it.visitee }
-    // Toujours vide à cette étape (`VoyageCarte.kt`) : la ligne ne s'affiche donc jamais, sans
-    // qu'il faille un `if` de plus ici — c'est `phraseRecompenses` elle-même qui rend "".
-    val recompenses = phraseRecompenses(emptyList())
+    // Vide tant qu'aucune année n'a de récompense : c'est `phraseRecompenses` elle-même qui rend
+    // "" alors, sans qu'il faille un `if` de plus ici (étape 5, « les récompenses »).
+    val recompenses = phraseRecompenses(voyage.parAnnee.values.mapNotNull { recompenseDe(it.recompense) })
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
         Text(
             chapitreDe(voyage.anneeEnCours),

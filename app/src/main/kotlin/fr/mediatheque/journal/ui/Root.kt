@@ -47,6 +47,7 @@ import fr.mediatheque.journal.ui.frise.TicketCalque
 import fr.mediatheque.journal.ui.profile.BilanViewModel
 import fr.mediatheque.journal.ui.profile.DepensesViewModel
 import fr.mediatheque.journal.ui.profile.LetterboxdImportViewModel
+import fr.mediatheque.journal.ui.profile.PasseportViewModel
 import fr.mediatheque.journal.ui.profile.PortefeuilleViewModel
 import fr.mediatheque.journal.ui.profile.ProfileScreen
 import fr.mediatheque.journal.ui.profile.ProfileViewModel
@@ -259,25 +260,34 @@ fun Root(container: AppContainer) {
                             DepensesViewModel(container.api, session::expire)
                         }
                         LaunchedEffect(Unit) { depenses.refresh() }
-                        // Le passeport (brief du 16 septembre 2026, phase 2) se lit sur l'instance
-                        // partagée de `FriseViewModel`, déjà chargée par l'accueil : aucun appel
-                        // réseau de plus pour le profil, `BilanViewModel` tirant déjà le journal
-                        // complet de son côté.
-                        val friseUi by frise.ui.collectAsState()
+                        // Le passeport (décision 3 du brief du 21 septembre 2026, « les
+                        // récompenses ») charge ses données lui-même (`GET /me/voyage`), pas depuis
+                        // `FriseViewModel` : plus jamais vide quand Profil s'ouvre en premier.
+                        val passeport: PasseportViewModel = viewModel(key = "passeport") {
+                            PasseportViewModel(container.api, session::expire)
+                        }
+                        LaunchedEffect(Unit) { passeport.refresh() }
+                        val passeportUi by passeport.ui.collectAsState()
                         ProfileScreen(
                             s.user,
                             profile,
                             senscritique,
                             bilan,
                             suivis,
-                            passeport = friseUi.passeport,
+                            passeport = passeportUi.tampons ?: emptyList(),
                             portefeuille = portefeuille,
                             depenses = depenses,
                             onBack = nav::pop,
                             onFilms = { nav.push(Screen.Films) },
                             onSensCritique = { nav.push(Screen.SensCritique) },
                             onSignOut = session::signOut,
-                            onOuvrirGenerique = { nav.push(Screen.Generique(it)) },
+                            // Le tampon complet (films, dates) se construit depuis le journal déjà
+                            // chargé par la Frise, ou le charge lui-même s'il manque (décision 3).
+                            onOuvrirGenerique = { tampon ->
+                                passeport.ouvrirGenerique(tampon.decennie, frise.ui.value.annees.flatMap { it.vus }) {
+                                    nav.push(Screen.Generique(it))
+                                }
+                            },
                             onImportLetterboxd = { bytes -> letterboxd.start(bytes); nav.push(Screen.RapportImport) },
                             // « Utiliser » sur un ticket du portefeuille (décision 3) : même appel
                             // que le calque, puis `frise.refresh()` met la carte à jour — la même

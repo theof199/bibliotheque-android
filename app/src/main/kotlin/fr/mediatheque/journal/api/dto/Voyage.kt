@@ -5,10 +5,11 @@ import kotlinx.serialization.Serializable
 /**
  * Le Voyage : traverser l'histoire du cinéma année par année, depuis 1895. Réécrit pour le brief
  * du 21 septembre 2026 (« l'année en étages », puis « le ticket », étape 3, puis « la chronique et
- * les salles », étape 4) — l'année n'est plus une case qu'on coche mais un lieu qu'on creuse en
- * salles, tant qu'on veut, avant de tourner la page avec le ticket. Rien de l'ancien modèle
- * (essentiels, récompense par année, `frontiere`) n'en reste, et `AnneeSuivanteResponse` a disparu
- * avec le bouton provisoire qui l'appelait.
+ * les salles », étape 4, puis « les récompenses et le passeport », étape 5) — l'année n'est plus
+ * une case qu'on coche mais un lieu qu'on creuse en salles, tant qu'on veut, avant de tourner la
+ * page avec le ticket. `AnneeSuivanteResponse` a disparu avec le bouton provisoire qui l'appelait ;
+ * la récompense et le passeport, eux, reviennent sur les nouveaux seuils de la spec du
+ * 19 septembre 2026, §6 (Ours, Lion, Palme — plus jamais l'ancien calcul par essentiels).
  */
 
 /** Une année telle que `GET /me/voyage` la donne dans sa liste, pour la carte. */
@@ -23,7 +24,16 @@ data class AnneeVoyage(
     val profondeur: Int = 0,
     /** L'affiche du n°1 du podium (brief du 21 septembre 2026, « le podium ») — nulle si la marche 1 est vide. */
     val affiche_url: String? = null,
+    /** `"ours"` · `"lion"` · `"palme"` (étape 5, spec du 19 septembre 2026, §6) — nulle sans aucun film vu. */
+    val recompense: String? = null,
 )
+
+/**
+ * Une décennie bouclée du passeport, telle que `GET /me/voyage` la donne (`tampons`, étape 5) :
+ * chacune de ses dix années a un Ours et le ticket de la décennie suivante a été utilisé.
+ */
+@Serializable
+data class TamponVoyage(val decennie: Int, val boucle_le: String)
 
 /**
  * Un ticket gagné et pas encore montré (brief du 21 septembre 2026, « le ticket ») : porté par
@@ -41,6 +51,8 @@ data class VoyageResponse(
     val annees: List<AnneeVoyage> = emptyList(),
     /** Non nul une seule fois, tant que je ne l'ai pas montré (brief du 21 septembre 2026, « le ticket »). */
     val ticket_a_montrer: TicketAMontrerVoyage? = null,
+    /** Le passeport : les décennies bouclées, décennie croissante (étape 5). */
+    val tampons: List<TamponVoyage> = emptyList(),
 )
 
 /** Une bobine d'un programme (avant ~1915), avec mon état sur elle. */
@@ -154,6 +166,18 @@ data class DemandeSalleVoyage(
 )
 
 /**
+ * Ma progression vers le Lion et la Palme, pour une année (`prete` seulement, étape 5) : de quoi
+ * dessiner la ligne « *N* essentiels sur *M* · *N* salles complètes sur *M* » sous la profondeur.
+ */
+@Serializable
+data class ProgressionVoyage(
+    val essentiels_vus: Int = 0,
+    val essentiels_total: Int = 0,
+    val salles_completes: Int = 0,
+    val salles_autres: Int = 0,
+)
+
+/**
  * `GET /me/voyage/annees/{annee}` — les trois formes possibles du back aplaties en un seul DTO :
  * `configure` et `statut` disent laquelle est arrivée (`configure: false` / `en_preparation` /
  * `verrouillee` / `prete`), comme le faisait `ChroniqueAnneeResponse` pour l'ancien modèle. C'est
@@ -165,6 +189,10 @@ data class AnneeVoyageDetailResponse(
     val statut: String? = null,
     val annee: Int? = null,
     val profondeur: Int? = null,
+    /** `"ours"` · `"lion"` · `"palme"` (`prete` seulement, étape 5) — nulle tant qu'aucun film de l'année n'est vu. */
+    val recompense: String? = null,
+    /** `prete` seulement (étape 5). */
+    val progression: ProgressionVoyage? = null,
     val ouverture: String? = null,
     val faits: List<String> = emptyList(),
     val ecrite_le: String? = null,

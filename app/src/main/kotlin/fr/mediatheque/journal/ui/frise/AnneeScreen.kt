@@ -139,6 +139,12 @@ fun AnneeScreen(
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        // Sous la profondeur (décision 2 du brief du 21 septembre 2026, « les
+                        // récompenses ») : nulle (pas de ligne) tant que la progression n'est pas
+                        // encore chargée — `ligneProgression` seule décide de son texte.
+                        ligneProgression(ui.progression)?.let { ligne ->
+                            Text(ligne, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                         Text(
                             "${monde.nom} · ${monde.sousTitre}",
                             style = MaterialTheme.typography.bodyMedium,
@@ -220,9 +226,9 @@ private fun Cartouche(millesime: Int, ui: AnneeUi, monde: Monde, onLireLaSuite: 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(millesime.toString(), style = MaterialTheme.typography.titleLarge, color = TextePapier)
-                // La récompense de festival — nulle à cette étape, le back n'en sert aucune
-                // (`VoyageCarte.kt`) ; le glyphe reste dans le code pour le jour où elle reviendra.
-                ui.recompenseObtenue?.let { recompense ->
+                // Le glyphe à côté du millésime (décision 2 du brief du 21 septembre 2026, « les
+                // récompenses ») — nul sans aucun film vu.
+                ui.recompense?.let { recompense ->
                     Box(
                         Modifier
                             .size(16.dp)

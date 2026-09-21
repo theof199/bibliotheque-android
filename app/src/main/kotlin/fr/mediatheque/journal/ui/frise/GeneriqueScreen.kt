@@ -124,6 +124,20 @@ fun GeneriqueScreen(tampon: TamponDecennie, pseudo: String, onFermer: () -> Unit
                     }
                 }
 
+                // Le compte des festivals de la décennie (décision 4 du brief du 21 septembre
+                // 2026, « les récompenses ») : après la liste des films, absent si aucune de ses
+                // dix années n'a de récompense.
+                if (tampon.recompenses.isNotEmpty()) {
+                    item {
+                        Text(
+                            phraseRecompenses(tampon.recompenses),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = monde.accent,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                }
+
                 item { Spacer(Modifier.height(24.dp)) }
                 item {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {

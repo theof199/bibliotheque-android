@@ -1,6 +1,7 @@
 package fr.mediatheque.journal.ui.frise
 
 import fr.mediatheque.journal.api.dto.AnneeVoyage
+import fr.mediatheque.journal.api.dto.TamponVoyage
 import fr.mediatheque.journal.api.dto.TicketAMontrerVoyage
 import fr.mediatheque.journal.api.dto.VoyageResponse
 import org.junit.Assert.assertEquals
@@ -66,6 +67,25 @@ class VoyageEtatsTest {
     fun `toVoyageUi sans ticket a montrer reste nul`() {
         val ui = VoyageResponse(configure = true).toVoyageUi()
         assertNull(ui.ticketAMontrer)
+    }
+
+    // Le passeport (étape 5 du brief du 21 septembre 2026, « les récompenses ») : `tampons` se lit
+    // tel quel. Mutation : oublier de le passer à `VoyageUi` laisserait `ui.tampons` toujours vide.
+    @Test
+    fun `toVoyageUi lit les tampons du passeport`() {
+        val reponse = VoyageResponse(
+            configure = true,
+            tampons = listOf(TamponVoyage(1890, "2026-09-01T00:00:00.000Z")),
+        )
+        val ui = reponse.toVoyageUi()
+
+        assertEquals(listOf(TamponVoyage(1890, "2026-09-01T00:00:00.000Z")), ui.tampons)
+    }
+
+    @Test
+    fun `toVoyageUi sans tampon reste vide`() {
+        val ui = VoyageResponse(configure = true).toVoyageUi()
+        assertTrue(ui.tampons.isEmpty())
     }
 
     @Test

@@ -2,14 +2,15 @@ package fr.mediatheque.journal.ui.frise
 
 import fr.mediatheque.journal.FakeJournalApi
 import fr.mediatheque.journal.api.dto.AnneeVoyage
+import fr.mediatheque.journal.api.dto.TamponVoyage
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * La carte du Voyage (brief du 21 septembre 2026, « l'année en étages ») : la récompense d'une
- * année (étape 5, pas encore livrée), la frontière qui avance, les tampons du passeport (étape 3).
+ * La carte du Voyage (brief du 21 septembre 2026, « l'année en étages », puis « les récompenses »,
+ * étape 5) : la récompense d'une année, la frontière qui avance, les tampons du passeport.
  * Fonctions pures, sans réseau ni `ViewModel`.
  */
 class VoyageCarteTest {
@@ -17,22 +18,15 @@ class VoyageCarteTest {
     private fun vu(annee: Int?, id: String, date: String, titre: String = "Un film") =
         FakeJournalApi.item("m-$id", date, null, emptyList(), null, id = "e-$id", title = titre, year = annee)
 
-    // Les trois paliers, à leurs bornes (étape 5, à venir). Mutation : `manquants < 2` au lieu de
-    // `<= 2` fait passer deux introuvables de Lion à Ours ; `manquants <= 1` idem ; `manquants ==
-    // 0 -> LION` casse la première.
+    // La lecture du back, telle quelle — mutation : confondre deux chaînes (`"lion"` -> OURS, par
+    // exemple), ou rendre autre chose que `null` pour un texte inconnu, casserait une des branches.
     @Test
-    fun `recompense donne la Palme sans manquant, le Lion a un ou deux, l'Ours au-dela`() {
-        assertEquals(Recompense.PALME, recompense(essentielsTotal = 5, essentielsFaits = 5))
-        assertEquals(Recompense.LION, recompense(essentielsTotal = 5, essentielsFaits = 4))
-        assertEquals(Recompense.LION, recompense(essentielsTotal = 5, essentielsFaits = 3))
-        assertEquals(Recompense.OURS, recompense(essentielsTotal = 5, essentielsFaits = 2))
-        assertEquals(Recompense.OURS, recompense(essentielsTotal = 5, essentielsFaits = 0))
-    }
-
-    // Une année sans essentiel connu n'est pas une année ratée : rien ne manque, donc la Palme.
-    @Test
-    fun `recompense sans essentiel du tout reste la Palme`() {
-        assertEquals(Recompense.PALME, recompense(essentielsTotal = 0, essentielsFaits = 0))
+    fun `recompenseDe lit ours, lion et palme, nulle pour tout le reste`() {
+        assertEquals(Recompense.OURS, recompenseDe("ours"))
+        assertEquals(Recompense.LION, recompenseDe("lion"))
+        assertEquals(Recompense.PALME, recompenseDe("palme"))
+        assertNull(recompenseDe(null))
+        assertNull(recompenseDe("faite"))
     }
 
     // Le pluriel, et l'ordre Palme puis Lion puis Ours — jamais l'ordre d'arrivée des années.
@@ -42,9 +36,9 @@ class VoyageCarteTest {
         assertEquals("2 Palmes · 1 Ours", phrase)
     }
 
-    // Vide à cette étape (le brief du 21 septembre 2026 : le back ne sert encore aucune
-    // récompense) — la ligne du HUD ne s'affiche donc jamais. Mutation : rendre autre chose qu'une
-    // chaîne vide sur une liste vide ferait apparaître « 0 Palme » au HUD.
+    // Sans aucune année récompensée (ou avant que `GET /me/voyage` n'ait répondu), la ligne du HUD
+    // ne s'affiche pas. Mutation : rendre autre chose qu'une chaîne vide sur une liste vide ferait
+    // apparaître « 0 Palme » au HUD.
     @Test
     fun `phraseRecompenses est vide sans aucune recompense`() {
         assertEquals("", phraseRecompenses(emptyList()))
@@ -92,24 +86,79 @@ class VoyageCarteTest {
         assertNull(detecterFrontiereAvancee(avant = 1900, apres = 1899))
     }
 
-    // Vide à cette étape (brief du 21 septembre 2026) : une décennie ne se boucle qu'avec un Ours
-    // par année et le ticket suivant utilisé (spec du 19 septembre 2026, §6), ni l'un ni l'autre
-    // n'existant encore — même avec des années déjà connues de `/me/voyage` et un journal peuplé.
-    // Mutation : tamponner quoi que ce soit ici ferait apparaître un tampon que le back n'a pas
-    // encore gagné.
+    // Le tampon du passeport (étape 5, « les récompenses ») : le titre par décennie
+    // (`Mondes.kt`), les deux dates de visionnage (triées, pas celles du fichier), les films triés
+    // année puis titre, et les récompenses de la décennie dans l'ordre de ses années. Mutation :
+    // inverser `firstOrNull`/`lastOrNull` sur `dates` échangerait les deux dates ; filtrer sur
+    // `entry.finished_at` au lieu de `media.year` daterait le tampon des visionnages plutôt que des
+    // sorties.
     @Test
-    fun `tamponsPasseport ne tamponne jamais rien a cette etape`() {
+    fun `construireTamponDecennie construit le titre, les dates, les films et les recompenses`() {
         val voyage = VoyageUi(
             parAnnee = listOf(
-                AnneeVoyage(1895, "ouverte", visitee = true, profondeur = 4),
-                AnneeVoyage(1896, "ouverte", visitee = true, profondeur = 3),
-                AnneeVoyage(1897, "en_cours", visitee = true, profondeur = 1),
+                AnneeVoyage(1895, "ouverte", recompense = "ours"),
+                AnneeVoyage(1896, "ouverte", recompense = "palme"),
+                AnneeVoyage(1897, "en_cours", recompense = null),
             ).associateBy { it.annee },
         )
-        val journal = listOf(vu(1895, "a", "2026-02-11"), vu(1896, "b", "2026-03-20"))
+        val journal = listOf(
+            vu(1896, "b", "2026-03-20", "Le Voyage dans la lune"),
+            vu(1895, "a", "2026-02-11", "L'Arrivée d'un train"),
+            vu(1920, "c", "2026-05-01", "Hors décennie"),
+        )
 
-        assertTrue(tamponsPasseport(voyage, journal).isEmpty())
+        val tampon = construireTamponDecennie(1890, voyage, journal)
+
+        assertEquals(1890, tampon.decennie)
+        assertEquals(mondeDeLaDecennie(1890).titreVoyageur, tampon.titreVoyageur)
+        assertEquals("2026-02-11", tampon.premiereEntree)
+        assertEquals("2026-03-20", tampon.derniereEntree)
+        assertEquals(
+            listOf("L'Arrivée d'un train" to 1895, "Le Voyage dans la lune" to 1896),
+            tampon.films.map { it.titre to it.annee },
+        )
+        assertEquals(listOf(Recompense.OURS, Recompense.PALME), tampon.recompenses)
+    }
+
+    // Journal vide (la carte légère du passeport, avant tout tap) : ni film ni date, mais les
+    // récompenses restent — elles ne dépendent que de `voyage`, jamais du journal.
+    @Test
+    fun `construireTamponDecennie sans journal garde les recompenses, sans film ni date`() {
+        val voyage = VoyageUi(parAnnee = mapOf(1895 to AnneeVoyage(1895, "ouverte", recompense = "lion")))
+
+        val tampon = construireTamponDecennie(1890, voyage, emptyList())
+
+        assertTrue(tampon.films.isEmpty())
+        assertNull(tampon.premiereEntree)
+        assertNull(tampon.derniereEntree)
+        assertEquals(listOf(Recompense.LION), tampon.recompenses)
+    }
+
+    // `tamponsPasseport` ne tamponne que les décennies que `tampons` (`GET /me/voyage`) dit
+    // bouclées — plus un calcul local sur les statuts par année (le back seul sait quand le ticket
+    // suivant a été utilisé). Mutation : ignorer `voyage.tampons` et dériver depuis `parAnnee`
+    // ferait apparaître un tampon que le back n'a pas encore gagné.
+    @Test
+    fun `tamponsPasseport tamponne exactement les decennies que tampons designe`() {
+        val voyage = VoyageUi(tampons = listOf(TamponVoyage(1890, "2026-09-01T00:00:00.000Z")))
+
+        val tampons = tamponsPasseport(voyage, emptyList())
+
+        assertEquals(listOf(1890), tampons.map { it.decennie })
         assertTrue(tamponsPasseport(VoyageUi(), emptyList()).isEmpty())
+    }
+
+    // La détection d'un tampon nouveau (décision 1 du brief du 21 septembre 2026, « les
+    // récompenses ») : liste vide → premier tampon, tampon déjà connu → rien, et `null` (tout
+    // premier chargement) → rien non plus, sans quoi une décennie déjà bouclée avant l'ouverture de
+    // l'appli rejouerait son générique à chaque démarrage.
+    @Test
+    fun `detecterNouveauTampon rend la premiere decennie inconnue, rien si deja vue ou au premier chargement`() {
+        val tampons = listOf(TamponVoyage(1890, "2026-09-01T00:00:00.000Z"))
+
+        assertEquals(1890, detecterNouveauTampon(emptySet(), tampons))
+        assertNull(detecterNouveauTampon(setOf(1890), tampons))
+        assertNull(detecterNouveauTampon(null, tampons))
     }
 
     // Le tri du portefeuille (décision 3 du brief du 21 septembre 2026, « le ticket ») : les non

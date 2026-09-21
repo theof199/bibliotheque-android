@@ -14,6 +14,7 @@ import fr.mediatheque.journal.api.dto.MaturiteVoyage
 import fr.mediatheque.journal.api.dto.ParagrapheVoyage
 import fr.mediatheque.journal.api.dto.PodiumMarcheVoyage
 import fr.mediatheque.journal.api.dto.ProgrammeVoyage
+import fr.mediatheque.journal.api.dto.ProgressionVoyage
 import fr.mediatheque.journal.api.dto.SalleVoyage
 import fr.mediatheque.journal.api.dto.TicketAnneeVoyage
 import kotlinx.coroutines.Job
@@ -104,6 +105,24 @@ data class ParagrapheUi(
 /** La dernière demande de nouvelle salle, tant qu'elle compte encore (décision 3 du brief du 21 septembre 2026). */
 data class DemandeSalleUi(val id: String, val demande: String, val statut: String, val motif: String?)
 
+/** Ma progression vers le Lion et la Palme, pour cette année (étape 5 du brief du 21 septembre 2026, « les récompenses »). */
+data class ProgressionUi(val essentielsVus: Int, val essentielsTotal: Int, val sallesCompletes: Int, val sallesAutres: Int)
+
+/**
+ * La ligne sous la profondeur, dans l'en-tête de la fiche d'année (décision 2 du brief du
+ * 21 septembre 2026, « les récompenses ») : « *N* essentiels sur *M* · *N* salles complètes sur
+ * *M* », ou « Aucun essentiel encore » si l'année n'a pas d'essentiel connu — nulle (la ligne ne
+ * s'affiche pas) tant que la progression n'est pas encore chargée. Fonction pure, testée en JVM.
+ */
+fun ligneProgression(progression: ProgressionUi?): String? {
+    if (progression == null) return null
+    if (progression.essentielsTotal == 0) return "Aucun essentiel encore"
+    val essentiels = "${progression.essentielsVus} essentiel${if (progression.essentielsVus > 1) "s" else ""} sur ${progression.essentielsTotal}"
+    val salles = "${progression.sallesCompletes} salle${if (progression.sallesCompletes > 1) "s" else ""} " +
+        "complète${if (progression.sallesCompletes > 1) "s" else ""} sur ${progression.sallesAutres}"
+    return "$essentiels · $salles"
+}
+
 /**
  * La ligne du bas de la fiche d'année (décision 4 du brief du 21 septembre 2026, « le ticket »),
  * à la place du bouton provisoire « Année suivante » : le ticket non utilisé prime sur le verdict
@@ -150,10 +169,11 @@ data class AnneeUi(
     val paragraphesEnCours: Set<Pair<Int?, String?>> = emptySet(),
     /** La dernière demande de nouvelle salle, tant qu'elle compte encore (décision 3) — nulle sinon. */
     val demandeSalle: DemandeSalleUi? = null,
-) {
-    /** La récompense de l'année — nulle à cette étape, le back n'en sert aucune (`VoyageCarte.kt`). */
-    val recompenseObtenue: Recompense? get() = null
-}
+    /** La récompense de l'année (`prete` seulement, étape 5, « les récompenses ») — nulle sans aucun film vu. */
+    val recompense: Recompense? = null,
+    /** Ma progression vers le Lion et la Palme (`prete` seulement, étape 5) — nulle avant le premier chargement. */
+    val progression: ProgressionUi? = null,
+)
 
 private fun BobineVoyage.versUi() = BobineUi(tmdb_id, title, duree_min, cover_url, plex_url, etat)
 private fun ProgrammeVoyage.versUi() = ProgrammeUi(duree_min, bobines.map { it.versUi() })
@@ -178,6 +198,7 @@ private fun MaturiteVoyage.versUi() = MaturiteUi(mure, motif)
 private fun TicketAnneeVoyage.versUi() = TicketAnneeUi(annee, utilise = utilise_le != null)
 private fun ParagrapheVoyage.versUi() = ParagrapheUi(id, tmdb_id, programme_id, titre, texte, ecrit_le, film.title, film.cover_url)
 private fun DemandeSalleVoyage.versUi() = DemandeSalleUi(id, demande, statut, motif)
+private fun ProgressionVoyage.versUi() = ProgressionUi(essentiels_vus, essentiels_total, salles_completes, salles_autres)
 
 /** Toujours trois marches, une entrée nulle pour chacune que le back ne sert pas (encore vide, ou réponse plus courte). */
 private fun List<PodiumMarcheVoyage?>.versPodiumUi(): List<PodiumMarcheUi?> = (0..2).map { i -> getOrNull(i)?.versUi() }
@@ -283,6 +304,8 @@ class AnneeViewModel(
                 } else {
                     it.paragraphesEnCours
                 },
+                recompense = if (etat == EtatAnnee.PRETE) recompenseDe(reponse.recompense) else it.recompense,
+                progression = if (etat == EtatAnnee.PRETE) reponse.progression?.versUi() else it.progression,
             )
         }
         if (etat == EtatAnnee.PRETE) appliquerDemandeSalle(reponse.demande_salle)

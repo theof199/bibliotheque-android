@@ -2,12 +2,15 @@ package fr.mediatheque.journal.ui.frise
 
 import fr.mediatheque.journal.FakeJournalApi
 import fr.mediatheque.journal.MainDispatcherRule
+import fr.mediatheque.journal.api.dto.AnneeVoyage
 import fr.mediatheque.journal.api.dto.JournalResponse
 import fr.mediatheque.journal.api.dto.PlexFilm
 import fr.mediatheque.journal.api.dto.PlexResponse
+import fr.mediatheque.journal.api.dto.TamponVoyage
 import fr.mediatheque.journal.api.dto.TicketAMontrerVoyage
 import fr.mediatheque.journal.api.dto.VoyageResponse
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -226,5 +229,34 @@ class FriseViewModelTest {
         assertEquals(listOf("montrerTicket 1943"), api.calls.filter { it.startsWith("montrerTicket") })
         // `refresh()` relit tout : un second `voyage` après celui du chargement initial.
         assertEquals(appelsVoyageAvant + 1, api.calls.count { it == "voyage" })
+    }
+
+    // Le passeport et son générique automatique (décision 1 du brief du 21 septembre 2026, « les
+    // récompenses ») : un tampon qui apparaît entre deux chargements se retrouve sur
+    // `nouveauxTampons`, avec ses films — jumeau intégré de `detecterNouveauTampon`
+    // (`VoyageCarteTest`), qui prouve déjà que le tout premier chargement n'émet rien.
+    @Test
+    fun `un tampon qui apparait entre deux chargements se retrouve sur nouveauxTampons`() = runTest(dispatcher) {
+        api.onJournal = { page("1") }
+        var tampons = listOf(TamponVoyage(1890, "2026-09-01T00:00:00.000Z"))
+        api.onVoyage = {
+            VoyageResponse(
+                configure = true,
+                annee_en_cours = 1905,
+                annees = listOf(AnneeVoyage(1895, "ouverte", recompense = "palme")),
+                tampons = tampons,
+            )
+        }
+        val vm = FriseViewModel(api) { expire++ }
+        vm.refresh()
+        testScheduler.advanceUntilIdle()
+
+        // La décennie 1900 apparaît : c'est elle, et elle seule, qui doit sortir sur le canal.
+        tampons = listOf(TamponVoyage(1890, "2026-09-01T00:00:00.000Z"), TamponVoyage(1900, "2026-09-21T00:00:00.000Z"))
+        vm.refresh()
+        testScheduler.advanceUntilIdle()
+
+        val nouveau = vm.nouveauxTampons.first()
+        assertEquals(1900, nouveau.decennie)
     }
 }

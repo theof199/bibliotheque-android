@@ -178,7 +178,7 @@ data class FriseUi(
     val plexConfigure: Boolean = false,
     /** Ma progression dans le Voyage (brief du 16 septembre 2026) — la carte tout entière en dépend. */
     val voyage: VoyageUi = VoyageUi(),
-    /** Les décennies déjà bouclées (brief du 16 septembre 2026, phase 2), pour le passeport du profil et les génériques de fin — toujours vide à l'étape 1 du brief du 21 septembre 2026 (`tamponsPasseport`). */
+    /** Les décennies déjà bouclées (brief du 16 septembre 2026, phase 2 ; réel depuis l'étape 5 du brief du 21 septembre 2026, « les récompenses »), pour le passeport du profil et les génériques de fin. */
     val passeport: List<TamponDecennie> = emptyList(),
     val loading: Boolean = false,
     val error: ApiError? = null,
@@ -196,9 +196,26 @@ class FriseViewModel(private val api: JournalApi, private val onUnauthenticated:
      */
     private var anneeEnCoursPrecedente: Int? = null
 
-    /** Ce qu'une année en cours qui avance vient de boucler : la snackbar, le claquement, le générique. */
+    /** Ce qu'une année en cours qui avance vient de boucler : la snackbar, le claquement. */
     private val _avancees = Channel<FrontiereAvancee>(Channel.BUFFERED)
     val avancees: Flow<FrontiereAvancee> = _avancees.receiveAsFlow()
+
+    /**
+     * Les décennies bouclées déjà vues, au chargement précédent — nulle au premier chargement,
+     * jumelle d'`anneeEnCoursPrecedente` : `detecterNouveauTampon` ne boucle alors rien, sans quoi
+     * une décennie déjà bouclée avant l'ouverture de l'appli rejouerait son générique à chaque
+     * démarrage (décision 1 du brief du 21 septembre 2026, « les récompenses »).
+     */
+    private var decenniesVues: Set<Int>? = null
+
+    /**
+     * Un tampon qui vient d'apparaître (décision 1 du brief du 21 septembre 2026, « les
+     * récompenses ») : allume sa marquise et rejoue son générique — découplé de `avancees`, une
+     * décennie pouvant se boucler sans que la frontière ne la quitte au même moment (spec du
+     * 19 septembre 2026, §6).
+     */
+    private val _nouveauxTampons = Channel<TamponDecennie>(Channel.BUFFERED)
+    val nouveauxTampons: Flow<TamponDecennie> = _nouveauxTampons.receiveAsFlow()
 
     /** La relecture du ticket après un enregistrement (décision 2 du brief du 21 septembre 2026), en cours au plus une à la fois. */
     private var ticketPollJob: Job? = null
@@ -239,6 +256,7 @@ class FriseViewModel(private val api: JournalApi, private val onUnauthenticated:
 
             val frise = construireFrise(journal, plex)
             val voyageUi = voyage.toVoyageUi()
+            val passeport = tamponsPasseport(voyageUi, journal)
             _ui.update {
                 FriseUi(
                     annees = frise.annees,
@@ -247,15 +265,20 @@ class FriseViewModel(private val api: JournalApi, private val onUnauthenticated:
                     decennies = construireDecennies(frise),
                     plexConfigure = plex.configure,
                     voyage = voyageUi,
-                    passeport = tamponsPasseport(voyageUi, journal),
+                    passeport = passeport,
                     loading = false,
                 )
             }
 
-            // Après la mise à jour de l'état, jamais avant : l'écran qui reçoit l'avancée doit
-            // trouver la décennie bouclée déjà dans `passeport` quand il ouvre son générique.
+            // Après la mise à jour de l'état, jamais avant : l'écran qui reçoit l'avancée ou le
+            // nouveau tampon doit trouver la décennie bouclée déjà dans `passeport`.
             detecterFrontiereAvancee(anneeEnCoursPrecedente, voyageUi.anneeEnCours)?.let { _avancees.trySend(it) }
             anneeEnCoursPrecedente = voyageUi.anneeEnCours
+
+            detecterNouveauTampon(decenniesVues, voyageUi.tampons)
+                ?.let { decennie -> passeport.firstOrNull { it.decennie == decennie } }
+                ?.let { _nouveauxTampons.trySend(it) }
+            decenniesVues = voyageUi.tampons.map { it.decennie }.toSet()
         }
     }
 

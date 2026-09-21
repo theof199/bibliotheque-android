@@ -1,23 +1,21 @@
 package fr.mediatheque.journal.ui.frise
 
 import fr.mediatheque.journal.api.dto.JournalItem
+import fr.mediatheque.journal.api.dto.TamponVoyage
 
 /**
  * La carte du Voyage : les règles qui décident ce que l'écran montre — la récompense d'une année,
  * l'avancée de la frontière, les tampons du passeport. Fonctions pures, testées en JVM sans réseau
  * ni `ViewModel`, comme `VoyageEtats.kt` à côté.
  *
- * Brief du 21 septembre 2026 (« l'année en étages », puis « le podium ») : `GET /me/voyage` ne sert
- * plus ni essentiels ni récompense par année (spec du 19 septembre 2026, §7 : « pour la carte, la
- * liste des années avec statut, profondeur, récompense » — la récompense n'arrive qu'à l'étape 5,
- * §8). `Recompense`, `recompense` et `phraseRecompenses` restent, pures et testées, pour ce jour-là :
- * personne ne les appelle encore avec autre chose qu'une liste vide. Jumeau pour le passeport : une
- * décennie ne se boucle qu'avec un Ours par année et le ticket suivant utilisé (spec §6, étape 3) —
- * `tamponsPasseport` ne peut donc encore rien tamponner.
+ * Étape 5 du brief du 21 septembre 2026 (« les récompenses ») : `GET /me/voyage` sert désormais
+ * `recompense` par année et `tampons` (spec du 19 septembre 2026, §6) — plus l'ancien calcul par
+ * essentiels (`essentielsTotal`/`essentielsFaits`), remplacé par `recompenseDe`, simple lecture de
+ * ce que le back a déjà tranché. `tamponsPasseport` construit pour de vrai, depuis `tampons` et le
+ * journal ; `detecterNouveauTampon` dit quand un générique doit se rejouer tout seul.
  *
- * `affiche_url` (étape 2, « le podium ») sert désormais le photogramme d'une année : `afficheAnnee`
- * en dessous choisit entre elle et le dernier film vu, seule règle que la carte ajoute pour cette
- * étape-là.
+ * `affiche_url` (étape 2, « le podium ») sert le photogramme d'une année : `afficheAnnee`
+ * en dessous choisit entre elle et le dernier film vu.
  */
 
 /**
@@ -29,8 +27,8 @@ import fr.mediatheque.journal.api.dto.JournalItem
 fun afficheAnnee(afficheUrl: String?, dernierVu: String?): String? = afficheUrl ?: dernierVu
 
 /**
- * La récompense d'une année faite (étape 5, à venir) — les trois festivals du brief du
- * 16 septembre 2026 : tout vu → la Palme, un ou deux introuvables → le Lion, au-delà → l'Ours.
+ * La récompense d'une année — les trois festivals de la spec du 19 septembre 2026, §6 : Ours
+ * (commencée), Lion (les essentiels), Palme (les essentiels et deux salles de plus).
  */
 enum class Recompense(val singulier: String, val pluriel: String) {
     PALME("Palme", "Palmes"),
@@ -38,13 +36,16 @@ enum class Recompense(val singulier: String, val pluriel: String) {
     OURS("Ours", "Ours"),
 }
 
-fun recompense(essentielsTotal: Int, essentielsFaits: Int): Recompense {
-    val manquants = (essentielsTotal - essentielsFaits).coerceAtLeast(0)
-    return when {
-        manquants == 0 -> Recompense.PALME
-        manquants <= 2 -> Recompense.LION
-        else -> Recompense.OURS
-    }
+/**
+ * La récompense telle que le back la tranche (`AnneeVoyage.recompense`, `AnneeVoyageDetailResponse
+ * .recompense`) — `"ours"`/`"lion"`/`"palme"`, nulle pour tout le reste (une année sans film vu, ou
+ * un texte inconnu). Le calcul lui-même (§6 de la spec) vit côté back ; l'appli ne fait que lire.
+ */
+fun recompenseDe(brut: String?): Recompense? = when (brut) {
+    "ours" -> Recompense.OURS
+    "lion" -> Recompense.LION
+    "palme" -> Recompense.PALME
+    else -> null
 }
 
 /** « 3 Palmes · 1 Lion » : le compte du HUD, dans l'ordre Palme, Lion, Ours, sans les zéros — vide tant que rien n'est décerné. */
@@ -82,6 +83,10 @@ data class FilmGenerique(val titre: String, val annee: Int)
 /**
  * Un tampon du passeport, qui porte aussi tout ce que son générique affiche : l'écran
  * `Screen.Generique` ne recharge donc rien, il relit ce tampon.
+ *
+ * `recompenses` (étape 5) porte celle de chacune des dix années de la décennie qui en a une — le
+ * générique en tire son compte de festivals (décision 4 du brief du 21 septembre 2026, « les
+ * récompenses »), dans le même ordre que le HUD de la carte.
  */
 data class TamponDecennie(
     val decennie: Int,
@@ -89,16 +94,55 @@ data class TamponDecennie(
     val premiereEntree: String?,
     val derniereEntree: String?,
     val films: List<FilmGenerique>,
+    val recompenses: List<Recompense> = emptyList(),
 )
 
 /**
- * Les tampons du passeport : vide à cette étape (brief du 21 septembre 2026). Une décennie ne se
- * boucle qu'avec un Ours par année et le ticket de la décennie suivante utilisé (spec du
- * 19 septembre 2026, §6) — ni l'un ni l'autre n'existe encore côté back (étapes 3 et 5). La
- * signature reste celle de l'étape à venir : `voyage` et `journal` ne sont pas encore lus.
+ * Un tampon complet, pour une décennie donnée — jumeau construit par `tamponsPasseport` (une
+ * décennie déjà bouclée) et par `PasseportViewModel.ouvrirGenerique` (le générique, au tap).
+ *
+ * Les films sont ceux du journal dont l'année de **sortie** tombe dans la décennie (jamais la
+ * date de visionnage : le générique des années 1890 ne liste pas ce qu'on a vu en 1890), triés
+ * par année puis par titre ; les deux dates sont bien celles des visionnages. `journal` vide (la
+ * légère liste du passeport, avant tout tap) rend des films et des dates vides, sans planter :
+ * seul le nombre de récompenses ne dépend pas de lui.
  */
-@Suppress("UNUSED_PARAMETER")
-fun tamponsPasseport(voyage: VoyageUi, journal: List<JournalItem>): List<TamponDecennie> = emptyList()
+fun construireTamponDecennie(decennie: Int, voyage: VoyageUi, journal: List<JournalItem>): TamponDecennie {
+    val duMonde = journal.filter { it.media.year != null && mondeDe(it.media.year!!).decennie == decennie }
+    val dates = duMonde.map { it.entry.finished_at }.sorted()
+    val recompenses = (decennie until decennie + 10).mapNotNull { annee -> recompenseDe(voyage.parAnnee[annee]?.recompense) }
+    return TamponDecennie(
+        decennie = decennie,
+        titreVoyageur = mondeDeLaDecennie(decennie).titreVoyageur,
+        premiereEntree = dates.firstOrNull(),
+        derniereEntree = dates.lastOrNull(),
+        films = duMonde
+            .map { FilmGenerique(it.media.title, it.media.year!!) }
+            .sortedWith(compareBy({ it.annee }, { it.titre })),
+        recompenses = recompenses,
+    )
+}
+
+/**
+ * Les tampons du passeport (étape 5, « les récompenses ») : une ligne par décennie que `tampons`
+ * (`GET /me/voyage`) dit déjà bouclée — ce n'est plus calculé ici depuis les statuts par année
+ * (spec du 19 septembre 2026, §6 : chacune de ses dix années a un Ours, et le ticket suivant est
+ * utilisé — le back seul le sait).
+ */
+fun tamponsPasseport(voyage: VoyageUi, journal: List<JournalItem>): List<TamponDecennie> =
+    voyage.tampons.map { tampon -> construireTamponDecennie(tampon.decennie, voyage, journal) }
+
+/**
+ * La première décennie de `tampons` que `dejaVus` ne connaît pas encore (décision 1 du brief du
+ * 21 septembre 2026, « les récompenses ») — allume sa marquise et rejoue son générique
+ * (`FriseViewModel.nouveauxTampons`). `dejaVus` nul au tout premier chargement, jumeau de
+ * `detecterFrontiereAvancee` : sans ce garde-fou, une décennie déjà bouclée avant l'ouverture de
+ * l'appli rejouerait son générique à chaque démarrage.
+ */
+fun detecterNouveauTampon(dejaVus: Set<Int>?, tampons: List<TamponVoyage>): Int? {
+    if (dejaVus == null) return null
+    return tampons.map { it.decennie }.firstOrNull { it !in dejaVus }
+}
 
 /**
  * Un ticket du portefeuille (décision 3 du brief du 21 septembre 2026, « le ticket »), tel que
