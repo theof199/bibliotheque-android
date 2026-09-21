@@ -77,18 +77,16 @@ class SeanceEtatsTest {
         assertEquals(listOf(2, 3, 1), groupes.single().candidats.map { it.tmdbId })
     }
 
-    // Les programmes et leurs bobines non vus, jamais les vus (décision 3, littéralement : pas de
-    // filtre sur « introuvable » pour le court, à la différence du long).
-    // Mutation : filtrer aussi les introuvables ferait disparaître un candidat que le test attend.
+    // Les programmes et leurs bobines non vus, jamais les vus.
     @Test
-    fun `candidatsSeanceCourt garde les programmes et bobines non vus, y compris introuvables`() {
-        val programme = ProgrammeUi(9, listOf(bobine(11, "vu"), bobine(12, "a_demander"), bobine(13, "introuvable")))
+    fun `candidatsSeanceCourt garde les programmes et bobines non vus`() {
+        val programme = ProgrammeUi(9, listOf(bobine(11, "vu"), bobine(12, "a_demander"), bobine(13, "sur_le_plex")))
         val filmProgramme = filmDeSalle("f-prog", 10, "a_demander", programme)
 
         val groupes = candidatsSeanceCourt(listOf(salle("Salle A", filmProgramme)))
         val candidats = groupes.single().candidats
 
-        // Le programme lui-même (10), puis ses bobines non vues (12 et 13) — jamais la bobine vue (11).
+        // Le programme lui-même (10), puis ses bobines non vues, dans l'ordre du programme (12 et 13) — jamais la bobine vue (11).
         assertEquals(listOf(10, 12, 13), candidats.map { it.tmdbId })
         assertTrue(candidats[0] is CandidatSeance.Film)
         assertTrue(candidats[1] is CandidatSeance.Bobine)
@@ -103,6 +101,28 @@ class SeanceEtatsTest {
         val groupes = candidatsSeanceCourt(listOf(salle("Salle A", filmProgramme)))
 
         assertTrue(groupes.isEmpty())
+    }
+
+    // Jamais un introuvable non plus, comme le long (corrigé le 21 septembre 2026 : le brief disait
+    // à tort de le garder ; le back refuse un introuvable en 400, programme comme bobine) — chacun
+    // sur son propre état, comme la ligne du programme et chaque bobine ont chacune le leur (marquer
+    // un programme introuvable, via son propre `tmdb_id`, ne change rien à l'état de ses bobines).
+    // Mutation : retirer le filtre sur « introuvable » (programme ou bobine) ferait réapparaître un
+    // candidat que le back rejetterait.
+    @Test
+    fun `candidatsSeanceCourt ecarte aussi les introuvables, programme et bobines, chacun sur son propre etat`() {
+        val programmeAvecBobineIntrouvable = ProgrammeUi(9, listOf(bobine(11, "vu"), bobine(12, "a_demander"), bobine(13, "introuvable")))
+        val filmProgramme = filmDeSalle("f-prog", 10, "a_demander", programmeAvecBobineIntrouvable)
+        val programmeIntrouvable = ProgrammeUi(9, listOf(bobine(21, "a_demander")))
+        val filmIntrouvable = filmDeSalle("f-prog2", 20, "introuvable", programmeIntrouvable)
+
+        val groupes = candidatsSeanceCourt(listOf(salle("Salle A", filmProgramme, filmIntrouvable)))
+        val candidats = groupes.single().candidats
+
+        // Le programme 10 (a_demander) et sa bobine 12 (jamais la bobine introuvable 13) ; le
+        // programme 20 est lui-même introuvable — sa ligne de programme disparaît — mais sa bobine
+        // 21 garde son propre état (a_demander) et reste un candidat.
+        assertEquals(listOf(10, 12, 21), candidats.map { it.tmdbId })
     }
 
     // Le corps envoyé : `film_id` seul pour un film ou un programme, `+ bobine_tmdb_id` pour une bobine.
@@ -144,8 +164,10 @@ class SeanceEtatsTest {
         assertEquals(listOf("sc-1"), passees.map { it.id })
     }
 
-    // L'état de la zone séance : bouton (rien), en cours (prime sur tout), carte proposée, carte
-    // prise, rien si la plus récente est ignorée (décision 1-2).
+    // L'état de la zone séance : bouton (rien, ou la plus récente ignorée), en cours (prime sur
+    // tout), carte proposée, carte prise (décision 1-2, corrigée le 21 septembre 2026 : « ignorer »
+    // n'est pas terminal — la carte disparaît et le bouton revient aussitôt, comme s'il n'y avait
+    // pas de séance).
     // Mutation : ne pas faire primer `seanceEnCours` afficherait la carte d'une séance déjà
     // dépassée pendant qu'une nouvelle composition est en vol.
     @Test
@@ -155,7 +177,18 @@ class SeanceEtatsTest {
         assertEquals(EtatZoneSeance.EN_COURS, etatZoneSeance(seanceEnCours = true, seances = listOf(seance(statut = "proposee"))))
         assertEquals(EtatZoneSeance.CARTE_PROPOSEE, etatZoneSeance(seanceEnCours = false, seances = listOf(seance(statut = "proposee"))))
         assertEquals(EtatZoneSeance.CARTE_PRISE, etatZoneSeance(seanceEnCours = false, seances = listOf(seance(statut = "prise"))))
-        assertEquals(EtatZoneSeance.RIEN, etatZoneSeance(seanceEnCours = false, seances = listOf(seance(statut = "ignoree"))))
+    }
+
+    // « Ignorer » n'est pas terminal : le bouton « Composer une séance » revient, exactement comme
+    // s'il n'y avait jamais eu de séance — jamais « rien » (mutation prouvée : remettre `RIEN` sur
+    // le cas « ignoree » fait échouer cette assertion).
+    @Test
+    fun `etatZoneSeance rend le bouton quand la plus recente est ignoree, comme si aucune n'existait`() {
+        assertEquals(
+            etatZoneSeance(seanceEnCours = false, seances = emptyList()),
+            etatZoneSeance(seanceEnCours = false, seances = listOf(seance(statut = "ignoree"))),
+        )
+        assertEquals(EtatZoneSeance.BOUTON, etatZoneSeance(seanceEnCours = false, seances = listOf(seance(statut = "ignoree"))))
     }
 
     // Toujours un texte, même sur « à demander » (contrairement à `etiquetteEtatFilm`, qui rend

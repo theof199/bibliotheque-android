@@ -60,9 +60,11 @@ fun candidatsSeanceLong(salles: List<SalleUi>): List<GroupeCandidatsSeance> =
     }
 
 /**
- * Les candidats à « Autre court » (décision 3) : les programmes non vus, chacun suivi de ses
- * bobines non vues, groupés par salle, chaque groupe trié Plex d'abord, puis demandé, puis à
- * demander sur ses programmes.
+ * Les candidats à « Autre court » (décision 3, corrigée le 21 septembre 2026 : le brief disait
+ * à tort de garder les introuvables) : les programmes non vus ni introuvables, chacun suivi de ses
+ * bobines non vues ni introuvables — même filtre que le long, jumeau de ce que `POST .../remplacer`
+ * refuse côté back dans les deux cas — groupés par salle, chaque groupe trié Plex d'abord, puis
+ * demandé, puis à demander sur ses programmes.
  */
 fun candidatsSeanceCourt(salles: List<SalleUi>): List<GroupeCandidatsSeance> =
     salles.mapNotNull { salle ->
@@ -72,13 +74,13 @@ fun candidatsSeanceCourt(salles: List<SalleUi>): List<GroupeCandidatsSeance> =
             .flatMap { film ->
                 val programme = film.programme!!
                 val etatProgramme = etatFilmVoyage(film.etat, programme.bobines)
-                val ligneProgramme = if (etatProgramme != "vu") {
+                val ligneProgramme = if (etatProgramme != "vu" && etatProgramme != "introuvable") {
                     listOf(CandidatSeance.Film(film.id, film.tmdbId, film.title, film.coverUrl, etatProgramme))
                 } else {
                     emptyList()
                 }
                 val lignesBobines = programme.bobines
-                    .filter { it.etat != "vu" }
+                    .filter { it.etat != "vu" && it.etat != "introuvable" }
                     .map { CandidatSeance.Bobine(film.id, it.tmdbId, it.title, it.coverUrl, it.etat) }
                 ligneProgramme + lignesBobines
             }
@@ -111,13 +113,15 @@ enum class EtatZoneSeance { BOUTON, EN_COURS, CARTE_PROPOSEE, CARTE_PRISE, RIEN 
 
 /**
  * `seanceEnCours` (une composition en vol) prime sur tout le reste ; sinon la séance la plus
- * récente décide : aucune -> le bouton, `proposee` -> sa carte, `prise` -> sa carte étiquetée,
- * `ignoree` -> rien (décision 2 : « une séance ignorée ne s'affiche pas en carte »).
+ * récente décide : aucune, ou `ignoree` -> le bouton (« ignorer » n'est pas terminal : la spec dit
+ * « la prendre, en changer un morceau, ou l'ignorer » — ignorer, c'est en redemander une autre plus
+ * tard, comme s'il n'y en avait pas), `proposee` -> sa carte, `prise` -> sa carte étiquetée, tant
+ * qu'elle reste prise — seul « Ignorer » libère le bouton, jamais le fait que son long soit vu.
  */
 fun etatZoneSeance(seanceEnCours: Boolean, seances: List<SeanceUi>): EtatZoneSeance {
     if (seanceEnCours) return EtatZoneSeance.EN_COURS
     return when (seanceRecente(seances)?.statut) {
-        null -> EtatZoneSeance.BOUTON
+        null, "ignoree" -> EtatZoneSeance.BOUTON
         "proposee" -> EtatZoneSeance.CARTE_PROPOSEE
         "prise" -> EtatZoneSeance.CARTE_PRISE
         else -> EtatZoneSeance.RIEN
