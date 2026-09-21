@@ -26,9 +26,11 @@ import fr.mediatheque.journal.api.dto.SuivreRealisateurBody
 import fr.mediatheque.journal.api.dto.SuivreSagaBody
 import fr.mediatheque.journal.api.dto.StatsResponse
 import fr.mediatheque.journal.api.dto.User
-import fr.mediatheque.journal.api.dto.ChroniqueAnneeResponse
+import fr.mediatheque.journal.api.dto.AnneeSuivanteResponse
+import fr.mediatheque.journal.api.dto.AnneeVoyageDetailResponse
 import fr.mediatheque.journal.api.dto.CartonFilmResponse
 import fr.mediatheque.journal.api.dto.DemanderVoyageResponse
+import fr.mediatheque.journal.api.dto.SallePlusResponse
 import fr.mediatheque.journal.api.dto.VoyageResponse
 import fr.mediatheque.journal.reactions.Reactions
 import io.ktor.client.HttpClient
@@ -231,8 +233,14 @@ class ApiClient(baseUrl: String, engine: HttpClientEngine) : JournalApi {
 
     override suspend fun voyage(): VoyageResponse = call { client.get(Endpoints.voyage) }
 
-    override suspend fun chroniqueAnnee(annee: Int): ChroniqueAnneeResponse =
-        call { client.get(Endpoints.chroniqueAnnee(annee)) }
+    override suspend fun voyageAnnee(annee: Int): AnneeVoyageDetailResponse =
+        call { client.get(Endpoints.voyageAnnee(annee)) }
+
+    override suspend fun voyageAnneeSuivante(): AnneeSuivanteResponse =
+        call { client.post(Endpoints.voyageAnneeSuivante) }
+
+    override suspend fun voyageSallePlus(salleId: String): SallePlusResponse =
+        call { client.post(Endpoints.voyageSallePlus(salleId)) }
 
     override suspend fun cartonFilm(tmdbId: Int): CartonFilmResponse =
         call { client.get(Endpoints.chroniqueFilm(tmdbId)) }

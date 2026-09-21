@@ -24,9 +24,11 @@ import fr.mediatheque.journal.api.dto.SortieSemaine
 import fr.mediatheque.journal.api.dto.StatsResponse
 import fr.mediatheque.journal.api.dto.User
 import fr.mediatheque.journal.api.dto.VuDuFilm
-import fr.mediatheque.journal.api.dto.ChroniqueAnneeResponse
+import fr.mediatheque.journal.api.dto.AnneeSuivanteResponse
+import fr.mediatheque.journal.api.dto.AnneeVoyageDetailResponse
 import fr.mediatheque.journal.api.dto.CartonFilmResponse
 import fr.mediatheque.journal.api.dto.DemanderVoyageResponse
+import fr.mediatheque.journal.api.dto.SallePlusResponse
 import fr.mediatheque.journal.api.dto.VoyageResponse
 import kotlinx.serialization.json.JsonObject
 
@@ -69,7 +71,9 @@ class FakeJournalApi : JournalApi {
     var onAjouterFilmSaga: suspend (Int, Int) -> Unit = { _, _ -> }
     var onRetirerFilmSaga: suspend (Int, Int) -> Unit = { _, _ -> }
     var onVoyage: suspend () -> VoyageResponse = { VoyageResponse(configure = true) }
-    var onChroniqueAnnee: suspend (Int) -> ChroniqueAnneeResponse = { ChroniqueAnneeResponse(configure = true) }
+    var onVoyageAnnee: suspend (Int) -> AnneeVoyageDetailResponse = { AnneeVoyageDetailResponse(configure = true) }
+    var onVoyageAnneeSuivante: suspend () -> AnneeSuivanteResponse = { AnneeSuivanteResponse() }
+    var onVoyageSallePlus: suspend (String) -> SallePlusResponse = { SallePlusResponse(statut = "epuisee") }
     var onCartonFilm: suspend (Int) -> CartonFilmResponse = { CartonFilmResponse(configure = true) }
     var onDemanderVoyage: suspend (Int) -> DemanderVoyageResponse = { DemanderVoyageResponse(demande = true) }
 
@@ -104,7 +108,9 @@ class FakeJournalApi : JournalApi {
     override suspend fun retirerFilmSaga(tmdbId: Int, filmId: Int) =
         track("retirerFilmSaga $tmdbId $filmId") { onRetirerFilmSaga(tmdbId, filmId) }
     override suspend fun voyage() = track("voyage") { onVoyage() }
-    override suspend fun chroniqueAnnee(annee: Int) = track("chroniqueAnnee $annee") { onChroniqueAnnee(annee) }
+    override suspend fun voyageAnnee(annee: Int) = track("voyageAnnee $annee") { onVoyageAnnee(annee) }
+    override suspend fun voyageAnneeSuivante() = track("voyageAnneeSuivante") { onVoyageAnneeSuivante() }
+    override suspend fun voyageSallePlus(salleId: String) = track("voyageSallePlus $salleId") { onVoyageSallePlus(salleId) }
     override suspend fun cartonFilm(tmdbId: Int) = track("cartonFilm $tmdbId") { onCartonFilm(tmdbId) }
     override suspend fun demanderVoyage(tmdbId: Int) = track("demanderVoyage $tmdbId") { onDemanderVoyage(tmdbId) }
 

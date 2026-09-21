@@ -46,10 +46,13 @@ object Endpoints {
      */
     fun filmDeSaga(tmdbId: Int, filmId: Int): String = "${filmsDeSaga(tmdbId)}/$filmId"
 
-    // --- Le Voyage (brief du 16 septembre 2026), phase 1 « le moteur ». ---
+    // --- Le Voyage. Brief du 16 septembre 2026 (« le moteur »), réécrit pour celui du 21 septembre
+    // 2026 (« l'année en étages ») : `chroniqueAnnee` a disparu, remplacée par `voyageAnnee`. ---
 
     const val voyage = "me/voyage"
-    fun chroniqueAnnee(annee: Int): String = "reference/chroniques/annees/$annee"
+    const val voyageAnneeSuivante = "me/voyage/annee-suivante"
+    fun voyageAnnee(annee: Int): String = "me/voyage/annees/$annee"
+    fun voyageSallePlus(salleId: String): String = "me/voyage/salles/$salleId/plus"
     fun chroniqueFilm(tmdbId: Int): String = "reference/chroniques/films/$tmdbId"
     fun demanderVoyage(tmdbId: Int): String = "me/voyage/demander/$tmdbId"
 }

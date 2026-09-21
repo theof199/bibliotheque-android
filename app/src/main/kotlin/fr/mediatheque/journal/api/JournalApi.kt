@@ -15,9 +15,11 @@ import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.api.dto.SortiesResponse
 import fr.mediatheque.journal.api.dto.StatsResponse
 import fr.mediatheque.journal.api.dto.User
-import fr.mediatheque.journal.api.dto.ChroniqueAnneeResponse
+import fr.mediatheque.journal.api.dto.AnneeSuivanteResponse
+import fr.mediatheque.journal.api.dto.AnneeVoyageDetailResponse
 import fr.mediatheque.journal.api.dto.CartonFilmResponse
 import fr.mediatheque.journal.api.dto.DemanderVoyageResponse
+import fr.mediatheque.journal.api.dto.SallePlusResponse
 import fr.mediatheque.journal.api.dto.VoyageResponse
 import kotlinx.serialization.json.JsonObject
 
@@ -110,18 +112,29 @@ interface JournalApi {
     /** `DELETE /me/sagas/{tmdbId}/films/{filmId}` : le retire. Toujours `204`, même si le film n'avait pas été ajouté. */
     suspend fun retirerFilmSaga(tmdbId: Int, filmId: Int)
 
-    // --- Le Voyage (brief du 16 septembre 2026), phase 1 « le moteur ». ---
+    // --- Le Voyage. Brief du 16 septembre 2026 (« le moteur »), réécrit pour celui du 21 septembre
+    // 2026 (« l'année en étages », étape 1 côté appli). ---
 
-    /** `GET /me/voyage` : ma progression, année par année, depuis 1895. Mise en cache 60 s côté back. */
+    /** `GET /me/voyage` : ma progression, la carte — statut, visite et profondeur par année, depuis 1895. Mise en cache 60 s côté back. */
     suspend fun voyage(): VoyageResponse
 
-    /** `GET /reference/chroniques/annees/{annee}` : le récit et les essentiels d'une année, écrits par Claude. */
-    suspend fun chroniqueAnnee(annee: Int): ChroniqueAnneeResponse
+    /**
+     * `GET /me/voyage/annees/{annee}` : l'ouverture, les faits et les salles d'une année, chacune
+     * avec ses films et mon état sur chacun. `200` (prête, verrouillée ou non configuré) ou `202`
+     * (première visite, l'ouverture vient de s'enfiler).
+     */
+    suspend fun voyageAnnee(annee: Int): AnneeVoyageDetailResponse
+
+    /** `POST /me/voyage/annee-suivante` : avance mon année en cours — provisoire, en attendant le ticket (étape 3). */
+    suspend fun voyageAnneeSuivante(): AnneeSuivanteResponse
+
+    /** `POST /me/voyage/salles/{salleId}/plus` : « En voir plus » dans une salle — `202` en préparation, `200` épuisée. */
+    suspend fun voyageSallePlus(salleId: String): SallePlusResponse
 
     /** `GET /reference/chroniques/films/{tmdbId}` : le carton « Et pendant ce temps… » d'un film. */
     suspend fun cartonFilm(tmdbId: Int): CartonFilmResponse
 
-    /** `POST /me/voyage/demander/{tmdbId}` : demande l'essentiel sur Seerr. `201` à la création, `200` s'il l'était déjà. */
+    /** `POST /me/voyage/demander/{tmdbId}` : demande le film sur Seerr. `201` à la création, `200` s'il l'était déjà. */
     suspend fun demanderVoyage(tmdbId: Int): DemanderVoyageResponse
 }
 
