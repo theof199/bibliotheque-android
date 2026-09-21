@@ -83,7 +83,7 @@ class SeanceEtatsTest {
         val programme = ProgrammeUi(9, listOf(bobine(11, "vu"), bobine(12, "a_demander"), bobine(13, "sur_le_plex")))
         val filmProgramme = filmDeSalle("f-prog", 10, "a_demander", programme)
 
-        val groupes = candidatsSeanceCourt(listOf(salle("Salle A", filmProgramme)))
+        val groupes = candidatsSeanceCourt(listOf(salle("Salle A", filmProgramme)), longActuelFilmId = "f-long")
         val candidats = groupes.single().candidats
 
         // Le programme lui-même (10), puis ses bobines non vues, dans l'ordre du programme (12 et 13) — jamais la bobine vue (11).
@@ -98,7 +98,7 @@ class SeanceEtatsTest {
         val programme = ProgrammeUi(9, listOf(bobine(11, "vu"), bobine(12, "vu")))
         val filmProgramme = filmDeSalle("f-prog", 10, "sur_le_plex", programme)
 
-        val groupes = candidatsSeanceCourt(listOf(salle("Salle A", filmProgramme)))
+        val groupes = candidatsSeanceCourt(listOf(salle("Salle A", filmProgramme)), longActuelFilmId = "f-long")
 
         assertTrue(groupes.isEmpty())
     }
@@ -116,13 +116,50 @@ class SeanceEtatsTest {
         val programmeIntrouvable = ProgrammeUi(9, listOf(bobine(21, "a_demander")))
         val filmIntrouvable = filmDeSalle("f-prog2", 20, "introuvable", programmeIntrouvable)
 
-        val groupes = candidatsSeanceCourt(listOf(salle("Salle A", filmProgramme, filmIntrouvable)))
+        val groupes = candidatsSeanceCourt(listOf(salle("Salle A", filmProgramme, filmIntrouvable)), longActuelFilmId = "f-long")
         val candidats = groupes.single().candidats
 
         // Le programme 10 (a_demander) et sa bobine 12 (jamais la bobine introuvable 13) ; le
         // programme 20 est lui-même introuvable — sa ligne de programme disparaît — mais sa bobine
         // 21 garde son propre état (a_demander) et reste un candidat.
         assertEquals(listOf(10, 12, 21), candidats.map { it.tmdbId })
+    }
+
+    // « Avant les longs métrages, tout est court » (décision du propriétaire du 21 septembre 2026) :
+    // un film sans programme, non vu ni introuvable, est désormais un court possible lui aussi,
+    // après les programmes et leurs bobines, dans l'ordre Plex/demandé/à demander comme pour le long.
+    @Test
+    fun `candidatsSeanceCourt propose aussi des films sans programme, apres les programmes`() {
+        val programme = ProgrammeUi(9, listOf(bobine(11, "a_demander")))
+        val filmProgramme = filmDeSalle("f-prog", 10, "a_demander", programme)
+        val filmADemander = filmDeSalle("f-film-a-demander", 30, "a_demander")
+        val filmSurLePlex = filmDeSalle("f-film-plex", 31, "sur_le_plex")
+        val filmVu = filmDeSalle("f-film-vu", 32, "vu")
+        val filmIntrouvable = filmDeSalle("f-film-introuvable", 33, "introuvable")
+
+        val groupes = candidatsSeanceCourt(
+            listOf(salle("Salle A", filmProgramme, filmADemander, filmSurLePlex, filmVu, filmIntrouvable)),
+            longActuelFilmId = "f-autre-long",
+        )
+        val candidats = groupes.single().candidats
+
+        // Le programme (10) et sa bobine (11) d'abord, puis les films sans programme triés Plex
+        // (31) avant à demander (30) — jamais le vu (32) ni l'introuvable (33).
+        assertEquals(listOf(10, 11, 31, 30), candidats.map { it.tmdbId })
+    }
+
+    // Jamais le long actuel de la séance, même non vu et non introuvable — sans quoi la feuille
+    // proposerait de remplacer le court par le film qui joue déjà en long ce soir-là.
+    // Mutation : retirer l'exclusion sur `longActuelFilmId` ferait réapparaître ce candidat.
+    @Test
+    fun `candidatsSeanceCourt ecarte le long actuel de la seance`() {
+        val longActuel = filmDeSalle("f-long-actuel", 40, "a_demander")
+        val autreFilm = filmDeSalle("f-autre-film", 41, "a_demander")
+
+        val groupes = candidatsSeanceCourt(listOf(salle("Salle A", longActuel, autreFilm)), longActuelFilmId = "f-long-actuel")
+        val candidats = groupes.single().candidats
+
+        assertEquals(listOf(41), candidats.map { it.tmdbId })
     }
 
     // Le corps envoyé : `film_id` seul pour un film ou un programme, `+ bobine_tmdb_id` pour une bobine.

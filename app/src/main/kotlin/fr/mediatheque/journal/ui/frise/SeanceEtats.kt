@@ -61,14 +61,18 @@ fun candidatsSeanceLong(salles: List<SalleUi>): List<GroupeCandidatsSeance> =
 
 /**
  * Les candidats à « Autre court » (décision 3, corrigée le 21 septembre 2026 : le brief disait
- * à tort de garder les introuvables) : les programmes non vus ni introuvables, chacun suivi de ses
- * bobines non vues ni introuvables — même filtre que le long, jumeau de ce que `POST .../remplacer`
- * refuse côté back dans les deux cas — groupés par salle, chaque groupe trié Plex d'abord, puis
- * demandé, puis à demander sur ses programmes.
+ * à tort de garder les introuvables ; puis complétée le même jour, « avant les longs métrages, tout
+ * est court » : un film sans programme est désormais un court possible lui aussi, le back
+ * l'acceptant maintenant sur `POST .../remplacer`) : d'abord les programmes non vus ni introuvables,
+ * chacun suivi de ses bobines non vues ni introuvables — même filtre que le long, jumeau de ce que
+ * le back refuse dans les deux cas — puis les films sans programme non vus ni introuvables, jamais
+ * le long actuel de la séance (`longActuelFilmId`, sans quoi on proposerait de remplacer le court
+ * par le film qui joue déjà en long ce soir-là). Groupés par salle, chaque sous-liste (programmes,
+ * puis films) triée Plex d'abord, puis demandé, puis à demander.
  */
-fun candidatsSeanceCourt(salles: List<SalleUi>): List<GroupeCandidatsSeance> =
+fun candidatsSeanceCourt(salles: List<SalleUi>, longActuelFilmId: String): List<GroupeCandidatsSeance> =
     salles.mapNotNull { salle ->
-        val candidats = salle.films
+        val candidatsProgrammes = salle.films
             .filter { it.programme != null }
             .sortedBy { film -> ordreEtatSeance(etatFilmVoyage(film.etat, film.programme!!.bobines)) }
             .flatMap { film ->
@@ -84,6 +88,11 @@ fun candidatsSeanceCourt(salles: List<SalleUi>): List<GroupeCandidatsSeance> =
                     .map { CandidatSeance.Bobine(film.id, it.tmdbId, it.title, it.coverUrl, it.etat) }
                 ligneProgramme + lignesBobines
             }
+        val candidatsFilms = salle.films
+            .filter { it.programme == null && it.id != longActuelFilmId && it.etat != "vu" && it.etat != "introuvable" }
+            .sortedBy { ordreEtatSeance(it.etat) }
+            .map { CandidatSeance.Film(it.id, it.tmdbId, it.title, it.coverUrl, it.etat) }
+        val candidats = candidatsProgrammes + candidatsFilms
         candidats.takeIf { it.isNotEmpty() }?.let { GroupeCandidatsSeance(salle.nom, it) }
     }
 

@@ -672,9 +672,18 @@ class AnneeViewModel(
      * secondes jusqu'à ce que `seance_en_cours` retombe, abandon au plafond de l'année
      * (`etatSeanceSuivant`, qui réutilise `etatChroniqueSuivant`, `CHRONIQUE_ANNEE_ESSAIS_MAX`).
      * Une `409` ou une `400` envoie le message du back au bandeau, sans rien changer d'autre.
+     *
+     * Une composition qui s'arrête sans avoir rien produit de neuf ne doit jamais revenir muette au
+     * bouton (décision du propriétaire du 21 septembre 2026, « une composition abandonnée le dit ») :
+     * `seancesAvant` capture le compte au tout début, comparé à la fin par `messageEchecComposition`
+     * — nul dès qu'une séance de plus est apparue, un message distinct sinon selon que le plafond
+     * est atteint ou que `seance_en_cours` est retombé tout seul. `seanceEnCours` est alors forcé à
+     * faux : sans ça, un abandon au plafond (où le back n'a jamais dit `seance_en_cours: false`)
+     * laisserait la carte d'attente affichée pour toujours.
      */
     fun composerSeance() {
         if (seanceJob?.isActive == true) return
+        val seancesAvant = _ui.value.seances.size
         seanceJob = viewModelScope.launch {
             try {
                 api.voyageComposerSeance(annee)
@@ -703,7 +712,13 @@ class AnneeViewModel(
                 }
                 val (etatSuivant, prochainEssai) = etatSeanceSuivant(_ui.value.seanceEnCours, essais)
                 essais = prochainEssai
-                if (etatSuivant != EtatChronique.EN_PREPARATION) return@launch
+                if (etatSuivant != EtatChronique.EN_PREPARATION) {
+                    messageEchecComposition(etatSuivant, seancesAvant, _ui.value.seances.size)?.let { message ->
+                        _ui.update { it.copy(seanceEnCours = false) }
+                        _messages.trySend(message)
+                    }
+                    return@launch
+                }
             }
         }
     }

@@ -279,4 +279,41 @@ class VoyageEtatsTest {
         // acceptée) — il doit néanmoins retomber sur le bouton plutôt que de planter ou bloquer.
         assertEquals(EtatZoneSalleVoyage.BOUTON, etatZoneSalleVoyage("creee"))
     }
+
+    // Le bandeau à la fin d'une composition qui n'a rien produit de neuf (décision du propriétaire
+    // du 21 septembre 2026, « une composition abandonnée le dit ») : nul dès qu'une séance de plus
+    // est apparue, quel que soit l'état — c'est le seul cas de succès.
+    // Mutation : ne pas comparer `seancesAvant` à `seancesApres` (par exemple rendre le message
+    // « n'a pas pu composer » dès que `etat == PRETE`, sans regarder si le compte a grandi) ferait
+    // échouer cette assertion, qui attend `null` alors même que `etat == PRETE`.
+    @Test
+    fun `messageEchecComposition est nul des qu'une seance de plus est apparue`() {
+        assertNull(messageEchecComposition(EtatChronique.PRETE, seancesAvant = 2, seancesApres = 3))
+        assertNull(messageEchecComposition(EtatChronique.ABANDON, seancesAvant = 2, seancesApres = 3))
+    }
+
+    // Sans séance de plus : un message distinct entre l'abandon au plafond (le back ne répond plus
+    // du tout) et une composition qui s'arrête d'elle-même sans rien produire (`seance_en_cours`
+    // retombe, mais aucune séance neuve).
+    @Test
+    fun `messageEchecComposition distingue l'abandon au plafond de l'arret sans rien produire`() {
+        assertEquals(
+            "Le chroniqueur n’a pas répondu, reviens plus tard.",
+            messageEchecComposition(EtatChronique.ABANDON, seancesAvant = 2, seancesApres = 2),
+        )
+        assertEquals(
+            "Le chroniqueur n’a pas pu composer ce soir, réessaie.",
+            messageEchecComposition(EtatChronique.PRETE, seancesAvant = 2, seancesApres = 2),
+        )
+    }
+
+    // Un compte qui a baissé (une séance disparue entre-temps, cas limite) n'est jamais un succès
+    // non plus — seule une hausse stricte compte.
+    @Test
+    fun `messageEchecComposition ne prend pas une baisse du compte pour un succes`() {
+        assertEquals(
+            "Le chroniqueur n’a pas pu composer ce soir, réessaie.",
+            messageEchecComposition(EtatChronique.PRETE, seancesAvant = 3, seancesApres = 2),
+        )
+    }
 }

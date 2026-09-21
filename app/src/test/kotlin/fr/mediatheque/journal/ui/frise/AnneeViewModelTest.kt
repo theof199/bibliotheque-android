@@ -656,6 +656,51 @@ class AnneeViewModelTest {
         job.cancel()
     }
 
+    // Une composition qui s'arrête toute seule sans rien produire (`seance_en_cours` retombe, mais
+    // aucune séance de plus) ne doit jamais revenir muette (décision du propriétaire du 21 septembre
+    // 2026, « une composition abandonnée le dit ») : un bandeau, et le bouton revient.
+    @Test
+    fun `composerSeance sans rien produire envoie un bandeau et force le bouton`() = runTest(dispatcher) {
+        api.onVoyageAnnee = { prete(salle("s1")).copy(seance_en_cours = false) }
+        api.onVoyageComposerSeance = { SeanceComposerResponse(statut = "en_preparation") }
+        val vm = AnneeViewModel(api, 1941, null) {}
+        vm.relire()
+        runCurrent()
+
+        val messages = mutableListOf<String>()
+        val job = launch { vm.messages.collect { messages += it } }
+
+        vm.composerSeance()
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(listOf("Le chroniqueur n’a pas pu composer ce soir, réessaie."), messages)
+        assertFalse(vm.ui.value.seanceEnCours)
+        assertTrue(vm.ui.value.seances.isEmpty())
+        job.cancel()
+    }
+
+    // Abandon au plafond de relectures (le back ne répond jamais `seance_en_cours: false`) : même
+    // bandeau distinct, et `seanceEnCours` forcé à faux — sans ça, la carte d'attente resterait
+    // affichée pour toujours puisque plus rien ne la relit.
+    @Test
+    fun `composerSeance abandonnee au plafond envoie un bandeau et force le bouton`() = runTest(dispatcher) {
+        api.onVoyageAnnee = { prete(salle("s1")).copy(seance_en_cours = true) }
+        api.onVoyageComposerSeance = { SeanceComposerResponse(statut = "en_preparation") }
+        val vm = AnneeViewModel(api, 1941, null) {}
+        vm.relire()
+        runCurrent()
+
+        val messages = mutableListOf<String>()
+        val job = launch { vm.messages.collect { messages += it } }
+
+        vm.composerSeance()
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(listOf("Le chroniqueur n’a pas répondu, reviens plus tard."), messages)
+        assertFalse(vm.ui.value.seanceEnCours)
+        job.cancel()
+    }
+
     // « Prendre » (décision 2) relit l'année et appelle le rappel — la ligne « Ce soir » de
     // l'accueil en dépend (`frise.refresh()` côté appelant).
     @Test

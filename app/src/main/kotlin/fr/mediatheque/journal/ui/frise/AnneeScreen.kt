@@ -581,7 +581,7 @@ private fun BlocSeance(
         if (seance == null) {
             remplacement = null
         } else {
-            val groupes = if (morceau == "long") candidatsSeanceLong(ui.salles) else candidatsSeanceCourt(ui.salles)
+            val groupes = if (morceau == "long") candidatsSeanceLong(ui.salles) else candidatsSeanceCourt(ui.salles, seance.long.filmId)
             val occupantTmdbId = if (morceau == "long") seance.long.tmdbId else seance.court?.tmdbId
             RemplacementSeanceSheet(
                 morceau = morceau,
@@ -669,11 +669,19 @@ private fun CarteSeance(
             Text(seance.anecdote, style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic))
         }
         when (seance.statut) {
-            "proposee" -> Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                TextButton(onClick = onPrendre) { Text("Prendre") }
-                TextButton(onClick = onAutreLong) { Text("Autre long") }
-                TextButton(onClick = onAutreCourt) { Text("Autre court") }
-                TextButton(onClick = onIgnorer) { Text("Ignorer") }
+            // Deux rangées de deux (constaté sur téléphone, 21 septembre 2026) : les quatre
+            // actions sur une seule `Row` ne tenaient pas en largeur, « Ignorer » se cassait sur
+            // plusieurs lignes. `BoutonSeance` fixe `maxLines = 1, softWrap = false` sur chaque
+            // libellé plutôt que de réduire la police.
+            "proposee" -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    BoutonSeance("Prendre", onPrendre)
+                    BoutonSeance("Ignorer", onIgnorer)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    BoutonSeance("Autre long", onAutreLong)
+                    BoutonSeance("Autre court", onAutreCourt)
+                }
             }
             "prise" -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("Prise", style = MaterialTheme.typography.labelMedium, color = monde.accent)
@@ -682,6 +690,16 @@ private fun CarteSeance(
             }
         }
     }
+}
+
+/**
+ * Un bouton de la carte de soirée : son libellé sur une seule ligne, jamais coupé (`maxLines = 1,
+ * softWrap = false`), sans réduire la police — c'est la disposition en deux rangées de deux qui
+ * garde la place, pas un texte rétréci.
+ */
+@Composable
+private fun BoutonSeance(texte: String, onClick: () -> Unit) {
+    TextButton(onClick = onClick) { Text(texte, maxLines = 1, softWrap = false) }
 }
 
 /** « Voir sur le Plex » (lien `plex://` puis web, comme la fiche) ou « Demander sur Sir », et « Je l'ai vu » — sur chaque film (décision 2). */

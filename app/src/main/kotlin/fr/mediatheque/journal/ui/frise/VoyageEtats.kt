@@ -195,6 +195,22 @@ fun etatSeanceSuivant(
 )
 
 /**
+ * Le bandeau à la fin d'une composition qui s'arrête sans avoir rien produit de neuf (décision du
+ * propriétaire du 21 septembre 2026, « une composition abandonnée le dit ») : nul dès qu'une
+ * nouvelle séance est apparue (le compte de séances a grandi) — c'est le seul cas de succès. Sinon
+ * un message distinct entre l'abandon au plafond de relectures (le back ne répond plus du tout,
+ * `EtatChronique.ABANDON`) et une composition qui s'arrête d'elle-même sans rien produire
+ * (`seance_en_cours` retombe à faux mais le compte n'a pas bougé, `EtatChronique.PRETE`) — jamais
+ * muette dans un cas comme dans l'autre. Fonction pure, testée en JVM.
+ */
+fun messageEchecComposition(etat: EtatChronique, seancesAvant: Int, seancesApres: Int): String? = when {
+    seancesApres > seancesAvant -> null
+    etat == EtatChronique.ABANDON -> "Le chroniqueur n’a pas répondu, reviens plus tard."
+    etat == EtatChronique.PRETE -> "Le chroniqueur n’a pas pu composer ce soir, réessaie."
+    else -> null
+}
+
+/**
  * L'éligibilité du bouton « Ajouter à la chronique » sur l'écran de correction du journal
  * (`Screen.Edit`, décision 1 du brief du 21 septembre 2026) : le statut lu dans `/me/voyage`, déjà
  * chargé par la Frise — année en cours ou ouverte seulement, jamais verrouillée ni inconnue (le
