@@ -28751,6 +28751,122 @@
         }
       }
     },
+    "/reference/films/{tmdbId}/realisateurs": {
+      "get": {
+        "summary": "Les réalisateurs crédités sur un film",
+        "tags": [
+          "réalisateurs"
+        ],
+        "description": "De quoi naviguer d’une fiche vers une page réalisateur (`GET /me/realisateurs/{tmdbId}/page`) : `crew`, poste `Director`, sur `movie/{id}` chez TMDB — dédoublonnés par personne, dans l’ordre TMDB.\n\n`realisateurs` est vide si TMDB n’en crédite aucun ; `404` si `tmdbId` est un film que TMDB ne connaît pas.\n\nSous `/reference`, pas `/me` : le résultat ne dépend d’aucun compte, comme `GET /reference/personnes`. Mémorisé en Redis 30 jours par film — un film ne change pas de réalisateur.\n\n`503` si `TMDB_API_KEY` n’est pas renseignée sur ce serveur.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "in": "path",
+            "name": "tmdbId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Les réalisateurs crédités (`crew`, poste `Director`) sur ce film chez TMDB, dédoublonnés, dans l’ordre TMDB — vide si TMDB n’en crédite aucun",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "realisateurs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "tmdb_id": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Identifiant de la **personne** chez TMDB"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "Nom tel que TMDB l’écrit"
+                          }
+                        },
+                        "required": [
+                          "tmdb_id",
+                          "name"
+                        ],
+                        "additionalProperties": false,
+                        "description": "Un réalisateur crédité sur ce film"
+                      }
+                    }
+                  },
+                  "required": [
+                    "realisateurs"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Les réalisateurs crédités (`crew`, poste `Director`) sur ce film chez TMDB, dédoublonnés, dans l’ordre TMDB — vide si TMDB n’en crédite aucun"
+                },
+                "examples": {
+                  "Réponse type": {
+                    "value": {
+                      "realisateurs": [
+                        {
+                          "tmdb_id": 525,
+                          "name": "Christopher Nolan"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/me/realisateurs": {
       "get": {
         "summary": "Mes réalisateurs",
@@ -29272,6 +29388,401 @@
                           "cover_url": null,
                           "vu": null,
                           "introuvable": true
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/realisateurs/{tmdbId}/page": {
+      "get": {
+        "summary": "La page d’un réalisateur — fiche et filmographie complète",
+        "tags": [
+          "réalisateurs"
+        ],
+        "description": "Pensée pour l’application mobile : la fiche d’une personne (photo, dates, présentation) et **tous** ses films et séries réalisés, mêlés et triés du plus ancien au plus récent — que je la suive ou non (`suivi` le dit, sans jamais l’exiger).\n\n`photo_url` est `profile_path` chez TMDB, en URL absolue, nulle si TMDB n’en a pas. `naissance`/`deces` sont `birthday`/`deathday`, nuls si TMDB ne les donne pas ou si la personne est vivante.\n\n`presentation` est la **première phrase** de la biographie TMDB, en français avec repli sur l’anglais si elle y est vide, bornée à 200 caractères (coupée sur un mot, avec « … ») — chaîne vide si TMDB n’a ni l’une ni l’autre.\n\nLes films viennent de `crew` (`movie_credits`), les séries de `crew` (`tv_credits`, poste `Director`, une ligne par série datée — une série sans date d’antenne n’y figure pas), chacun mémorisé 24 h par personne comme `GET /me/realisateurs/{tmdbId}/films`, dont ce champ reprend exactement le calcul. **`vu` est toujours nul sur une série** : les séries se suivent par `/media`, pas par ce chemin ; `introuvable` y reste calculé, la marque ne distinguant pas film et série.\n\nChaque film ou série porte aussi `sur_le_plex`, `demande` et `plex_url` (lus comme `GET /me/voyage`, sur le Plex du propriétaire), `annee_ouverte` (`year` non nul et inférieur ou égal à mon année en cours dans le Voyage, 1895 par défaut), et `voyage` — la ligne `voyage_films` la plus ancienne où il figure parmi mes salles, `null` sinon.\n\n`404` si `tmdbId` est une personne que TMDB ne connaît pas. `503` si `TMDB_API_KEY` n’est pas renseignée sur ce serveur.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "in": "path",
+            "name": "tmdbId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "La page d’un réalisateur — sa fiche et sa filmographie complète, films et séries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tmdb_id": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "description": "Identifiant de la **personne** chez TMDB"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Nom tel que TMDB l’écrit"
+                    },
+                    "photo_url": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Photo en URL absolue, nulle si TMDB n’en a pas"
+                    },
+                    "naissance": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "`birthday` chez TMDB"
+                    },
+                    "deces": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "`deathday` chez TMDB, nul s’il est toujours vivant"
+                    },
+                    "presentation": {
+                      "type": "string",
+                      "description": "Première phrase de la biographie TMDB en français, repli sur l’anglais si vide, bornée à 200 caractères (coupée sur un mot, avec « … ») — chaîne vide si TMDB n’a ni l’une ni l’autre"
+                    },
+                    "suivi": {
+                      "type": "boolean",
+                      "description": "Vrai si je le suis (`user_directors`)"
+                    },
+                    "films": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "tmdb_id": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Identifiant du **film** chez TMDB"
+                          },
+                          "title": {
+                            "type": "string",
+                            "description": "Titre en français, avec repli sur le titre original"
+                          },
+                          "original_title": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "year": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Année de sortie, tirée de `release_date`"
+                          },
+                          "release_date": {
+                            "type": "string",
+                            "format": "date",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                            "description": "Date de sortie — un film qui n’en a pas ne figure pas dans la liste"
+                          },
+                          "cover_url": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uri"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Affiche en URL absolue, taille `w500`"
+                          },
+                          "vu": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "entry_id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                    "description": "L’entrée de journal la plus récente pour ce film"
+                                  },
+                                  "rating": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 10
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "La note de ce visionnage-là"
+                                  },
+                                  "finished_at": {
+                                    "type": "string",
+                                    "format": "date",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                                    "description": "La date de ce visionnage"
+                                  }
+                                },
+                                "required": [
+                                  "entry_id",
+                                  "rating",
+                                  "finished_at"
+                                ],
+                                "additionalProperties": false,
+                                "description": "Mon visionnage le plus récent de ce film"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Nul si je ne l’ai jamais journalisé"
+                          },
+                          "introuvable": {
+                            "type": "boolean",
+                            "description": "Vrai si je l’ai moi-même marqué introuvable (`PUT /me/introuvables/{tmdbId}`) — jamais la marque d’un autre membre."
+                          },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "movie",
+                              "tv"
+                            ],
+                            "description": "Un film (`movie_credits`) ou une série (`tv_credits`) chez TMDB"
+                          },
+                          "sur_le_plex": {
+                            "type": "boolean",
+                            "description": "Disponible sur le Plex du propriétaire, comme le Voyage"
+                          },
+                          "demande": {
+                            "type": "boolean",
+                            "description": "Demandé sur Seerr, pas encore disponible sur le Plex"
+                          },
+                          "plex_url": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uri"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Lien web vers la fiche Plex, nul si le film n’y est pas"
+                          },
+                          "annee_ouverte": {
+                            "type": "boolean",
+                            "description": "`year` non nul et inférieur ou égal à mon année en cours dans le Voyage (1895 par défaut)"
+                          },
+                          "voyage": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "annee": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991,
+                                    "description": "L’année du Voyage la plus ancienne où ce film figure"
+                                  },
+                                  "salle_id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                    "description": "La salle de cette année-là qui le porte"
+                                  },
+                                  "film_id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                    "description": "La ligne `voyage_films` correspondante"
+                                  }
+                                },
+                                "required": [
+                                  "annee",
+                                  "salle_id",
+                                  "film_id"
+                                ],
+                                "additionalProperties": false,
+                                "description": "Ce film dans mon Voyage, à sa plus ancienne apparition"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Nul si ce film n’est dans aucune de mes salles"
+                          }
+                        },
+                        "required": [
+                          "tmdb_id",
+                          "title",
+                          "original_title",
+                          "year",
+                          "release_date",
+                          "cover_url",
+                          "vu",
+                          "introuvable",
+                          "type",
+                          "sur_le_plex",
+                          "demande",
+                          "plex_url",
+                          "annee_ouverte",
+                          "voyage"
+                        ],
+                        "additionalProperties": false,
+                        "description": "Un film ou une série de la filmographie, pour l’écran « page réalisateur »"
+                      },
+                      "description": "Films et séries qu’il a réalisés, mêlés, du plus ancien au plus récent"
+                    }
+                  },
+                  "required": [
+                    "tmdb_id",
+                    "name",
+                    "photo_url",
+                    "naissance",
+                    "deces",
+                    "presentation",
+                    "suivi",
+                    "films"
+                  ],
+                  "additionalProperties": false,
+                  "description": "La page d’un réalisateur — sa fiche et sa filmographie complète, films et séries"
+                },
+                "examples": {
+                  "Réponse type": {
+                    "value": {
+                      "tmdb_id": 525,
+                      "name": "Christopher Nolan",
+                      "photo_url": "https://image.tmdb.org/t/p/w185/xuAIuYSmsUzKlUMBFGVZaWsY3DZ.jpg",
+                      "naissance": "1970-07-30",
+                      "deces": null,
+                      "presentation": "Christopher Nolan est un réalisateur, scénariste et producteur britannico-américain, connu pour ses films à la narration non linéaire.",
+                      "suivi": true,
+                      "films": [
+                        {
+                          "type": "movie",
+                          "tmdb_id": 27205,
+                          "title": "Inception",
+                          "original_title": "Inception",
+                          "year": 2010,
+                          "release_date": "2010-07-15",
+                          "cover_url": "https://image.tmdb.org/t/p/w500/9gk7adZmeSSuQfZBtWWLIcVcSY.jpg",
+                          "vu": {
+                            "entry_id": "e0000000-0000-4000-8000-000000000002",
+                            "rating": 9,
+                            "finished_at": "2026-07-12"
+                          },
+                          "introuvable": false,
+                          "sur_le_plex": false,
+                          "demande": false,
+                          "plex_url": null,
+                          "annee_ouverte": true,
+                          "voyage": {
+                            "annee": 2010,
+                            "salle_id": "11111111-0000-4000-8000-000000000001",
+                            "film_id": "22222222-0000-4000-8000-000000000002"
+                          }
+                        },
+                        {
+                          "type": "tv",
+                          "tmdb_id": 219475,
+                          "title": "Voyage à travers le cinéma américain",
+                          "original_title": null,
+                          "year": 2024,
+                          "release_date": "2024-03-01",
+                          "cover_url": null,
+                          "vu": null,
+                          "introuvable": false,
+                          "sur_le_plex": false,
+                          "demande": false,
+                          "plex_url": null,
+                          "annee_ouverte": false,
+                          "voyage": null
                         }
                       ]
                     }
