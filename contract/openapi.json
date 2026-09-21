@@ -17407,14 +17407,14 @@
     },
     "/reference/plex": {
       "get": {
-        "summary": "Films demandés sur Seerr et disponibles sur le Plex, pas encore vus",
+        "summary": "Films demandés sur Seerr, disponibles ou non, sur le Plex du propriétaire",
         "tags": [
           "système"
         ],
-        "description": "Pour la Frise et « Ensuite ». La liste « à voir » du propriétaire, ce n’est pas une liste tenue à la main : c’est son Plex, alimenté par ce qu’il a demandé dans Seerr et qui y est déjà disponible.\n\nLue en Redis, écrite par une tâche de fond qui relit Seerr au démarrage puis toutes les heures — jamais interrogé à la demande. Rien n’est écrit en base.\n\n`configure` vaut faux tant que `SEERR_URL`, `SEERR_API_KEY` ou `SEERR_USER` manque, et `films` reste alors toujours vide. `calcule_le` est nul tant que la tâche n’a jamais tourné.",
+        "description": "Pour la Frise, « Ensuite » et le Voyage. La liste « à voir » du propriétaire, ce n’est pas une liste tenue à la main : c’est son Plex, alimenté par ce qu’il a demandé dans Seerr.\n\nLue en Redis, écrite par une tâche de fond qui relit Seerr au démarrage puis toutes les heures — jamais interrogé à la demande. Rien n’est écrit en base.\n\n`films` : les demandes **disponibles** (`media.status` chez Seerr), avec affiche TMDB et, quand Seerr les sert, `plex_url` (lien web) et `plex_app_url` (lien `plex://`, l’appli). `demandes` : les demandes **pas encore disponibles** — `tmdb_id` et date de la demande seulement, de quoi éviter de redemander (depuis le 19 septembre 2026 ; champ étendu, contrat non cassé).\n\n`configure` vaut faux tant que `SEERR_URL`, `SEERR_API_KEY` ou `SEERR_USER` manque, et les deux tableaux restent alors toujours vides. `calcule_le` est nul tant que la tâche n’a jamais tourné.",
         "responses": {
           "200": {
-            "description": "Les films du Plex du propriétaire, demandés sur Seerr, disponibles et pas encore vus",
+            "description": "Les films du Plex du propriétaire, demandés sur Seerr, disponibles et pas encore vus, et ceux encore en attente",
             "content": {
               "application/json": {
                 "schema": {
@@ -17422,7 +17422,7 @@
                   "properties": {
                     "configure": {
                       "type": "boolean",
-                      "description": "Faux si Seerr n’est pas configuré (SEERR_URL, SEERR_API_KEY, SEERR_USER) — films est alors toujours vide"
+                      "description": "Faux si Seerr n’est pas configuré (SEERR_URL, SEERR_API_KEY, SEERR_USER) — films et demandes sont alors toujours vides"
                     },
                     "calcule_le": {
                       "anyOf": [
@@ -17492,6 +17492,29 @@
                             "format": "date-time",
                             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
                             "description": "Date de la demande sur Seerr"
+                          },
+                          "plex_url": {
+                            "description": "Lien web vers la fiche Plex (`media.mediaUrl` chez Seerr), absent des instances qui n’en servent pas",
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uri"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "plex_app_url": {
+                            "description": "Lien `plex://` vers l’appli (`media.iOSPlexUrl` chez Seerr), absent des instances qui n’en servent pas",
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -17505,15 +17528,43 @@
                         "additionalProperties": false,
                         "description": "Un film demandé sur Seerr, disponible sur le Plex du propriétaire, pas encore vu"
                       }
+                    },
+                    "demandes": {
+                      "default": [],
+                      "description": "Demandées sur Seerr, pas encore disponibles — contrat étendu depuis le 19 septembre 2026, jamais cassé",
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "tmdb_id": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "demande_le": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+                            "description": "Date de la demande sur Seerr"
+                          }
+                        },
+                        "required": [
+                          "tmdb_id",
+                          "demande_le"
+                        ],
+                        "additionalProperties": false,
+                        "description": "Un film demandé sur Seerr, pas encore disponible sur le Plex"
+                      }
                     }
                   },
                   "required": [
                     "configure",
                     "calcule_le",
-                    "films"
+                    "films",
+                    "demandes"
                   ],
                   "additionalProperties": false,
-                  "description": "Les films du Plex du propriétaire, demandés sur Seerr, disponibles et pas encore vus"
+                  "description": "Les films du Plex du propriétaire, demandés sur Seerr, disponibles et pas encore vus, et ceux encore en attente"
                 },
                 "examples": {
                   "Réponse type": {
@@ -17527,7 +17578,15 @@
                           "original_title": "Inception",
                           "year": 2010,
                           "cover_url": "https://image.tmdb.org/t/p/w500/9gk7adZmeSSuQfZBtWWLIcVcSY.jpg",
-                          "demande_le": "2026-09-10T20:12:00.000Z"
+                          "demande_le": "2026-09-10T20:12:00.000Z",
+                          "plex_url": "https://app.plex.tv/desktop#!/server/4377c7f5e067fa6da69e29ed5097031098b3aa1a/details?key=%2Flibrary%2Fmetadata%2F224",
+                          "plex_app_url": "plex://preplay/?metadataKey=%2Flibrary%2Fmetadata%2F224&server=4377c7f5e067fa6da69e29ed5097031098b3aa1a"
+                        }
+                      ],
+                      "demandes": [
+                        {
+                          "tmdb_id": 82309,
+                          "demande_le": "2026-09-18T21:03:00.000Z"
                         }
                       ]
                     }
@@ -40648,301 +40707,13 @@
         }
       }
     },
-    "/reference/chroniques/annees/{annee}": {
-      "get": {
-        "summary": "La chronique d’une année du Voyage",
-        "tags": [
-          "voyage"
-        ],
-        "description": "Le récit et les essentiels d’une année, écrits une fois par Claude et ne bougeant plus.\n\n`200` si la chronique existe déjà. `202` si elle n’existe pas encore mais que le chroniqueur est configuré : la demande l’enfile (`chroniques:file`), à relire dans quelques secondes — c’est la tâche de fond (`plugins/chroniques.ts`) qui l’écrit, jamais cette route elle-même. `{ configure: false }` si `ANTHROPIC_API_KEY` n’est pas posée sur ce serveur : rien ne s’enfile alors.\n\n`essentiels` peut être vide — une année pauvre en a pu n’avoir aucun résolu sur TMDB, et c’est une réponse comme une autre, jamais retentée.",
-        "parameters": [
-          {
-            "schema": {
-              "type": "integer",
-              "minimum": 1895,
-              "maximum": 2027
-            },
-            "in": "path",
-            "name": "annee",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "anyOf": [
-                    {
-                      "type": "object",
-                      "properties": {
-                        "configure": {
-                          "type": "boolean",
-                          "enum": [
-                            true
-                          ]
-                        },
-                        "statut": {
-                          "type": "string",
-                          "enum": [
-                            "prete"
-                          ]
-                        },
-                        "annee": {
-                          "type": "integer",
-                          "minimum": -9007199254740991,
-                          "maximum": 9007199254740991
-                        },
-                        "recit": {
-                          "type": "string",
-                          "description": "8 à 12 lignes, ton de chroniqueur enjoué : le cinéma et le monde cette année-là"
-                        },
-                        "faits": {
-                          "minItems": 3,
-                          "maxItems": 5,
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          },
-                          "description": "Trois à cinq faits marquants, cinéma et monde"
-                        },
-                        "essentiels": {
-                          "maxItems": 25,
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "rang": {
-                                "type": "integer",
-                                "exclusiveMinimum": 0,
-                                "maximum": 9007199254740991,
-                                "description": "Position dans la liste, du plus important au moins — 1 en tête"
-                              },
-                              "tmdb_id": {
-                                "type": "integer",
-                                "minimum": -9007199254740991,
-                                "maximum": 9007199254740991,
-                                "description": "Identifiant du film chez TMDB, une fois résolu par `matching.ts`"
-                              },
-                              "title": {
-                                "type": "string",
-                                "description": "Titre en français, tel que TMDB le donne"
-                              },
-                              "original_title": {
-                                "anyOf": [
-                                  {
-                                    "type": "string"
-                                  },
-                                  {
-                                    "type": "null"
-                                  }
-                                ]
-                              },
-                              "year": {
-                                "anyOf": [
-                                  {
-                                    "type": "integer",
-                                    "minimum": -9007199254740991,
-                                    "maximum": 9007199254740991
-                                  },
-                                  {
-                                    "type": "null"
-                                  }
-                                ],
-                                "description": "Année de sortie chez TMDB, nulle si TMDB ne la donne pas"
-                              },
-                              "realisateur": {
-                                "type": "string",
-                                "description": "Réalisateur, tel que Claude l’a cité"
-                              },
-                              "pourquoi": {
-                                "type": "string",
-                                "description": "Une ligne : pourquoi ce film compte pour cette année"
-                              },
-                              "cover_url": {
-                                "anyOf": [
-                                  {
-                                    "type": "string",
-                                    "format": "uri"
-                                  },
-                                  {
-                                    "type": "null"
-                                  }
-                                ],
-                                "description": "Affiche en URL absolue, nulle si TMDB n’en a pas"
-                              }
-                            },
-                            "required": [
-                              "rang",
-                              "tmdb_id",
-                              "title",
-                              "original_title",
-                              "year",
-                              "realisateur",
-                              "pourquoi",
-                              "cover_url"
-                            ],
-                            "additionalProperties": false,
-                            "description": "Un film essentiel de l’année, résolu sur TMDB"
-                          },
-                          "description": "Du plus important au moins — vide si aucun essentiel ne s’est résolu sur TMDB"
-                        }
-                      },
-                      "required": [
-                        "configure",
-                        "statut",
-                        "annee",
-                        "recit",
-                        "faits",
-                        "essentiels"
-                      ],
-                      "additionalProperties": false,
-                      "description": "La chronique d’une année, prête à afficher"
-                    },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "configure": {
-                          "type": "boolean",
-                          "enum": [
-                            false
-                          ]
-                        }
-                      },
-                      "required": [
-                        "configure"
-                      ],
-                      "additionalProperties": false,
-                      "description": "Le chroniqueur (`ANTHROPIC_API_KEY`) n’est pas configuré sur ce serveur"
-                    }
-                  ]
-                },
-                "examples": {
-                  "Réponse type": {
-                    "value": {
-                      "configure": true,
-                      "statut": "prete",
-                      "annee": 1941,
-                      "recit": "L'Amérique découvre le cinéma d'un journaliste devenu magnat de la presse, un film que les studios ont tenté d'étouffer. À Hollywood, le Code Hays règne encore sur les scénarios pendant qu'en Europe la guerre vide les salles. Le noir et blanc se réinvente : profondeur de champ, contre-plongées, une grammaire neuve dont le cinéma parlera encore un siècle plus tard. Pearl Harbor, en décembre, referme l'année sur l'entrée en guerre des États-Unis.",
-                      "faits": [
-                        "Citizen Kane sort en mai après un an de pressions de William Randolph Hearst pour l'empêcher",
-                        "Les États-Unis entrent en guerre le 7 décembre, après l'attaque de Pearl Harbor",
-                        "Le premier long métrage d'animation en couleurs de Disney à sortir cette année-là, Dumbo, coûte le dixième de Fantasia"
-                      ],
-                      "essentiels": [
-                        {
-                          "rang": 1,
-                          "tmdb_id": 15,
-                          "title": "Citizen Kane",
-                          "original_title": "Citizen Kane",
-                          "year": 1941,
-                          "realisateur": "Orson Welles",
-                          "pourquoi": "Réinvente le langage du cinéma américain à vingt-cinq ans, au premier essai",
-                          "cover_url": "https://image.tmdb.org/t/p/w500/sav0jxhqiH0bPr2vZFU0Kjt2nZL.jpg"
-                        },
-                        {
-                          "rang": 2,
-                          "tmdb_id": 963,
-                          "title": "Le Faucon maltais",
-                          "original_title": "The Maltese Falcon",
-                          "year": 1941,
-                          "realisateur": "John Huston",
-                          "pourquoi": "Fonde le film noir, avec Bogart au sommet de son premier grand rôle",
-                          "cover_url": "https://image.tmdb.org/t/p/w500/hPgOKGzJ7hCq9zpG3jXPKGWQ7A6.jpg"
-                        },
-                        {
-                          "rang": 3,
-                          "tmdb_id": 12092,
-                          "title": "Dumbo",
-                          "original_title": "Dumbo",
-                          "year": 1941,
-                          "realisateur": "Ben Sharpsteen",
-                          "pourquoi": "Le pari inverse de Fantasia : soixante-quatre minutes, un budget divisé par dix, et un classique immédiat",
-                          "cover_url": "https://image.tmdb.org/t/p/w500/tOwsVW5Xnag6yFNKA5Wf3B0Nqv0.jpg"
-                        }
-                      ]
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "202": {
-            "description": "La chronique de cette année est en cours d’écriture — redemander dans quelques secondes",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "configure": {
-                      "type": "boolean",
-                      "enum": [
-                        true
-                      ]
-                    },
-                    "statut": {
-                      "type": "string",
-                      "enum": [
-                        "en_preparation"
-                      ]
-                    },
-                    "annee": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991
-                    }
-                  },
-                  "required": [
-                    "configure",
-                    "statut",
-                    "annee"
-                  ],
-                  "additionalProperties": false,
-                  "description": "La chronique de cette année est en cours d’écriture — redemander dans quelques secondes"
-                },
-                "examples": {
-                  "Réponse type": {
-                    "value": {
-                      "configure": true,
-                      "statut": "en_preparation",
-                      "annee": 1942
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/reference/chroniques/films/{tmdbId}": {
       "get": {
         "summary": "Le carton « Et pendant ce temps… » d’un film",
         "tags": [
           "voyage"
         ],
-        "description": "Le plus souvent écrit après coup : journaliser un film (`POST /me/journal`) enfile son carton — mais n’importe quel `tmdb_id` peut être demandé ici directement, et sera enfilé de la même façon s’il manque.\n\nMêmes trois formes que `GET /reference/chroniques/annees/{annee}` : `200` prêt, `202` en préparation (enfilé), `{ configure: false }` sans clé Anthropic.",
+        "description": "Le plus souvent écrit après coup : journaliser un film (`POST /me/journal`) enfile son carton — mais n’importe quel `tmdb_id` peut être demandé ici directement, et sera enfilé de la même façon s’il manque.\n\nTrois formes : `200` prêt, `202` en préparation (enfilé), `{ configure: false }` sans clé Anthropic. Global : ce carton ne dépend d’aucun membre.",
         "parameters": [
           {
             "schema": {
@@ -41112,11 +40883,11 @@
     },
     "/me/voyage": {
       "get": {
-        "summary": "Ma progression dans le Voyage",
+        "summary": "Ma progression dans le Voyage — la carte",
         "tags": [
           "voyage"
         ],
-        "description": "La frontière (`frontiere`) est la première année pas encore faite. Une année est faite quand sa chronique existe et que tous ses essentiels sont vus (mon journal) ou marqués introuvables — une année sans essentiel compte faite. `frontiere_statut` dit si sa chronique existe déjà (`ouverte`) ou vient d’être enfilée (`en_preparation`).\n\n`annees` couvre 1895 à l’année courante. Pour une année verrouillée, `essentiels_total` et `essentiels_faits` restent nuls — leur décompte se lit une fois l’année ouverte — mais `vus` compte quand même ce que j’ai déjà vu de cette année-là, journalisé en avance.\n\n`essentiels_apercu` n’apparaît que sur une année verrouillée dont la chronique existe déjà (le moteur en enfile une d’avance) : les affiches seules, sans titre, pour un carton « Prochainement » flouté. Absent quand la chronique manque encore — à distinguer d’un tableau vide, qui dit qu’aucun essentiel ne s’est résolu sur TMDB.\n\n`essentiels` (le détail par film) n’est présent que sur l’année ouverte, et seulement si sa chronique existe déjà : `GET /reference/chroniques/annees/{annee}` sert cette même liste, sans le `etat` ni la `note`, qui eux dépendent du membre.\n\nRéponse mise en cache 60 s par membre.",
+        "description": "`annee_en_cours` sépare les trois statuts : `ouverte` avant elle (je peux toujours y revenir creuser), `en_cours` sur elle, `verrouillee` après (rien ne s’y ouvre encore).\n\n`visitee` dit si une ouverture existe déjà pour cette année, quel que soit son statut. `profondeur` compte les films de mon journal sortis cette année-là, y compris ceux vus avant d’y arriver ; un programme compte un, jamais ses bobines séparément.\n\nRéponse mise en cache 60 s par membre, invalidée par une écriture au journal (`/me/journal`), l’ouverture d’une année et une fournée.",
         "responses": {
           "200": {
             "description": "Ma progression dans le Voyage",
@@ -41127,7 +40898,7 @@
                   "properties": {
                     "configure": {
                       "type": "boolean",
-                      "description": "Faux si `ANTHROPIC_API_KEY` n’est pas configurée — aucune nouvelle chronique ne s’écrit alors"
+                      "description": "Faux si `ANTHROPIC_API_KEY` n’est pas configurée — aucune nouvelle ouverture ni fournée ne peut s’écrire alors"
                     },
                     "depart": {
                       "type": "number",
@@ -41135,18 +40906,11 @@
                         1895
                       ]
                     },
-                    "frontiere": {
+                    "annee_en_cours": {
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991,
-                      "description": "La première année pas encore faite"
-                    },
-                    "frontiere_statut": {
-                      "type": "string",
-                      "enum": [
-                        "ouverte",
-                        "en_preparation"
-                      ]
+                      "description": "Mon année en cours — avant elle, tout est « ouverte » ; après, « verrouillee »"
                     },
                     "annees": {
                       "type": "array",
@@ -41161,165 +40925,30 @@
                           "statut": {
                             "type": "string",
                             "enum": [
-                              "faite",
                               "ouverte",
+                              "en_cours",
                               "verrouillee"
                             ]
                           },
-                          "vus": {
+                          "visitee": {
+                            "type": "boolean",
+                            "description": "Une ouverture a déjà été écrite pour cette année, quel que soit son statut"
+                          },
+                          "profondeur": {
                             "type": "integer",
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991,
-                            "description": "Films de mon journal sortis cette année-là, quelle que soit la date à laquelle je les ai vus"
-                          },
-                          "essentiels_total": {
-                            "anyOf": [
-                              {
-                                "type": "integer",
-                                "minimum": -9007199254740991,
-                                "maximum": 9007199254740991
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ],
-                            "description": "Nombre d’essentiels de cette année — nul pour une année verrouillée ou dont la chronique manque encore"
-                          },
-                          "essentiels_faits": {
-                            "anyOf": [
-                              {
-                                "type": "integer",
-                                "minimum": -9007199254740991,
-                                "maximum": 9007199254740991
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ],
-                            "description": "Essentiels vus ou marqués introuvables — même nullité qu’`essentiels_total`"
-                          },
-                          "essentiels": {
-                            "description": "Détaillé seulement pour l’année ouverte, et seulement quand sa chronique existe déjà",
-                            "type": "array",
-                            "items": {
-                              "type": "object",
-                              "properties": {
-                                "rang": {
-                                  "type": "integer",
-                                  "exclusiveMinimum": 0,
-                                  "maximum": 9007199254740991
-                                },
-                                "tmdb_id": {
-                                  "type": "integer",
-                                  "minimum": -9007199254740991,
-                                  "maximum": 9007199254740991
-                                },
-                                "title": {
-                                  "type": "string"
-                                },
-                                "year": {
-                                  "anyOf": [
-                                    {
-                                      "type": "integer",
-                                      "minimum": -9007199254740991,
-                                      "maximum": 9007199254740991
-                                    },
-                                    {
-                                      "type": "null"
-                                    }
-                                  ]
-                                },
-                                "cover_url": {
-                                  "anyOf": [
-                                    {
-                                      "type": "string",
-                                      "format": "uri"
-                                    },
-                                    {
-                                      "type": "null"
-                                    }
-                                  ]
-                                },
-                                "realisateur": {
-                                  "type": "string"
-                                },
-                                "pourquoi": {
-                                  "type": "string"
-                                },
-                                "etat": {
-                                  "type": "string",
-                                  "enum": [
-                                    "vu",
-                                    "sur_le_plex",
-                                    "a_trouver",
-                                    "introuvable"
-                                  ]
-                                },
-                                "note": {
-                                  "anyOf": [
-                                    {
-                                      "type": "integer",
-                                      "minimum": 1,
-                                      "maximum": 10
-                                    },
-                                    {
-                                      "type": "null"
-                                    }
-                                  ],
-                                  "description": "Ma note, si je l’ai vu et notée"
-                                }
-                              },
-                              "required": [
-                                "rang",
-                                "tmdb_id",
-                                "title",
-                                "year",
-                                "cover_url",
-                                "realisateur",
-                                "pourquoi",
-                                "etat",
-                                "note"
-                              ],
-                              "additionalProperties": false,
-                              "description": "Un essentiel de l’année ouverte, avec mon état sur ce film"
-                            }
-                          },
-                          "essentiels_apercu": {
-                            "description": "Présent seulement pour une année **verrouillée** dont la chronique existe déjà — le moteur en enfile toujours une d’avance. Les affiches seules, sans titre : de quoi flouter le carton « Prochainement » de l’appli sans jamais nommer un film avant l’heure. Absent quand la chronique manque encore, et à distinguer d’un tableau vide (une année dont aucun essentiel ne s’est résolu sur TMDB).",
-                            "type": "array",
-                            "items": {
-                              "type": "object",
-                              "properties": {
-                                "cover_url": {
-                                  "anyOf": [
-                                    {
-                                      "type": "string",
-                                      "format": "uri"
-                                    },
-                                    {
-                                      "type": "null"
-                                    }
-                                  ],
-                                  "description": "Affiche en URL absolue, nulle si TMDB n’en a pas — l’affiche seule, jamais le titre"
-                                }
-                              },
-                              "required": [
-                                "cover_url"
-                              ],
-                              "additionalProperties": false,
-                              "description": "L’affiche d’un essentiel encore verrouillé, sans rien qui le nomme"
-                            }
+                            "description": "Films de mon journal sortis cette année-là ; un programme compte un"
                           }
                         },
                         "required": [
                           "annee",
                           "statut",
-                          "vus",
-                          "essentiels_total",
-                          "essentiels_faits"
+                          "visitee",
+                          "profondeur"
                         ],
                         "additionalProperties": false,
-                        "description": "Une année du Voyage, telle qu’elle apparaît dans ma progression"
+                        "description": "Une année, telle qu’elle apparaît sur la carte"
                       },
                       "description": "De 1895 à l’année courante"
                     }
@@ -41327,8 +40956,7 @@
                   "required": [
                     "configure",
                     "depart",
-                    "frontiere",
-                    "frontiere_statut",
+                    "annee_en_cours",
                     "annees"
                   ],
                   "additionalProperties": false,
@@ -41339,75 +40967,25 @@
                     "value": {
                       "configure": true,
                       "depart": 1895,
-                      "frontiere": 1941,
-                      "frontiere_statut": "ouverte",
+                      "annee_en_cours": 1941,
                       "annees": [
                         {
                           "annee": 1895,
-                          "statut": "faite",
-                          "vus": 2,
-                          "essentiels_total": 2,
-                          "essentiels_faits": 2
+                          "statut": "ouverte",
+                          "visitee": true,
+                          "profondeur": 6
                         },
                         {
                           "annee": 1941,
-                          "statut": "ouverte",
-                          "vus": 1,
-                          "essentiels_total": 3,
-                          "essentiels_faits": 1,
-                          "essentiels": [
-                            {
-                              "rang": 1,
-                              "tmdb_id": 15,
-                              "title": "Citizen Kane",
-                              "year": 1941,
-                              "cover_url": "https://image.tmdb.org/t/p/w500/sav0jxhqiH0bPr2vZFU0Kjt2nZL.jpg",
-                              "realisateur": "Orson Welles",
-                              "pourquoi": "Réinvente le langage du cinéma américain à vingt-cinq ans, au premier essai",
-                              "etat": "vu",
-                              "note": 9
-                            },
-                            {
-                              "rang": 2,
-                              "tmdb_id": 963,
-                              "title": "Le Faucon maltais",
-                              "year": 1941,
-                              "cover_url": "https://image.tmdb.org/t/p/w500/hPgOKGzJ7hCq9zpG3jXPKGWQ7A6.jpg",
-                              "realisateur": "John Huston",
-                              "pourquoi": "Fonde le film noir, avec Bogart au sommet de son premier grand rôle",
-                              "etat": "sur_le_plex",
-                              "note": null
-                            },
-                            {
-                              "rang": 3,
-                              "tmdb_id": 12092,
-                              "title": "Dumbo",
-                              "year": 1941,
-                              "cover_url": "https://image.tmdb.org/t/p/w500/tOwsVW5Xnag6yFNKA5Wf3B0Nqv0.jpg",
-                              "realisateur": "Ben Sharpsteen",
-                              "pourquoi": "Le pari inverse de Fantasia : soixante-quatre minutes, un budget divisé par dix, et un classique immédiat",
-                              "etat": "a_trouver",
-                              "note": null
-                            }
-                          ]
+                          "statut": "en_cours",
+                          "visitee": true,
+                          "profondeur": 4
                         },
                         {
                           "annee": 1942,
                           "statut": "verrouillee",
-                          "vus": 1,
-                          "essentiels_total": null,
-                          "essentiels_faits": null,
-                          "essentiels_apercu": [
-                            {
-                              "cover_url": "https://image.tmdb.org/t/p/w500/5jkE2SzR5uR2egEb1rRhF22JyWA.jpg"
-                            },
-                            {
-                              "cover_url": "https://image.tmdb.org/t/p/w500/wJ7nApfEnkVEtBQKfYRGHHeSCRS.jpg"
-                            },
-                            {
-                              "cover_url": null
-                            }
-                          ]
+                          "visitee": false,
+                          "profondeur": 0
                         }
                       ]
                     }
@@ -41429,9 +41007,832 @@
         }
       }
     },
+    "/me/voyage/annees/{annee}": {
+      "get": {
+        "summary": "Une année du Voyage — salles et films",
+        "tags": [
+          "voyage"
+        ],
+        "description": "`prete` (`200`) si l’ouverture existe déjà pour ce membre : ses salles, dans l’ordre, avec chaque film (état et note calculés à la lecture). `en_preparation` (`202`) à la première visite d’une année ouverte ou en cours — la demande enfile l’ouverture, à redemander dans quelques secondes. `verrouillee` (`200`) après mon année en cours : rien ne s’enfile, même en visitant. `{ configure: false }` (`200`) si `ANTHROPIC_API_KEY` manque et que l’année n’a pas encore d’ouverture.\n\n`etat` d’un film vaut `vu`, `sur_le_plex`, `demande`, `a_demander` ou `introuvable`. Pour un programme, `etat` ne vaut `vu` que quand **toutes** ses bobines le sont — chaque bobine porte le sien.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1895,
+              "maximum": 2027
+            },
+            "in": "path",
+            "name": "annee",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "configure": {
+                          "type": "boolean",
+                          "enum": [
+                            true
+                          ]
+                        },
+                        "statut": {
+                          "type": "string",
+                          "enum": [
+                            "prete"
+                          ]
+                        },
+                        "annee": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "profondeur": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "Films vus, toutes salles confondues — un programme compte un, jamais ses bobines séparément"
+                        },
+                        "ouverture": {
+                          "type": "string",
+                          "description": "Cinq à huit phrases sur l’année, écrites une fois et ne bougeant plus"
+                        },
+                        "faits": {
+                          "minItems": 3,
+                          "maxItems": 5,
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "ecrite_le": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                        },
+                        "salles": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "rang": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "nom": {
+                                "type": "string"
+                              },
+                              "raison_d_etre": {
+                                "type": "string"
+                              },
+                              "cle": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "essentiels",
+                                      "ailleurs"
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "epuisee": {
+                                "type": "boolean",
+                                "description": "Le chroniqueur n’a plus de film qui mérite d’y entrer"
+                              },
+                              "fournee_en_cours": {
+                                "type": "boolean",
+                                "description": "« En voir plus » vient d’être demandé et s’écrit encore"
+                              },
+                              "films": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "rang": {
+                                      "type": "integer",
+                                      "exclusiveMinimum": 0,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "tmdb_id": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    },
+                                    "original_title": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "year": {
+                                      "anyOf": [
+                                        {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "realisateur": {
+                                      "type": "string"
+                                    },
+                                    "raison": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ],
+                                      "description": "Deux phrases, une des cinq raisons du §4 de la spec ; nulle si le film était déjà vu quand le chroniqueur l’a proposé"
+                                    },
+                                    "cover_url": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "format": "uri"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "plex_url": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "format": "uri"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ],
+                                      "description": "Lien web vers le Plex du propriétaire, nul si le film n’y est pas"
+                                    },
+                                    "etat": {
+                                      "type": "string",
+                                      "enum": [
+                                        "vu",
+                                        "sur_le_plex",
+                                        "demande",
+                                        "a_demander",
+                                        "introuvable"
+                                      ]
+                                    },
+                                    "note": {
+                                      "anyOf": [
+                                        {
+                                          "type": "integer",
+                                          "minimum": 1,
+                                          "maximum": 10
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ],
+                                      "description": "Ma note, si je l’ai vu et notée"
+                                    },
+                                    "programme": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "duree_min": {
+                                              "type": "integer",
+                                              "exclusiveMinimum": 0,
+                                              "maximum": 9007199254740991,
+                                              "description": "Durée totale, somme des bobines résolues sur TMDB"
+                                            },
+                                            "bobines": {
+                                              "type": "array",
+                                              "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                  "tmdb_id": {
+                                                    "type": "integer",
+                                                    "minimum": -9007199254740991,
+                                                    "maximum": 9007199254740991
+                                                  },
+                                                  "title": {
+                                                    "type": "string"
+                                                  },
+                                                  "duree_min": {
+                                                    "type": "integer",
+                                                    "exclusiveMinimum": 0,
+                                                    "maximum": 9007199254740991
+                                                  },
+                                                  "cover_url": {
+                                                    "anyOf": [
+                                                      {
+                                                        "type": "string",
+                                                        "format": "uri"
+                                                      },
+                                                      {
+                                                        "type": "null"
+                                                      }
+                                                    ]
+                                                  },
+                                                  "plex_url": {
+                                                    "anyOf": [
+                                                      {
+                                                        "type": "string",
+                                                        "format": "uri"
+                                                      },
+                                                      {
+                                                        "type": "null"
+                                                      }
+                                                    ],
+                                                    "description": "Lien web vers le Plex du propriétaire, nul si la bobine n’y est pas"
+                                                  },
+                                                  "etat": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                      "vu",
+                                                      "sur_le_plex",
+                                                      "demande",
+                                                      "a_demander",
+                                                      "introuvable"
+                                                    ]
+                                                  }
+                                                },
+                                                "required": [
+                                                  "tmdb_id",
+                                                  "title",
+                                                  "duree_min",
+                                                  "cover_url",
+                                                  "plex_url",
+                                                  "etat"
+                                                ],
+                                                "additionalProperties": false,
+                                                "description": "Une bobine d’un programme, avec mon état sur elle"
+                                              }
+                                            }
+                                          },
+                                          "required": [
+                                            "duree_min",
+                                            "bobines"
+                                          ],
+                                          "additionalProperties": false,
+                                          "description": "Une séance composée par le chroniqueur, avant les longs métrages"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "rang",
+                                    "tmdb_id",
+                                    "title",
+                                    "original_title",
+                                    "year",
+                                    "realisateur",
+                                    "raison",
+                                    "cover_url",
+                                    "plex_url",
+                                    "etat",
+                                    "note",
+                                    "programme"
+                                  ],
+                                  "additionalProperties": false,
+                                  "description": "Un film d’une salle, avec mon état et ma note"
+                                }
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "rang",
+                              "nom",
+                              "raison_d_etre",
+                              "cle",
+                              "epuisee",
+                              "fournee_en_cours",
+                              "films"
+                            ],
+                            "additionalProperties": false,
+                            "description": "Une salle de l’année, avec ses films dans l’ordre"
+                          }
+                        }
+                      },
+                      "required": [
+                        "configure",
+                        "statut",
+                        "annee",
+                        "profondeur",
+                        "ouverture",
+                        "faits",
+                        "ecrite_le",
+                        "salles"
+                      ],
+                      "additionalProperties": false,
+                      "description": "L’année, prête à afficher"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "configure": {
+                          "type": "boolean",
+                          "enum": [
+                            true
+                          ]
+                        },
+                        "statut": {
+                          "type": "string",
+                          "enum": [
+                            "verrouillee"
+                          ]
+                        },
+                        "annee": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "profondeur": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "configure",
+                        "statut",
+                        "annee",
+                        "profondeur"
+                      ],
+                      "additionalProperties": false,
+                      "description": "Après mon année en cours : rien ne s’enfile, même une visite ne l’ouvre pas"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "configure": {
+                          "type": "boolean",
+                          "enum": [
+                            false
+                          ]
+                        }
+                      },
+                      "required": [
+                        "configure"
+                      ],
+                      "additionalProperties": false,
+                      "description": "Le chroniqueur (`ANTHROPIC_API_KEY`) n’est pas configuré sur ce serveur"
+                    }
+                  ]
+                },
+                "examples": {
+                  "Réponse type": {
+                    "value": {
+                      "configure": true,
+                      "statut": "prete",
+                      "annee": 1941,
+                      "profondeur": 1,
+                      "ouverture": "L'Amérique découvre le cinéma d'un journaliste devenu magnat de la presse, un film que les studios ont tenté d'étouffer. À Hollywood, le Code Hays règne encore sur les scénarios pendant qu'en Europe la guerre vide les salles. Le noir et blanc se réinvente : profondeur de champ, contre-plongées, une grammaire neuve dont le cinéma parlera encore un siècle plus tard. Pearl Harbor, en décembre, referme l'année sur l'entrée en guerre des États-Unis.",
+                      "faits": [
+                        "Citizen Kane sort en mai après un an de pressions de William Randolph Hearst pour l'empêcher",
+                        "Les États-Unis entrent en guerre le 7 décembre, après l'attaque de Pearl Harbor",
+                        "Le premier long métrage d'animation en couleurs de Disney à sortir cette année-là, Dumbo, coûte le dixième de Fantasia"
+                      ],
+                      "ecrite_le": "2026-09-19T20:04:11.000Z",
+                      "salles": [
+                        {
+                          "id": "a3d8e6b2-1c9f-4e2a-9b7d-6f1a2c3d4e5f",
+                          "rang": 1,
+                          "nom": "Les essentiels",
+                          "raison_d_etre": "Ce qu’il ne fallait pas manquer de 1941",
+                          "cle": "essentiels",
+                          "epuisee": false,
+                          "fournee_en_cours": false,
+                          "films": [
+                            {
+                              "id": "b4e9f7c3-2d0a-4f3b-8c8e-7a2b3c4d5e6f",
+                              "rang": 1,
+                              "tmdb_id": 15,
+                              "title": "Citizen Kane",
+                              "original_title": "Citizen Kane",
+                              "year": 1941,
+                              "realisateur": "Orson Welles",
+                              "raison": null,
+                              "cover_url": "https://image.tmdb.org/t/p/w500/sav0jxhqiH0bPr2vZFU0Kjt2nZL.jpg",
+                              "plex_url": null,
+                              "etat": "vu",
+                              "note": 9,
+                              "programme": null
+                            },
+                            {
+                              "id": "c5f0a8d4-3e1b-4a4c-9d9f-8b3c4d5e6f70",
+                              "rang": 2,
+                              "tmdb_id": 963,
+                              "title": "Le Faucon maltais",
+                              "original_title": "The Maltese Falcon",
+                              "year": 1941,
+                              "realisateur": "John Huston",
+                              "raison": "Fonde le film noir, avec Bogart au sommet de son premier grand rôle. Une réputation qui n’a jamais faibli depuis.",
+                              "cover_url": "https://image.tmdb.org/t/p/w500/hPgOKGzJ7hCq9zpG3jXPKGWQ7A6.jpg",
+                              "plex_url": null,
+                              "etat": "a_demander",
+                              "note": null,
+                              "programme": null
+                            }
+                          ]
+                        },
+                        {
+                          "id": "d6a1b9e5-4f2c-4b5d-8e0a-9c4d5e6f7081",
+                          "rang": 2,
+                          "nom": "Ailleurs cette année-là",
+                          "raison_d_etre": "Ce qui ne rentre dans aucune autre salle",
+                          "cle": "ailleurs",
+                          "epuisee": false,
+                          "fournee_en_cours": true,
+                          "films": []
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Première visite : l’ouverture vient d’être enfilée, à redemander dans quelques secondes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "configure": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "statut": {
+                      "type": "string",
+                      "enum": [
+                        "en_preparation"
+                      ]
+                    },
+                    "annee": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "configure",
+                    "statut",
+                    "annee"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Première visite : l’ouverture vient d’être enfilée, à redemander dans quelques secondes"
+                },
+                "examples": {
+                  "Réponse type": {
+                    "value": {
+                      "configure": true,
+                      "statut": "en_preparation",
+                      "annee": 1942
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/voyage/salles/{salleId}/plus": {
+      "post": {
+        "summary": "« En voir plus » dans une salle",
+        "tags": [
+          "voyage"
+        ],
+        "description": "Enfile une fournée (`chroniques:file`) : trois à cinq films de plus dans cette salle, écrits par le chroniqueur — `202 { statut: \"en_preparation\" }`, qu’une fournée soit tout juste enfilée ou déjà en cours (le verrou Redis rend la même réponse dans les deux cas, sans réenfiler).\n\n`200 { statut: \"epuisee\" }` sans rien enfiler si la salle est déjà connue comme épuisée — la dernière fournée n’a rien ajouté, ou le chroniqueur l’a dit. `404` si cette salle n’est pas la mienne. `503 SERVICE_UNCONFIGURED` si `ANTHROPIC_API_KEY` n’est pas posée sur ce serveur : rien ne s’enfile alors.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "salleId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Le chroniqueur n’a plus de film à proposer ici : rien n’est enfilé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "statut": {
+                      "type": "string",
+                      "enum": [
+                        "epuisee"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "statut"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Le chroniqueur n’a plus de film à proposer ici : rien n’est enfilé"
+                },
+                "examples": {
+                  "Réponse type": {
+                    "value": {
+                      "statut": "epuisee"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "La fournée vient d’être enfilée, ou en était déjà une en cours",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "statut": {
+                      "type": "string",
+                      "enum": [
+                        "en_preparation"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "statut"
+                  ],
+                  "additionalProperties": false,
+                  "description": "La fournée vient d’être enfilée, ou en était déjà une en cours"
+                },
+                "examples": {
+                  "Réponse type": {
+                    "value": {
+                      "statut": "en_preparation"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/voyage/depenses": {
+      "get": {
+        "summary": "Mes dépenses au chroniqueur, mois par mois",
+        "tags": [
+          "voyage"
+        ],
+        "description": "Une ligne `appels_ia` par appel réussi (ouverture, fournée) que j’ai déclenché. Le carton d’un film n’y figure pas : il ne dépend d’aucun membre en particulier.\n\n`cout_centimes` est une estimation au tarif public d’Anthropic, en centimes de dollar — la facture du compte Anthropic fait foi.",
+        "responses": {
+          "200": {
+            "description": "Mes appels au chroniqueur, mois par mois",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "mois": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "mois": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}$",
+                            "description": "Année-mois, ISO, fuseau du serveur"
+                          },
+                          "appels": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "input_tokens": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "output_tokens": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "cout_centimes": {
+                            "type": "number",
+                            "description": "Estimation en centimes de dollar — la facture Anthropic fait foi"
+                          }
+                        },
+                        "required": [
+                          "mois",
+                          "appels",
+                          "input_tokens",
+                          "output_tokens",
+                          "cout_centimes"
+                        ],
+                        "additionalProperties": false,
+                        "description": "La dépense IA d’un mois, pour moi seul"
+                      },
+                      "description": "Du plus ancien au plus récent"
+                    }
+                  },
+                  "required": [
+                    "mois"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Mes appels au chroniqueur, mois par mois"
+                },
+                "examples": {
+                  "Réponse type": {
+                    "value": {
+                      "mois": [
+                        {
+                          "mois": "2026-08",
+                          "appels": 12,
+                          "input_tokens": 34210,
+                          "output_tokens": 18640,
+                          "cout_centimes": 254.32
+                        },
+                        {
+                          "mois": "2026-09",
+                          "appels": 5,
+                          "input_tokens": 14980,
+                          "output_tokens": 7120,
+                          "cout_centimes": 101.16
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/voyage/annee-suivante": {
+      "post": {
+        "summary": "Avancer mon année en cours — provisoire, remplacée par le ticket (étape 3)",
+        "tags": [
+          "voyage"
+        ],
+        "description": "Avance `annee_en_cours` d’un an, plafonnée à l’année courante. **Provisoire** : le brief du 19 septembre 2026 prévoit qu’une année suivante ne s’ouvre normalement qu’avec un ticket, gagné par le jugement de maturité du chroniqueur (étape 3 du §8) — cette route tient sa place le temps que ce mécanisme existe, et disparaîtra à son profit.\n\nJe continue de pouvoir creuser une année déjà `ouverte` sans que ça la fasse bouger : seule cette route avance `annee_en_cours`.",
+        "responses": {
+          "200": {
+            "description": "Mon année en cours après avance — provisoire, en attendant le jugement de maturité et le ticket",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "annee_en_cours": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "annee_en_cours"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Mon année en cours après avance — provisoire, en attendant le jugement de maturité et le ticket"
+                },
+                "examples": {
+                  "Réponse type": {
+                    "value": {
+                      "annee_en_cours": 1942
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/me/voyage/demander/{tmdbId}": {
       "post": {
-        "summary": "Demander un essentiel sur Seerr",
+        "summary": "Demander un film sur Seerr",
         "tags": [
           "voyage"
         ],
@@ -41584,7 +41985,7 @@
     },
     {
       "name": "voyage",
-      "description": "Le Voyage : traverser l’histoire du cinéma année par année, chroniques et essentiels écrits par Claude. Les deux routes `/reference/chroniques/*` sont globales ; `GET /me/voyage` et `POST /me/voyage/demander/{tmdbId}` ne parlent que de l’utilisateur de la session."
+      "description": "Le Voyage : traverser l’histoire du cinéma une année à la fois, en s’y installant longuement — salles, films et programmes écrits par Claude. `GET /reference/chroniques/films/{tmdbId}` est seule globale ; toutes les autres routes ne parlent que de l’utilisateur de la session."
     },
     {
       "name": "veille",
