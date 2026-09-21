@@ -32,6 +32,7 @@ import fr.mediatheque.journal.ui.frise.AnneeFrise
 import fr.mediatheque.journal.ui.frise.AnneeScreen
 import fr.mediatheque.journal.ui.frise.AnneeViewModel
 import fr.mediatheque.journal.ui.frise.DecennieScreen
+import fr.mediatheque.journal.ui.frise.FicheVoyageScreen
 import fr.mediatheque.journal.ui.frise.FriseViewModel
 import fr.mediatheque.journal.ui.frise.GeneriqueScreen
 import fr.mediatheque.journal.ui.frise.VoyageScreen
@@ -354,7 +355,6 @@ fun Root(container: AppContainer) {
                             },
                             onOpenDecennie = { nav.push(Screen.Decennie(it)) },
                             onOpenGenerique = { nav.push(Screen.Generique(it)) },
-                            onVoirEssentiel = { nav.push(Screen.Form(it.toSearchResult())) },
                             bottomBar = {
                                 JournalBottomBar(
                                     screen,
@@ -368,18 +368,50 @@ fun Root(container: AppContainer) {
                         )
                     }
                     is Screen.Annee -> {
-                        // Indexé sur l'année (et son statut Voyage, au cas où on rentre une
-                        // deuxième fois après qu'il ait changé) : chaque `Screen.Annee` a sa
-                        // propre chronique à relire, jamais celle de la précédente.
-                        val anneeVm: AnneeViewModel = viewModel(key = "annee-${screen.annee.annee}-${screen.voyage?.statut}") {
+                        // Indexé sur le seul millésime (brief du 21 septembre 2026) : `Screen.FicheVoyage`
+                        // doit retrouver la même instance depuis la même formule de clé, pour lire
+                        // les salles déjà chargées plutôt que d'en tirer une copie.
+                        val anneeVm: AnneeViewModel = viewModel(key = "annee-${screen.annee.annee}") {
                             AnneeViewModel(container.api, screen.annee.annee ?: 0, screen.voyage, session::expire)
                         }
                         AnneeScreen(
                             screen.annee,
                             anneeVm,
                             onBack = nav::pop,
-                            onOpenVu = { nav.push(Screen.Edit(it)) },
-                            onOpenAVoir = { nav.push(Screen.Form(it.toSearchResult())) },
+                            onOpenFilm = { salleId, filmId -> nav.push(Screen.FicheVoyage(screen.annee.annee ?: 0, salleId, filmId)) },
+                            // Provisoire (spec du 19 septembre 2026, §5, §8) : la route qui avance
+                            // l'année en cours ne touche pas `/me/voyage`, on relit donc la carte
+                            // nous-mêmes pour qu'elle soit à jour au prochain passage dessus.
+                            onAnneeSuivante = { frise.refresh() },
+                        )
+                    }
+                    is Screen.FicheVoyage -> {
+                        // Même clé que `Screen.Annee` juste au-dessus : cette instance existe déjà
+                        // (la fiche ne s'ouvre que depuis une affiche de cet écran-là), le
+                        // constructeur ci-dessous ne sert donc qu'à la signature de `viewModel`.
+                        val anneeVm: AnneeViewModel = viewModel(key = "annee-${screen.annee}") {
+                            AnneeViewModel(container.api, screen.annee, null, session::expire)
+                        }
+                        val anneeUi by anneeVm.ui.collectAsState()
+                        val film = anneeUi.salles.firstOrNull { it.id == screen.salleId }?.films?.firstOrNull { it.id == screen.filmId }
+                        // Ma note et mes réactions si je l'ai déjà vu (spec §3) : cherchées dans le
+                        // journal déjà chargé par `FriseViewModel`, jamais rechargées ici.
+                        val friseUi by frise.ui.collectAsState()
+                        val journalItem = film?.let { f ->
+                            friseUi.annees.flatMap { it.vus }.firstOrNull { it.media.external_id.toIntOrNull() == f.tmdbId }
+                        }
+                        val carton: CartonViewModel = viewModel(key = "carton-voyage-${screen.filmId}") {
+                            CartonViewModel(container.api, film?.tmdbId ?: 0, poll = false, session::expire)
+                        }
+                        FicheVoyageScreen(
+                            annee = screen.annee,
+                            vm = anneeVm,
+                            salleId = screen.salleId,
+                            filmId = screen.filmId,
+                            journalItem = journalItem,
+                            carton = carton,
+                            onBack = nav::pop,
+                            onOpenForm = { nav.push(Screen.Form(it)) },
                         )
                     }
                     is Screen.Decennie -> {

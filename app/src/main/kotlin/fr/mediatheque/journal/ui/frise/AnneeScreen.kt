@@ -1,38 +1,35 @@
 package fr.mediatheque.journal.ui.frise
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -42,22 +39,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
-import fr.mediatheque.journal.api.dto.JournalItem
-import fr.mediatheque.journal.api.dto.PlexFilm
 import fr.mediatheque.journal.ui.Cover
 import fr.mediatheque.journal.ui.showBriefly
 import fr.mediatheque.journal.ui.theme.CadrePapier
@@ -66,147 +64,92 @@ import fr.mediatheque.journal.ui.theme.TextePapier
 import java.time.LocalDate
 
 /**
- * Le détail d'une année de la Frise (brief du 15 septembre 2026), augmenté du Voyage (brief du
- * 16 septembre 2026, phase 1 « le moteur ») : le cartouche kitsch (récit et faits, ou le carton
- * « Prochainement » d'une année verrouillée) puis « Les essentiels » — une ligne par film
- * essentiel, avec mon état sur chacun — avant la grille des films vus cette année-là, inchangée.
+ * La fiche d'une année du Voyage (brief du 21 septembre 2026, « l'année en étages », spec du
+ * 19 septembre 2026, §2-§3) : le cartouche kitsch (ouverture repliée, faits), puis une salle par
+ * bloc — titre, raison d'être, étagère horizontale d'affiches — jusqu'à « Année suivante »,
+ * provisoire, sur l'année en cours seulement.
  *
- * Phase 2 « la carte » : l'écran prend **la palette de son monde** (`Mondes.kt`) — le fond de la
- * décennie et sa couleur d'accent —, et la relecture de la chronique repart à chaque entrée
- * (`vm.relire()`), l'instance de `ViewModel` survivant à la sortie de l'écran.
+ * Remplace entièrement l'écran « essentiels » du 16 septembre 2026 : plus de grille de vus ou
+ * d'à-voir à part, les salles portent déjà tous les films de l'année. `annee` (le fragment du
+ * journal/Plex chargé par `FriseViewModel`) ne sert plus qu'à connaître le millésime avant que
+ * `GET /me/voyage/annees/{annee}` n'ait répondu.
  */
 @Composable
 fun AnneeScreen(
     annee: AnneeFrise,
     vm: AnneeViewModel,
     onBack: () -> Unit,
-    onOpenVu: (JournalItem) -> Unit,
-    onOpenAVoir: (PlexFilm) -> Unit,
+    onOpenFilm: (salleId: String, filmId: String) -> Unit,
+    onAnneeSuivante: () -> Unit,
 ) {
     val ui by vm.ui.collectAsState()
-    var feuillePour by remember { mutableStateOf<EssentielAnneeUi?>(null) }
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(Unit) { vm.messages.collect { snackbar.showBriefly(it) } }
     LaunchedEffect(Unit) { vm.relire() }
-    val monde = mondeDe(annee.annee ?: LocalDate.now().year)
+    val millesime = annee.annee ?: LocalDate.now().year
+    val monde = mondeDe(millesime)
 
     Scaffold(
         containerColor = monde.fond,
         snackbarHost = { SnackbarHost(snackbar) { data -> Snackbar(snackbarData = data) } },
     ) { padding ->
-        BoxWithConstraints(Modifier.fillMaxWidth().padding(padding).padding(16.dp)) {
-            val ecart = 8.dp
-            val largeur = (maxWidth - ecart * 2) / 3
-            val hauteur = largeur * 1.5f
-
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                item {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
-                        }
-                        Column {
-                            Text(annee.annee?.toString() ?: "Sans année", style = MaterialTheme.typography.titleLarge)
-                            Text(
-                                "${monde.nom} · ${monde.sousTitre}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = monde.accent,
-                            )
-                        }
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth().padding(padding).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+        ) {
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
                     }
-                }
-
-                if (ui.statutVoyage != null) {
-                    item { Cartouche(ui, monde) }
-                }
-
-                if (ui.essentiels.isNotEmpty()) {
-                    item { Text("Les essentiels", style = MaterialTheme.typography.titleMedium) }
-                    items(ui.essentiels, key = { it.tmdbId }) { essentiel ->
-                        LigneEssentiel(
-                            essentiel = essentiel,
-                            onOuvrirPlex = { onOpenAVoir(essentiel.toPlexFilm(ui.annee)) },
-                            onDemander = { vm.demander(essentiel.tmdbId) },
-                            onLongClick = { if (essentiel.etat != "vu") feuillePour = essentiel },
-                        )
-                    }
-                }
-
-                if (annee.vus.isEmpty()) {
-                    item {
+                    Column {
+                        Text(millesime.toString(), style = MaterialTheme.typography.titleLarge)
                         Text(
-                            "Rien vu cette année.",
-                            style = MaterialTheme.typography.bodyLarge,
+                            "${ui.profondeur} ${if (ui.profondeur <= 1) "film" else "films"}",
+                            style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                    }
-                } else {
-                    item {
-                        TuilesEnLignes(annee.vus.chunked(3), ecart) { item ->
-                            Box(Modifier.clickable { onOpenVu(item) }) {
-                                Cover(item.media.cover_url, item.media.title, largeur, hauteur)
-                                item.entry.rating?.let { note ->
-                                    Box(
-                                        Modifier
-                                            .align(Alignment.BottomEnd)
-                                            .padding(4.dp)
-                                            .background(MaterialTheme.colorScheme.surfaceContainerHigh, CircleShape)
-                                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                                            .clearAndSetSemantics { contentDescription = "Note $note sur 10" },
-                                    ) {
-                                        Text(
-                                            "$note",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                        )
-                                    }
-                                }
-                            }
-                        }
+                        Text(
+                            "${monde.nom} · ${monde.sousTitre}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = monde.accent,
+                        )
                     }
                 }
+            }
 
-                if (annee.aVoir.isNotEmpty()) {
-                    item { Text("À voir sur le Plex", style = MaterialTheme.typography.titleMedium) }
-                    item {
-                        TuilesEnLignes(annee.aVoir.chunked(3), ecart) { film ->
-                            Box(
-                                Modifier
-                                    .clickable { onOpenAVoir(film) }
-                                    .dashedBorder(MaterialTheme.colorScheme.onSurfaceVariant, cornerRadius = 8.dp),
-                            ) {
-                                Cover(film.cover_url, film.title, largeur, hauteur)
-                            }
+            item { Cartouche(millesime, ui, monde, onLireLaSuite = vm::deplierOuverture) }
+
+            if (ui.etat == EtatAnnee.PRETE) {
+                items(ui.salles, key = { it.id }) { salle ->
+                    BlocSalle(salle, monde, onVoirPlus = { vm.voirPlus(salle.id) }, onOuvrirFilm = { filmId -> onOpenFilm(salle.id, filmId) })
+                }
+            }
+
+            if (ui.statutVoyage == StatutAnneeVoyage.EN_COURS) {
+                item {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        OutlinedButton(onClick = { vm.anneeSuivante(onAnneeSuivante) }, modifier = Modifier.fillMaxWidth()) {
+                            Text("Année suivante")
                         }
+                        Text(
+                            "provisoire, en attendant le ticket",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
             }
         }
     }
-
-    feuillePour?.let { essentiel ->
-        IntrouvableEssentielSheet(
-            essentiel = essentiel,
-            onMarquer = { feuillePour = null; vm.marquerIntrouvable(essentiel.tmdbId) },
-            onRetirer = { feuillePour = null; vm.retirerIntrouvable(essentiel.tmdbId) },
-            onDismiss = { feuillePour = null },
-        )
-    }
 }
 
 /**
- * Le cartouche kitsch (papier jauni sur le fond du monde, cadre ornementé simple) : le récit et
- * les faits d'une année faite ou ouverte, relus toutes les cinq secondes tant que la chronique est
- * en préparation (trente-six fois au plus — trois minutes, brief du 16 septembre 2026, phase 2).
- *
- * Sur une année verrouillée, le cadenas de la phase 1 laisse place au carton « Prochainement »,
- * façon bande-annonce : le lettrage, la palette du monde, et les affiches des essentiels
- * **floutées** quand le back en donne un aperçu. Tant qu'il n'en donne pas (`essentiels_apercu`
- * absent ou vide — l'instance en ligne ne le sert pas encore), le carton se contente de compter ce
- * qui attend : jamais un cadre vide en guise d'aperçu.
+ * Le cartouche kitsch (papier jauni sur le fond du monde, cadre ornementé simple) : jamais muet
+ * (spec §3) — une phrase pour chaque état, y compris la première visite (`202`) et l'abandon.
  */
 @Composable
-private fun Cartouche(ui: AnneeUi, monde: Monde) {
+private fun Cartouche(millesime: Int, ui: AnneeUi, monde: Monde, onLireLaSuite: () -> Unit) {
     val shape = RoundedCornerShape(8.dp)
     if (ui.statutVoyage == StatutAnneeVoyage.VERROUILLEE) {
         CartonProchainement(ui, monde, shape)
@@ -223,9 +166,9 @@ private fun Cartouche(ui: AnneeUi, monde: Monde) {
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(ui.annee.toString(), style = MaterialTheme.typography.titleLarge, color = TextePapier)
-                // La récompense de festival a remplacé l'étoile de la phase 1 (brief, item 5) :
-                // ce que vaut l'année se lit ici comme sur la carte, jamais deux langages.
+                Text(millesime.toString(), style = MaterialTheme.typography.titleLarge, color = TextePapier)
+                // La récompense de festival — nulle à cette étape, le back n'en sert aucune
+                // (`VoyageCarte.kt`) ; le glyphe reste dans le code pour le jour où elle reviendra.
                 ui.recompenseObtenue?.let { recompense ->
                     Box(
                         Modifier
@@ -235,51 +178,58 @@ private fun Cartouche(ui: AnneeUi, monde: Monde) {
                     )
                 }
             }
-            when (ui.etatChronique) {
-                EtatChronique.PRETE -> {
-                    ui.recit?.let { Text(it, style = MaterialTheme.typography.bodyLarge, color = TextePapier) }
-                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        ui.faits.forEach { fait ->
-                            Text("· $fait", style = MaterialTheme.typography.bodyMedium, color = TextePapier)
-                        }
-                    }
-                }
-                EtatChronique.EN_PREPARATION -> Row(
+            when (ui.etat) {
+                EtatAnnee.PRETE -> ui.ouverture?.let { CartoucheOuverture(it, ui, onLireLaSuite) }
+                EtatAnnee.EN_PREPARATION -> Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = TextePapier)
                     Text(
-                        "Le chroniqueur écrit… ça prend une minute ou deux",
+                        "$millesime s’écrit… ça prend une minute ou deux",
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextePapier,
                     )
                 }
-                EtatChronique.ABANDON -> Text(
-                    "Le chroniqueur reviendra plus tard.",
+                EtatAnnee.ABANDON -> Text(
+                    "Le chroniqueur n’a pas répondu, reviens plus tard.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextePapier,
                 )
-                EtatChronique.NON_CONFIGURE -> {}
+                EtatAnnee.VERROUILLEE, EtatAnnee.NON_CONFIGURE -> {}
+            }
+        }
+    }
+}
+
+/** L'ouverture, repliée à trois lignes (« Lire la suite » la déplie), puis les faits (spec §3). */
+@Composable
+private fun CartoucheOuverture(ouverture: String, ui: AnneeUi, onLireLaSuite: () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            ouverture,
+            style = MaterialTheme.typography.bodyLarge,
+            color = TextePapier,
+            maxLines = if (ui.ouvertureDepliee) Int.MAX_VALUE else 3,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (!ui.ouvertureDepliee) {
+            TextButton(onClick = onLireLaSuite) { Text("Lire la suite") }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                ui.faits.forEach { fait -> Text("· $fait", style = MaterialTheme.typography.bodyMedium, color = TextePapier) }
             }
         }
     }
 }
 
 /**
- * Le carton « Prochainement » d'une année verrouillée (brief du 16 septembre 2026, phase 2) : le
- * cadre et le lettrage d'une bande-annonce, dans la palette du monde.
- *
- * Les affiches sont floutées de 12 dp **et** voilées : `Modifier.blur` ne fait rien avant
- * Android 12, et un aperçu net déflorerait l'année sur un téléphone plus ancien — le voile, lui,
- * marche partout.
+ * Le carton « Prochainement » d'une année verrouillée : le cadre et le lettrage d'une bande-
+ * annonce, dans la palette du monde. Sans affiche (spec du 21 septembre 2026 : le back n'en sert
+ * plus l'aperçu depuis que les essentiels ont disparu) — seulement ce que `profondeur` dit déjà.
  */
 @Composable
-private fun CartonProchainement(ui: AnneeUi, monde: Monde, shape: androidx.compose.ui.graphics.Shape) {
-    val restants = (ui.essentielsTotal ?: 0) - (ui.essentielsFaits ?: 0)
-    val motEssentiel = if (restants == 1) "essentiel t’attend" else "essentiels t’attendent"
-    val avance = (ui.essentielsFaits ?: 0).takeIf { it > 0 }
-
+private fun CartonProchainement(ui: AnneeUi, monde: Monde, shape: Shape) {
     Column(
         Modifier
             .fillMaxWidth()
@@ -295,25 +245,11 @@ private fun CartonProchainement(ui: AnneeUi, monde: Monde, shape: androidx.compo
             color = monde.accent,
             textAlign = TextAlign.Center,
         )
-        if (ui.apercu.isNotEmpty()) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ui.apercu.take(4).forEach { affiche ->
-                    Box {
-                        Cover(affiche, "un essentiel à venir", 48.dp, 72.dp, Modifier.blur(12.dp))
-                        Box(
-                            Modifier
-                                .size(48.dp, 72.dp)
-                                .background(monde.fond.copy(alpha = 0.45f), MaterialTheme.shapes.small),
-                        )
-                    }
-                }
-            }
-        }
         Text(
-            if (ui.essentielsTotal == null) {
-                "Cette année n’est pas encore ouverte"
+            if (ui.profondeur > 0) {
+                "${ui.profondeur} film${if (ui.profondeur > 1) "s" else ""} déjà vu${if (ui.profondeur > 1) "s" else ""}, en avance"
             } else {
-                "$restants $motEssentiel" + (avance?.let { " · $it vus en avance" } ?: "")
+                "Cette année n’est pas encore ouverte"
             },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -334,115 +270,119 @@ private fun Modifier.ornemente(): Modifier = drawWithContent {
     )
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+// --- Les salles ----------------------------------------------------------------------------------
+
+private val LARGEUR_AFFICHE = 72.dp
+private val HAUTEUR_AFFICHE = 108.dp
+
+/** La teinte sépia d'un film pas encore vu (spec §3) : un voile posé sur une affiche désaturée. */
+private val FiltreDesature = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
+private val TeinteSepia = Color(0xFF3A2C1E)
+
 @Composable
-private fun LigneEssentiel(
-    essentiel: EssentielAnneeUi,
-    onOuvrirPlex: () -> Unit,
-    onDemander: () -> Unit,
-    onLongClick: () -> Unit,
-) {
-    val introuvable = essentiel.etat == "introuvable"
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .let {
-                if (essentiel.etat == "vu") it else it.combinedClickable(
-                    onClick = { if (essentiel.etat == "sur_le_plex") onOuvrirPlex() },
-                    onLongClick = onLongClick,
+private fun BlocSalle(salle: SalleUi, monde: Monde, onVoirPlus: () -> Unit, onOuvrirFilm: (String) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(salle.nom, style = MaterialTheme.typography.titleMedium)
+        Text(salle.raisonDEtre, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(vertical = 4.dp),
+        ) {
+            items(salle.films, key = { it.id }) { film ->
+                AfficheFilm(film, onClick = { onOuvrirFilm(film.id) })
+            }
+            item {
+                TuileEtagere(
+                    epuisee = salle.epuisee,
+                    fourneeEnCours = salle.fourneeEnCours,
+                    onClick = onVoirPlus,
                 )
             }
-            .padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        }
+    }
+}
+
+@Composable
+private fun AfficheFilm(film: FilmSalleUi, onClick: () -> Unit) {
+    val etat = etatFilmVoyage(film.etat, film.programme?.bobines ?: emptyList())
+    val vu = etat == "vu"
+    val etiquette = etiquetteEtatFilm(etat)
+
+    Column(
+        Modifier.clickable(onClick = onClick).width(LARGEUR_AFFICHE),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(
-            essentiel.rang.toString(),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.width(20.dp),
-        )
-        Cover(essentiel.coverUrl, essentiel.title, 40.dp, 60.dp)
-        Column(Modifier.weight(1f)) {
-            Text(
-                essentiel.title,
-                style = MaterialTheme.typography.bodyLarge,
-                color = if (introuvable) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-            )
-            Text(essentiel.realisateur, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(essentiel.pourquoi, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        when {
-            essentiel.etat == "vu" -> essentiel.note?.let { note ->
+        Box {
+            Cover(film.coverUrl, film.title, LARGEUR_AFFICHE, HAUTEUR_AFFICHE, colorFilter = if (vu) null else FiltreDesature)
+            if (!vu) {
+                Box(Modifier.size(LARGEUR_AFFICHE, HAUTEUR_AFFICHE).background(TeinteSepia.copy(alpha = 0.35f)))
+            }
+            if (vu && film.note != null) {
+                Box(
+                    Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(4.dp)
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh, CircleShape)
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                        .clearAndSetSemantics { contentDescription = "Note ${film.note} sur 10" },
+                ) {
+                    Text("${film.note}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
+                }
+            }
+            film.programme?.let { programme ->
                 Text(
-                    "$note",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.clearAndSetSemantics { contentDescription = "Note $note sur 10" },
+                    "${programme.bobines.size} bobines · ${programme.dureeMin} min",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.85f))
+                        .padding(horizontal = 4.dp, vertical = 2.dp),
                 )
             }
-            essentiel.etat == "sur_le_plex" -> Text(
-                "sur ton Plex",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier
-                    .background(MaterialTheme.colorScheme.primary, CircleShape)
-                    .padding(horizontal = 8.dp, vertical = 2.dp),
-            )
-            introuvable -> Text(
-                "introuvable",
-                style = MaterialTheme.typography.labelMedium,
+        }
+        if (etiquette != null) {
+            Text(
+                etiquette,
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 2.dp),
             )
-            essentiel.etat == "a_trouver" && essentiel.demande -> Text(
-                "demandé",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            essentiel.etat == "a_trouver" -> TextButton(onClick = onDemander) { Text("Demander sur Sir") }
         }
     }
 }
 
-/** Jumelle d'`IntrouvableSheet` (`ui/suivis/FicheSuiviScreen.kt`), pour un essentiel du Voyage. */
-@OptIn(ExperimentalMaterial3Api::class)
+/** La tuile en bout d'étagère : « En voir plus » (cadre pointillé corail), « Salle épuisée » (grisée, inerte), ou « La salle se remplit… » (indicateur). */
 @Composable
-private fun IntrouvableEssentielSheet(
-    essentiel: EssentielAnneeUi,
-    onMarquer: () -> Unit,
-    onRetirer: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-            if (essentiel.etat == "introuvable") {
-                TextButton(onClick = onRetirer) { Text("Le remettre à voir") }
-            } else {
-                TextButton(onClick = onMarquer) { Text("Marquer introuvable") }
+private fun TuileEtagere(epuisee: Boolean, fourneeEnCours: Boolean, onClick: () -> Unit) {
+    val etiquette = etiquetteEtagere(epuisee, fourneeEnCours)
+    val remplit = fourneeEnCours
+    Box(
+        Modifier
+            .size(LARGEUR_AFFICHE, HAUTEUR_AFFICHE)
+            .let {
+                if (epuisee || remplit) {
+                    it.background(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.shapes.small)
+                } else {
+                    it.dashedBorder(MaterialTheme.colorScheme.primary, cornerRadius = 8.dp).clickable(onClick = onClick)
+                }
             }
-            TextButton(onClick = onDismiss) { Text("Annuler") }
-        }
-    }
-}
-
-/** Le même formulaire pré-rempli qu'un « à voir » du Plex (`PlexFilm.toSearchResult()`). */
-private fun EssentielAnneeUi.toPlexFilm(annee: Int?): PlexFilm = PlexFilm(
-    tmdb_id = tmdbId,
-    title = title,
-    original_title = title,
-    year = year ?: annee,
-    cover_url = coverUrl,
-    demande_le = "",
-)
-
-/** Une grille de tuiles, trois par ligne — même agencement que l'accueil et « Au ciné ». */
-@Composable
-private fun <T> TuilesEnLignes(rangees: List<List<T>>, ecart: Dp, tuile: @Composable (T) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(ecart)) {
-        rangees.forEach { rangee ->
-            Row(horizontalArrangement = Arrangement.spacedBy(ecart), modifier = Modifier.fillMaxWidth()) {
-                rangee.forEach { tuile(it) }
+            .padding(8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (remplit) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.primary)
+                Text(etiquette, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
             }
+        } else {
+            Text(
+                etiquette,
+                style = MaterialTheme.typography.labelSmall,
+                color = if (epuisee) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
+                textAlign = TextAlign.Center,
+            )
         }
     }
 }
@@ -450,8 +390,7 @@ private fun <T> TuilesEnLignes(rangees: List<List<T>>, ecart: Dp, tuile: @Compos
 /**
  * Le liseré pointillé qui distingue une tuile « à voir » d'une tuile vue (brief du 15 septembre
  * 2026) : pas de note, pas de coche, juste ce contour. Repris tel quel (couleur libre) par
- * l'étagère du rayon d'une décennie (`DecennieScreen`, brief du 16 septembre 2026), d'où la
- * visibilité de paquet.
+ * l'étagère du rayon d'une décennie (`DecennieScreen`) et par la tuile « En voir plus » ci-dessus.
  */
 internal fun Modifier.dashedBorder(color: Color, cornerRadius: Dp, strokeWidth: Dp = 1.5.dp): Modifier =
     drawWithContent {

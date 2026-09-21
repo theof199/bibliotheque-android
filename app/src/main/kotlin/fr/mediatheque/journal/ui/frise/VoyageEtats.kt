@@ -4,18 +4,21 @@ import fr.mediatheque.journal.api.dto.AnneeVoyage
 import fr.mediatheque.journal.api.dto.VoyageResponse
 
 /**
- * Le Voyage (brief du 16 septembre 2026, phase 1 « le moteur ») : les états d'une année et d'une
- * génération (chronique ou carton), en fonctions pures — testées en JVM, sans réseau ni
- * `ViewModel`, comme `construireFrise`/`construireDecennies` juste au-dessus.
+ * Le Voyage : les états d'une année et d'une génération (chronique, carton ou fournée), en
+ * fonctions pures — testées en JVM, sans réseau ni `ViewModel`.
+ *
+ * Réécrit pour le brief du 21 septembre 2026 (« l'année en étages ») : l'année n'est plus une case
+ * qu'on coche (`faite`/`ouverte`/`verrouillee`) mais un lieu qu'on creuse tant qu'on veut —
+ * `ouverte` avant l'année en cours (toujours creusable), `en_cours` sur elle, `verrouillee` après.
  */
 
 /** Le statut d'une année du Voyage, tel que `GET /me/voyage` le donne par année. */
-enum class StatutAnneeVoyage { FAITE, OUVERTE, VERROUILLEE }
+enum class StatutAnneeVoyage { OUVERTE, EN_COURS, VERROUILLEE }
 
-/** `INCONNU` : l'année n'est pas encore dans `/me/voyage` (chargement pas terminé, ou année hors de la plage servie). */
+/** `INCONNU` (nul) : l'année n'est pas encore dans `/me/voyage` (chargement pas terminé, ou année hors de la plage servie). */
 fun statutAnneeVoyage(brut: String?): StatutAnneeVoyage? = when (brut) {
-    "faite" -> StatutAnneeVoyage.FAITE
     "ouverte" -> StatutAnneeVoyage.OUVERTE
+    "en_cours" -> StatutAnneeVoyage.EN_COURS
     "verrouillee" -> StatutAnneeVoyage.VERROUILLEE
     else -> null
 }
@@ -25,49 +28,40 @@ data class VoyageUi(
     val configure: Boolean = false,
     /** La première année du Voyage (1895) — la carte commence là, quoi que le journal contienne de plus ancien. */
     val depart: Int = 1895,
-    val frontiere: Int? = null,
-    val frontiereOuverte: Boolean = false,
+    val anneeEnCours: Int = 1895,
     val parAnnee: Map<Int, AnneeVoyage> = emptyMap(),
 )
 
 fun VoyageResponse.toVoyageUi(): VoyageUi = VoyageUi(
     configure = configure,
     depart = depart,
-    frontiere = frontiere,
-    frontiereOuverte = frontiere_statut == "ouverte",
+    anneeEnCours = annee_en_cours,
     parAnnee = annees.associateBy { it.annee },
 )
 
-/** Le statut d'une année précise, tel que la Frise et `Screen.Decennie` le colorent. */
+/** Le statut d'une année précise, tel que la carte et `Screen.Decennie` le colorent. */
 fun statutVoyage(annee: Int, voyage: VoyageUi): StatutAnneeVoyage? = statutAnneeVoyage(voyage.parAnnee[annee]?.statut)
 
-/** La phrase de tête du calendrier (brief du 16 septembre 2026) — remplace « Tu en es à » du Plex. */
-fun phraseFrontiere(voyage: VoyageUi): String? {
-    val annee = voyage.frontiere ?: return null
-    return if (voyage.frontiereOuverte) "Tu en es à $annee" else "$annee se prépare…"
-}
-
 /**
- * L'état d'une génération (chronique d'année ou carton de film) qui se relit à intervalle — brief
- * du 16 septembre 2026 : « en préparation » relu toutes les *N* secondes, dix fois au plus, puis
- * abandon.
+ * L'état d'une génération (chronique d'année, carton de film ou année en détail) qui se relit à
+ * intervalle — « en préparation » relu toutes les *N* secondes, un nombre d'essais donné au plus,
+ * puis abandon.
  */
 enum class EtatChronique { PRETE, EN_PREPARATION, ABANDON, NON_CONFIGURE }
 
-/** Le plafond de relectures avant abandon du carton d'un film (le brief : « dix fois au plus »), toutes les trois secondes. */
+/** Le plafond de relectures avant abandon du carton d'un film (« dix fois au plus »), toutes les trois secondes. */
 const val CHRONIQUE_ESSAIS_MAX = 10
 
 /**
- * Le plafond de la chronique d'une **année**, porté de dix à trente-six par le brief du
- * 16 septembre 2026, phase 2 : à cinq secondes l'essai, trois minutes d'attente au lieu de
- * cinquante secondes — le chroniqueur d'une année écrit beaucoup plus long que le carton d'un
- * film, et la minute passée à cinquante secondes laissait le cartouche vide alors que le texte
- * arrivait.
+ * Le plafond de la chronique (ou de l'ouverture) d'une **année** : à cinq secondes l'essai, trois
+ * minutes d'attente au lieu de cinquante secondes — le chroniqueur d'une année écrit beaucoup plus
+ * long que le carton d'un film, et la minute passée à cinquante secondes laissait le cartouche vide
+ * alors que le texte arrivait.
  */
 const val CHRONIQUE_ANNEE_ESSAIS_MAX = 36
 
 /**
- * Décide l'état suivant à partir d'une réponse `{ configure, statut }` (les deux DTO du Voyage
+ * Décide l'état suivant à partir d'une réponse `{ configure, statut }` (les DTO du Voyage
  * partagent cette forme) et du compte d'essais déjà faits.
  *
  * `NON_CONFIGURE` et `PRETE` ne comptent jamais d'essai de plus : rien n'est en train d'attendre.
@@ -85,4 +79,24 @@ fun etatChroniqueSuivant(
 
     val essais = essaisPrecedents + 1
     return if (essais >= plafond) EtatChronique.ABANDON to essais else EtatChronique.EN_PREPARATION to essais
+}
+
+/**
+ * Une fournée (« En voir plus » sur une salle, brief du 21 septembre 2026) qui se relit : elle
+ * s'arrête dès que `fournee_en_cours` retombe côté back (de nouveaux films, ou « Salle épuisée »),
+ * abandon sinon au plafond — même intervalle et même compte que le carton d'un film
+ * (`CHRONIQUE_ESSAIS_MAX`, trois secondes, dix fois) : une fournée est un appel du même ordre de
+ * grandeur (spec du 19 septembre 2026, §7 : « une fournée ~1,5 ¢ »).
+ */
+enum class EtatFournee { EN_COURS, TERMINEE, ABANDON }
+
+fun etatFourneeSuivant(
+    fourneeEnCours: Boolean,
+    essaisPrecedents: Int,
+    plafond: Int = CHRONIQUE_ESSAIS_MAX,
+): Pair<EtatFournee, Int> {
+    if (!fourneeEnCours) return EtatFournee.TERMINEE to essaisPrecedents
+
+    val essais = essaisPrecedents + 1
+    return if (essais >= plafond) EtatFournee.ABANDON to essais else EtatFournee.EN_COURS to essais
 }

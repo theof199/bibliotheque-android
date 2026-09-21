@@ -26,7 +26,6 @@ import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -48,8 +47,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import fr.mediatheque.journal.api.dto.EssentielVoyage
-import fr.mediatheque.journal.api.dto.PlexFilm
 import fr.mediatheque.journal.ui.Cover
 import fr.mediatheque.journal.ui.showBriefly
 import kotlin.math.PI
@@ -57,13 +54,21 @@ import kotlin.math.sin
 import java.time.LocalDate
 
 /**
- * Le Voyage, la carte (brief du 16 septembre 2026, phase 2) — l'écran qui remplace le calendrier
- * du siècle sur l'onglet « Frise ».
+ * Le Voyage, la carte — l'écran de l'onglet « Frise ».
  *
  * Une pellicule serpente du haut vers le bas, un photogramme par année, regroupés en **mondes**
  * (une décennie, `Mondes.kt`) que ferme une marquise de cinéma. En tête, le HUD : le chapitre, les
- * années faites, les récompenses de festival. En bas, la carte « Prochaine étape ». Le clap de
- * l'icône marque l'année en cours et claque quand la frontière avance.
+ * années visitées, les récompenses de festival. Le clap de l'icône marque l'année en cours et
+ * claque quand elle avance.
+ *
+ * Réécrit pour le brief du 21 septembre 2026 (« l'année en étages ») : `GET /me/voyage` ne sert
+ * plus ni frontière ni essentiels — une année **ouverte** (avant l'année en cours) reste creusable
+ * pour toujours, elle n'est jamais « faite ». Le photogramme d'une année ouverte montre donc sa
+ * profondeur et l'affiche de son dernier film vu (le podium, qui la remplacera, viendra à l'étape
+ * 2), et la carte « Prochaine étape » a disparu avec les essentiels qui la nourrissaient. Les
+ * glyphes de récompense, le compte du HUD, la marquise allumée et le passeport restent dans le
+ * code (`Recompense`, `phraseRecompenses`, `tamponsPasseport`) mais ne s'affichent que si le back
+ * en donne — il n'en donne aucun à cette étape.
  *
  * L'écran ne charge rien lui-même : `FriseViewModel` tient déjà le journal, le Plex et
  * `GET /me/voyage` pour l'accueil comme pour ici (`Root.kt`, clé « frise »).
@@ -74,7 +79,6 @@ fun VoyageScreen(
     onOpenAnnee: (AnneeFrise) -> Unit,
     onOpenDecennie: (DecennieFrise) -> Unit,
     onOpenGenerique: (TamponDecennie) -> Unit,
-    onVoirEssentiel: (PlexFilm) -> Unit,
     bottomBar: @Composable () -> Unit,
 ) {
     val ui by vm.ui.collectAsState()
@@ -84,34 +88,32 @@ fun VoyageScreen(
     var claques by remember { mutableIntStateOf(0) }
     var decennieAllumee by remember { mutableIntStateOf(0) }
 
-    val cellules = remember(ui.voyage, ui.annees, ui.decennies, anneeActuelle) {
+    val cellules = remember(ui.voyage, ui.annees, ui.decennies, ui.passeport, anneeActuelle) {
         construireCarte(ui, anneeActuelle)
     }
-    val frontiere = ui.voyage.frontiere
+    val anneeEnCours = ui.voyage.anneeEnCours
 
-    // À l'ouverture, la liste défile jusqu'à l'année en cours (brief, item 1). `frontiere` en clé
-    // plutôt que `Unit` : si elle avance pendant qu'on est sur l'écran, la carte suit le clap.
-    LaunchedEffect(frontiere, cellules.size) {
-        val index = cellules.indexOfFirst { it is Cellule.Annee && it.annee == frontiere }
+    // À l'ouverture, la liste défile jusqu'à l'année en cours. `anneeEnCours` en clé plutôt que
+    // `Unit` : si elle avance pendant qu'on est sur l'écran (le bouton provisoire d'`AnneeScreen`),
+    // la carte suit le clap au prochain chargement.
+    LaunchedEffect(anneeEnCours, cellules.size) {
+        val index = cellules.indexOfFirst { it is Cellule.Annee && it.annee == anneeEnCours }
         if (index >= 0) liste.scrollToItem(index)
     }
 
-    // La frontière qui avance (brief, item 9) : le clap claque, la snackbar dit l'année dans la
-    // boîte, et une décennie bouclée allume sa marquise puis ouvre son générique.
+    // L'année en cours qui avance : le clap claque, la snackbar dit l'année dans la boîte, et une
+    // décennie bouclée allume sa marquise puis ouvre son générique — silencieux à cette étape, le
+    // passeport restant vide tant que le back ne boucle aucune décennie (§6 de la spec).
     LaunchedEffect(Unit) {
         vm.avancees.collect { avancee ->
             claques += 1
-            val recompense = recompenseDeLAnnee(avancee.anneeBouclee, vm.ui.value.voyage)
-            snackbar.showBriefly(
-                "${avancee.anneeBouclee} dans la boîte !" + (recompense?.let { " · ${it.singulier}" } ?: ""),
-            )
+            snackbar.showBriefly("${avancee.anneeBouclee} dans la boîte !")
             avancee.decennieBouclee?.let { decennie ->
                 decennieAllumee = decennie
                 vm.ui.value.passeport.firstOrNull { it.decennie == decennie }?.let(onOpenGenerique)
             }
         }
     }
-    LaunchedEffect(Unit) { vm.messages.collect { snackbar.showBriefly(it) } }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -138,13 +140,6 @@ fun VoyageScreen(
                     }
                 }
             }
-            ProchaineEtapeCard(
-                essentiel = ui.voyage.frontiere?.let { prochaineEtape(ui.voyage.parAnnee[it]?.essentiels.orEmpty()) },
-                annee = ui.voyage.frontiere,
-                demande = ui.demandes,
-                onVoir = onVoirEssentiel,
-                onDemander = vm::demander,
-            )
         }
     }
 }
@@ -162,10 +157,9 @@ private sealed interface Cellule {
         val monde: Monde,
         val statut: StatutAnneeVoyage?,
         val affiche: String?,
+        /** Nulle à cette étape : le back ne sert encore aucune récompense (`VoyageCarte.kt`). */
         val recompense: Recompense?,
-        val vus: Int,
-        val essentielsFaits: Int,
-        val essentielsTotal: Int,
+        val profondeur: Int,
         val groupe: AnneeFrise,
         /** Les trois abscisses du segment de pellicule, en fraction de largeur : entrée, ancre, sortie. */
         val xEntree: Float,
@@ -206,10 +200,8 @@ private fun construireCarte(ui: FriseUi, anneeActuelle: Int): List<Cellule> {
                 monde = monde,
                 statut = statutAnneeVoyage(fragment?.statut),
                 affiche = groupe.vus.firstNotNullOfOrNull { it.media.cover_url },
-                recompense = recompenseFaite(statutAnneeVoyage(fragment?.statut), fragment?.essentiels_total, fragment?.essentiels_faits),
-                vus = fragment?.vus ?: groupe.vus.size,
-                essentielsFaits = fragment?.essentiels_faits ?: 0,
-                essentielsTotal = fragment?.essentiels_total ?: 0,
+                recompense = null,
+                profondeur = fragment?.profondeur ?: groupe.vus.size,
                 groupe = groupe,
                 xEntree = ancreDe(rang - 1) / 2f + ancreDe(rang) / 2f,
                 xAncre = ancreDe(rang),
@@ -219,7 +211,9 @@ private fun construireCarte(ui: FriseUi, anneeActuelle: Int): List<Cellule> {
         }
         cellules += Cellule.Marquise(
             monde = monde,
-            bouclee = annees.isNotEmpty() && annees.all { statutAnneeVoyage(ui.voyage.parAnnee[it]?.statut) == StatutAnneeVoyage.FAITE },
+            // Toujours éteinte à cette étape : une décennie ne se boucle qu'à l'étape 3 (le
+            // ticket) et l'étape 5 (l'Ours par année) — `ui.passeport` reste vide jusque-là.
+            bouclee = ui.passeport.any { it.decennie == decennie },
             rayon = ui.decennies.firstOrNull { it.decennie == decennie }
                 ?: DecennieFrise(decennie, 0, 0, emptyList(), (decennie until decennie + 10).map { AnneeDecennie(it, 0, 0) }),
         )
@@ -229,20 +223,21 @@ private fun construireCarte(ui: FriseUi, anneeActuelle: Int): List<Cellule> {
 
 // --- Les morceaux de l'écran -------------------------------------------------------------------
 
-/** Le HUD : « Chapitre I · Les origines », « 3 années faites · 1898 en cours », les récompenses. */
+/** Le HUD : « Chapitre I · Les origines », « 3 années visitées · 1898 en cours », les récompenses. */
 @Composable
 private fun Hud(voyage: VoyageUi) {
-    val faites = voyage.parAnnee.values.count { statutAnneeVoyage(it.statut) == StatutAnneeVoyage.FAITE }
-    val recompenses = phraseRecompenses(voyage)
+    val visitees = voyage.parAnnee.values.count { it.visitee }
+    // Toujours vide à cette étape (`VoyageCarte.kt`) : la ligne ne s'affiche donc jamais, sans
+    // qu'il faille un `if` de plus ici — c'est `phraseRecompenses` elle-même qui rend "".
+    val recompenses = phraseRecompenses(emptyList())
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
         Text(
-            voyage.frontiere?.let { chapitreDe(it) } ?: "Le Voyage",
+            chapitreDe(voyage.anneeEnCours),
             style = MaterialTheme.typography.titleLarge,
-            color = voyage.frontiere?.let { mondeDe(it).accent } ?: MaterialTheme.colorScheme.onSurface,
+            color = mondeDe(voyage.anneeEnCours).accent,
         )
         Text(
-            "$faites ${if (faites <= 1) "année faite" else "années faites"}" +
-                (voyage.frontiere?.let { " · $it en cours" } ?: ""),
+            "$visitees ${if (visitees <= 1) "année visitée" else "années visitées"} · ${voyage.anneeEnCours} en cours",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -287,14 +282,14 @@ private fun TitreDeMonde(monde: Monde) {
 /** La hauteur d'une cellule d'année : la pellicule y fait une demi-ondulation. */
 private val HAUTEUR_CELLULE = 104.dp
 
-/** Le photogramme : 54 × 40 dp, posé sur la bande (brief, item 1). */
+/** Le photogramme : 54 × 40 dp, posé sur la bande. */
 private val LARGEUR_PHOTOGRAMME = 54.dp
 private val HAUTEUR_PHOTOGRAMME = 40.dp
 
 @Composable
 private fun CelluleAnnee(cellule: Cellule.Annee, claques: Int, onClick: () -> Unit) {
     val monde = cellule.monde
-    val enCours = cellule.statut == StatutAnneeVoyage.OUVERTE
+    val enCours = cellule.statut == StatutAnneeVoyage.EN_COURS
     val bandeFond = monde.accent.copy(alpha = 0.16f)
     val perforation = monde.fond
     // Les couleurs se lisent ici, dans la composition : un `DrawScope` n'est pas composable et ne
@@ -320,8 +315,8 @@ private fun CelluleAnnee(cellule: Cellule.Annee, claques: Int, onClick: () -> Un
             )
         }
 
-        // Le cône de lumière corail de l'année en cours (brief, item 1) : un dégradé radial posé
-        // sous le photogramme, jamais une couleur de plus dans le thème.
+        // Le cône de lumière corail de l'année en cours : un dégradé radial posé sous le
+        // photogramme, jamais une couleur de plus dans le thème.
         if (enCours) {
             Canvas(Modifier.fillMaxSize()) {
                 val centre = Offset(size.width * cellule.xAncre, size.height / 2f)
@@ -367,11 +362,14 @@ private fun CelluleAnnee(cellule: Cellule.Annee, claques: Int, onClick: () -> Un
 private fun Photogramme(cellule: Cellule.Annee, modifier: Modifier = Modifier) {
     val monde = cellule.monde
     val shape = RoundedCornerShape(3.dp)
-    val faite = cellule.statut == StatutAnneeVoyage.FAITE
-    val enCours = cellule.statut == StatutAnneeVoyage.OUVERTE
+    // Une année ouverte reste creusable pour toujours (brief du 21 septembre 2026) : elle n'est
+    // jamais « faite », mais porte la même mise en avant (liseré doré, affiche) que l'ancienne
+    // année faite — c'est elle, avant l'année en cours, qu'on peut déjà visiter.
+    val ouverte = cellule.statut == StatutAnneeVoyage.OUVERTE
+    val enCours = cellule.statut == StatutAnneeVoyage.EN_COURS
     val recompense = cellule.recompense
     val description = when {
-        faite -> "${cellule.annee}, année faite" + (recompense?.let { ", ${it.singulier}" } ?: "")
+        ouverte -> "${cellule.annee}, ${etiquetteProfondeur(cellule.profondeur)}" + (recompense?.let { ", ${it.singulier}" } ?: "")
         enCours -> "${cellule.annee}, tu es ici"
         else -> "${cellule.annee}, à tourner"
     }
@@ -384,27 +382,27 @@ private fun Photogramme(cellule: Cellule.Annee, modifier: Modifier = Modifier) {
                 .background(Color.Black, shape)
                 .let {
                     when {
-                        faite -> it.border(1.5.dp, LiserreDore, shape)
+                        ouverte -> it.border(1.5.dp, LiserreDore, shape)
                         enCours -> it.border(2.dp, MaterialTheme.colorScheme.primary, shape)
                         else -> it.dashedBorder(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), cornerRadius = 3.dp, strokeWidth = 1.dp)
                     }
                 },
             contentAlignment = Alignment.Center,
         ) {
-            if (cellule.affiche != null && (faite || enCours)) {
+            if (cellule.affiche != null && (ouverte || enCours)) {
                 Cover(cellule.affiche, "${cellule.annee}", LARGEUR_PHOTOGRAMME, HAUTEUR_PHOTOGRAMME)
             } else {
                 Text(
                     cellule.annee.toString(),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = if (faite || enCours) monde.accent else MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (ouverte || enCours) monde.accent else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
         val sous = when {
-            enCours -> "Tu es ici · ${cellule.essentielsFaits}/${cellule.essentielsTotal}"
-            faite -> cellule.annee.toString()
-            cellule.vus > 0 -> "${cellule.vus} vu${if (cellule.vus > 1) "s" else ""} en avance"
+            enCours -> "Tu es ici"
+            ouverte -> etiquetteProfondeur(cellule.profondeur)
+            cellule.profondeur > 0 -> "${cellule.profondeur} vu${if (cellule.profondeur > 1) "s" else ""} en avance"
             else -> "à tourner"
         }
         Row(
@@ -412,7 +410,7 @@ private fun Photogramme(cellule: Cellule.Annee, modifier: Modifier = Modifier) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(3.dp),
         ) {
-            if (faite && recompense != null) {
+            if (ouverte && recompense != null) {
                 Box(
                     Modifier
                         .size(12.dp)
@@ -429,11 +427,13 @@ private fun Photogramme(cellule: Cellule.Annee, modifier: Modifier = Modifier) {
     }
 }
 
+/** « 12 films », « 1 film », « 0 film » : la profondeur d'une année ouverte, sous son photogramme. */
+private fun etiquetteProfondeur(profondeur: Int): String = "$profondeur ${if (profondeur == 1) "film" else "films"}"
+
 /**
- * La porte d'un monde : une marquise de cinéma (brief, item 4). Ses ampoules sont éteintes tant
- * que la décennie n'est pas bouclée, et s'allument une à une (une seconde et demie) quand elle
- * vient de l'être — d'un coup, sans animation, sur une décennie bouclée depuis longtemps qu'on ne
- * fait que dérouler.
+ * La porte d'un monde : une marquise de cinéma. Ses ampoules sont éteintes tant que la décennie
+ * n'est pas bouclée, et s'allument une à une (une seconde et demie) quand elle vient de l'être —
+ * d'un coup, sans animation, sur une décennie bouclée depuis longtemps qu'on ne fait que dérouler.
  */
 @Composable
 private fun Marquise(monde: Monde, bouclee: Boolean, anime: Boolean, onClick: () -> Unit) {
@@ -478,59 +478,5 @@ private fun Marquise(monde: Monde, bouclee: Boolean, anime: Boolean, onClick: ()
     }
 }
 
-/**
- * La carte « Prochaine étape », fixée en bas (brief, item 6) : le premier essentiel de l'année en
- * cours qui n'est ni vu ni introuvable, son état, et le geste qui va avec — « Voir » (formulaire
- * pré-rempli) s'il est sur le Plex, « Demander sur Sir » sinon.
- */
-@Composable
-private fun ProchaineEtapeCard(
-    essentiel: EssentielVoyage?,
-    annee: Int?,
-    demande: Set<Int>,
-    onVoir: (PlexFilm) -> Unit,
-    onDemander: (Int) -> Unit,
-) {
-    if (essentiel == null) return
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceContainer)
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Cover(essentiel.cover_url, essentiel.title, 40.dp, 60.dp)
-        Column(Modifier.weight(1f)) {
-            Text("Prochaine étape", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(essentiel.title, style = MaterialTheme.typography.titleMedium)
-            Text(
-                "${essentiel.realisateur}${essentiel.year?.let { ", $it" } ?: ""}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        when {
-            essentiel.etat == "sur_le_plex" -> TextButton(onClick = { onVoir(essentiel.versPlexFilm(annee)) }) { Text("Voir") }
-            essentiel.tmdb_id in demande -> Text(
-                "demandé",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            else -> TextButton(onClick = { onDemander(essentiel.tmdb_id) }) { Text("Demander sur Sir") }
-        }
-    }
-}
-
-/** Le même formulaire pré-rempli qu'un « à voir » du Plex (`PlexFilm.toSearchResult()`). */
-internal fun EssentielVoyage.versPlexFilm(annee: Int?): PlexFilm = PlexFilm(
-    tmdb_id = tmdb_id,
-    title = title,
-    original_title = title,
-    year = year ?: annee,
-    cover_url = cover_url,
-    demande_le = "",
-)
-
-/** Le liseré doré d'un photogramme fait (brief, item 1) — une décoration ponctuelle, comme `PapierJauni`. */
+/** Le liseré doré d'un photogramme ouvert — une décoration ponctuelle, comme `PapierJauni`. */
 private val LiserreDore = Color(0xFFE6B94A)

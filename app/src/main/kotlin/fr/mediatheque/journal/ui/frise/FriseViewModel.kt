@@ -177,10 +177,8 @@ data class FriseUi(
     val plexConfigure: Boolean = false,
     /** Ma progression dans le Voyage (brief du 16 septembre 2026) — la carte tout entière en dépend. */
     val voyage: VoyageUi = VoyageUi(),
-    /** Les décennies déjà bouclées (brief du 16 septembre 2026, phase 2), pour le passeport du profil et les génériques de fin. */
+    /** Les décennies déjà bouclées (brief du 16 septembre 2026, phase 2), pour le passeport du profil et les génériques de fin — toujours vide à l'étape 1 du brief du 21 septembre 2026 (`tamponsPasseport`). */
     val passeport: List<TamponDecennie> = emptyList(),
-    /** Les `tmdb_id` demandés sur Seerr depuis cet écran — locaux : le back ne les redit pas (jumeau d'`EssentielAnneeUi.demande`). */
-    val demandes: Set<Int> = emptySet(),
     val loading: Boolean = false,
     val error: ApiError? = null,
 )
@@ -191,19 +189,15 @@ class FriseViewModel(private val api: JournalApi, private val onUnauthenticated:
     private var job: Job? = null
 
     /**
-     * La frontière du chargement précédent (brief du 16 septembre 2026, phase 2). Nulle au premier
-     * chargement, et c'est voulu : `detecterFrontiereAvancee` ne boucle alors rien — sans quoi la
-     * première ouverture de l'écran fêterait une année qu'on n'a pas finie pendant qu'on regardait.
+     * L'année en cours du chargement précédent. Nulle au premier chargement, et c'est voulu :
+     * `detecterFrontiereAvancee` ne boucle alors rien — sans quoi la première ouverture de l'écran
+     * fêterait une année qu'on n'a pas finie pendant qu'on regardait.
      */
-    private var frontierePrecedente: Int? = null
+    private var anneeEnCoursPrecedente: Int? = null
 
-    /** Ce qu'une frontière qui avance vient de boucler : la snackbar, le claquement, le générique. */
+    /** Ce qu'une année en cours qui avance vient de boucler : la snackbar, le claquement, le générique. */
     private val _avancees = Channel<FrontiereAvancee>(Channel.BUFFERED)
     val avancees: Flow<FrontiereAvancee> = _avancees.receiveAsFlow()
-
-    /** Les échecs de « Demander sur Sir » depuis la carte « Prochaine étape » (jumeau d'`AnneeViewModel.messages`). */
-    private val _messages = Channel<String>(Channel.BUFFERED)
-    val messages: Flow<String> = _messages.receiveAsFlow()
 
     // Pas d'`init { refresh() }` (jumeau de `FilmsViewModel`/`AuCineViewModel`) : `Root.kt`
     // déclenche le premier chargement par `LaunchedEffect(Unit)` à l'entrée sur l'écran.
@@ -250,30 +244,14 @@ class FriseViewModel(private val api: JournalApi, private val onUnauthenticated:
                     plexConfigure = plex.configure,
                     voyage = voyageUi,
                     passeport = tamponsPasseport(voyageUi, journal),
-                    // Les demandes déjà posées survivent au rafraîchissement : le back ne rend pas
-                    // « demandé », seule cette session le sait.
-                    demandes = it.demandes,
                     loading = false,
                 )
             }
 
             // Après la mise à jour de l'état, jamais avant : l'écran qui reçoit l'avancée doit
             // trouver la décennie bouclée déjà dans `passeport` quand il ouvre son générique.
-            detecterFrontiereAvancee(frontierePrecedente, voyageUi.frontiere)?.let { _avancees.trySend(it) }
-            frontierePrecedente = voyageUi.frontiere
-        }
-    }
-
-    /** Le bouton « Demander sur Sir » de la carte « Prochaine étape » — jumeau d'`AnneeViewModel.demander`. */
-    fun demander(tmdbId: Int) {
-        viewModelScope.launch {
-            try {
-                api.demanderVoyage(tmdbId)
-            } catch (e: ApiError) {
-                if (e.isUnauthenticated) onUnauthenticated() else _messages.trySend(e.message ?: "Impossible pour l’instant")
-                return@launch
-            }
-            _ui.update { it.copy(demandes = it.demandes + tmdbId) }
+            detecterFrontiereAvancee(anneeEnCoursPrecedente, voyageUi.anneeEnCours)?.let { _avancees.trySend(it) }
+            anneeEnCoursPrecedente = voyageUi.anneeEnCours
         }
     }
 }

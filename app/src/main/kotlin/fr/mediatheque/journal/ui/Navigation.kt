@@ -68,6 +68,15 @@ sealed interface Screen {
     data class Annee(val annee: AnneeFrise, val voyage: AnneeVoyage? = null) : Screen
 
     /**
+     * La fiche d'un film du Voyage (brief du 21 septembre 2026, « l'année en étages »), ouverte
+     * depuis une affiche d'`AnneeScreen`. Porte des identifiants, pas les données : elle lit le
+     * même `AnneeViewModel` que l'année d'où elle s'est ouverte (`Root.kt`, indexé sur `annee`),
+     * `salleId` et `filmId` (l'identifiant de la ligne, pas le `tmdb_id`, pour rester exact même si
+     * un film revenait dans deux salles) désignant le film dans son état déjà chargé.
+     */
+    data class FicheVoyage(val annee: Int, val salleId: String, val filmId: String) : Screen
+
+    /**
      * Le rayon d'une décennie (« Le calendrier devient un rayon », brief du 16 septembre 2026),
      * ouvert en touchant l'étiquette d'une décennie sur le calendrier de la Frise. Porte
      * l'agrégat déjà calculé par `FriseViewModel` (jumeau de `Screen.Annee` ci-dessus) : un
@@ -148,7 +157,7 @@ fun Screen.bottomBarTab(): BottomTab? = when (this) {
     Screen.Cinema -> BottomTab.Cinema
     Screen.Profile, Screen.Films -> BottomTab.Profile
     Screen.Search, is Screen.Form, is Screen.Edit, Screen.SensCritique, is Screen.Annee, is Screen.Decennie,
-    Screen.ChercherSuivi, is Screen.FicheSuivi, is Screen.ChoisirFilmDeSaga, Screen.RapportImport,
+    is Screen.FicheVoyage, Screen.ChercherSuivi, is Screen.FicheSuivi, is Screen.ChoisirFilmDeSaga, Screen.RapportImport,
     is Screen.Generique,
     -> null
 }
