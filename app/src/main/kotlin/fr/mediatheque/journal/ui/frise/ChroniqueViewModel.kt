@@ -21,6 +21,12 @@ import kotlinx.coroutines.launch
  * paragraphe soit là, abandon au plafond (`etatParagrapheSuivant`, `CHRONIQUE_ANNEE_ESSAIS_MAX`).
  *
  * `tmdbId` seul : une correction du journal ne porte jamais de `programme_id`, réservé aux salles.
+ *
+ * Décision du 21 septembre 2026 (« au montage ») : `init` lit `GET /me/voyage/annees/{annee}` une
+ * seule fois à la création, sans jamais la relire, cherche le paragraphe de `tmdbId` dans
+ * `paragraphes` — comme sur la fiche du Voyage — et part sur « Dans la chronique » s'il y est déjà.
+ * Une année en préparation, verrouillée ou non configurée laisse l'état par défaut, « Ajouter ».
+ * Aucun appel IA ici : `voyageAnnee` est une lecture, jamais `voyageChronique`.
  */
 data class ChroniqueUi(val etat: EtatBoutonChronique = EtatBoutonChronique.AJOUTER, val texte: String? = null)
 
@@ -35,6 +41,23 @@ class ChroniqueViewModel(
     val ui: StateFlow<ChroniqueUi> = _ui
 
     private var job: Job? = null
+
+    init {
+        viewModelScope.launch {
+            val reponse = try {
+                api.voyageAnnee(annee)
+            } catch (e: ApiError) {
+                if (e.isUnauthenticated) onUnauthenticated()
+                return@launch
+            }
+            if (reponse.configure && reponse.statut == "prete") {
+                val paragraphe = reponse.paragraphes.firstOrNull { it.tmdb_id == tmdbId }
+                if (paragraphe != null) {
+                    _ui.update { ChroniqueUi(EtatBoutonChronique.DANS_LA_CHRONIQUE, paragraphe.texte) }
+                }
+            }
+        }
+    }
 
     fun ajouter() {
         if (job?.isActive == true) return
