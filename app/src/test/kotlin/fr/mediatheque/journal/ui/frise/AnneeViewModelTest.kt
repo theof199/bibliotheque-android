@@ -3,9 +3,13 @@ package fr.mediatheque.journal.ui.frise
 import fr.mediatheque.journal.FakeJournalApi
 import fr.mediatheque.journal.MainDispatcherRule
 import fr.mediatheque.journal.api.ApiError
+import fr.mediatheque.journal.api.dto.AnneeSuivanteResponse
 import fr.mediatheque.journal.api.dto.AnneeVoyage
+import fr.mediatheque.journal.api.dto.AnneeVoyageDetailResponse
 import fr.mediatheque.journal.api.dto.DemanderVoyageResponse
-import fr.mediatheque.journal.api.dto.EssentielVoyage
+import fr.mediatheque.journal.api.dto.FilmSalleVoyage
+import fr.mediatheque.journal.api.dto.SalleVoyage
+import fr.mediatheque.journal.api.dto.SallePlusResponse
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -13,15 +17,16 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
 /**
- * La page d'année du Voyage (brief du 16 septembre 2026, phase 1) : l'état initial repris du
- * fragment déjà chargé par `FriseViewModel`, la demande sur Seerr (succès → pastille « demandé »,
- * erreur → bandeau) et le marquage « introuvable » (et l'inverse — restaure l'état d'avant, pas un
- * état par défaut).
+ * La page d'année du Voyage (brief du 21 septembre 2026, « l'année en étages ») : l'état initial
+ * repris du fragment déjà chargé par `FriseViewModel`, la relecture de la chronique (première
+ * visite, abandon, verrouillée), « En voir plus » sur une salle, la demande sur Seerr et le
+ * marquage « introuvable », « Année suivante ».
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class AnneeViewModelTest {
@@ -32,68 +37,135 @@ class AnneeViewModelTest {
 
     private val api = FakeJournalApi()
 
-    private fun essentiel(tmdbId: Int, etat: String) = EssentielVoyage(
-        rang = 1,
+    private fun film(id: String, tmdbId: Int, etat: String, rang: Int = 1) = FilmSalleVoyage(
+        id = id,
+        rang = rang,
         tmdb_id = tmdbId,
         title = "Film $tmdbId",
-        year = 1941,
-        cover_url = null,
         realisateur = "Un réalisateur",
-        pourquoi = "Parce que.",
+        raison = "Une raison.",
         etat = etat,
-        note = null,
+    )
+
+    private fun salle(id: String, vararg films: FilmSalleVoyage, epuisee: Boolean = false, fourneeEnCours: Boolean = false) = SalleVoyage(
+        id = id,
+        rang = 1,
+        nom = "Les essentiels",
+        raison_d_etre = "Ce qu'il ne fallait pas manquer",
+        cle = "essentiels",
+        epuisee = epuisee,
+        fournee_en_cours = fourneeEnCours,
+        films = films.toList(),
+    )
+
+    private fun prete(vararg salles: SalleVoyage) = AnneeVoyageDetailResponse(
+        configure = true,
+        statut = "prete",
+        annee = 1941,
+        profondeur = 1,
+        ouverture = "Une année de cinéma.",
+        faits = listOf("Un fait."),
+        salles = salles.toList(),
     )
 
     @Test
     fun `anneeUiInitiale reprend le fragment deja charge par FriseViewModel`() {
-        val snapshot = AnneeVoyage(
-            annee = 1941,
-            statut = "ouverte",
-            vus = 3,
-            essentiels_total = 2,
-            essentiels_faits = 1,
-            essentiels = listOf(essentiel(1, "vu"), essentiel(2, "a_trouver")),
-        )
+        val snapshot = AnneeVoyage(annee = 1941, statut = "ouverte", visitee = true, profondeur = 3)
 
         val ui = anneeUiInitiale(1941, snapshot)
 
         assertEquals(StatutAnneeVoyage.OUVERTE, ui.statutVoyage)
-        assertEquals(3, ui.vus)
-        assertEquals(2, ui.essentielsTotal)
-        assertEquals(1, ui.essentielsFaits)
-        assertEquals(listOf("vu", "a_trouver"), ui.essentiels.map { it.etat })
+        assertEquals(3, ui.profondeur)
+        assertTrue(ui.salles.isEmpty())
     }
 
-    // Mutation : une année sans fragment (snapshot nul, verrouillée) doit rester sans essentiel ni
-    // statut — retourner `StatutAnneeVoyage.VERROUILLEE` par défaut ferait échouer cette assertion.
+    // Mutation : une année sans fragment (snapshot nul) doit rester sans statut connu — retourner
+    // `StatutAnneeVoyage.VERROUILLEE` par défaut ferait échouer cette assertion.
     @Test
-    fun `anneeUiInitiale sans fragment reste vide, statut inconnu`() {
+    fun `anneeUiInitiale sans fragment reste sans statut connu`() {
         val ui = anneeUiInitiale(1950, null)
-        assertEquals(null, ui.statutVoyage)
-        assertTrue(ui.essentiels.isEmpty())
+        assertNull(ui.statutVoyage)
+        assertEquals(0, ui.profondeur)
     }
 
     @Test
-    fun `demander reussit et pose la pastille demande, seulement sur le bon film`() = runTest(dispatcher) {
-        val snapshot = AnneeVoyage(1941, "ouverte", essentiels = listOf(essentiel(500, "a_trouver"), essentiel(600, "a_trouver")))
+    fun `relire charge l'annee et passe a PRETE avec ses salles dans l'ordre`() = runTest(dispatcher) {
+        api.onVoyageAnnee = {
+            prete(
+                salle("s2", film("f2", 2, "vu")).copy(rang = 2),
+                salle("s1", film("f1", 1, "a_demander")).copy(rang = 1),
+            )
+        }
+        val vm = AnneeViewModel(api, 1941, null) {}
+
+        vm.relire()
+        runCurrent()
+
+        assertEquals(EtatAnnee.PRETE, vm.ui.value.etat)
+        assertEquals(listOf("s1", "s2"), vm.ui.value.salles.map { it.id })
+        assertEquals("Une année de cinéma.", vm.ui.value.ouverture)
+        assertEquals(1, vm.ui.value.profondeur)
+    }
+
+    @Test
+    fun `relire sur la premiere visite reste en preparation puis abandonne au plafond`() = runTest(dispatcher) {
+        api.onVoyageAnnee = { AnneeVoyageDetailResponse(configure = true, statut = "en_preparation", annee = 1942) }
+        val vm = AnneeViewModel(api, 1942, null) {}
+
+        vm.relire()
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(EtatAnnee.ABANDON, vm.ui.value.etat)
+        assertEquals(CHRONIQUE_ANNEE_ESSAIS_MAX, vm.ui.value.essais)
+    }
+
+    // La forme « verrouillée » est terminale : elle ne doit jamais être confondue avec « en
+    // préparation » (mutation : la faire passer par `etatChroniqueSuivant` sans ce garde-fou
+    // ferait sonder l'année 36 fois pour rien, une année verrouillée ne devenant jamais « prête »).
+    @Test
+    fun `relire sur une annee verrouillee s'arrete tout de suite, sans compter d'essai`() = runTest(dispatcher) {
+        var appels = 0
+        api.onVoyageAnnee = { appels++; AnneeVoyageDetailResponse(configure = true, statut = "verrouillee", annee = 1999, profondeur = 2) }
+        val vm = AnneeViewModel(api, 1999, null) {}
+
+        vm.relire()
+        runCurrent()
+
+        assertEquals(EtatAnnee.VERROUILLEE, vm.ui.value.etat)
+        assertEquals(StatutAnneeVoyage.VERROUILLEE, vm.ui.value.statutVoyage)
+        assertEquals(2, vm.ui.value.profondeur)
+        assertEquals(0, vm.ui.value.essais)
+        assertEquals(1, appels)
+
+        // Une deuxième entrée sur l'écran ne relance rien de plus.
+        vm.relire()
+        runCurrent()
+        assertEquals(1, appels)
+    }
+
+    @Test
+    fun `demander reussit et pose l'etat demande, seulement sur le bon film`() = runTest(dispatcher) {
+        api.onVoyageAnnee = { prete(salle("s1", film("f1", 500, "a_demander"), film("f2", 600, "a_demander"))) }
         api.onDemanderVoyage = { DemanderVoyageResponse(demande = true) }
-        val vm = AnneeViewModel(api, 1941, snapshot) {}
+        val vm = AnneeViewModel(api, 1941, null) {}
+        vm.relire()
         runCurrent()
 
         vm.demander(500)
         runCurrent()
 
-        val essentiels = vm.ui.value.essentiels.associateBy { it.tmdbId }
-        assertTrue(essentiels.getValue(500).demande)
-        assertFalse(essentiels.getValue(600).demande)
+        val films = vm.ui.value.salles.flatMap { it.films }.associateBy { it.tmdbId }
+        assertEquals("demande", films.getValue(500).etat)
+        assertEquals("a_demander", films.getValue(600).etat)
         assertEquals(listOf("demanderVoyage 500"), api.calls.filter { it.startsWith("demanderVoyage") })
     }
 
     @Test
-    fun `demander en echec envoie le message du back au bandeau, sans poser la pastille`() = runTest(dispatcher) {
-        val snapshot = AnneeVoyage(1941, "ouverte", essentiels = listOf(essentiel(500, "a_trouver")))
+    fun `demander en echec envoie le message du back au bandeau, sans changer l'etat`() = runTest(dispatcher) {
+        api.onVoyageAnnee = { prete(salle("s1", film("f1", 500, "a_demander"))) }
         api.onDemanderVoyage = { throw ApiError("UPSTREAM_UNAVAILABLE", "Seerr ne répond pas. Réessaie plus tard.", retryable = true, status = 503) }
-        val vm = AnneeViewModel(api, 1941, snapshot) {}
+        val vm = AnneeViewModel(api, 1941, null) {}
+        vm.relire()
         runCurrent()
 
         val messages = mutableListOf<String>()
@@ -103,25 +175,100 @@ class AnneeViewModelTest {
         runCurrent()
 
         assertEquals(listOf("Seerr ne répond pas. Réessaie plus tard."), messages)
-        assertFalse(vm.ui.value.essentiels.first().demande)
+        assertEquals("a_demander", vm.ui.value.salles.first().films.first().etat)
         job.cancel()
     }
 
+    // Le back recalcule `etat` à chaque lecture (contrairement aux essentiels du 16 septembre
+    // 2026) : marquer introuvable relit les salles plutôt que de deviner un état localement.
     @Test
-    fun `marquer introuvable puis le remettre a voir restaure l'etat d'avant, pas un defaut`() = runTest(dispatcher) {
-        // « sur_le_plex », pas « a_trouver » : si `retirerIntrouvable` retombait sur un état par
-        // défaut au lieu de l'état mémorisé, ce test le verrait.
-        val snapshot = AnneeVoyage(1941, "ouverte", essentiels = listOf(essentiel(500, "sur_le_plex")))
-        val vm = AnneeViewModel(api, 1941, snapshot) {}
+    fun `marquer introuvable relit les salles depuis le back`() = runTest(dispatcher) {
+        var introuvable = false
+        api.onVoyageAnnee = { prete(salle("s1", film("f1", 500, if (introuvable) "introuvable" else "sur_le_plex"))) }
+        api.onMarquerIntrouvable = { introuvable = true }
+        val vm = AnneeViewModel(api, 1941, null) {}
+        vm.relire()
         runCurrent()
+        assertEquals("sur_le_plex", vm.ui.value.salles.first().films.first().etat)
 
         vm.marquerIntrouvable(500)
         runCurrent()
-        assertEquals("introuvable", vm.ui.value.essentiels.first().etat)
-        assertEquals(listOf("marquerIntrouvable 500"), api.calls.filter { it.startsWith("marquerIntrouvable") })
 
-        vm.retirerIntrouvable(500)
+        assertEquals("introuvable", vm.ui.value.salles.first().films.first().etat)
+        assertEquals(listOf("marquerIntrouvable 500"), api.calls.filter { it.startsWith("marquerIntrouvable") })
+    }
+
+    @Test
+    fun `voirPlus epuisee tout de suite ne relit rien de plus`() = runTest(dispatcher) {
+        api.onVoyageAnnee = { prete(salle("s1")) }
+        api.onVoyageSallePlus = { SallePlusResponse(statut = "epuisee") }
+        val vm = AnneeViewModel(api, 1941, null) {}
+        vm.relire()
         runCurrent()
-        assertEquals("sur_le_plex", vm.ui.value.essentiels.first().etat)
+        val appelsAvant = api.calls.count { it.startsWith("voyageAnnee") }
+
+        vm.voirPlus("s1")
+        runCurrent()
+
+        assertTrue(vm.ui.value.salles.first().epuisee)
+        assertFalse(vm.ui.value.salles.first().fourneeEnCours)
+        assertEquals(appelsAvant, api.calls.count { it.startsWith("voyageAnnee") })
+    }
+
+    // La relecture d'une fournée s'arrête dès que `fournee_en_cours` retombe — avec le nouveau
+    // film déjà dans la salle à ce moment-là (spec du 19 septembre 2026, §3 : « nouveaux films »).
+    @Test
+    fun `voirPlus enfile une fournee et relit jusqu'a ce que fournee_en_cours retombe`() = runTest(dispatcher) {
+        var relectures = 0
+        api.onVoyageAnnee = {
+            relectures++
+            when (relectures) {
+                1 -> prete(salle("s1", film("f1", 500, "vu"), fourneeEnCours = false))
+                2 -> prete(salle("s1", film("f1", 500, "vu"), fourneeEnCours = true))
+                else -> prete(salle("s1", film("f1", 500, "vu"), film("f2", 501, "a_demander"), fourneeEnCours = false))
+            }
+        }
+        api.onVoyageSallePlus = { SallePlusResponse(statut = "en_preparation") }
+        val vm = AnneeViewModel(api, 1941, null) {}
+        vm.relire()
+        runCurrent()
+        assertFalse(vm.ui.value.salles.first().fourneeEnCours)
+
+        vm.voirPlus("s1")
+        // La tuile se remplit tout de suite, avant même la première relecture.
+        runCurrent()
+        assertTrue(vm.ui.value.salles.first().fourneeEnCours)
+
+        testScheduler.advanceUntilIdle()
+
+        assertFalse(vm.ui.value.salles.first().fourneeEnCours)
+        assertEquals(listOf(500, 501), vm.ui.value.salles.first().films.map { it.tmdbId })
+    }
+
+    @Test
+    fun `anneeSuivante reussit, passe l'annee ouverte et appelle le rappel`() = runTest(dispatcher) {
+        api.onVoyageAnneeSuivante = { AnneeSuivanteResponse(annee_en_cours = 1942) }
+        val vm = AnneeViewModel(api, 1941, AnneeVoyage(1941, "en_cours", visitee = true)) {}
+
+        var rappelee = false
+        vm.anneeSuivante { rappelee = true }
+        runCurrent()
+
+        assertEquals(StatutAnneeVoyage.OUVERTE, vm.ui.value.statutVoyage)
+        assertTrue(rappelee)
+        assertEquals(listOf("voyageAnneeSuivante"), api.calls.filter { it == "voyageAnneeSuivante" })
+    }
+
+    @Test
+    fun `anneeSuivante en echec n'appelle pas le rappel`() = runTest(dispatcher) {
+        api.onVoyageAnneeSuivante = { throw ApiError("HTTP_500", "Erreur imprevue.", retryable = true, status = 500) }
+        val vm = AnneeViewModel(api, 1941, AnneeVoyage(1941, "en_cours", visitee = true)) {}
+
+        var rappelee = false
+        vm.anneeSuivante { rappelee = true }
+        runCurrent()
+
+        assertFalse(rappelee)
+        assertEquals(StatutAnneeVoyage.EN_COURS, vm.ui.value.statutVoyage)
     }
 }
