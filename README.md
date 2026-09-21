@@ -190,13 +190,14 @@ traverser l'histoire du cinéma année par année, depuis 1895 — l'onglet « F
 une pellicule qui serpente de monde en monde (`docs/design.md` §2 et §5). Le récit d'une année et le carton « Et pendant ce temps… » d'un film
 sont écrits par Claude, **côté back** — rien de tout ça ne vit dans l'appli. `ANTHROPIC_API_KEY` et
 `CHRONIQUES_MODEL` (`claude-opus-5` par défaut) sont des réglages de l'instance biblio-back
-(`.env`, `docs/self-hosting.md` de ce dépôt-là) ; sans clé, `GET /me/voyage` et les deux routes
-`/reference/chroniques/*` répondent `configure: false` et l'appli n'affiche ni cartouche ni carte,
-jamais une erreur. Chaque chronique et chaque carton s'écrit une fois et ne se regénère jamais — le
-coût, de l'ordre de quelques centimes par écriture, est facturé au propriétaire de la clé, pas à
-l'appli. Rien n'est stocké sur le téléphone au-delà de la session en cours : les récits et les
-cartons vivent dans les tables `chroniques_annees` et `chroniques_films` du back, relus à chaque
-ouverture d'écran (`GET /reference/chroniques/annees/{annee}`, `.../films/{tmdbId}`), jamais mis en
+(`.env`, `docs/self-hosting.md` de ce dépôt-là) ; sans clé, `GET /me/voyage`, `GET
+/me/voyage/annees/{annee}` et `GET /reference/chroniques/films/{tmdbId}` répondent `configure:
+false` et l'appli n'affiche ni cartouche ni carte, jamais une erreur. Chaque ouverture d'année, chaque
+salle et chaque carton s'écrit une fois et ne se regénère jamais — le coût, de l'ordre de quelques
+centimes par écriture, est facturé au propriétaire de la clé, pas à l'appli. Rien n'est stocké sur le
+téléphone au-delà de la session en cours : ouvertures, salles et cartons vivent en base côté back,
+relus à chaque ouverture d'écran (`GET /me/voyage/annees/{annee}` a remplacé `GET
+/reference/chroniques/annees/{annee}` le 21 septembre 2026, « l'année en étages »), jamais mis en
 cache localement.
 
 ## Vérifier
@@ -263,10 +264,9 @@ liste de contrôle à jouer, pas un journal de ce qui a déjà été vérifié.
 - [ ] « Tes séances » liste les films marqués « En salle », du plus récent au plus ancien, même ligne que « Mes films » ; toucher une ligne ouvre la correction, et « N séances cette année » en tête reflète bien ce qui est journalisé.
 - [ ] La barre du bas compte cinq icônes (Accueil, Frise, Suivis, Au ciné, Profil) ; « Frise » ouvre le Voyage.
 - [ ] Sur l'accueil, la ligne « Ensuite » (affiche, titre, année) apparaît sans bloquer l'affichage de la grille ; absente s'il n'y a rien à voir sur le Plex ; toucher l'affiche ouvre le formulaire pré-rempli.
-- [ ] Le Voyage (brief du 16 septembre 2026, phase 2) : en tête, « Chapitre *N* · *monde* » dans la couleur du monde, « *N* années faites · *année* en cours » et le compte des récompenses ; la carte s'ouvre **déjà défilée** sur l'année en cours, la pellicule serpentant d'un photogramme à l'autre — perforations comprises — sans rupture entre deux cellules ni entre deux mondes, chacun portant son fond, sa lettrine et son sous-titre (« 1890 · LES ORIGINES · la manivelle »).
-- [ ] Un photogramme d'année faite montre une affiche, un liseré doré et le glyphe de sa récompense (Palme, Lion ou Ours) ; l'année en cours est sous un cône corail avec « Tu es ici · *n*/*m* » et le clap à côté ; une année verrouillée est un cadre pointillé « à tourner », ou « *N* vu(s) en avance ». Toucher un photogramme ouvre l'année.
-- [ ] Au bout d'un monde, sa marquise : ampoules éteintes et « en cours de tournage » sur une décennie non bouclée, ampoules allumées et titre de voyageur en or sinon ; la toucher ouvre le rayon de la décennie, qui a désormais le fond et l'accent de son monde, avec son nom sous le titre.
-- [ ] En bas, la carte « Prochaine étape » : l'affiche, le titre, le réalisateur et l'année du premier essentiel ni vu ni introuvable, avec « Voir » (formulaire pré-rempli) s'il est sur le Plex, « Demander sur Sir » sinon — qui passe à « demandé ».
+- [ ] Le Voyage (brief du 16 septembre 2026, phase 2, réécrit pour « l'année en étages » le 21 septembre 2026) : en tête, « Chapitre *N* · *monde* » dans la couleur du monde, « *N* années visitées · *année* en cours » (le compte des récompenses ne s'affiche pas à cette étape) ; la carte s'ouvre **déjà défilée** sur l'année en cours, la pellicule serpentant d'un photogramme à l'autre — perforations comprises — sans rupture entre deux cellules ni entre deux mondes, chacun portant son fond, sa lettrine et son sous-titre (« 1890 · LES ORIGINES · la manivelle »).
+- [ ] Un photogramme d'année **ouverte** (avant l'année en cours) montre une affiche, un liseré doré et sa profondeur (« *N* films ») ; l'année en cours est sous un cône corail avec « Tu es ici » et le clap à côté ; une année verrouillée est un cadre pointillé « à tourner », ou « *N* vu(s) en avance ». Toucher un photogramme ouvre l'année.
+- [ ] Au bout d'un monde, sa marquise : ampoules éteintes et « en cours de tournage » (systématique à cette étape, aucune décennie ne pouvant encore se boucler) ; la toucher ouvre le rayon de la décennie, qui a désormais le fond et l'accent de son monde, avec son nom sous le titre.
 - [ ] « Suivis » (cinquième icône, entre Frise et Au ciné, ex-« Réalisateurs ») ouvre la liste : deux segments en tête, « Réalisateurs » et « Sagas » ; chaque ligne montre la photo ou l'affiche ronde (ou l'initiale), le nom, puis « N vus sur M · prochain : Titre (année) » — « … » pendant le chargement de ses films, « indisponible » si elle a échoué ; segment vide : « Ajoute un réalisateur avec + » ou « Ajoute une saga avec + ».
 - [ ] Changer de segment revient sur la liste déjà chargée (ou son chargement en cours), sans repartir de zéro ; quitter l'écran Suivis puis y revenir garde le segment choisi (mémorisé pour la session).
 - [ ] Le « + » en haut à droite ouvre la recherche du segment affiché (clavier ouvert, résultats 400 ms après la frappe, placeholder « Un nom de réalisateur » ou « Un nom de saga ») ; toucher un résultat le suit, referme l'écran, et « Ajouté » apparaît en snackbar sur la liste.
@@ -280,7 +280,11 @@ liste de contrôle à jouer, pas un journal de ce qui a déjà été vérifié.
 - [ ] Profil : sous les deux chiffres du haut, la carte « Bilan » — sept lignes (films vus dont cette année, séances en salle dont cette année, note moyenne, décennies couvertes, le plus ancien film vu, réalisateurs suivis et terminés, sagas idem), chacune en « … » un instant avant sa vraie valeur, jamais un chiffre qui saute d'une valeur à l'autre.
 - [ ] Profil, « Importer Letterboxd » : choisir le ZIP de l'export (ou `diary.csv` seul) affiche « Import en cours… » puis le rapport — comptes, non reconnus avec leurs candidats, erreurs ; un ZIP sans `diary.csv` affiche le message qui le dit.
 - [ ] Toucher un candidat non reconnu ouvre le formulaire avec la date et la note de sa ligne du fichier déjà remplies ; « Terminé » revient au profil, dont les deux chiffres du haut sont à jour.
-- [ ] Ouvrir l'année en cours : l'écran a le fond de son monde ; le cartouche jauni montre le récit et les faits, ou « Le chroniqueur écrit… ça prend une minute ou deux » (quitter la page et y revenir relance la relecture) ; « Les essentiels » liste les films avec leur état (vu noté, « sur ton Plex », « Demander sur Sir », introuvable grisé) ; un appui long sur un non-vu propose « Marquer introuvable ». Une année verrouillée montre le carton « Prochainement » et son compte d'essentiels, sans affiche tant que le back n'en donne pas l'aperçu.
+- [ ] Ouvrir l'année en cours (brief du 21 septembre 2026, « l'année en étages ») : l'écran a le fond de son monde ; à la première visite, « *1895* s'écrit… ça prend une minute ou deux » sans aucune salle dessinée, puis le cartouche jauni montre l'ouverture repliée à trois lignes — « Lire la suite » la déplie et fait apparaître les faits.
+- [ ] Chaque salle affiche son titre, sa raison d'être, puis une étagère : les films vus en couleur avec leur note, les autres en sépia, une étiquette d'état sous chacun (« sur ton Plex », « demandé », « introuvable » ; rien pour « à demander ») ; un programme porte « *N* bobines · *M* min » en coin.
+- [ ] En bout d'étagère, « En voir plus » ajoute trois à cinq films après un aller-retour (« La salle se remplit… » pendant l'attente) ; une salle épuisée montre une tuile grisée, inerte.
+- [ ] En bas de l'année en cours seulement, « Année suivante » (sous-titré « provisoire, en attendant le ticket ») avance l'année en cours puis recharge la carte ; absent sur une année ouverte ou verrouillée.
+- [ ] Toucher une affiche ouvre sa fiche : affiche, titre, réalisateur, la salle et la raison en évidence, ma note si vu, et selon l'état « Voir sur le Plex » (absent sans lien), « Je l'ai vu », « Demander sur Sir » (passe à « demandé »), « Introuvable » ou « Le remettre à voir ». Une année verrouillée montre le carton « Prochainement », sans affiche.
 - [ ] Profil, sous le Bilan : la carte « Passeport » — « Aucun tampon encore », ou un tampon corail penché par décennie bouclée avec sa date et son titre de voyageur ; le toucher rejoue le générique de fin, qui défile tout seul et se ferme d'un geste.
 - [ ] Toucher « Demander sur Sir » sur un essentiel à trouver : la pastille passe à « demandé ».
 - [ ] Enregistrer un film : sous « Enregistré », la carte « Et pendant ce temps… » apparaît (ou « Le chroniqueur arrive… » puis, après un moment, le contexte) ; la fermer d'un geste. En correction d'un film déjà journalisé, la même carte apparaît en bas si son carton existe déjà.
