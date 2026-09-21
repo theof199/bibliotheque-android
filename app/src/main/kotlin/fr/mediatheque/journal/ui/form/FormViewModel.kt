@@ -60,6 +60,8 @@ data class PendingSensCritiqueChoice(
     val candidates: List<ExternalCandidate>,
     /** Le Voyage (brief du 16 septembre 2026) : le `tmdb_id` à proposer en carte une fois le choix tranché, nul hors création. */
     val cartonTmdbId: Int? = null,
+    /** Le ticket (brief du 21 septembre 2026) : l'année de sortie du film, à transmettre une fois le choix tranché, nul hors création. */
+    val filmAnnee: Int? = null,
 )
 
 data class FormUi(
@@ -94,6 +96,13 @@ data class FormUi(
      * `Screen.Edit`, en bas de `FormScreen`).
      */
     val doneCartonTmdbId: Int? = null,
+    /**
+     * Le ticket (brief du 21 septembre 2026, « le ticket ») : l'année de sortie du film qu'on vient
+     * de créer, à transmettre à `Navigator.home` pour que `FriseViewModel.relireApresCreation`
+     * sache s'il vaut la peine de relire `GET /me/voyage`. Nul sur une correction — l'année d'un
+     * visionnage déjà journalisé ne peut pas faire naître un nouveau ticket.
+     */
+    val doneFilmAnnee: Int? = null,
 )
 
 /** Le contexte affiché quand le film est ajouté mais pas le visionnage (décision 3 de la tâche 6). */
@@ -177,7 +186,7 @@ class FormViewModel(
                     sensCritique.choose(pending.mediaId, pending.film, pending.rating, pending.watchedOn, productId)
                 } ?: sensCritique.abandon(pending.mediaId, pending.film, pending.rating, pending.watchedOn)
             }
-            finish(pending.baseMessage + suffixFor(resultat), pending.cartonTmdbId)
+            finish(pending.baseMessage + suffixFor(resultat), pending.cartonTmdbId, pending.filmAnnee)
         }
     }
 
@@ -193,7 +202,7 @@ class FormViewModel(
         _ui.update { it.copy(pendingSensCritiqueChoice = null, busy = true) }
         viewModelScope.launch {
             val resultat = filetDeSecurite { sensCritique.abandon(pending.mediaId, pending.film, pending.rating, pending.watchedOn) }
-            finish(pending.baseMessage + suffixFor(resultat), pending.cartonTmdbId)
+            finish(pending.baseMessage + suffixFor(resultat), pending.cartonTmdbId, pending.filmAnnee)
         }
     }
 
@@ -223,7 +232,15 @@ class FormViewModel(
         // Le Voyage (brief du 16 septembre 2026) : la carte « Et pendant ce temps… » ne s'invite
         // qu'après une création — `edit` ci-dessous ne passe jamais ce `tmdbId`, la carte de
         // correction vivant ailleurs (en bas de `Screen.Edit`, indépendante du geste d'enregistrer).
-        syncSensCritique(mediaId, filmOf(mode.result), "Enregistré", cartonTmdbId = mode.result.external_id.toIntOrNull())
+        // Le ticket (brief du 21 septembre 2026) : l'année de sortie, jumeau de `cartonTmdbId`
+        // juste au-dessus — une correction ne la passe pas non plus (`edit` ci-dessous).
+        syncSensCritique(
+            mediaId,
+            filmOf(mode.result),
+            "Enregistré",
+            cartonTmdbId = mode.result.external_id.toIntOrNull(),
+            filmAnnee = mode.result.year,
+        )
     }
 
     private suspend fun edit(mode: FormMode.Edit) {
@@ -244,7 +261,7 @@ class FormViewModel(
      * toujours relancée), donc `withTimeoutOrNull` rend bien `null` plutôt que de laisser le réseau
      * continuer en arrière-plan sans que personne ne l'attende.
      */
-    private suspend fun syncSensCritique(mediaId: String, film: MatchableFilm, baseMessage: String, cartonTmdbId: Int?) {
+    private suspend fun syncSensCritique(mediaId: String, film: MatchableFilm, baseMessage: String, cartonTmdbId: Int?, filmAnnee: Int? = null) {
         val note = rating()
         val quand = date()
         val resultat = filetDeSecurite {
@@ -258,10 +275,10 @@ class FormViewModel(
             is GestureSyncResult.ChoiceNeeded -> _ui.update {
                 it.copy(
                     busy = false,
-                    pendingSensCritiqueChoice = PendingSensCritiqueChoice(mediaId, film, note!!, quand, baseMessage, resultat.candidates, cartonTmdbId),
+                    pendingSensCritiqueChoice = PendingSensCritiqueChoice(mediaId, film, note!!, quand, baseMessage, resultat.candidates, cartonTmdbId, filmAnnee),
                 )
             }
-            else -> finish(baseMessage + suffixFor(resultat), cartonTmdbId)
+            else -> finish(baseMessage + suffixFor(resultat), cartonTmdbId, filmAnnee)
         }
     }
 
@@ -282,9 +299,9 @@ class FormViewModel(
      * l'identifiant de média en attente — de l'action qui vient de réussir (correction 1 de la
      * tâche 6).
      */
-    private fun finish(message: String, cartonTmdbId: Int? = null) {
+    private fun finish(message: String, cartonTmdbId: Int? = null, filmAnnee: Int? = null) {
         pendingMediaId = null
-        _ui.update { initialUi(mode).copy(done = message, doneCartonTmdbId = cartonTmdbId) }
+        _ui.update { initialUi(mode).copy(done = message, doneCartonTmdbId = cartonTmdbId, doneFilmAnnee = filmAnnee) }
     }
 
     private fun date() = _ui.value.date.toString()

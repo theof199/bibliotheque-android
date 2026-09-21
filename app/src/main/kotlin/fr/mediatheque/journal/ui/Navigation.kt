@@ -252,6 +252,14 @@ class Navigator {
     val cartonRequests: Flow<Int> = _cartonRequests.receiveAsFlow()
 
     /**
+     * Le ticket (décision 2 du brief du 21 septembre 2026) : l'année de sortie du film qu'on vient
+     * de journaliser, pour que `FriseViewModel.relireApresCreation` sache si elle vaut la peine
+     * d'être relue — jumeau de `_cartonRequests` ci-dessus, un événement à un coup.
+     */
+    private val _ticketRelectures = Channel<Int>(Channel.BUFFERED)
+    val ticketRelectures: Flow<Int> = _ticketRelectures.receiveAsFlow()
+
+    /**
      * Compteur dédié à `Screen.Search`, incrémenté seulement quand `push` y entre — jamais à un
      * `pop`, jamais sur un `push` vers un autre écran. Il sert à ne remettre à zéro la recherche
      * qu'à l'entrée depuis l'accueil (revue de la vague finale, mineur 8) : voir le commentaire
@@ -272,11 +280,14 @@ class Navigator {
 
     /**
      * Retour à l'accueil, pile vidée, avec un mot à dire — et, sur une création réussie (brief du
-     * 16 septembre 2026), le `tmdb_id` dont l'accueil tire la carte « Et pendant ce temps… ».
+     * 16 septembre 2026), le `tmdb_id` dont l'accueil tire la carte « Et pendant ce temps… », et
+     * l'année de sortie du film (brief du 21 septembre 2026, « le ticket ») qui déclenche la
+     * relecture du ticket. Les deux sont nuls sur une correction ou une suppression.
      */
-    fun home(message: String? = null, cartonTmdbId: Int? = null) {
+    fun home(message: String? = null, cartonTmdbId: Int? = null, filmAnnee: Int? = null) {
         if (message != null) _messages.trySend(message)
         if (cartonTmdbId != null) _cartonRequests.trySend(cartonTmdbId)
+        if (filmAnnee != null) _ticketRelectures.trySend(filmAnnee)
         stack = listOf(Screen.Home)
     }
 }

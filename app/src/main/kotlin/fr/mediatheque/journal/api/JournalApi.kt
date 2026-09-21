@@ -15,18 +15,19 @@ import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.api.dto.SortiesResponse
 import fr.mediatheque.journal.api.dto.StatsResponse
 import fr.mediatheque.journal.api.dto.User
-import fr.mediatheque.journal.api.dto.AnneeSuivanteResponse
 import fr.mediatheque.journal.api.dto.AnneeVoyageDetailResponse
 import fr.mediatheque.journal.api.dto.CartonFilmResponse
 import fr.mediatheque.journal.api.dto.DemanderVoyageResponse
 import fr.mediatheque.journal.api.dto.PodiumBody
 import fr.mediatheque.journal.api.dto.PodiumResponse
 import fr.mediatheque.journal.api.dto.SallePlusResponse
+import fr.mediatheque.journal.api.dto.TicketUtiliseResponse
 import fr.mediatheque.journal.api.dto.VoyageResponse
+import fr.mediatheque.journal.api.dto.VoyageTicketsResponse
 import kotlinx.serialization.json.JsonObject
 
 /**
- * La seule porte des écrans vers le réseau. Trente-six opérations, celles que
+ * La seule porte des écrans vers le réseau. Trente-huit opérations, celles que
  * l'application consomme ; les chemins n'existent que dans `Endpoints`, et ne
  * s'emploient que depuis `ApiClient`. Toute fonction peut lever `ApiError`.
  *
@@ -127,9 +128,6 @@ interface JournalApi {
      */
     suspend fun voyageAnnee(annee: Int): AnneeVoyageDetailResponse
 
-    /** `POST /me/voyage/annee-suivante` : avance mon année en cours — provisoire, en attendant le ticket (étape 3). */
-    suspend fun voyageAnneeSuivante(): AnneeSuivanteResponse
-
     /** `POST /me/voyage/salles/{salleId}/plus` : « En voir plus » dans une salle — `202` en préparation, `200` épuisée. */
     suspend fun voyageSallePlus(salleId: String): SallePlusResponse
 
@@ -148,6 +146,17 @@ interface JournalApi {
 
     /** `DELETE /me/voyage/annees/{annee}/podium/{place}` : vide la marche. Idempotent, toujours `204`. */
     suspend fun retirerPodium(annee: Int, place: Int)
+
+    // --- Le ticket (brief du 21 septembre 2026, étape 3). ---
+
+    /** `GET /me/voyage/tickets` : mon portefeuille, par année croissante — celle que chaque ticket ouvre. */
+    suspend fun voyageTickets(): VoyageTicketsResponse
+
+    /** `POST /me/voyage/tickets/{annee}/montre` : marque le ticket comme montré. Idempotent, toujours `204`. */
+    suspend fun montrerTicket(annee: Int)
+
+    /** `POST /me/voyage/tickets/{annee}/utiliser` : encaisse le ticket, `annee` devient mon année en cours. */
+    suspend fun utiliserTicket(annee: Int): TicketUtiliseResponse
 }
 
 /**

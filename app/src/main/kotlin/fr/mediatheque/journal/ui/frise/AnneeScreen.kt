@@ -30,7 +30,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
@@ -72,11 +71,13 @@ import fr.mediatheque.journal.ui.theme.TextePapier
 import java.time.LocalDate
 
 /**
- * La fiche d'une année du Voyage (brief du 21 septembre 2026, « l'année en étages » puis « le
- * podium », spec du 19 septembre 2026, §2-§3) : le cartouche kitsch (ouverture repliée, faits),
- * **le podium** — trois photogrammes sur un bout de pellicule, entre le cartouche et les salles —
- * puis une salle par bloc — titre, raison d'être, étagère horizontale d'affiches — jusqu'à « Année
- * suivante », provisoire, sur l'année en cours seulement.
+ * La fiche d'une année du Voyage (brief du 21 septembre 2026, « l'année en étages », « le podium »,
+ * puis « le ticket », spec du 19 septembre 2026, §2-§3, §5) : le cartouche kitsch (ouverture
+ * repliée, faits), **le podium** — trois photogrammes sur un bout de pellicule, entre le cartouche
+ * et les salles — puis une salle par bloc — titre, raison d'être, étagère horizontale d'affiches —
+ * jusqu'à la ligne du bas, sur l'année en cours seulement : le ticket qui attend, ou le verdict de
+ * maturité, ou rien (`LigneBasAnneeEnCours`) — le bouton provisoire « Année suivante » a disparu
+ * avec elle.
  *
  * Remplace entièrement l'écran « essentiels » du 16 septembre 2026 : plus de grille de vus ou
  * d'à-voir à part, les salles portent déjà tous les films de l'année. `annee` (le fragment du
@@ -90,7 +91,7 @@ fun AnneeScreen(
     vm: AnneeViewModel,
     onBack: () -> Unit,
     onOpenFilm: (salleId: String, filmId: String) -> Unit,
-    onAnneeSuivante: () -> Unit,
+    onTicketChange: () -> Unit,
     onPodiumChange: () -> Unit,
 ) {
     val ui by vm.ui.collectAsState()
@@ -158,20 +159,34 @@ fun AnneeScreen(
             }
 
             if (ui.statutVoyage == StatutAnneeVoyage.EN_COURS) {
-                item {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        OutlinedButton(onClick = { vm.anneeSuivante(onAnneeSuivante) }, modifier = Modifier.fillMaxWidth()) {
-                            Text("Année suivante")
-                        }
-                        Text(
-                            "provisoire, en attendant le ticket",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
+                item { LigneBasAnneeEnCours(ligneBasAnnee(ui.ticket, ui.maturite), onUtiliserTicket = { vm.utiliserTicket(onTicketChange) }) }
             }
         }
+    }
+}
+
+/**
+ * La ligne du bas de la fiche d'année en cours (décision 4 du brief du 21 septembre 2026, « le
+ * ticket »), à la place de l'ancien bouton provisoire « Année suivante » : le ticket non utilisé
+ * prime sur le verdict de maturité (`ligneBasAnnee`), rien sur la carte dans tous les autres cas.
+ */
+@Composable
+private fun LigneBasAnneeEnCours(ligne: LigneBasAnnee, onUtiliserTicket: () -> Unit) {
+    when (ligne) {
+        is LigneBasAnnee.TicketEnAttente -> Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text("Ton ticket pour ${ligne.anneeSuivante} t’attend", style = MaterialTheme.typography.bodyMedium)
+            TextButton(onClick = onUtiliserTicket) { Text("Utiliser") }
+        }
+        is LigneBasAnnee.PasEncoreMure -> Text(
+            "Pas encore mûre : ${ligne.motif}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        LigneBasAnnee.Rien -> {}
     }
 }
 

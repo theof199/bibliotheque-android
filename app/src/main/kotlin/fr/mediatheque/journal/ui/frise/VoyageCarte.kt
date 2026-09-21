@@ -99,3 +99,19 @@ data class TamponDecennie(
  */
 @Suppress("UNUSED_PARAMETER")
 fun tamponsPasseport(voyage: VoyageUi, journal: List<JournalItem>): List<TamponDecennie> = emptyList()
+
+/**
+ * Un ticket du portefeuille (décision 3 du brief du 21 septembre 2026, « le ticket »), tel que
+ * `PortefeuilleViewModel` (`ui/profile/`) le range depuis `GET /me/voyage/tickets` — `utiliseLe`
+ * nul tant qu'il dort.
+ */
+data class TicketPortefeuilleUi(val annee: Int, val motif: String, val utiliseLe: String?)
+
+/**
+ * Le tri du portefeuille (décision 3) : les tickets non utilisés d'abord (par année, l'ordre du
+ * Voyage), puis les compostés en dessous, par date d'utilisation — fonction pure, testée en JVM.
+ */
+fun trierPortefeuille(tickets: List<TicketPortefeuilleUi>): List<TicketPortefeuilleUi> {
+    val (utilises, enAttente) = tickets.partition { it.utiliseLe != null }
+    return enAttente.sortedBy { it.annee } + utilises.sortedBy { it.utiliseLe }
+}

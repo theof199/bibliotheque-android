@@ -8,9 +8,11 @@ import fr.mediatheque.journal.api.dto.AnneeVoyage
 import fr.mediatheque.journal.api.dto.AnneeVoyageDetailResponse
 import fr.mediatheque.journal.api.dto.BobineVoyage
 import fr.mediatheque.journal.api.dto.FilmSalleVoyage
+import fr.mediatheque.journal.api.dto.MaturiteVoyage
 import fr.mediatheque.journal.api.dto.PodiumMarcheVoyage
 import fr.mediatheque.journal.api.dto.ProgrammeVoyage
 import fr.mediatheque.journal.api.dto.SalleVoyage
+import fr.mediatheque.journal.api.dto.TicketAnneeVoyage
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -22,13 +24,15 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * Le Voyage, page d'année (brief du 21 septembre 2026, « l'année en étages » puis « le podium ») :
- * la chronique de l'année (ouverture, faits), ses salles et son podium, chacun avec ses films et mon
- * état sur chacun, depuis `GET /me/voyage/annees/{annee}`.
+ * Le Voyage, page d'année (brief du 21 septembre 2026, « l'année en étages », « le podium », puis
+ * « le ticket ») : la chronique de l'année (ouverture, faits), ses salles, son podium et le ticket
+ * qu'elle a pu gagner vers l'année suivante, chacun avec ses films et mon état sur chacun, depuis
+ * `GET /me/voyage/annees/{annee}`.
  *
- * Remplace entièrement le modèle « essentiels » du 16 septembre 2026 — plus de frontière, plus de
- * ticket (étape 3) : une année ouverte se creuse en salles, sans jamais être « finie ». Le podium
- * (étape 2), lui, s'écrit et se retire d'ici (`poserPodium`, `retirerPodium`). `Screen.FicheVoyage`
+ * Remplace entièrement le modèle « essentiels » du 16 septembre 2026 — plus de frontière : une
+ * année ouverte se creuse en salles, sans jamais être « finie ». Le podium (étape 2), lui, s'écrit
+ * et se retire d'ici (`poserPodium`, `retirerPodium`) ; le ticket (étape 3, `utiliserTicket`) a
+ * remplacé le bouton provisoire « Année suivante ». `Screen.FicheVoyage`
  * lit ce même `ViewModel` (indexé sur l'année, `Root.kt`) pour la fiche d'un film ou d'une bobine,
  * plutôt que d'en recharger une copie.
  */
@@ -75,6 +79,32 @@ data class SalleUi(
 /** Une marche du podium, occupée (brief du 21 septembre 2026, « le podium ») — `null` dans `AnneeUi.podium` pour une marche vide. */
 data class PodiumMarcheUi(val place: Int, val tmdbId: Int?, val programmeId: String?, val title: String, val coverUrl: String?)
 
+/** Le dernier jugement du chroniqueur sur cette année (décision 4 du brief du 21 septembre 2026, « le ticket »). */
+data class MaturiteUi(val mure: Boolean, val motif: String)
+
+/** Le ticket vers l'année suivante, s'il a été gagné (décision 4) — `utilise` dit s'il l'a déjà été encaissé. */
+data class TicketAnneeUi(val annee: Int, val utilise: Boolean)
+
+/**
+ * La ligne du bas de la fiche d'année (décision 4 du brief du 21 septembre 2026, « le ticket »),
+ * à la place du bouton provisoire « Année suivante » : le ticket non utilisé prime sur le verdict
+ * de maturité — fonction pure, testée en JVM.
+ */
+sealed interface LigneBasAnnee {
+    /** « Ton ticket pour *anneeSuivante* t'attend », avec un bouton « Utiliser ». */
+    data class TicketEnAttente(val anneeSuivante: Int) : LigneBasAnnee
+    /** « Pas encore mûre : *motif* », sans bouton. */
+    data class PasEncoreMure(val motif: String) : LigneBasAnnee
+    /** Rien : ticket déjà utilisé, ou verdict positif sans ticket émis pour l'instant. */
+    data object Rien : LigneBasAnnee
+}
+
+fun ligneBasAnnee(ticket: TicketAnneeUi?, maturite: MaturiteUi?): LigneBasAnnee = when {
+    ticket != null && !ticket.utilise -> LigneBasAnnee.TicketEnAttente(ticket.annee)
+    maturite != null && !maturite.mure -> LigneBasAnnee.PasEncoreMure(maturite.motif)
+    else -> LigneBasAnnee.Rien
+}
+
 /** L'état d'une année en détail — jumeau d'`EtatChronique`, avec `VERROUILLEE` en plus (§2 du brief). */
 enum class EtatAnnee { PRETE, EN_PREPARATION, VERROUILLEE, ABANDON, NON_CONFIGURE }
 
@@ -91,6 +121,10 @@ data class AnneeUi(
     val salles: List<SalleUi> = emptyList(),
     /** Les trois marches, dans l'ordre — chacune nulle si vide (brief du 21 septembre 2026, « le podium »). */
     val podium: List<PodiumMarcheUi?> = List(3) { null },
+    /** Le dernier jugement de maturité (décision 4 du brief du 21 septembre 2026, « le ticket ») — nul tant qu'aucun film de l'année n'a encore été noté. */
+    val maturite: MaturiteUi? = null,
+    /** Le ticket vers l'année suivante, s'il a été gagné (décision 4) — nul sinon. */
+    val ticket: TicketAnneeUi? = null,
 ) {
     /** La récompense de l'année — nulle à cette étape, le back n'en sert aucune (`VoyageCarte.kt`). */
     val recompenseObtenue: Recompense? get() = null
@@ -115,6 +149,8 @@ private fun FilmSalleVoyage.versUi() = FilmSalleUi(
 )
 private fun SalleVoyage.versUi() = SalleUi(id, rang, nom, raison_d_etre, cle, epuisee, fournee_en_cours, films.map { it.versUi() })
 private fun PodiumMarcheVoyage.versUi() = PodiumMarcheUi(place, tmdb_id, programme_id, title, cover_url)
+private fun MaturiteVoyage.versUi() = MaturiteUi(mure, motif)
+private fun TicketAnneeVoyage.versUi() = TicketAnneeUi(annee, utilise = utilise_le != null)
 
 /** Toujours trois marches, une entrée nulle pour chacune que le back ne sert pas (encore vide, ou réponse plus courte). */
 private fun List<PodiumMarcheVoyage?>.versPodiumUi(): List<PodiumMarcheUi?> = (0..2).map { i -> getOrNull(i)?.versUi() }
@@ -209,6 +245,8 @@ class AnneeViewModel(
                 faits = reponse.faits.ifEmpty { it.faits },
                 salles = if (etat == EtatAnnee.PRETE) reponse.salles.sortedBy { s -> s.rang }.map { s -> s.versUi() } else it.salles,
                 podium = if (etat == EtatAnnee.PRETE) reponse.podium.versPodiumUi() else it.podium,
+                maturite = if (etat == EtatAnnee.PRETE) reponse.maturite?.versUi() else it.maturite,
+                ticket = if (etat == EtatAnnee.PRETE) reponse.ticket?.versUi() else it.ticket,
             )
         }
     }
@@ -309,19 +347,27 @@ class AnneeViewModel(
         }
     }
 
-    /** Le bouton provisoire « Année suivante », visible seulement sur l'année en cours (spec §8, étape 1). */
-    fun anneeSuivante(onAvancee: () -> Unit) {
+    /**
+     * « Utiliser » sur la ligne du bas de la fiche (décision 4 du brief du 21 septembre 2026,
+     * « le ticket »), à la place du bouton provisoire « Année suivante » qu'il remplace : encaisse
+     * le ticket vers l'année suivante — `ui.ticket.annee`, jamais `annee + 1` recalculé ici, pour
+     * rester juste si le back a défini le ticket autrement un jour. Sans ticket en attente, ne
+     * fait rien (le bouton n'est de toute façon rendu qu'à cette condition).
+     */
+    fun utiliserTicket(onEcrit: () -> Unit) {
+        val ticket = _ui.value.ticket ?: return
+        if (ticket.utilise) return
         viewModelScope.launch {
             try {
-                api.voyageAnneeSuivante()
+                api.utiliserTicket(ticket.annee)
             } catch (e: ApiError) {
                 if (e.isUnauthenticated) onUnauthenticated() else _messages.trySend(e.message ?: "Impossible pour l’instant")
                 return@launch
             }
-            // Optimiste : cette année n'est plus « en cours » une fois l'avance réussie — sans
-            // attendre un rechargement, sans quoi le bouton resterait affiché une frame de trop.
-            _ui.update { it.copy(statutVoyage = StatutAnneeVoyage.OUVERTE) }
-            onAvancee()
+            // Optimiste, comme l'ancien bouton provisoire : cette année n'est plus « en cours »
+            // une fois le ticket encaissé, sans attendre un rechargement.
+            _ui.update { it.copy(statutVoyage = StatutAnneeVoyage.OUVERTE, ticket = it.ticket?.copy(utilise = true)) }
+            onEcrit()
         }
     }
 

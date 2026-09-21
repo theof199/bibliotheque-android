@@ -61,6 +61,26 @@ class FormViewModelTest {
         assertEquals("Enregistré", vm.ui.value.done)
     }
 
+    // Le ticket (brief du 21 septembre 2026, « le ticket ») : l'année de sortie du film créé passe
+    // par `doneFilmAnnee`, jumeau de `doneCartonTmdbId` — c'est `Navigator.home` qui la relaie
+    // ensuite à `FriseViewModel.relireApresCreation`.
+    @Test
+    fun `une creation porte l'annee du film dans doneFilmAnnee`() {
+        val vm = create()
+        vm.save()
+        assertEquals(2001, vm.ui.value.doneFilmAnnee)
+    }
+
+    // Mutation : passer `cartonTmdbId` (ou toute autre valeur) à la place de `null` ici ferait
+    // relire un ticket après chaque correction, alors qu'un visionnage déjà journalisé ne peut
+    // pas en faire naître un nouveau.
+    @Test
+    fun `une correction ne porte jamais d'annee de film`() {
+        val vm = edit()
+        vm.save()
+        assertEquals(null, vm.ui.value.doneFilmAnnee)
+    }
+
     // Correctif du 16 septembre 2026 : `reactions` part désormais nulle, comme
     // `rating` et `comment`, plutôt qu'en liste vide — le POST omet alors la
     // clé au lieu d'écraser un carnet déjà écrit ce jour-là.

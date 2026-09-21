@@ -23,6 +23,12 @@ fun statutAnneeVoyage(brut: String?): StatutAnneeVoyage? = when (brut) {
     else -> null
 }
 
+/**
+ * Le ticket qu'on n'a pas encore montré (brief du 21 septembre 2026, « le ticket ») : ce que le
+ * calque de `Root.kt` affiche — `emis_le` n'a pas sa place ici, rien ne s'en sert à l'écran.
+ */
+data class TicketAMontrerUi(val annee: Int, val motif: String)
+
 /** Ma progression, mise en forme pour l'écran — `VoyageResponse.toVoyageUi()` plus bas. */
 data class VoyageUi(
     val configure: Boolean = false,
@@ -30,6 +36,8 @@ data class VoyageUi(
     val depart: Int = 1895,
     val anneeEnCours: Int = 1895,
     val parAnnee: Map<Int, AnneeVoyage> = emptyMap(),
+    /** Non nul une seule fois, tant que je ne l'ai pas montré (brief du 21 septembre 2026, « le ticket »). */
+    val ticketAMontrer: TicketAMontrerUi? = null,
 )
 
 fun VoyageResponse.toVoyageUi(): VoyageUi = VoyageUi(
@@ -37,6 +45,7 @@ fun VoyageResponse.toVoyageUi(): VoyageUi = VoyageUi(
     depart = depart,
     anneeEnCours = annee_en_cours,
     parAnnee = annees.associateBy { it.annee },
+    ticketAMontrer = ticket_a_montrer?.let { TicketAMontrerUi(it.annee, it.motif) },
 )
 
 /** Le statut d'une année précise, tel que la carte et `Screen.Decennie` le colorent. */
@@ -99,4 +108,33 @@ fun etatFourneeSuivant(
 
     val essais = essaisPrecedents + 1
     return if (essais >= plafond) EtatFournee.ABANDON to essais else EtatFournee.EN_COURS to essais
+}
+
+/**
+ * La relecture après un enregistrement réussi (décision 2 du brief du 21 septembre 2026, « le
+ * ticket ») : seul un film de l'année en cours peut avoir fait mûrir un ticket cette fois-ci — un
+ * film d'une année déjà creusée, ou pas encore ouverte, n'a aucune chance d'en avoir gagné un.
+ * `anneeFilm` nul (année inconnue) ne relit jamais non plus.
+ */
+fun doitRelireApresCreation(anneeFilm: Int?, anneeEnCours: Int): Boolean = anneeFilm == anneeEnCours
+
+/** Le plafond de la relecture du ticket : douze essais à cinq secondes l'un, une minute au plus. */
+const val TICKET_RELECTURE_ESSAIS_MAX = 12
+
+enum class EtatRelectureTicket { EN_COURS, TROUVE, ABANDON }
+
+/**
+ * Décide l'état suivant de la relecture d'un ticket après un enregistrement (décision 2 du brief
+ * du 21 septembre 2026) : s'arrête dès qu'il est là, abandon au plafond sinon — jumeau
+ * d'`etatFourneeSuivant`.
+ */
+fun etatRelectureTicketSuivant(
+    ticketTrouve: Boolean,
+    essaisPrecedents: Int,
+    plafond: Int = TICKET_RELECTURE_ESSAIS_MAX,
+): Pair<EtatRelectureTicket, Int> {
+    if (ticketTrouve) return EtatRelectureTicket.TROUVE to essaisPrecedents
+
+    val essais = essaisPrecedents + 1
+    return if (essais >= plafond) EtatRelectureTicket.ABANDON to essais else EtatRelectureTicket.EN_COURS to essais
 }

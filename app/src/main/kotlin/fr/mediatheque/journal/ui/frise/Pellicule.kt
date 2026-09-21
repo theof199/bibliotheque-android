@@ -18,7 +18,8 @@ import kotlin.random.Random
  * Le dessin du Voyage (brief du 16 septembre 2026, phase 2) : la pellicule qui serpente, les
  * motifs de fond d'un monde, la marquise d'une décennie et les trois glyphes de festival. Le
  * podium d'une année (21 septembre 2026) reprend cette bande, droite plutôt que serpentine
- * (`bandeDePellicule`).
+ * (`bandeDePellicule`). Le ticket (21 septembre 2026, « le ticket ») reprend les perforations pour
+ * ses propres bords (`bordsPerfores`), et compose un billet utilisé (`barrerTicket`).
  *
  * Tout est vectoriel et dessiné au `Canvas` — aucune image bitmap, aucune ressource de plus. Les
  * fonctions sont des extensions de `DrawScope` : elles ne connaissent ni l'état de l'écran, ni les
@@ -230,6 +231,32 @@ fun DrawScope.glypheRecompense(recompense: Recompense, encre: Color, fond: Color
             }
         }
     }
+}
+
+/**
+ * Les bords perforés d'un ticket de cinéma (décision 2 du brief du 21 septembre 2026, « le
+ * ticket ») : une rangée de petits ronds le long du haut et du bas du papier — le même geste que
+ * les perforations de la pellicule ci-dessus, appliqué à un rectangle plutôt qu'à une courbe.
+ */
+fun DrawScope.bordsPerfores(couleur: Color) {
+    val rayon = 2.2f
+    val pas = 14f
+    var x = pas / 2f
+    while (x < size.width) {
+        drawCircle(couleur, radius = rayon, center = Offset(x, rayon))
+        drawCircle(couleur, radius = rayon, center = Offset(x, size.height - rayon))
+        x += pas
+    }
+}
+
+/** Le trait qui composte un ticket déjà utilisé, dans le portefeuille (décision 3 du brief du 21 septembre 2026). */
+fun DrawScope.barrerTicket(couleur: Color) {
+    drawLine(
+        couleur,
+        Offset(size.width * 0.08f, size.height * 0.85f),
+        Offset(size.width * 0.92f, size.height * 0.15f),
+        strokeWidth = 2.5f,
+    )
 }
 
 /**

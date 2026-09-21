@@ -13,6 +13,7 @@ import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.api.dto.VoyageResponse
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -199,6 +200,9 @@ class FriseViewModel(private val api: JournalApi, private val onUnauthenticated:
     private val _avancees = Channel<FrontiereAvancee>(Channel.BUFFERED)
     val avancees: Flow<FrontiereAvancee> = _avancees.receiveAsFlow()
 
+    /** La relecture du ticket après un enregistrement (décision 2 du brief du 21 septembre 2026), en cours au plus une à la fois. */
+    private var ticketPollJob: Job? = null
+
     // Pas d'`init { refresh() }` (jumeau de `FilmsViewModel`/`AuCineViewModel`) : `Root.kt`
     // déclenche le premier chargement par `LaunchedEffect(Unit)` à l'entrée sur l'écran.
 
@@ -253,5 +257,77 @@ class FriseViewModel(private val api: JournalApi, private val onUnauthenticated:
             detecterFrontiereAvancee(anneeEnCoursPrecedente, voyageUi.anneeEnCours)?.let { _avancees.trySend(it) }
             anneeEnCoursPrecedente = voyageUi.anneeEnCours
         }
+    }
+
+    /**
+     * La relecture après un enregistrement réussi (décision 2 du brief du 21 septembre 2026,
+     * « le ticket ») : seulement si le film vient de l'année en cours (`doitRelireApresCreation`) —
+     * sinon aucun ticket n'a pu naître de cette écriture. Relit `GET /me/voyage` toutes les cinq
+     * secondes, s'arrête dès que `ticket_a_montrer` est là, abandon au bout de douze essais (une
+     * minute au plus). Une seule relecture à la fois : un second film de l'année en cours pendant
+     * qu'une relecture court déjà relance la sienne plutôt que de s'empiler.
+     */
+    fun relireApresCreation(anneeFilm: Int?) {
+        if (!doitRelireApresCreation(anneeFilm, _ui.value.voyage.anneeEnCours)) return
+        ticketPollJob?.cancel()
+        ticketPollJob = viewModelScope.launch {
+            var essais = 0
+            while (true) {
+                delay(TICKET_RELECTURE_INTERVAL_MS)
+                val reponse = try {
+                    api.voyage()
+                } catch (e: ApiError) {
+                    if (e.isUnauthenticated) onUnauthenticated()
+                    return@launch
+                }
+                val ticket = reponse.toVoyageUi().ticketAMontrer
+                if (ticket != null) {
+                    _ui.update { it.copy(voyage = it.voyage.copy(ticketAMontrer = ticket)) }
+                }
+                val (etat, prochainEssai) = etatRelectureTicketSuivant(ticketTrouve = ticket != null, essaisPrecedents = essais)
+                essais = prochainEssai
+                if (etat != EtatRelectureTicket.EN_COURS) return@launch
+            }
+        }
+    }
+
+    /**
+     * « Garder dans le portefeuille » sur le calque du ticket (décision 2) : marque seulement le
+     * ticket comme montré — il ne se remontrera plus — sans l'encaisser.
+     */
+    fun garderTicket(annee: Int) {
+        viewModelScope.launch {
+            try {
+                api.montrerTicket(annee)
+            } catch (e: ApiError) {
+                if (e.isUnauthenticated) onUnauthenticated() else _ui.update { it.copy(error = e) }
+                return@launch
+            }
+            _ui.update { it.copy(voyage = it.voyage.copy(ticketAMontrer = null)) }
+        }
+    }
+
+    /**
+     * « Utiliser maintenant » sur le calque du ticket (décision 2) : encaissé et montré tous les
+     * deux, puis `refresh()` — « Tu es ici » avance et le clap claque par la mécanique existante
+     * (`detecterFrontiereAvancee`).
+     */
+    fun utiliserTicketAMontrer(annee: Int) {
+        viewModelScope.launch {
+            try {
+                api.utiliserTicket(annee)
+                api.montrerTicket(annee)
+            } catch (e: ApiError) {
+                if (e.isUnauthenticated) onUnauthenticated() else _ui.update { it.copy(error = e) }
+                return@launch
+            }
+            _ui.update { it.copy(voyage = it.voyage.copy(ticketAMontrer = null)) }
+            refresh()
+        }
+    }
+
+    companion object {
+        /** La relecture du ticket après un enregistrement (décision 2) : cinq secondes l'essai, comme la chronique d'une année. */
+        const val TICKET_RELECTURE_INTERVAL_MS = 5_000L
     }
 }

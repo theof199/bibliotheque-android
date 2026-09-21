@@ -111,4 +111,25 @@ class VoyageCarteTest {
         assertTrue(tamponsPasseport(voyage, journal).isEmpty())
         assertTrue(tamponsPasseport(VoyageUi(), emptyList()).isEmpty())
     }
+
+    // Le tri du portefeuille (décision 3 du brief du 21 septembre 2026, « le ticket ») : les non
+    // utilisés d'abord (par année), les compostés ensuite (par date d'utilisation). Mutation :
+    // inverser les deux groupes, ou trier les compostés par année plutôt que par date, ferait
+    // remonter un vieux ticket composté devant un ticket qui attend encore.
+    @Test
+    fun `trierPortefeuille met les non utilises d'abord, par annee, puis les compostes par date`() {
+        val nonUtilise1943 = TicketPortefeuilleUi(1943, "Motif 1943", utiliseLe = null)
+        val nonUtilise1942 = TicketPortefeuilleUi(1942, "Motif 1942", utiliseLe = null)
+        val composteRecent = TicketPortefeuilleUi(1938, "Motif 1938", utiliseLe = "2026-09-10T10:00:00.000Z")
+        val composteAncien = TicketPortefeuilleUi(1935, "Motif 1935", utiliseLe = "2026-06-04T10:00:00.000Z")
+
+        val tries = trierPortefeuille(listOf(composteRecent, nonUtilise1943, composteAncien, nonUtilise1942))
+
+        assertEquals(listOf(nonUtilise1942, nonUtilise1943, composteAncien, composteRecent), tries)
+    }
+
+    @Test
+    fun `trierPortefeuille sur une liste vide reste vide`() {
+        assertTrue(trierPortefeuille(emptyList()).isEmpty())
+    }
 }

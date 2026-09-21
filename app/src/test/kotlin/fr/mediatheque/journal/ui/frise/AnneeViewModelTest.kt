@@ -3,15 +3,17 @@ package fr.mediatheque.journal.ui.frise
 import fr.mediatheque.journal.FakeJournalApi
 import fr.mediatheque.journal.MainDispatcherRule
 import fr.mediatheque.journal.api.ApiError
-import fr.mediatheque.journal.api.dto.AnneeSuivanteResponse
 import fr.mediatheque.journal.api.dto.AnneeVoyage
 import fr.mediatheque.journal.api.dto.AnneeVoyageDetailResponse
 import fr.mediatheque.journal.api.dto.DemanderVoyageResponse
 import fr.mediatheque.journal.api.dto.FilmSalleVoyage
+import fr.mediatheque.journal.api.dto.MaturiteVoyage
 import fr.mediatheque.journal.api.dto.PodiumMarcheVoyage
 import fr.mediatheque.journal.api.dto.PodiumResponse
 import fr.mediatheque.journal.api.dto.SalleVoyage
 import fr.mediatheque.journal.api.dto.SallePlusResponse
+import fr.mediatheque.journal.api.dto.TicketAnneeVoyage
+import fr.mediatheque.journal.api.dto.TicketUtiliseResponse
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -25,10 +27,11 @@ import org.junit.Rule
 import org.junit.Test
 
 /**
- * La page d'année du Voyage (brief du 21 septembre 2026, « l'année en étages ») : l'état initial
- * repris du fragment déjà chargé par `FriseViewModel`, la relecture de la chronique (première
- * visite, abandon, verrouillée), « En voir plus » sur une salle, la demande sur Seerr et le
- * marquage « introuvable », « Année suivante ».
+ * La page d'année du Voyage (brief du 21 septembre 2026, « l'année en étages », « le podium »,
+ * puis « le ticket ») : l'état initial repris du fragment déjà chargé par `FriseViewModel`, la
+ * relecture de la chronique (première visite, abandon, verrouillée), « En voir plus » sur une
+ * salle, la demande sur Seerr, le marquage « introuvable », le podium, et `utiliserTicket` — qui a
+ * remplacé le bouton provisoire « Année suivante ».
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class AnneeViewModelTest {
@@ -247,31 +250,59 @@ class AnneeViewModelTest {
         assertEquals(listOf(500, 501), vm.ui.value.salles.first().films.map { it.tmdbId })
     }
 
+    // Le ticket (décision 4 du brief du 21 septembre 2026) a remplacé « Année suivante » : encaisse
+    // le ticket que `ui.ticket` porte déjà (pas `annee + 1` recalculé), pas celui d'une autre
+    // année passée en paramètre — `utiliserTicket` ne prend d'ailleurs plus aucun paramètre.
     @Test
-    fun `anneeSuivante reussit, passe l'annee ouverte et appelle le rappel`() = runTest(dispatcher) {
-        api.onVoyageAnneeSuivante = { AnneeSuivanteResponse(annee_en_cours = 1942) }
+    fun `utiliserTicket reussit, passe l'annee ouverte, marque le ticket utilise et appelle le rappel`() = runTest(dispatcher) {
+        api.onVoyageAnnee = { prete(salle("s1")).copy(ticket = TicketAnneeVoyage(1942, "2026-09-21T10:00:00.000Z")) }
+        api.onUtiliserTicket = { TicketUtiliseResponse(annee_en_cours = 1942) }
         val vm = AnneeViewModel(api, 1941, AnneeVoyage(1941, "en_cours", visitee = true)) {}
+        vm.relire()
+        runCurrent()
 
         var rappelee = false
-        vm.anneeSuivante { rappelee = true }
+        vm.utiliserTicket { rappelee = true }
         runCurrent()
 
         assertEquals(StatutAnneeVoyage.OUVERTE, vm.ui.value.statutVoyage)
+        assertEquals(true, vm.ui.value.ticket?.utilise)
         assertTrue(rappelee)
-        assertEquals(listOf("voyageAnneeSuivante"), api.calls.filter { it == "voyageAnneeSuivante" })
+        assertEquals(listOf("utiliserTicket 1942"), api.calls.filter { it.startsWith("utiliserTicket") })
     }
 
     @Test
-    fun `anneeSuivante en echec n'appelle pas le rappel`() = runTest(dispatcher) {
-        api.onVoyageAnneeSuivante = { throw ApiError("HTTP_500", "Erreur imprevue.", retryable = true, status = 500) }
+    fun `utiliserTicket en echec n'appelle pas le rappel, ni ne marque le ticket utilise`() = runTest(dispatcher) {
+        api.onVoyageAnnee = { prete(salle("s1")).copy(ticket = TicketAnneeVoyage(1942, "2026-09-21T10:00:00.000Z")) }
+        api.onUtiliserTicket = { throw ApiError("HTTP_500", "Erreur imprevue.", retryable = true, status = 500) }
         val vm = AnneeViewModel(api, 1941, AnneeVoyage(1941, "en_cours", visitee = true)) {}
+        vm.relire()
+        runCurrent()
 
         var rappelee = false
-        vm.anneeSuivante { rappelee = true }
+        vm.utiliserTicket { rappelee = true }
         runCurrent()
 
         assertFalse(rappelee)
         assertEquals(StatutAnneeVoyage.EN_COURS, vm.ui.value.statutVoyage)
+        assertEquals(false, vm.ui.value.ticket?.utilise)
+    }
+
+    // Mutation : ne pas garder ce garde-fou ferait appeler `POST .../utiliser` une seconde fois
+    // sur un ticket déjà encaissé, si la ligne du bas restait visible une frame de trop.
+    @Test
+    fun `utiliserTicket sans ticket en attente ne fait rien`() = runTest(dispatcher) {
+        api.onVoyageAnnee = { prete(salle("s1")) }
+        val vm = AnneeViewModel(api, 1941, AnneeVoyage(1941, "en_cours", visitee = true)) {}
+        vm.relire()
+        runCurrent()
+
+        var rappelee = false
+        vm.utiliserTicket { rappelee = true }
+        runCurrent()
+
+        assertFalse(rappelee)
+        assertEquals(emptyList<String>(), api.calls.filter { it.startsWith("utiliserTicket") })
     }
 
     // Le `PUT` répond déjà le podium complet, mais `poserPodium` relit l'année entière plutôt que
@@ -340,5 +371,38 @@ class AnneeViewModelTest {
         assertNull(vm.ui.value.podium[0])
         assertTrue(rappelee)
         assertEquals(listOf("retirerPodium 1941 1"), api.calls.filter { it.startsWith("retirerPodium") })
+    }
+
+    // La ligne du bas de la fiche d'année (décision 4 du brief du 21 septembre 2026, « le ticket »),
+    // fonction pure : le ticket non utilisé prime sur le verdict de maturité.
+    @Test
+    fun `ligneBasAnnee montre le ticket qui attend quand il n'est pas encore utilise`() {
+        val ligne = ligneBasAnnee(TicketAnneeUi(1942, utilise = false), MaturiteUi(mure = true, motif = "Peu importe"))
+        assertEquals(LigneBasAnnee.TicketEnAttente(1942), ligne)
+    }
+
+    // Mutation : ne pas exclure un ticket déjà utilisé ferait réafficher « t'attend » pour
+    // toujours, même après que la ligne aurait dû retomber à rien.
+    @Test
+    fun `ligneBasAnnee ne montre rien quand le ticket est deja utilise`() {
+        val ligne = ligneBasAnnee(TicketAnneeUi(1942, utilise = true), null)
+        assertEquals(LigneBasAnnee.Rien, ligne)
+    }
+
+    @Test
+    fun `ligneBasAnnee montre le verdict negatif sans ticket`() {
+        val ligne = ligneBasAnnee(null, MaturiteUi(mure = false, motif = "Il reste des essentiels a voir"))
+        assertEquals(LigneBasAnnee.PasEncoreMure("Il reste des essentiels a voir"), ligne)
+    }
+
+    @Test
+    fun `ligneBasAnnee ne montre rien pour un verdict positif sans ticket encore emis`() {
+        val ligne = ligneBasAnnee(null, MaturiteUi(mure = true, motif = "Peu importe"))
+        assertEquals(LigneBasAnnee.Rien, ligne)
+    }
+
+    @Test
+    fun `ligneBasAnnee ne montre rien sans ticket ni maturite`() {
+        assertEquals(LigneBasAnnee.Rien, ligneBasAnnee(null, null))
     }
 }

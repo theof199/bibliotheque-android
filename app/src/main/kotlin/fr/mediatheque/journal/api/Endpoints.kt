@@ -47,10 +47,10 @@ object Endpoints {
     fun filmDeSaga(tmdbId: Int, filmId: Int): String = "${filmsDeSaga(tmdbId)}/$filmId"
 
     // --- Le Voyage. Brief du 16 septembre 2026 (« le moteur »), réécrit pour celui du 21 septembre
-    // 2026 (« l'année en étages ») : `chroniqueAnnee` a disparu, remplacée par `voyageAnnee`. ---
+    // 2026 (« l'année en étages ») : `chroniqueAnnee` a disparu, remplacée par `voyageAnnee`.
+    // `voyageAnneeSuivante` a disparu le même jour, « le ticket » (étape 3) le remplaçant. ---
 
     const val voyage = "me/voyage"
-    const val voyageAnneeSuivante = "me/voyage/annee-suivante"
     fun voyageAnnee(annee: Int): String = "me/voyage/annees/$annee"
     fun voyageSallePlus(salleId: String): String = "me/voyage/salles/$salleId/plus"
     fun chroniqueFilm(tmdbId: Int): String = "reference/chroniques/films/$tmdbId"
@@ -58,4 +58,10 @@ object Endpoints {
 
     /** `PUT`/`DELETE /me/voyage/annees/{annee}/podium/{place}` (brief du 21 septembre 2026, « le podium »). */
     fun voyagePodium(annee: Int, place: Int): String = "${voyageAnnee(annee)}/podium/$place"
+
+    // --- Le ticket (brief du 21 septembre 2026, étape 3). ---
+
+    const val voyageTickets = "me/voyage/tickets"
+    fun voyageTicketMontre(annee: Int): String = "$voyageTickets/$annee/montre"
+    fun voyageTicketUtiliser(annee: Int): String = "$voyageTickets/$annee/utiliser"
 }

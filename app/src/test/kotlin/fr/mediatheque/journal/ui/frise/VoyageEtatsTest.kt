@@ -1,9 +1,12 @@
 package fr.mediatheque.journal.ui.frise
 
 import fr.mediatheque.journal.api.dto.AnneeVoyage
+import fr.mediatheque.journal.api.dto.TicketAMontrerVoyage
 import fr.mediatheque.journal.api.dto.VoyageResponse
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -43,6 +46,26 @@ class VoyageEtatsTest {
         assertEquals(StatutAnneeVoyage.EN_COURS, statutVoyage(1941, ui))
         // Une année absente de la réponse : ni ouverte, ni en cours, ni verrouillée — inconnue.
         assertNull(statutVoyage(1942, ui))
+    }
+
+    // Le ticket (brief du 21 septembre 2026, « le ticket ») : `ticket_a_montrer` se lit, ou reste
+    // nul, sans rien perdre du reste de la réponse.
+    @Test
+    fun `toVoyageUi lit le ticket a montrer quand il est present`() {
+        val reponse = VoyageResponse(
+            configure = true,
+            annee_en_cours = 1942,
+            ticket_a_montrer = TicketAMontrerVoyage(1942, "Les essentiels de 1941 sont vus.", "2026-09-21T10:00:00.000Z"),
+        )
+        val ui = reponse.toVoyageUi()
+
+        assertEquals(TicketAMontrerUi(1942, "Les essentiels de 1941 sont vus."), ui.ticketAMontrer)
+    }
+
+    @Test
+    fun `toVoyageUi sans ticket a montrer reste nul`() {
+        val ui = VoyageResponse(configure = true).toVoyageUi()
+        assertNull(ui.ticketAMontrer)
     }
 
     @Test
@@ -103,5 +126,43 @@ class VoyageEtatsTest {
         val dixieme = etatFourneeSuivant(fourneeEnCours = true, essaisPrecedents = essais, plafond = 10)
         assertEquals(EtatFournee.ABANDON, dixieme.first)
         assertEquals(10, dixieme.second)
+    }
+
+    // La relecture après un enregistrement (décision 2 du brief du 21 septembre 2026, « le
+    // ticket ») : seul un film de l'année en cours peut avoir fait naître un ticket.
+    @Test
+    fun `doitRelireApresCreation seulement quand le film est de l'annee en cours`() {
+        assertTrue(doitRelireApresCreation(anneeFilm = 1942, anneeEnCours = 1942))
+        assertFalse(doitRelireApresCreation(anneeFilm = 1941, anneeEnCours = 1942))
+        assertFalse(doitRelireApresCreation(anneeFilm = 1943, anneeEnCours = 1942))
+        // Mutation : traiter une année de film inconnue comme « l'année en cours » relirait après
+        // chaque film sans année, quelle que soit sa vraie date.
+        assertFalse(doitRelireApresCreation(anneeFilm = null, anneeEnCours = 1942))
+    }
+
+    @Test
+    fun `etatRelectureTicketSuivant s'arrete des que le ticket est trouve, sans compter d'essai de plus`() {
+        val (etat, essais) = etatRelectureTicketSuivant(ticketTrouve = true, essaisPrecedents = 4)
+        assertEquals(EtatRelectureTicket.TROUVE, etat)
+        assertEquals(4, essais)
+    }
+
+    @Test
+    fun `etatRelectureTicketSuivant compte les essais jusqu'a l'abandon au douzieme`() {
+        var essais = 0
+        var etat = EtatRelectureTicket.EN_COURS
+        repeat(11) {
+            val resultat = etatRelectureTicketSuivant(ticketTrouve = false, essaisPrecedents = essais)
+            etat = resultat.first
+            essais = resultat.second
+            assertEquals("essai $essais", EtatRelectureTicket.EN_COURS, etat)
+        }
+        assertEquals(11, essais)
+
+        // Le douzième essai, et pas avant (mutation : `essais > TICKET_RELECTURE_ESSAIS_MAX` au
+        // lieu de `>=` ferait attendre un treizième essai avant l'abandon — plus d'une minute).
+        val douzieme = etatRelectureTicketSuivant(ticketTrouve = false, essaisPrecedents = essais)
+        assertEquals(EtatRelectureTicket.ABANDON, douzieme.first)
+        assertEquals(TICKET_RELECTURE_ESSAIS_MAX, douzieme.second)
     }
 }

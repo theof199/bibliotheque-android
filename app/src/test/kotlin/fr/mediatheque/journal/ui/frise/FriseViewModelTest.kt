@@ -5,6 +5,8 @@ import fr.mediatheque.journal.MainDispatcherRule
 import fr.mediatheque.journal.api.dto.JournalResponse
 import fr.mediatheque.journal.api.dto.PlexFilm
 import fr.mediatheque.journal.api.dto.PlexResponse
+import fr.mediatheque.journal.api.dto.TicketAMontrerVoyage
+import fr.mediatheque.journal.api.dto.VoyageResponse
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -118,5 +120,111 @@ class FriseViewModelTest {
         testScheduler.advanceUntilIdle()
         assertEquals(1, expire)
         assertNull(vm.ui.value.error)
+    }
+
+    // Le ticket (décision 2 du brief du 21 septembre 2026, « le ticket »).
+
+    @Test
+    fun `relireApresCreation ne relit rien quand le film n'est pas de l'annee en cours`() = runTest(dispatcher) {
+        api.onJournal = { page() }
+        api.onVoyage = { VoyageResponse(configure = true, annee_en_cours = 1942) }
+        val vm = FriseViewModel(api) { expire++ }
+        vm.refresh()
+        testScheduler.advanceUntilIdle()
+        val appelsAvant = api.calls.count { it == "voyage" }
+
+        vm.relireApresCreation(1941)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(appelsAvant, api.calls.count { it == "voyage" })
+        assertNull(vm.ui.value.voyage.ticketAMontrer)
+    }
+
+    // Relit toutes les cinq secondes jusqu'à ce que `ticket_a_montrer` soit là — ici au troisième
+    // essai — et s'arrête net : un essai de plus après l'avoir trouvé prouverait qu'elle continue
+    // à tort.
+    @Test
+    fun `relireApresCreation relit jusqu'a trouver le ticket, puis s'arrete`() = runTest(dispatcher) {
+        api.onJournal = { page() }
+        api.onVoyage = { VoyageResponse(configure = true, annee_en_cours = 1942) }
+        val vm = FriseViewModel(api) { expire++ }
+        vm.refresh()
+        testScheduler.advanceUntilIdle()
+
+        // Le compte repart de zéro ici, après le chargement initial : seules les relectures qui
+        // suivent `relireApresCreation` comptent, pas l'appel de `refresh()` ci-dessus.
+        var relectures = 0
+        api.onVoyage = {
+            relectures++
+            if (relectures < 3) {
+                VoyageResponse(configure = true, annee_en_cours = 1942)
+            } else {
+                VoyageResponse(
+                    configure = true,
+                    annee_en_cours = 1942,
+                    ticket_a_montrer = TicketAMontrerVoyage(1943, "Un motif.", "2026-09-21T10:00:00.000Z"),
+                )
+            }
+        }
+
+        vm.relireApresCreation(1942)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(TicketAMontrerUi(1943, "Un motif."), vm.ui.value.voyage.ticketAMontrer)
+        // Deux relectures « rien encore », une troisième qui trouve le ticket, puis plus rien.
+        assertEquals(3, relectures)
+    }
+
+    @Test
+    fun `garderTicket montre le ticket puis le calque se ferme, sans l'encaisser`() = runTest(dispatcher) {
+        api.onJournal = { page() }
+        api.onVoyage = {
+            VoyageResponse(
+                configure = true,
+                annee_en_cours = 1942,
+                ticket_a_montrer = TicketAMontrerVoyage(1943, "Un motif.", "2026-09-21T10:00:00.000Z"),
+            )
+        }
+        val vm = FriseViewModel(api) { expire++ }
+        vm.refresh()
+        testScheduler.advanceUntilIdle()
+        assertEquals(1943, vm.ui.value.voyage.ticketAMontrer?.annee)
+
+        vm.garderTicket(1943)
+        testScheduler.advanceUntilIdle()
+
+        assertNull(vm.ui.value.voyage.ticketAMontrer)
+        assertEquals(listOf("montrerTicket 1943"), api.calls.filter { it.startsWith("montrerTicket") })
+        assertEquals(emptyList<String>(), api.calls.filter { it.startsWith("utiliserTicket") })
+    }
+
+    @Test
+    fun `utiliserTicketAMontrer encaisse et montre le ticket, puis rafraichit`() = runTest(dispatcher) {
+        api.onJournal = { page() }
+        // Comme le ferait le vrai back : `ticket_a_montrer` retombe à `null` une fois `montre`
+        // appelé — sans quoi le `refresh()` d'`utiliserTicketAMontrer` le retrouverait aussitôt,
+        // masquant une régression qui aurait oublié de fermer le calque après lui.
+        var montre = false
+        api.onMontrerTicket = { montre = true }
+        api.onVoyage = {
+            VoyageResponse(
+                configure = true,
+                annee_en_cours = 1942,
+                ticket_a_montrer = if (montre) null else TicketAMontrerVoyage(1943, "Un motif.", "2026-09-21T10:00:00.000Z"),
+            )
+        }
+        val vm = FriseViewModel(api) { expire++ }
+        vm.refresh()
+        testScheduler.advanceUntilIdle()
+        val appelsVoyageAvant = api.calls.count { it == "voyage" }
+
+        vm.utiliserTicketAMontrer(1943)
+        testScheduler.advanceUntilIdle()
+
+        assertNull(vm.ui.value.voyage.ticketAMontrer)
+        assertEquals(listOf("utiliserTicket 1943"), api.calls.filter { it.startsWith("utiliserTicket") })
+        assertEquals(listOf("montrerTicket 1943"), api.calls.filter { it.startsWith("montrerTicket") })
+        // `refresh()` relit tout : un second `voyage` après celui du chargement initial.
+        assertEquals(appelsVoyageAvant + 1, api.calls.count { it == "voyage" })
     }
 }

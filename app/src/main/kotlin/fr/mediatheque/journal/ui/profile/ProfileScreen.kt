@@ -43,8 +43,10 @@ import androidx.compose.ui.unit.dp
 import fr.mediatheque.journal.R
 import fr.mediatheque.journal.api.dto.User
 import fr.mediatheque.journal.ui.ErrorBlock
+import fr.mediatheque.journal.ui.frise.LigneTicketPortefeuille
 import fr.mediatheque.journal.ui.frise.TamponDecennie
 import fr.mediatheque.journal.ui.frise.TamponPasseport
+import fr.mediatheque.journal.ui.frise.TicketPortefeuilleUi
 import fr.mediatheque.journal.ui.suivis.SuiviState
 import fr.mediatheque.journal.ui.suivis.SuivisViewModel
 import fr.mediatheque.journal.ui.suivis.pret
@@ -58,18 +60,22 @@ fun ProfileScreen(
     suivis: SuivisViewModel,
     /** Le passeport du Voyage (brief du 16 septembre 2026, phase 2) : une ligne par décennie bouclée. */
     passeport: List<TamponDecennie>,
+    /** Le portefeuille de tickets (brief du 21 septembre 2026, « le ticket »), sous le passeport. */
+    portefeuille: PortefeuilleViewModel,
     onBack: () -> Unit,
     onFilms: () -> Unit,
     onSensCritique: () -> Unit,
     onSignOut: () -> Unit,
     onOuvrirGenerique: (TamponDecennie) -> Unit,
     onImportLetterboxd: (ByteArray) -> Unit,
+    onUtiliserTicket: (Int) -> Unit,
     bottomBar: @Composable () -> Unit,
 ) {
     val ui by vm.ui.collectAsState()
     val senscritiqueUi by senscritique.ui.collectAsState()
     val bilanUi by bilan.ui.collectAsState()
     val suivisUi by suivis.ui.collectAsState()
+    val portefeuilleUi by portefeuille.ui.collectAsState()
 
     // Sélecteur de fichiers système (brief « importer Letterboxd », 16 septembre 2026) : le ZIP de
     // l'export ou `diary.csv` seul, `*/*` en repli pour les lecteurs qui ne déclarent aucun des deux
@@ -125,6 +131,7 @@ fun ProfileScreen(
                     }
                     BilanCard(bilanUi.journal, suivisUi.realisateurs, suivisUi.sagas)
                     PasseportCard(passeport, onOuvrirGenerique)
+                    PortefeuilleCard(portefeuilleUi.tickets, onUtiliserTicket)
                     ListItem(
                         headlineContent = { Text("Mes films", style = MaterialTheme.typography.titleMedium) },
                         trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null) },
@@ -265,6 +272,30 @@ private fun PasseportCard(passeport: List<TamponDecennie>, onOuvrirGenerique: (T
             passeport.forEach { tampon ->
                 TamponPasseport(tampon) { onOuvrirGenerique(tampon) }
             }
+        }
+    }
+}
+
+/**
+ * Le portefeuille (décision 3 du brief du 21 septembre 2026, « le ticket »), sous le passeport,
+ * dans un bloc jumeau du sien : les tickets non utilisés en premier, avec « Utiliser », les
+ * compostés en dessous, grisés et barrés ; « Aucun ticket » une fois la réponse là, vide.
+ * `tickets == null` tant que `GET /me/voyage/tickets` n'a pas répondu — pas encore une absence.
+ */
+@Composable
+private fun PortefeuilleCard(tickets: List<TicketPortefeuilleUi>?, onUtiliser: (Int) -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceContainer, MaterialTheme.shapes.medium)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text("Portefeuille", style = MaterialTheme.typography.titleMedium)
+        when {
+            tickets == null -> LigneBilan("…")
+            tickets.isEmpty() -> LigneBilan("Aucun ticket")
+            else -> tickets.forEach { ticket -> LigneTicketPortefeuille(ticket, onUtiliser = { onUtiliser(ticket.annee) }) }
         }
     }
 }

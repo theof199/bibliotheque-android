@@ -77,7 +77,7 @@ fun FormScreen(vm: FormViewModel, nav: Navigator, onBack: () -> Unit, carton: Ca
     // consomme le signal et referme la boucle.
     LaunchedEffect(ui.done) {
         ui.done?.let {
-            nav.home(it, ui.doneCartonTmdbId)
+            nav.home(it, ui.doneCartonTmdbId, ui.doneFilmAnnee)
             vm.doneConsumed()
         }
     }

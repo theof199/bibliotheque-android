@@ -40,8 +40,10 @@ import fr.mediatheque.journal.ui.frise.toSearchResult
 import fr.mediatheque.journal.ui.home.HomeScreen
 import fr.mediatheque.journal.ui.login.LoginScreen
 import fr.mediatheque.journal.ui.login.LoginViewModel
+import fr.mediatheque.journal.ui.frise.TicketCalque
 import fr.mediatheque.journal.ui.profile.BilanViewModel
 import fr.mediatheque.journal.ui.profile.LetterboxdImportViewModel
+import fr.mediatheque.journal.ui.profile.PortefeuilleViewModel
 import fr.mediatheque.journal.ui.profile.ProfileScreen
 import fr.mediatheque.journal.ui.profile.ProfileViewModel
 import fr.mediatheque.journal.ui.profile.RapportImportScreen
@@ -114,6 +116,12 @@ fun Root(container: AppContainer) {
             // journal complet qu'une fois. Indexé sur l'Activité comme `search`/`senscritique` :
             // sans clé fixe, chaque entrée sur l'accueil ou la Frise recréerait l'instance.
             val frise: FriseViewModel = viewModel(key = "frise") { FriseViewModel(container.api, session::expire) }
+            // Le ticket (brief du 21 septembre 2026) : l'année de sortie d'un film tout juste
+            // journalisé déclenche la relecture (`frise.relireApresCreation`), qui décide elle-même
+            // si elle vaut la peine (l'année en cours seulement) — hoisté hors du `Crossfade` comme
+            // `cartonTmdbId` plus bas, sans quoi un événement à un coup pourrait arriver avant que
+            // la branche qui le collecte ne soit recomposée.
+            LaunchedEffect(Unit) { nav.ticketRelectures.collect { annee -> frise.relireApresCreation(annee) } }
             // Une seule instance pour l'écran Suivis (ses deux segments), ses fiches, les deux
             // secondes lignes « Ensuite » de l'accueil et les deux dernières lignes du Bilan du
             // profil (brief du 15 septembre 2026, généralisé aux sagas le même jour) : toutes
@@ -142,6 +150,11 @@ fun Root(container: AppContainer) {
             // `Screen.Home` ne soit recomposé pour le collecter.
             var cartonTmdbId by remember { mutableStateOf<Int?>(null) }
             LaunchedEffect(Unit) { nav.cartonRequests.collect { cartonTmdbId = it } }
+            // Le calque du ticket (décision 2 du brief du 21 septembre 2026, « le ticket ») se pose
+            // au-dessus du `Crossfade`, dans ce `Box` : il doit pouvoir s'afficher par-dessus
+            // n'importe quel écran (la Frise à son ouverture, ou l'accueil juste après un
+            // enregistrement), pas seulement l'un d'eux.
+            Box(Modifier.fillMaxSize()) {
             Crossfade(targetState = nav.current, animationSpec = tween(200), label = "ecran") { screen ->
                 when (screen) {
                     Screen.Home -> {
@@ -230,6 +243,12 @@ fun Root(container: AppContainer) {
                         LaunchedEffect(Unit) { bilan.refresh() }
                         LaunchedEffect(Unit) { suivis.refresh(SourceSuivi.REALISATEURS) }
                         LaunchedEffect(Unit) { suivis.refresh(SourceSuivi.SAGAS) }
+                        // Le portefeuille (brief du 21 septembre 2026, « le ticket ») charge ses
+                        // données lui-même (`GET /me/voyage/tickets`), pas depuis `FriseViewModel`.
+                        val portefeuille: PortefeuilleViewModel = viewModel(key = "portefeuille") {
+                            PortefeuilleViewModel(container.api, session::expire)
+                        }
+                        LaunchedEffect(Unit) { portefeuille.refresh() }
                         // Le passeport (brief du 16 septembre 2026, phase 2) se lit sur l'instance
                         // partagée de `FriseViewModel`, déjà chargée par l'accueil : aucun appel
                         // réseau de plus pour le profil, `BilanViewModel` tirant déjà le journal
@@ -242,12 +261,17 @@ fun Root(container: AppContainer) {
                             bilan,
                             suivis,
                             passeport = friseUi.passeport,
+                            portefeuille = portefeuille,
                             onBack = nav::pop,
                             onFilms = { nav.push(Screen.Films) },
                             onSensCritique = { nav.push(Screen.SensCritique) },
                             onSignOut = session::signOut,
                             onOuvrirGenerique = { nav.push(Screen.Generique(it)) },
                             onImportLetterboxd = { bytes -> letterboxd.start(bytes); nav.push(Screen.RapportImport) },
+                            // « Utiliser » sur un ticket du portefeuille (décision 3) : même appel
+                            // que le calque, puis `frise.refresh()` met la carte à jour — la même
+                            // mécanique que `onPodiumChange`/`onTicketChange` d'`AnneeScreen`.
+                            onUtiliserTicket = { annee -> portefeuille.utiliser(annee) { frise.refresh() } },
                             bottomBar = {
                                 JournalBottomBar(
                                     screen,
@@ -379,10 +403,11 @@ fun Root(container: AppContainer) {
                             anneeVm,
                             onBack = nav::pop,
                             onOpenFilm = { salleId, filmId -> nav.push(Screen.FicheVoyage(screen.annee.annee ?: 0, salleId, filmId)) },
-                            // Provisoire (spec du 19 septembre 2026, §5, §8) : la route qui avance
-                            // l'année en cours ne touche pas `/me/voyage`, on relit donc la carte
-                            // nous-mêmes pour qu'elle soit à jour au prochain passage dessus.
-                            onAnneeSuivante = { frise.refresh() },
+                            // Le ticket (brief du 21 septembre 2026) : encaisser le ticket de la
+                            // ligne du bas avance l'année en cours côté back sans toucher
+                            // `/me/voyage`, on relit donc la carte nous-mêmes pour qu'elle soit à
+                            // jour au prochain passage dessus — jumeau du podium juste en dessous.
+                            onTicketChange = { frise.refresh() },
                             // Idem pour le podium (brief du 21 septembre 2026) : `frise.refresh()`
                             // relit `affiche_url`, seule chose que la carte en tire.
                             onPodiumChange = { frise.refresh() },
@@ -542,6 +567,19 @@ fun Root(container: AppContainer) {
                         )
                     }
                 }
+            }
+            // Nourri par `FriseViewModel` (décision 2) : dès que `ticketAMontrer` est non nul, le
+            // calque s'affiche par-dessus l'écran courant, quel qu'il soit. « Garder » et
+            // « Utiliser maintenant » ferment tous deux le calque (`ticketAMontrer` retombe à
+            // `null` côté `FriseViewModel`, jamais ici) — le back ne le renvoie plus ensuite.
+            val friseUiPourTicket by frise.ui.collectAsState()
+            friseUiPourTicket.voyage.ticketAMontrer?.let { ticket ->
+                TicketCalque(
+                    ticket = ticket,
+                    onUtiliser = { frise.utiliserTicketAMontrer(ticket.annee) },
+                    onGarder = { frise.garderTicket(ticket.annee) },
+                )
+            }
             }
         }
     }

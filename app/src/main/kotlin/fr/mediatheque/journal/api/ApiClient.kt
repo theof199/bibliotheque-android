@@ -26,14 +26,15 @@ import fr.mediatheque.journal.api.dto.SuivreRealisateurBody
 import fr.mediatheque.journal.api.dto.SuivreSagaBody
 import fr.mediatheque.journal.api.dto.StatsResponse
 import fr.mediatheque.journal.api.dto.User
-import fr.mediatheque.journal.api.dto.AnneeSuivanteResponse
 import fr.mediatheque.journal.api.dto.AnneeVoyageDetailResponse
 import fr.mediatheque.journal.api.dto.CartonFilmResponse
 import fr.mediatheque.journal.api.dto.DemanderVoyageResponse
 import fr.mediatheque.journal.api.dto.PodiumBody
 import fr.mediatheque.journal.api.dto.PodiumResponse
 import fr.mediatheque.journal.api.dto.SallePlusResponse
+import fr.mediatheque.journal.api.dto.TicketUtiliseResponse
 import fr.mediatheque.journal.api.dto.VoyageResponse
+import fr.mediatheque.journal.api.dto.VoyageTicketsResponse
 import fr.mediatheque.journal.reactions.Reactions
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -238,9 +239,6 @@ class ApiClient(baseUrl: String, engine: HttpClientEngine) : JournalApi {
     override suspend fun voyageAnnee(annee: Int): AnneeVoyageDetailResponse =
         call { client.get(Endpoints.voyageAnnee(annee)) }
 
-    override suspend fun voyageAnneeSuivante(): AnneeSuivanteResponse =
-        call { client.post(Endpoints.voyageAnneeSuivante) }
-
     override suspend fun voyageSallePlus(salleId: String): SallePlusResponse =
         call { client.post(Endpoints.voyageSallePlus(salleId)) }
 
@@ -261,6 +259,15 @@ class ApiClient(baseUrl: String, engine: HttpClientEngine) : JournalApi {
     override suspend fun retirerPodium(annee: Int, place: Int) {
         call<Unit> { client.delete(Endpoints.voyagePodium(annee, place)) }
     }
+
+    override suspend fun voyageTickets(): VoyageTicketsResponse = call { client.get(Endpoints.voyageTickets) }
+
+    override suspend fun montrerTicket(annee: Int) {
+        call<Unit> { client.post(Endpoints.voyageTicketMontre(annee)) }
+    }
+
+    override suspend fun utiliserTicket(annee: Int): TicketUtiliseResponse =
+        call { client.post(Endpoints.voyageTicketUtiliser(annee)) }
 
     private suspend inline fun <reified T> call(block: () -> HttpResponse): T {
         val response = try {
