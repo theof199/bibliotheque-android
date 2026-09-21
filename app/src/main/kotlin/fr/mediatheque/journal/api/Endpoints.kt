@@ -64,4 +64,10 @@ object Endpoints {
     const val voyageTickets = "me/voyage/tickets"
     fun voyageTicketMontre(annee: Int): String = "$voyageTickets/$annee/montre"
     fun voyageTicketUtiliser(annee: Int): String = "$voyageTickets/$annee/utiliser"
+
+    // --- La chronique et les salles (brief du 21 septembre 2026, étape 4). ---
+
+    fun voyageChronique(annee: Int): String = "${voyageAnnee(annee)}/chronique"
+    fun voyageSalles(annee: Int): String = "${voyageAnnee(annee)}/salles"
+    fun voyageDemandeSalleVue(id: String): String = "me/voyage/demandes-salles/$id/vue"
 }

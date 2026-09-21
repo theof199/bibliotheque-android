@@ -17,6 +17,9 @@ import fr.mediatheque.journal.api.dto.StatsResponse
 import fr.mediatheque.journal.api.dto.User
 import fr.mediatheque.journal.api.dto.AnneeVoyageDetailResponse
 import fr.mediatheque.journal.api.dto.CartonFilmResponse
+import fr.mediatheque.journal.api.dto.ChroniqueBody
+import fr.mediatheque.journal.api.dto.ChroniqueEcritureResponse
+import fr.mediatheque.journal.api.dto.DemandeSalleEcritureResponse
 import fr.mediatheque.journal.api.dto.DemanderVoyageResponse
 import fr.mediatheque.journal.api.dto.PodiumBody
 import fr.mediatheque.journal.api.dto.PodiumResponse
@@ -27,7 +30,7 @@ import fr.mediatheque.journal.api.dto.VoyageTicketsResponse
 import kotlinx.serialization.json.JsonObject
 
 /**
- * La seule porte des écrans vers le réseau. Trente-huit opérations, celles que
+ * La seule porte des écrans vers le réseau. Quarante-deux opérations, celles que
  * l'application consomme ; les chemins n'existent que dans `Endpoints`, et ne
  * s'emploient que depuis `ApiClient`. Toute fonction peut lever `ApiError`.
  *
@@ -157,6 +160,25 @@ interface JournalApi {
 
     /** `POST /me/voyage/tickets/{annee}/utiliser` : encaisse le ticket, `annee` devient mon année en cours. */
     suspend fun utiliserTicket(annee: Int): TicketUtiliseResponse
+
+    // --- La chronique et les salles (brief du 21 septembre 2026, étape 4). ---
+
+    /**
+     * `POST /me/voyage/annees/{annee}/chronique` : ajoute un paragraphe sur un film vu, ou un
+     * programme entièrement vu — `corps` porte `tmdb_id` **ou** `programme_id`, jamais les deux.
+     * `200 { statut: "ecrit", paragraphe }` s'il existait déjà (jamais régénéré), `202 { statut:
+     * "en_preparation" }` sinon, qu'il vienne d'être enfilé ou qu'une génération soit déjà en cours.
+     */
+    suspend fun voyageChronique(annee: Int, corps: ChroniqueBody): ChroniqueEcritureResponse
+
+    /**
+     * `POST /me/voyage/annees/{annee}/salles` : « Ouvrir une nouvelle salle » sur une phrase.
+     * Toujours `202`, la génération s'enfile ; `409` si une demande est déjà en cours pour l'année.
+     */
+    suspend fun voyageDemanderSalle(annee: Int, demande: String): DemandeSalleEcritureResponse
+
+    /** `POST /me/voyage/demandes-salles/{id}/vue` : marque une demande (typiquement un refus) comme vue. Idempotent, toujours `204`. */
+    suspend fun voyageDemandeSalleVue(id: String)
 }
 
 /**

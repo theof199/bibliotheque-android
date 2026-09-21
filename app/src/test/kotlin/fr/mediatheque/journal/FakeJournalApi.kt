@@ -26,6 +26,9 @@ import fr.mediatheque.journal.api.dto.User
 import fr.mediatheque.journal.api.dto.VuDuFilm
 import fr.mediatheque.journal.api.dto.AnneeVoyageDetailResponse
 import fr.mediatheque.journal.api.dto.CartonFilmResponse
+import fr.mediatheque.journal.api.dto.ChroniqueBody
+import fr.mediatheque.journal.api.dto.ChroniqueEcritureResponse
+import fr.mediatheque.journal.api.dto.DemandeSalleEcritureResponse
 import fr.mediatheque.journal.api.dto.DemanderVoyageResponse
 import fr.mediatheque.journal.api.dto.PodiumBody
 import fr.mediatheque.journal.api.dto.PodiumResponse
@@ -83,6 +86,9 @@ class FakeJournalApi : JournalApi {
     var onVoyageTickets: suspend () -> VoyageTicketsResponse = { VoyageTicketsResponse() }
     var onMontrerTicket: suspend (Int) -> Unit = { _ -> }
     var onUtiliserTicket: suspend (Int) -> TicketUtiliseResponse = { TicketUtiliseResponse() }
+    var onVoyageChronique: suspend (Int, ChroniqueBody) -> ChroniqueEcritureResponse = { _, _ -> ChroniqueEcritureResponse(statut = "en_preparation") }
+    var onVoyageDemanderSalle: suspend (Int, String) -> DemandeSalleEcritureResponse = { _, _ -> DemandeSalleEcritureResponse(demande_id = "d-1") }
+    var onVoyageDemandeSalleVue: suspend (String) -> Unit = { _ -> }
 
     override suspend fun login(pseudo: String, password: String) = track("login $pseudo") { onLogin(pseudo, password) }
     override suspend fun me() = track("me") { onMe() }
@@ -125,6 +131,11 @@ class FakeJournalApi : JournalApi {
     override suspend fun voyageTickets() = track("voyageTickets") { onVoyageTickets() }
     override suspend fun montrerTicket(annee: Int) = track("montrerTicket $annee") { onMontrerTicket(annee) }
     override suspend fun utiliserTicket(annee: Int) = track("utiliserTicket $annee") { onUtiliserTicket(annee) }
+    override suspend fun voyageChronique(annee: Int, corps: ChroniqueBody) =
+        track("voyageChronique $annee ${corps.tmdb_id ?: corps.programme_id}") { onVoyageChronique(annee, corps) }
+    override suspend fun voyageDemanderSalle(annee: Int, demande: String) =
+        track("voyageDemanderSalle $annee") { onVoyageDemanderSalle(annee, demande) }
+    override suspend fun voyageDemandeSalleVue(id: String) = track("voyageDemandeSalleVue $id") { onVoyageDemandeSalleVue(id) }
 
     private suspend fun <T> track(name: String, block: suspend () -> T): T {
         calls += name

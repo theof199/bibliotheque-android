@@ -4,10 +4,11 @@ import kotlinx.serialization.Serializable
 
 /**
  * Le Voyage : traverser l'histoire du cinéma année par année, depuis 1895. Réécrit pour le brief
- * du 21 septembre 2026 (« l'année en étages », puis « le ticket », étape 3) — l'année n'est plus
- * une case qu'on coche mais un lieu qu'on creuse en salles, tant qu'on veut, avant de tourner la
- * page avec le ticket. Rien de l'ancien modèle (essentiels, récompense par année, `frontiere`)
- * n'en reste, et `AnneeSuivanteResponse` a disparu avec le bouton provisoire qui l'appelait.
+ * du 21 septembre 2026 (« l'année en étages », puis « le ticket », étape 3, puis « la chronique et
+ * les salles », étape 4) — l'année n'est plus une case qu'on coche mais un lieu qu'on creuse en
+ * salles, tant qu'on veut, avant de tourner la page avec le ticket. Rien de l'ancien modèle
+ * (essentiels, récompense par année, `frontiere`) n'en reste, et `AnneeSuivanteResponse` a disparu
+ * avec le bouton provisoire qui l'appelait.
  */
 
 /** Une année telle que `GET /me/voyage` la donne dans sa liste, pour la carte. */
@@ -117,6 +118,41 @@ data class MaturiteVoyage(val mure: Boolean, val motif: String, val jugee_le: St
 @Serializable
 data class TicketAnneeVoyage(val annee: Int, val emis_le: String, val utilise_le: String? = null)
 
+/** Le film auquel un paragraphe de la chronique se rattache (brief du 21 septembre 2026, « la chronique et les salles »). */
+@Serializable
+data class ParagrapheFilmVoyage(val title: String, val cover_url: String? = null)
+
+/** Un paragraphe de la chronique, ajouté à la demande sur un film — jamais regénéré. */
+@Serializable
+data class ParagrapheVoyage(
+    val id: String,
+    val tmdb_id: Int? = null,
+    val programme_id: String? = null,
+    val titre: String,
+    val texte: String,
+    val ecrit_le: String,
+    val film: ParagrapheFilmVoyage,
+)
+
+/** Un paragraphe en cours d'écriture — le verrou qu'`AnneeViewModel` relit jusqu'à ce qu'il tombe. */
+@Serializable
+data class ParagrapheEnCoursVoyage(val tmdb_id: Int? = null, val programme_id: String? = null)
+
+/**
+ * La dernière demande de nouvelle salle, tant qu'elle compte encore : `en_cours`, ou `refusee` et
+ * pas encore vue (décision 3 du brief du 21 septembre 2026, « la chronique et les salles »).
+ */
+@Serializable
+data class DemandeSalleVoyage(
+    val id: String,
+    val demande: String,
+    /** `"en_cours"` · `"creee"` · `"refusee"` — en pratique jamais `creee` ici : une fois acceptée, la salle est dans `salles` et cette demande disparaît. */
+    val statut: String,
+    /** Pourquoi il n'y avait pas de quoi — seulement si `refusee`. */
+    val motif: String? = null,
+    val salle_id: String? = null,
+)
+
 /**
  * `GET /me/voyage/annees/{annee}` — les trois formes possibles du back aplaties en un seul DTO :
  * `configure` et `statut` disent laquelle est arrivée (`configure: false` / `en_preparation` /
@@ -137,7 +173,30 @@ data class AnneeVoyageDetailResponse(
     val podium: List<PodiumMarcheVoyage?> = emptyList(),
     val maturite: MaturiteVoyage? = null,
     val ticket: TicketAnneeVoyage? = null,
+    /** Par `ecrit_le` croissant (brief du 21 septembre 2026, « la chronique et les salles »). */
+    val paragraphes: List<ParagrapheVoyage> = emptyList(),
+    val paragraphes_en_cours: List<ParagrapheEnCoursVoyage> = emptyList(),
+    val demande_salle: DemandeSalleVoyage? = null,
 )
+
+/** Corps de `POST /me/voyage/annees/{annee}/chronique` : `tmdb_id` **ou** `programme_id`, jamais les deux. */
+@Serializable
+data class ChroniqueBody(val tmdb_id: Int? = null, val programme_id: String? = null)
+
+/**
+ * `POST /me/voyage/annees/{annee}/chronique` : `statut` dit si le paragraphe existait déjà (`ecrit`,
+ * avec `paragraphe`) ou vient de s'enfiler (`en_preparation`, sans lui).
+ */
+@Serializable
+data class ChroniqueEcritureResponse(val statut: String, val paragraphe: ParagrapheVoyage? = null)
+
+/** Corps de `POST /me/voyage/annees/{annee}/salles` : une phrase de 1 à 200 caractères. */
+@Serializable
+data class DemandeSalleBody(val demande: String)
+
+/** `POST /me/voyage/annees/{annee}/salles` — toujours `202`, la génération vient de s'enfiler. */
+@Serializable
+data class DemandeSalleEcritureResponse(val statut: String = "en_preparation", val demande_id: String = "")
 
 /** Corps de `PUT /me/voyage/annees/{annee}/podium/{place}` : `tmdb_id` **ou** `programme_id`, jamais les deux. */
 @Serializable

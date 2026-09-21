@@ -24,12 +24,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
@@ -57,6 +61,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -64,6 +69,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import fr.mediatheque.journal.ui.Cover
+import fr.mediatheque.journal.ui.formatDateTime
 import fr.mediatheque.journal.ui.showBriefly
 import fr.mediatheque.journal.ui.theme.CadrePapier
 import fr.mediatheque.journal.ui.theme.PapierJauni
@@ -156,6 +162,7 @@ fun AnneeScreen(
                 items(ui.salles, key = { it.id }) { salle ->
                     BlocSalle(salle, monde, onVoirPlus = { vm.voirPlus(salle.id) }, onOuvrirFilm = { filmId -> onOpenFilm(salle.id, filmId) })
                 }
+                item { BlocNouvelleSalle(ui.demandeSalle, onDemander = { texte -> vm.ouvrirNouvelleSalle(texte) }) }
             }
 
             if (ui.statutVoyage == StatutAnneeVoyage.EN_COURS) {
@@ -225,7 +232,7 @@ private fun Cartouche(millesime: Int, ui: AnneeUi, monde: Monde, onLireLaSuite: 
                 }
             }
             when (ui.etat) {
-                EtatAnnee.PRETE -> ui.ouverture?.let { CartoucheOuverture(it, ui, onLireLaSuite) }
+                EtatAnnee.PRETE -> ui.ouverture?.let { CartoucheOuverture(it, ui, monde, onLireLaSuite) }
                 EtatAnnee.EN_PREPARATION -> Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -248,9 +255,14 @@ private fun Cartouche(millesime: Int, ui: AnneeUi, monde: Monde, onLireLaSuite: 
     }
 }
 
-/** L'ouverture, repliée à trois lignes (« Lire la suite » la déplie), puis les faits (spec §3). */
+/**
+ * L'ouverture, repliée à trois lignes (« Lire la suite » la déplie), puis les faits, puis les
+ * paragraphes de la chronique dans l'ordre (décision 2 du brief du 21 septembre 2026, « la
+ * chronique et les salles ») : date, titre dans l'accent du monde, texte, puis « à propos de
+ * *Titre* » — un filet fin entre deux paragraphes (spec §3).
+ */
 @Composable
-private fun CartoucheOuverture(ouverture: String, ui: AnneeUi, onLireLaSuite: () -> Unit) {
+private fun CartoucheOuverture(ouverture: String, ui: AnneeUi, monde: Monde, onLireLaSuite: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             ouverture,
@@ -264,6 +276,19 @@ private fun CartoucheOuverture(ouverture: String, ui: AnneeUi, onLireLaSuite: ()
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 ui.faits.forEach { fait -> Text("· $fait", style = MaterialTheme.typography.bodyMedium, color = TextePapier) }
+            }
+            ui.paragraphes.forEachIndexed { index, paragraphe ->
+                if (index > 0) HorizontalDivider(color = CadrePapier, thickness = 0.5.dp)
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        formatDateTime(paragraphe.ecritLe),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(paragraphe.titre, style = MaterialTheme.typography.titleSmall, color = monde.accent)
+                    Text(paragraphe.texte, style = MaterialTheme.typography.bodyMedium, color = TextePapier)
+                    Text("à propos de ${paragraphe.filmTitle}", style = MaterialTheme.typography.bodySmall, color = TextePapier)
+                }
             }
         }
     }
@@ -591,6 +616,91 @@ private fun TuileEtagere(epuisee: Boolean, fourneeEnCours: Boolean, onClick: () 
                 color = if (epuisee) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
                 textAlign = TextAlign.Center,
             )
+        }
+    }
+}
+
+// --- « Ouvrir une nouvelle salle » (décision 3 du brief du 21 septembre 2026, « la chronique et les salles ») ---
+
+/**
+ * Le bouton « Ouvrir une nouvelle salle » sous la dernière étagère, l'étagère fantôme pendant que
+ * la demande s'écrit, ou le motif du refus sous le bouton (`etatZoneSalleVoyage`) — jamais les deux
+ * à la fois. `creee` (la salle apparue dans `salles`, `demandeSalle` retombé à `null`) retombe sur
+ * le bouton, sans rien de plus à dire ici.
+ */
+@Composable
+private fun BlocNouvelleSalle(demandeSalle: DemandeSalleUi?, onDemander: (String) -> Unit) {
+    var sheetOuverte by remember { mutableStateOf(false) }
+
+    when (etatZoneSalleVoyage(demandeSalle?.statut)) {
+        EtatZoneSalleVoyage.FANTOME -> EtagereFantome()
+        EtatZoneSalleVoyage.BOUTON -> OutlinedButton(onClick = { sheetOuverte = true }, modifier = Modifier.fillMaxWidth()) {
+            Text("Ouvrir une nouvelle salle")
+        }
+        EtatZoneSalleVoyage.REFUS -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            OutlinedButton(onClick = { sheetOuverte = true }, modifier = Modifier.fillMaxWidth()) {
+                Text("Ouvrir une nouvelle salle")
+            }
+            Text(
+                demandeSalle?.motif ?: "",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+
+    if (sheetOuverte) {
+        NouvelleSalleSheet(
+            onDemander = { texte -> sheetOuverte = false; onDemander(texte) },
+            onDismiss = { sheetOuverte = false },
+        )
+    }
+}
+
+/** « La salle s'ouvre… » en italique, une rangée de trois cadres vides pointillés — la même forme qu'une salle, sans film à montrer encore. */
+@Composable
+private fun EtagereFantome() {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            "La salle s’ouvre…",
+            style = MaterialTheme.typography.titleMedium.copy(fontStyle = FontStyle.Italic),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            repeat(3) {
+                Box(
+                    Modifier
+                        .size(LARGEUR_AFFICHE, HAUTEUR_AFFICHE)
+                        .dashedBorder(MaterialTheme.colorScheme.onSurfaceVariant, cornerRadius = 8.dp),
+                )
+            }
+        }
+    }
+}
+
+/** La feuille « Quelle salle ? » (décision 3) : une phrase de 200 caractères au plus, « Demander » l'enfile. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun NouvelleSalleSheet(onDemander: (String) -> Unit, onDismiss: () -> Unit) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var texte by remember { mutableStateOf("") }
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text("Quelle salle ?", style = MaterialTheme.typography.titleMedium)
+            OutlinedTextField(
+                value = texte,
+                onValueChange = { if (it.length <= 200) texte = it },
+                singleLine = true,
+                supportingText = { Text("une phrase : la comédie italienne cette année-là") },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Button(
+                onClick = { onDemander(texte.trim()) },
+                enabled = texte.isNotBlank(),
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Demander") }
         }
     }
 }

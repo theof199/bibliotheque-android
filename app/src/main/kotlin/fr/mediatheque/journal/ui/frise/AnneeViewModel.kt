@@ -7,8 +7,11 @@ import fr.mediatheque.journal.api.JournalApi
 import fr.mediatheque.journal.api.dto.AnneeVoyage
 import fr.mediatheque.journal.api.dto.AnneeVoyageDetailResponse
 import fr.mediatheque.journal.api.dto.BobineVoyage
+import fr.mediatheque.journal.api.dto.ChroniqueBody
+import fr.mediatheque.journal.api.dto.DemandeSalleVoyage
 import fr.mediatheque.journal.api.dto.FilmSalleVoyage
 import fr.mediatheque.journal.api.dto.MaturiteVoyage
+import fr.mediatheque.journal.api.dto.ParagrapheVoyage
 import fr.mediatheque.journal.api.dto.PodiumMarcheVoyage
 import fr.mediatheque.journal.api.dto.ProgrammeVoyage
 import fr.mediatheque.journal.api.dto.SalleVoyage
@@ -25,14 +28,15 @@ import kotlinx.coroutines.launch
 
 /**
  * Le Voyage, page d'année (brief du 21 septembre 2026, « l'année en étages », « le podium », puis
- * « le ticket ») : la chronique de l'année (ouverture, faits), ses salles, son podium et le ticket
- * qu'elle a pu gagner vers l'année suivante, chacun avec ses films et mon état sur chacun, depuis
- * `GET /me/voyage/annees/{annee}`.
+ * « le ticket », puis « la chronique et les salles ») : la chronique de l'année (ouverture, faits,
+ * paragraphes), ses salles, son podium et le ticket qu'elle a pu gagner vers l'année suivante,
+ * chacun avec ses films et mon état sur chacun, depuis `GET /me/voyage/annees/{annee}`.
  *
  * Remplace entièrement le modèle « essentiels » du 16 septembre 2026 — plus de frontière : une
  * année ouverte se creuse en salles, sans jamais être « finie ». Le podium (étape 2), lui, s'écrit
  * et se retire d'ici (`poserPodium`, `retirerPodium`) ; le ticket (étape 3, `utiliserTicket`) a
- * remplacé le bouton provisoire « Année suivante ». `Screen.FicheVoyage`
+ * remplacé le bouton provisoire « Année suivante » ; l'étape 4 (`ajouterChronique`,
+ * `ouvrirNouvelleSalle`) allonge la chronique et ouvre des salles à la demande. `Screen.FicheVoyage`
  * lit ce même `ViewModel` (indexé sur l'année, `Root.kt`) pour la fiche d'un film ou d'une bobine,
  * plutôt que d'en recharger une copie.
  */
@@ -85,6 +89,21 @@ data class MaturiteUi(val mure: Boolean, val motif: String)
 /** Le ticket vers l'année suivante, s'il a été gagné (décision 4) — `utilise` dit s'il l'a déjà été encaissé. */
 data class TicketAnneeUi(val annee: Int, val utilise: Boolean)
 
+/** Un paragraphe de la chronique, ajouté à la demande sur un film (décision 1 du brief du 21 septembre 2026, « la chronique et les salles »). */
+data class ParagrapheUi(
+    val id: String,
+    val tmdbId: Int?,
+    val programmeId: String?,
+    val titre: String,
+    val texte: String,
+    val ecritLe: String,
+    val filmTitle: String,
+    val filmCoverUrl: String?,
+)
+
+/** La dernière demande de nouvelle salle, tant qu'elle compte encore (décision 3 du brief du 21 septembre 2026). */
+data class DemandeSalleUi(val id: String, val demande: String, val statut: String, val motif: String?)
+
 /**
  * La ligne du bas de la fiche d'année (décision 4 du brief du 21 septembre 2026, « le ticket »),
  * à la place du bouton provisoire « Année suivante » : le ticket non utilisé prime sur le verdict
@@ -125,6 +144,12 @@ data class AnneeUi(
     val maturite: MaturiteUi? = null,
     /** Le ticket vers l'année suivante, s'il a été gagné (décision 4) — nul sinon. */
     val ticket: TicketAnneeUi? = null,
+    /** Par `ecritLe` croissant (décision 1 du brief du 21 septembre 2026, « la chronique et les salles »). */
+    val paragraphes: List<ParagrapheUi> = emptyList(),
+    /** Les cibles (`tmdbId` à `programmeId`) dont le paragraphe est en cours d'écriture — celles du back et celle qu'on vient de demander, avant la première relecture. */
+    val paragraphesEnCours: Set<Pair<Int?, String?>> = emptySet(),
+    /** La dernière demande de nouvelle salle, tant qu'elle compte encore (décision 3) — nulle sinon. */
+    val demandeSalle: DemandeSalleUi? = null,
 ) {
     /** La récompense de l'année — nulle à cette étape, le back n'en sert aucune (`VoyageCarte.kt`). */
     val recompenseObtenue: Recompense? get() = null
@@ -151,6 +176,8 @@ private fun SalleVoyage.versUi() = SalleUi(id, rang, nom, raison_d_etre, cle, ep
 private fun PodiumMarcheVoyage.versUi() = PodiumMarcheUi(place, tmdb_id, programme_id, title, cover_url)
 private fun MaturiteVoyage.versUi() = MaturiteUi(mure, motif)
 private fun TicketAnneeVoyage.versUi() = TicketAnneeUi(annee, utilise = utilise_le != null)
+private fun ParagrapheVoyage.versUi() = ParagrapheUi(id, tmdb_id, programme_id, titre, texte, ecrit_le, film.title, film.cover_url)
+private fun DemandeSalleVoyage.versUi() = DemandeSalleUi(id, demande, statut, motif)
 
 /** Toujours trois marches, une entrée nulle pour chacune que le back ne sert pas (encore vide, ou réponse plus courte). */
 private fun List<PodiumMarcheVoyage?>.versPodiumUi(): List<PodiumMarcheUi?> = (0..2).map { i -> getOrNull(i)?.versUi() }
@@ -177,6 +204,8 @@ class AnneeViewModel(
 
     private var pollJob: Job? = null
     private val salleJobs = mutableMapOf<String, Job>()
+    private val chroniqueJobs = mutableMapOf<Pair<Int?, String?>, Job>()
+    private var salleDemandeJob: Job? = null
 
     /**
      * Relance la relecture de l'année (spec du 19 septembre 2026, §3 : « jamais un écran muet »).
@@ -248,7 +277,36 @@ class AnneeViewModel(
                 podium = if (etat == EtatAnnee.PRETE) reponse.podium.versPodiumUi() else it.podium,
                 maturite = if (etat == EtatAnnee.PRETE) reponse.maturite?.versUi() else it.maturite,
                 ticket = if (etat == EtatAnnee.PRETE) reponse.ticket?.versUi() else it.ticket,
+                paragraphes = if (etat == EtatAnnee.PRETE) reponse.paragraphes.map { p -> p.versUi() } else it.paragraphes,
+                paragraphesEnCours = if (etat == EtatAnnee.PRETE) {
+                    reponse.paragraphes_en_cours.map { p -> p.tmdb_id to p.programme_id }.toSet()
+                } else {
+                    it.paragraphesEnCours
+                },
             )
+        }
+        if (etat == EtatAnnee.PRETE) appliquerDemandeSalle(reponse.demande_salle)
+    }
+
+    /**
+     * Met à jour `ui.demandeSalle` et marque vue une demande refusée, une seule fois par
+     * identifiant (décision 3 du brief du 21 septembre 2026, « la chronique et les salles ») : dès
+     * son premier affichage, jamais deux fois pour la même demande quel que soit le nombre de
+     * relectures qui la revoient encore refusée.
+     */
+    private var demandeSalleVueEnvoyeePour: String? = null
+
+    private fun appliquerDemandeSalle(demande: DemandeSalleVoyage?) {
+        _ui.update { it.copy(demandeSalle = demande?.versUi()) }
+        if (demande != null && demande.statut == "refusee" && demandeSalleVueEnvoyeePour != demande.id) {
+            demandeSalleVueEnvoyeePour = demande.id
+            viewModelScope.launch {
+                try {
+                    api.voyageDemandeSalleVue(demande.id)
+                } catch (e: ApiError) {
+                    if (e.isUnauthenticated) onUnauthenticated()
+                }
+            }
         }
     }
 
@@ -293,6 +351,99 @@ class AnneeViewModel(
                 }
                 val fourneeEnCours = _ui.value.salles.firstOrNull { it.id == salleId }?.fourneeEnCours ?: false
                 val (etat, prochainEssai) = etatFourneeSuivant(fourneeEnCours, essais)
+                essais = prochainEssai
+                if (etat != EtatFournee.EN_COURS) return@launch
+            }
+        }
+    }
+
+    /**
+     * « Ajouter à la chronique » (décision 1 du brief du 21 septembre 2026, « la chronique et les
+     * salles ») : sur un film vu, ou un programme entièrement vu — `tmdbId` **ou** `programmeId`,
+     * jamais les deux. `200 ecrit` affiche directement le paragraphe (déjà existant, jamais
+     * régénéré) ; `202 en_preparation` marque tout de suite le bouton « Le chroniqueur écrit… »
+     * (optimiste, jumeau de `voirPlus`) puis relit l'année toutes les cinq secondes jusqu'à ce que
+     * `paragraphes` porte ce film, abandon au plafond (`etatParagrapheSuivant`).
+     */
+    fun ajouterChronique(tmdbId: Int?, programmeId: String?) {
+        val cle = tmdbId to programmeId
+        if (chroniqueJobs[cle]?.isActive == true) return
+        chroniqueJobs[cle] = viewModelScope.launch {
+            val reponse = try {
+                api.voyageChronique(annee, ChroniqueBody(tmdbId, programmeId))
+            } catch (e: ApiError) {
+                if (e.isUnauthenticated) onUnauthenticated() else _messages.trySend(e.message ?: "Impossible pour l’instant")
+                return@launch
+            }
+            val paragraphe = reponse.paragraphe
+            if (reponse.statut == "ecrit" && paragraphe != null) {
+                _ui.update {
+                    it.copy(
+                        paragraphes = it.paragraphes.filterNot { p -> p.id == paragraphe.id } + paragraphe.versUi(),
+                        paragraphesEnCours = it.paragraphesEnCours - cle,
+                    )
+                }
+                return@launch
+            }
+            _ui.update { it.copy(paragraphesEnCours = it.paragraphesEnCours + cle) }
+
+            var essais = 0
+            while (true) {
+                delay(POLL_INTERVAL_MS)
+                val detail = try {
+                    api.voyageAnnee(annee)
+                } catch (e: ApiError) {
+                    if (e.isUnauthenticated) onUnauthenticated()
+                    return@launch
+                }
+                if (detail.configure && detail.statut == "prete") {
+                    _ui.update { it.copy(paragraphes = detail.paragraphes.map { p -> p.versUi() }) }
+                }
+                val trouve = _ui.value.paragraphes.any { (it.tmdbId to it.programmeId) == cle }
+                val (etatSuivant, prochainEssai) = etatParagrapheSuivant(trouve, essais)
+                essais = prochainEssai
+                if (etatSuivant != EtatChronique.EN_PREPARATION) {
+                    _ui.update { it.copy(paragraphesEnCours = it.paragraphesEnCours - cle) }
+                    return@launch
+                }
+            }
+        }
+    }
+
+    /**
+     * « Ouvrir une nouvelle salle » (décision 3 du brief du 21 septembre 2026) : enfile la demande
+     * (toujours `202`), marque tout de suite l'étagère fantôme (optimiste, jumeau de `voirPlus`),
+     * puis relit l'année toutes les cinq secondes jusqu'à ce que `demande_salle` ne soit plus
+     * `en_cours` (`creee` : la salle apparaît dans `salles`, le bouton revient ; `refusee` : le
+     * motif s'affiche, marqué vu par `appliquerDemandeSalle`), abandon au plafond de l'année sinon
+     * (`etatFourneeSuivant`, même plafond que la chronique — `CHRONIQUE_ANNEE_ESSAIS_MAX`).
+     */
+    fun ouvrirNouvelleSalle(demande: String) {
+        if (salleDemandeJob?.isActive == true) return
+        salleDemandeJob = viewModelScope.launch {
+            val reponse = try {
+                api.voyageDemanderSalle(annee, demande)
+            } catch (e: ApiError) {
+                if (e.isUnauthenticated) onUnauthenticated() else _messages.trySend(e.message ?: "Impossible pour l’instant")
+                return@launch
+            }
+            _ui.update { it.copy(demandeSalle = DemandeSalleUi(reponse.demande_id, demande, "en_cours", null)) }
+
+            var essais = 0
+            while (true) {
+                delay(POLL_INTERVAL_MS)
+                val detail = try {
+                    api.voyageAnnee(annee)
+                } catch (e: ApiError) {
+                    if (e.isUnauthenticated) onUnauthenticated()
+                    return@launch
+                }
+                if (detail.configure && detail.statut == "prete") {
+                    _ui.update { it.copy(salles = detail.salles.sortedBy { s -> s.rang }.map { s -> s.versUi() }) }
+                    appliquerDemandeSalle(detail.demande_salle)
+                }
+                val enCours = _ui.value.demandeSalle?.statut == "en_cours"
+                val (etat, prochainEssai) = etatFourneeSuivant(enCours, essais, plafond = CHRONIQUE_ANNEE_ESSAIS_MAX)
                 essais = prochainEssai
                 if (etat != EtatFournee.EN_COURS) return@launch
             }

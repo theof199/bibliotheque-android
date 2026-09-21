@@ -5,9 +5,14 @@ import fr.mediatheque.journal.MainDispatcherRule
 import fr.mediatheque.journal.api.ApiError
 import fr.mediatheque.journal.api.dto.AnneeVoyage
 import fr.mediatheque.journal.api.dto.AnneeVoyageDetailResponse
+import fr.mediatheque.journal.api.dto.ChroniqueEcritureResponse
+import fr.mediatheque.journal.api.dto.DemandeSalleEcritureResponse
+import fr.mediatheque.journal.api.dto.DemandeSalleVoyage
 import fr.mediatheque.journal.api.dto.DemanderVoyageResponse
 import fr.mediatheque.journal.api.dto.FilmSalleVoyage
 import fr.mediatheque.journal.api.dto.MaturiteVoyage
+import fr.mediatheque.journal.api.dto.ParagrapheFilmVoyage
+import fr.mediatheque.journal.api.dto.ParagrapheVoyage
 import fr.mediatheque.journal.api.dto.PodiumMarcheVoyage
 import fr.mediatheque.journal.api.dto.PodiumResponse
 import fr.mediatheque.journal.api.dto.SalleVoyage
@@ -374,6 +379,135 @@ class AnneeViewModelTest {
         assertNull(vm.ui.value.podium[0])
         assertTrue(rappelee)
         assertEquals(listOf("retirerPodium 1941 1"), api.calls.filter { it.startsWith("retirerPodium") })
+    }
+
+    // « Ajouter à la chronique » (décision 1 du brief du 21 septembre 2026, « la chronique et les
+    // salles ») : un paragraphe déjà écrit (`200 ecrit`) s'affiche directement, sans passer par la
+    // relecture.
+    @Test
+    fun `ajouterChronique deja ecrit affiche le paragraphe tout de suite, sans relire`() = runTest(dispatcher) {
+        api.onVoyageAnnee = { prete(salle("s1", film("f1", 500, "vu"))) }
+        val paragraphe = ParagrapheVoyage(
+            id = "p1",
+            tmdb_id = 500,
+            titre = "Un titre",
+            texte = "Le texte du paragraphe.",
+            ecrit_le = "2026-09-21T21:30:00.000Z",
+            film = ParagrapheFilmVoyage("Film 500", null),
+        )
+        api.onVoyageChronique = { _, _ -> ChroniqueEcritureResponse(statut = "ecrit", paragraphe = paragraphe) }
+        val vm = AnneeViewModel(api, 1941, null) {}
+        vm.relire()
+        runCurrent()
+        val appelsAvant = api.calls.count { it.startsWith("voyageAnnee") }
+        val cle: Pair<Int?, String?> = 500 to null
+
+        vm.ajouterChronique(500, null)
+        runCurrent()
+
+        assertEquals(listOf("Le texte du paragraphe."), vm.ui.value.paragraphes.map { it.texte })
+        assertFalse(cle in vm.ui.value.paragraphesEnCours)
+        // Mutation : appeler `voyageAnnee` ici régénérerait un paragraphe déjà écrit — le contrat
+        // dit `200 ecrit` sans jamais rappeler le chroniqueur.
+        assertEquals(appelsAvant, api.calls.count { it.startsWith("voyageAnnee") })
+    }
+
+    // `202 en_preparation` marque tout de suite le bouton « en cours » (optimiste), puis la
+    // relecture s'arrête dès que `paragraphes` porte le film.
+    @Test
+    fun `ajouterChronique en preparation marque en cours puis relit jusqu'au paragraphe`() = runTest(dispatcher) {
+        api.onVoyageAnnee = { prete(salle("s1", film("f1", 500, "vu"))) }
+        api.onVoyageChronique = { _, _ -> ChroniqueEcritureResponse(statut = "en_preparation") }
+        val vm = AnneeViewModel(api, 1941, null) {}
+        vm.relire()
+        runCurrent()
+        val cle: Pair<Int?, String?> = 500 to null
+
+        vm.ajouterChronique(500, null)
+        runCurrent()
+        assertTrue(cle in vm.ui.value.paragraphesEnCours)
+        assertTrue(vm.ui.value.paragraphes.isEmpty())
+
+        val paragraphe = ParagrapheVoyage(
+            id = "p1",
+            tmdb_id = 500,
+            titre = "Un titre",
+            texte = "Le texte.",
+            ecrit_le = "2026-09-21T21:30:00.000Z",
+            film = ParagrapheFilmVoyage("Film 500", null),
+        )
+        api.onVoyageAnnee = { prete(salle("s1", film("f1", 500, "vu"))).copy(paragraphes = listOf(paragraphe)) }
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(listOf("Le texte."), vm.ui.value.paragraphes.map { it.texte })
+        assertFalse(cle in vm.ui.value.paragraphesEnCours)
+    }
+
+    // Abandon au plafond : le paragraphe n'arrive jamais, la relecture cesse et « en cours » retombe
+    // — mutation : ne jamais retirer la clé laisserait le bouton bloqué sur « écrit… » pour toujours.
+    @Test
+    fun `ajouterChronique abandonne au plafond et retire l'etat en cours`() = runTest(dispatcher) {
+        api.onVoyageAnnee = { prete(salle("s1", film("f1", 500, "vu"))) }
+        api.onVoyageChronique = { _, _ -> ChroniqueEcritureResponse(statut = "en_preparation") }
+        val vm = AnneeViewModel(api, 1941, null) {}
+        vm.relire()
+        runCurrent()
+        val cle: Pair<Int?, String?> = 500 to null
+
+        vm.ajouterChronique(500, null)
+        testScheduler.advanceUntilIdle()
+
+        assertTrue(vm.ui.value.paragraphes.isEmpty())
+        assertFalse(cle in vm.ui.value.paragraphesEnCours)
+    }
+
+    // « Ouvrir une nouvelle salle » (décision 3) : enfile la demande, marque l'étagère fantôme tout
+    // de suite, puis relit jusqu'à ce que la salle apparaisse (`creee`, `demande_salle` retombé nul).
+    @Test
+    fun `ouvrirNouvelleSalle marque en cours puis relit jusqu'a la creation`() = runTest(dispatcher) {
+        api.onVoyageAnnee = { prete(salle("s1")) }
+        api.onVoyageDemanderSalle = { _, _ -> DemandeSalleEcritureResponse(demande_id = "d1") }
+        val vm = AnneeViewModel(api, 1941, null) {}
+        vm.relire()
+        runCurrent()
+
+        vm.ouvrirNouvelleSalle("la comédie italienne")
+        runCurrent()
+        assertEquals("en_cours", vm.ui.value.demandeSalle?.statut)
+
+        api.onVoyageAnnee = { prete(salle("s1"), salle("s2")) } // demande_salle absente : acceptée
+        testScheduler.advanceUntilIdle()
+
+        assertNull(vm.ui.value.demandeSalle)
+        assertEquals(listOf("s1", "s2"), vm.ui.value.salles.map { it.id })
+    }
+
+    // Le motif d'un refus marque la demande vue une seule fois, dès son premier affichage (décision 3).
+    @Test
+    fun `une demande refusee marque vue une seule fois`() = runTest(dispatcher) {
+        var vueAppels = 0
+        api.onVoyageAnnee = {
+            prete(salle("s1")).copy(demande_salle = DemandeSalleVoyage("d1", "la comédie italienne", "refusee", "Rien qui mérite une salle à part."))
+        }
+        api.onVoyageDemandeSalleVue = { vueAppels++ }
+        val vm = AnneeViewModel(api, 1941, null) {}
+
+        vm.relire()
+        runCurrent()
+
+        assertEquals("refusee", vm.ui.value.demandeSalle?.statut)
+        assertEquals("Rien qui mérite une salle à part.", vm.ui.value.demandeSalle?.motif)
+        assertEquals(1, vueAppels)
+        assertEquals(listOf("voyageDemandeSalleVue d1"), api.calls.filter { it.startsWith("voyageDemandeSalleVue") })
+
+        // La même demande revue plus tard (une nouvelle salle demandée pendant que le back n'a pas
+        // encore digéré la vue) ne la fait pas marquer vue deux fois — mutation : retirer la garde
+        // `demandeSalleVueEnvoyeePour` ferait remonter ce compte à 2.
+        api.onVoyageDemanderSalle = { _, _ -> DemandeSalleEcritureResponse(demande_id = "d2") }
+        vm.ouvrirNouvelleSalle("une autre salle")
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(1, vueAppels)
     }
 
     // La ligne du bas de la fiche d'année (décision 4 du brief du 21 septembre 2026, « le ticket »),

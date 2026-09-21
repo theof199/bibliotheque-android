@@ -138,3 +138,45 @@ fun etatRelectureTicketSuivant(
     val essais = essaisPrecedents + 1
     return if (essais >= plafond) EtatRelectureTicket.ABANDON to essais else EtatRelectureTicket.EN_COURS to essais
 }
+
+/**
+ * La relecture après un tap « Ajouter à la chronique » (décision 1 du brief du 21 septembre 2026,
+ * « la chronique et les salles ») : s'arrête dès que le paragraphe est là, abandon au plafond sinon
+ * — réutilise `etatChroniqueSuivant` avec un statut synthétique, jumeau d'`etatFourneeSuivant` et
+ * d'`etatRelectureTicketSuivant`, sur le plafond de l'année (`CHRONIQUE_ANNEE_ESSAIS_MAX`) : une
+ * relecture de trois minutes, pas cinquante secondes — un paragraphe est un appel du même ordre de
+ * grandeur qu'une fournée, pas du carton d'un film.
+ */
+fun etatParagrapheSuivant(
+    paragrapheTrouve: Boolean,
+    essaisPrecedents: Int,
+    plafond: Int = CHRONIQUE_ANNEE_ESSAIS_MAX,
+): Pair<EtatChronique, Int> = etatChroniqueSuivant(
+    configure = true,
+    statut = if (paragrapheTrouve) "prete" else "en_preparation",
+    essaisPrecedents = essaisPrecedents,
+    plafond = plafond,
+)
+
+/**
+ * L'éligibilité du bouton « Ajouter à la chronique » sur l'écran de correction du journal
+ * (`Screen.Edit`, décision 1 du brief du 21 septembre 2026) : le statut lu dans `/me/voyage`, déjà
+ * chargé par la Frise — année en cours ou ouverte seulement, jamais verrouillée ni inconnue (le
+ * Voyage pas encore chargé, ou le film hors de la plage qu'il sert).
+ */
+fun eligibleChroniqueDepuisEdition(statutAnnee: StatutAnneeVoyage?): Boolean =
+    statutAnnee == StatutAnneeVoyage.OUVERTE || statutAnnee == StatutAnneeVoyage.EN_COURS
+
+/**
+ * L'état de la zone « Ouvrir une nouvelle salle » (décision 3 du brief du 21 septembre 2026) : le
+ * bouton, l'étagère fantôme pendant que la demande s'écrit, ou le motif du refus sous le bouton —
+ * jamais les deux à la fois. `statutDemande` vient de `demande_salle.statut`, nul quand il n'y a
+ * pas de demande en cours ni de refus pas encore vu.
+ */
+enum class EtatZoneSalleVoyage { BOUTON, FANTOME, REFUS }
+
+fun etatZoneSalleVoyage(statutDemande: String?): EtatZoneSalleVoyage = when (statutDemande) {
+    "en_cours" -> EtatZoneSalleVoyage.FANTOME
+    "refusee" -> EtatZoneSalleVoyage.REFUS
+    else -> EtatZoneSalleVoyage.BOUTON
+}

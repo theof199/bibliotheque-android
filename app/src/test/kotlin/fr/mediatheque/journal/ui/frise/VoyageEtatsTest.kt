@@ -165,4 +165,56 @@ class VoyageEtatsTest {
         assertEquals(EtatRelectureTicket.ABANDON, douzieme.first)
         assertEquals(TICKET_RELECTURE_ESSAIS_MAX, douzieme.second)
     }
+
+    // La relecture d'un paragraphe (« Ajouter à la chronique », décision 1 du brief du 21 septembre
+    // 2026, « la chronique et les salles ») : s'arrête dès qu'il est là, abandon au plafond sinon —
+    // jumeau d'`etatFourneeSuivant` et d'`etatRelectureTicketSuivant`.
+    @Test
+    fun `etatParagrapheSuivant s'arrete des que le paragraphe est trouve, sans compter d'essai de plus`() {
+        val (etat, essais) = etatParagrapheSuivant(paragrapheTrouve = true, essaisPrecedents = 4)
+        assertEquals(EtatChronique.PRETE, etat)
+        assertEquals(4, essais)
+    }
+
+    @Test
+    fun `etatParagrapheSuivant compte les essais jusqu'a l'abandon au plafond`() {
+        var essais = 0
+        var etat = EtatChronique.EN_PREPARATION
+        repeat(2) {
+            val resultat = etatParagrapheSuivant(paragrapheTrouve = false, essaisPrecedents = essais, plafond = 3)
+            etat = resultat.first
+            essais = resultat.second
+            assertEquals("essai $essais", EtatChronique.EN_PREPARATION, etat)
+        }
+        assertEquals(2, essais)
+
+        // Le troisième essai, et pas avant (mutation : `essais > plafond` au lieu de `>=` ferait
+        // attendre un quatrième essai avant l'abandon).
+        val troisieme = etatParagrapheSuivant(paragrapheTrouve = false, essaisPrecedents = essais, plafond = 3)
+        assertEquals(EtatChronique.ABANDON, troisieme.first)
+        assertEquals(3, troisieme.second)
+    }
+
+    // L'éligibilité du bouton « Ajouter à la chronique » sur l'écran de correction (décision 1) :
+    // seule une année en cours ou ouverte compte — mutation : accepter `VERROUILLEE` ou `null`
+    // proposerait la chronique sur une année qui ne l'accepterait pas côté back (`404`).
+    @Test
+    fun `eligibleChroniqueDepuisEdition n'accepte que ouverte ou en cours`() {
+        assertTrue(eligibleChroniqueDepuisEdition(StatutAnneeVoyage.OUVERTE))
+        assertTrue(eligibleChroniqueDepuisEdition(StatutAnneeVoyage.EN_COURS))
+        assertFalse(eligibleChroniqueDepuisEdition(StatutAnneeVoyage.VERROUILLEE))
+        assertFalse(eligibleChroniqueDepuisEdition(null))
+    }
+
+    // L'état de la zone « Ouvrir une nouvelle salle » (décision 3) : bouton, étagère fantôme ou
+    // motif du refus — jamais deux à la fois pour le même statut.
+    @Test
+    fun `etatZoneSalleVoyage distingue bouton, fantome et refus`() {
+        assertEquals(EtatZoneSalleVoyage.FANTOME, etatZoneSalleVoyage("en_cours"))
+        assertEquals(EtatZoneSalleVoyage.REFUS, etatZoneSalleVoyage("refusee"))
+        assertEquals(EtatZoneSalleVoyage.BOUTON, etatZoneSalleVoyage(null))
+        // Mutation : `creee` n'arrive jamais en pratique (le back nullifie `demande_salle` une fois
+        // acceptée) — il doit néanmoins retomber sur le bouton plutôt que de planter ou bloquer.
+        assertEquals(EtatZoneSalleVoyage.BOUTON, etatZoneSalleVoyage("creee"))
+    }
 }

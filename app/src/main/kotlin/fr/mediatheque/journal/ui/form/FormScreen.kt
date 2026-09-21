@@ -33,6 +33,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
@@ -57,6 +58,9 @@ import fr.mediatheque.journal.ui.Cover
 import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.Navigator
 import fr.mediatheque.journal.ui.formatDate
+import fr.mediatheque.journal.ui.frise.ChroniqueUi
+import fr.mediatheque.journal.ui.frise.ChroniqueViewModel
+import fr.mediatheque.journal.ui.frise.EtatBoutonChronique
 import fr.mediatheque.journal.ui.subtitle
 import java.time.Instant
 import java.time.LocalDate
@@ -64,7 +68,18 @@ import java.time.ZoneOffset
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun FormScreen(vm: FormViewModel, nav: Navigator, onBack: () -> Unit, carton: CartonViewModel? = null) {
+fun FormScreen(
+    vm: FormViewModel,
+    nav: Navigator,
+    onBack: () -> Unit,
+    carton: CartonViewModel? = null,
+    /**
+     * « Ajouter à la chronique » en bas de la correction (décision 1 du brief du 21 septembre 2026,
+     * « la chronique et les salles ») : nul hors `Screen.Edit`, ou quand l'année du film n'est ni en
+     * cours ni ouverte (`eligibleChroniqueDepuisEdition`, `Root.kt`) — absente dans les deux cas.
+     */
+    chronique: ChroniqueViewModel? = null,
+) {
     val ui by vm.ui.collectAsState()
     var showPicker by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -174,6 +189,12 @@ fun FormScreen(vm: FormViewModel, nav: Navigator, onBack: () -> Unit, carton: Ca
                 val cartonUi by carton.ui.collectAsState()
                 CartonCard(cartonUi, attente = false, onDismiss = { cartonVisible = false })
             }
+            // « Ajouter à la chronique » (décision 1 du brief du 21 septembre 2026, « la chronique
+            // et les salles ») : nul (donc absent) quand `Root.kt` a jugé le film inéligible.
+            if (chronique != null) {
+                val chroniqueUi by chronique.ui.collectAsState()
+                ChroniqueBoutonEdition(chroniqueUi, onClick = chronique::ajouter)
+            }
             Spacer(Modifier.height(8.dp))
         }
 
@@ -232,6 +253,30 @@ fun FormScreen(vm: FormViewModel, nav: Navigator, onBack: () -> Unit, carton: Ca
 
     ui.pendingSensCritiqueChoice?.let { pending ->
         SensCritiqueChoiceSheet(pending.candidates, onChoose = vm::chooseSensCritiqueCandidate, onDismiss = vm::abandonSensCritiqueChoice)
+    }
+}
+
+/**
+ * « Ajouter à la chronique » en bas de la correction (décision 1 du brief du 21 septembre 2026,
+ * « la chronique et les salles ») : « Ajouter », « Le chroniqueur écrit… » pendant la relecture, ou
+ * « Dans la chronique » avec le paragraphe affiché dessous — jumeau du bloc de `FicheVoyageScreen`.
+ */
+@Composable
+private fun ChroniqueBoutonEdition(ui: ChroniqueUi, onClick: () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        when (ui.etat) {
+            EtatBoutonChronique.AJOUTER -> OutlinedButton(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+                Text("Ajouter à la chronique")
+            }
+            EtatBoutonChronique.ECRIT_EN_COURS -> OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) {
+                Text("Le chroniqueur écrit…")
+            }
+            EtatBoutonChronique.DANS_LA_CHRONIQUE -> OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) {
+                Text("Dans la chronique")
+            }
+            EtatBoutonChronique.ABSENT -> {}
+        }
+        ui.texte?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
     }
 }
 

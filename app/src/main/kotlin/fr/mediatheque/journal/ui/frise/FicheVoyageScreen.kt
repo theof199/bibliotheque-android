@@ -62,8 +62,10 @@ import fr.mediatheque.journal.ui.theme.TextePapier
  * programme, ses bobines, chacune ouvrant le formulaire pré-rempli ; puis les boutons selon l'état.
  *
  * Le podium s'y ajoute le 21 septembre 2026 (décision 3 du brief « le podium ») : « Mettre sur le
- * podium » ouvre le choix d'une marche (`lignesChoixMarche`) ; pas encore « Ajouter à la
- * chronique » (étape 4 de la spec).
+ * podium » ouvre le choix d'une marche (`lignesChoixMarche`). « Ajouter à la chronique » (décision 1
+ * du brief « la chronique et les salles », étape 4 de la spec, même jour) s'ajoute en dernier :
+ * absente si le film n'est pas vu, sinon « Ajouter », « Le chroniqueur écrit… » pendant la
+ * relecture, ou « Dans la chronique » avec le paragraphe affiché dessous.
  *
  * Lit `vm` (le même `AnneeViewModel` que l'année d'où elle s'est ouverte, `Root.kt`) plutôt que de
  * recharger quoi que ce soit : `salleId` et `filmId` désignent le film dans son état déjà connu.
@@ -190,6 +192,34 @@ fun FicheVoyageScreen(
                 }
                 if (etat == "demande") {
                     Text("demandé", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+
+            // « Ajouter à la chronique » (décision 1 du brief du 21 septembre 2026, « la chronique
+            // et les salles ») : absente si le film n'est pas vu (`etatBoutonChronique`), sinon
+            // « Ajouter », « Le chroniqueur écrit… », ou « Dans la chronique » avec le paragraphe
+            // affiché dessous, dès que `ui.paragraphes` le porte.
+            val cleFilm: Pair<Int?, String?> = if (film.programme != null) null to film.id else film.tmdbId to null
+            val paragrapheDeCeFilm = ui.paragraphes.firstOrNull { (it.tmdbId to it.programmeId) == cleFilm }
+            val etatChronique = etatBoutonChronique(etat, paragrapheDeCeFilm != null, cleFilm in ui.paragraphesEnCours)
+            if (etatChronique != EtatBoutonChronique.ABSENT) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    when (etatChronique) {
+                        EtatBoutonChronique.AJOUTER -> OutlinedButton(
+                            onClick = { vm.ajouterChronique(cleFilm.first, cleFilm.second) },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text("Ajouter à la chronique") }
+                        EtatBoutonChronique.ECRIT_EN_COURS -> OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) {
+                            Text("Le chroniqueur écrit…")
+                        }
+                        EtatBoutonChronique.DANS_LA_CHRONIQUE -> OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) {
+                            Text("Dans la chronique")
+                        }
+                        EtatBoutonChronique.ABSENT -> {}
+                    }
+                    paragrapheDeCeFilm?.let { paragraphe ->
+                        Text(paragraphe.texte, style = MaterialTheme.typography.bodyMedium)
+                    }
                 }
             }
         }

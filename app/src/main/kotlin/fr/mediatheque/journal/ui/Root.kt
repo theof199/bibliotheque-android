@@ -31,11 +31,14 @@ import fr.mediatheque.journal.ui.form.FormViewModel
 import fr.mediatheque.journal.ui.frise.AnneeFrise
 import fr.mediatheque.journal.ui.frise.AnneeScreen
 import fr.mediatheque.journal.ui.frise.AnneeViewModel
+import fr.mediatheque.journal.ui.frise.ChroniqueViewModel
 import fr.mediatheque.journal.ui.frise.DecennieScreen
 import fr.mediatheque.journal.ui.frise.FicheVoyageScreen
 import fr.mediatheque.journal.ui.frise.FriseViewModel
 import fr.mediatheque.journal.ui.frise.GeneriqueScreen
 import fr.mediatheque.journal.ui.frise.VoyageScreen
+import fr.mediatheque.journal.ui.frise.eligibleChroniqueDepuisEdition
+import fr.mediatheque.journal.ui.frise.statutVoyage
 import fr.mediatheque.journal.ui.frise.toSearchResult
 import fr.mediatheque.journal.ui.home.HomeScreen
 import fr.mediatheque.journal.ui.login.LoginScreen
@@ -341,7 +344,21 @@ fun Root(container: AppContainer) {
                         val carton: CartonViewModel? = cartonTmdbId?.let { id ->
                             viewModel(key = "carton-edit-$id") { CartonViewModel(container.api, id, poll = false, session::expire) }
                         }
-                        FormScreen(form, nav = nav, onBack = nav::pop, carton = carton)
+                        // « Ajouter à la chronique » (décision 1 du brief du 21 septembre 2026,
+                        // « la chronique et les salles ») : l'année de sortie du film doit être en
+                        // cours ou ouverte dans `/me/voyage`, déjà chargé par la Frise — sans ce
+                        // chargement (statut inconnu), le bouton reste absent (`chronique` nul).
+                        val friseUi by frise.ui.collectAsState()
+                        val chronique: ChroniqueViewModel? = cartonTmdbId?.let { id ->
+                            val anneeFilm = screen.item.media.year
+                            val statutAnnee = anneeFilm?.let { statutVoyage(it, friseUi.voyage) }
+                            if (anneeFilm != null && eligibleChroniqueDepuisEdition(statutAnnee)) {
+                                viewModel(key = "chronique-edit-$id") { ChroniqueViewModel(container.api, anneeFilm, id, session::expire) }
+                            } else {
+                                null
+                            }
+                        }
+                        FormScreen(form, nav = nav, onBack = nav::pop, carton = carton, chronique = chronique)
                     }
                     Screen.SensCritique -> SensCritiqueScreen(senscritique, onBack = nav::pop)
                     Screen.Cinema -> {
