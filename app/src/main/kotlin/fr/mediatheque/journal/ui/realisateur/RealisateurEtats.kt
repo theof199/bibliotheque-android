@@ -2,17 +2,30 @@ package fr.mediatheque.journal.ui.realisateur
 
 import fr.mediatheque.journal.api.dto.FilmDeFilmographie
 import fr.mediatheque.journal.api.dto.RealisateurCredit
+import fr.mediatheque.journal.ui.frise.Monde
+import fr.mediatheque.journal.ui.frise.mondeDe
 import java.time.LocalDate
 
 /**
- * La page réalisateur (brief du 21 septembre 2026, « la page réalisateur ») : fonctions pures,
- * testées en JVM sans réseau ni `ViewModel`, comme `FicheVoyageEtats.kt` (`ui/frise/`) à côté.
+ * La page réalisateur (brief du 21 septembre 2026, « la page réalisateur » ; reprise du même jour,
+ * « la page réalisateur, reprise ») : fonctions pures, testées en JVM sans réseau ni `ViewModel`,
+ * comme `FicheVoyageEtats.kt` (`ui/frise/`) à côté.
  */
 
-/** « 1861 – 1938 », « née en 1961 », ou vide selon ce que TMDB donne (décision 1 du brief). */
-fun ligneDates(naissance: String?, deces: String?): String = when {
+/**
+ * « 1861 – 1938 » quand les deux dates sont connues (inchangé) ; sinon « né en 1958 »/« née en
+ * 1958 »/« naissance en 1958 » selon `genre` (décision 5 de la reprise) ; vide sans aucune date.
+ */
+fun ligneDates(naissance: String?, deces: String?, genre: String?): String = when {
     naissance != null && deces != null -> "${LocalDate.parse(naissance).year} – ${LocalDate.parse(deces).year}"
-    naissance != null -> "née en ${LocalDate.parse(naissance).year}"
+    naissance != null -> {
+        val annee = LocalDate.parse(naissance).year
+        when (genre) {
+            "homme" -> "né en $annee"
+            "femme" -> "née en $annee"
+            else -> "naissance en $annee"
+        }
+    }
     else -> ""
 }
 
@@ -93,3 +106,69 @@ fun resultatTapRealisateur(realisateurs: List<RealisateurCredit>): ResultatReali
  */
 fun filmTmdbIdTouchable(source: String, externalId: String): Int? =
     if (source == "tmdb") externalId.toIntOrNull() else null
+
+// --- La grille verticale par décennie (décision 1 de la reprise du 21 septembre 2026) -----------
+
+/**
+ * Une décennie de la filmographie groupée pour la grille (décision 1) : les longs
+ * (`court == false && type == "movie"`), puis les courts et les séries — une décennie sans long a
+ * `longs` vide, ce que l'écran lit pour la montrer dépliée d'emblée, sans ligne à taper.
+ */
+data class DecennieFilmographie(
+    val decennie: Int?,
+    val longs: List<FilmDeFilmographie>,
+    val courtsEtSeries: List<FilmDeFilmographie>,
+)
+
+/** « Années 1980 » : 1895 rejoint « Années 1890 », l'en-tête arrondissant au millésime de décennie. */
+fun libelleDecennie(decennie: Int?): String = if (decennie != null) "Années $decennie" else "Année inconnue"
+
+private fun decennieDe(annee: Int?): Int? = annee?.let { (it / 10) * 10 }
+
+/**
+ * La filmographie groupée par décennie. L'ordre des groupes est celui de leur première rencontre
+ * dans `films` (`groupBy` construit une `LinkedHashMap`, jamais un tri par décennie) : l'ordre
+ * chronologique du back se retrouve donc tel quel dans l'ordre des groupes.
+ */
+fun regrouperParDecennie(films: List<FilmDeFilmographie>): List<DecennieFilmographie> =
+    films.groupBy { decennieDe(it.year) }.map { (decennie, filmsDeLaDecennie) ->
+        DecennieFilmographie(
+            decennie = decennie,
+            longs = filmsDeLaDecennie.filter { !it.court && it.type == "movie" },
+            courtsEtSeries = filmsDeLaDecennie.filter { it.court || it.type != "movie" },
+        )
+    }
+
+/**
+ * Le libellé de la ligne repliée d'une décennie (décision 3) : « 6 courts · 1 série », accordé au
+ * pluriel au-delà de un, la partie absente (aucun court, ou aucune série) omise.
+ */
+fun libelleCourtsEtSeries(courtsEtSeries: List<FilmDeFilmographie>): String {
+    val courts = courtsEtSeries.count { it.court }
+    val series = courtsEtSeries.count { it.type != "movie" }
+    return listOfNotNull(
+        if (courts > 0) "$courts court${if (courts > 1) "s" else ""}" else null,
+        if (series > 0) "$series série${if (series > 1) "s" else ""}" else null,
+    ).joinToString(" · ")
+}
+
+/**
+ * La ligne de résumé sous le bouton Suivre (décision 4) : « 42 films · 9 vus · 3 sur le Plex »,
+ * comptée sur toutes les lignes (films, courts et séries confondus), accordée au singulier — « 0 vu »
+ * et « 0 sur le Plex » s'écrivent quand même, jamais omis.
+ */
+fun ligneResume(films: List<FilmDeFilmographie>): String {
+    val total = films.size
+    val vus = films.count { it.vu != null }
+    val surLePlex = films.count { it.sur_le_plex }
+    val filmMot = if (total <= 1) "film" else "films"
+    val vuMot = if (vus <= 1) "vu" else "vus"
+    return "$total $filmMot · $vus $vuMot · $surLePlex sur le Plex"
+}
+
+/**
+ * Le monde du Voyage de la page (décision 6) : celui de l'année du premier film daté de la
+ * filmographie, sinon 1895 — jamais celui d'un film sans année au milieu de la liste.
+ */
+fun mondeDeLaPage(films: List<FilmDeFilmographie>): Monde =
+    mondeDe(films.firstOrNull { it.year != null }?.year ?: 1895)

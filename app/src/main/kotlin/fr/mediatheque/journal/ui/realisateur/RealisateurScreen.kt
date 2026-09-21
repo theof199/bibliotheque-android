@@ -3,9 +3,11 @@ package fr.mediatheque.journal.ui.realisateur
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -14,14 +16,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -41,6 +45,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -52,22 +57,32 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import fr.mediatheque.journal.api.dto.FilmDeFilmographie
+import fr.mediatheque.journal.api.dto.RealisateurPageResponse
 import fr.mediatheque.journal.ui.Cover
 import fr.mediatheque.journal.ui.ErrorBlock
+import fr.mediatheque.journal.ui.frise.Monde
 import fr.mediatheque.journal.ui.frise.TeinteSepia
 import fr.mediatheque.journal.ui.frise.mondeDe
+import fr.mediatheque.journal.ui.frise.mondeDeLaDecennie
 import fr.mediatheque.journal.ui.showBriefly
 import fr.mediatheque.journal.ui.suivis.Portrait
 
 /**
- * La page d'un réalisateur (décision 1 du brief du 21 septembre 2026, « la page réalisateur ») :
- * une seule page, suivi ou non — la fiche (photo, nom, dates, présentation), le bouton Suivre/Suivi,
- * puis sa filmographie complète en étagère d'affiches, chronologique, vus en couleur (pastille de
- * note) et le reste en sépia, comme l'étagère d'une salle du Voyage (`AnneeScreen.kt`, réutilisée
- * ici pour le même geste). Appui long sur un non-vu marque ou démarque « introuvable ».
+ * La page d'un réalisateur (reprise du 21 septembre 2026, « la page réalisateur, reprise » —
+ * jugée illisible en étagère horizontale) : le fond est celui du monde du Voyage de l'année du
+ * premier film daté (`mondeDeLaPage`). Un seul défilement, `LazyVerticalGrid` (`GridCells.Fixed(3)`) :
+ * l'en-tête (photo, nom, dates, présentation, bouton Suivre/Suivi, résumé) en est le tout premier
+ * item, en pleine largeur, puis la filmographie groupée par décennie (`regrouperParDecennie`) —
+ * les longs en grand trois par ligne, puis, derrière une ligne repliée à taper, les courts et les
+ * séries plus petits quatre par ligne (une décennie sans long les montre dépliés d'emblée). Appui
+ * long sur un non-vu marque ou démarque « introuvable ».
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -91,8 +106,12 @@ fun RealisateurScreen(
         )
     }
 
+    // Le fond suit le monde de la page (décision 6) une fois la fiche chargée ; celui des origines
+    // par défaut le temps du premier chargement, où il n'y a encore aucun film à dater.
+    val monde = (ui.etat as? EtatPageRealisateur.Pret)?.let { mondeDeLaPage(it.page.films) } ?: mondeDe(1895)
+
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = monde.fond,
         snackbarHost = {
             SnackbarHost(snackbar) { data ->
                 Snackbar(
@@ -120,47 +139,120 @@ fun RealisateurScreen(
                     modifier = Modifier.padding(16.dp),
                 )
 
-                is EtatPageRealisateur.Pret -> {
-                    val page = etat.page
-                    Column(
-                        Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                    ) {
-                        Column(
-                            Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            Portrait(page.photo_url, page.name, 96.dp)
-                            Text(page.name, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
-                            val dates = ligneDates(page.naissance, page.deces)
-                            if (dates.isNotEmpty()) {
-                                Text(dates, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            if (page.presentation.isNotEmpty()) {
-                                Text(
-                                    page.presentation,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    textAlign = TextAlign.Center,
+                is EtatPageRealisateur.Pret -> GrilleFilmographie(
+                    page = etat.page,
+                    monde = monde,
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    onSuivre = vm::suivre,
+                    onRetirer = vm::retirer,
+                    onOuvrirFilm = onOuvrirFilm,
+                    onLongClickNonVu = { film -> feuillePour = film },
+                )
+            }
+        }
+    }
+}
+
+/**
+ * La grille verticale (décision 1) : l'en-tête, puis chaque décennie — son en-tête, ses longs, et
+ * ses courts/séries (repliés derrière une ligne à taper, sauf décennie sans long). `depliees`
+ * mémorise l'état de chaque ligne repliée pour la session de cet écran (état local par décennie).
+ */
+@Composable
+private fun GrilleFilmographie(
+    page: RealisateurPageResponse,
+    monde: Monde,
+    modifier: Modifier = Modifier,
+    onSuivre: () -> Unit,
+    onRetirer: () -> Unit,
+    onOuvrirFilm: (FilmDeFilmographie) -> Unit,
+    onLongClickNonVu: (FilmDeFilmographie) -> Unit,
+) {
+    val decennies = remember(page.films) { regrouperParDecennie(page.films) }
+    val depliees = remember { mutableStateMapOf<Int?, Boolean>() }
+
+    BoxWithConstraints(modifier) {
+        val margeHorizontale = 16.dp
+        val gouttiere = 12.dp
+        val largeurContenu = maxWidth - margeHorizontale * 2
+        val largeurLong = (largeurContenu - gouttiere * 2) / 3
+        val hauteurLong = largeurLong * 1.5f
+        val gouttierePetite = 8.dp
+        val largeurPetite = (largeurContenu - gouttierePetite * 3) / 4
+        val hauteurPetite = largeurPetite * 1.5f
+
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(3),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = margeHorizontale, vertical = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(gouttiere),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                EnTeteRealisateur(page = page, monde = monde, onSuivre = onSuivre, onRetirer = onRetirer)
+            }
+
+            decennies.forEach { decennie ->
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    val mondeDecennie = decennie.decennie?.let { mondeDeLaDecennie(it) } ?: monde
+                    Text(
+                        libelleDecennie(decennie.decennie),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = mondeDecennie.accent,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+
+                items(decennie.longs, key = { "long-${it.tmdb_id}" }) { film ->
+                    AfficheFilmographie(
+                        film = film,
+                        largeur = largeurLong,
+                        hauteur = hauteurLong,
+                        onClick = { onOuvrirFilm(film) },
+                        onLongClick = { onLongClickNonVu(film) },
+                    )
+                }
+
+                if (decennie.courtsEtSeries.isNotEmpty()) {
+                    if (decennie.longs.isEmpty()) {
+                        // Décennie sans long (Lumière, 1895–1905) : dépliée d'emblée, sans ligne à taper.
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            GrilleCourtsEtSeries(
+                                films = decennie.courtsEtSeries,
+                                largeur = largeurPetite,
+                                hauteur = hauteurPetite,
+                                gouttiere = gouttierePetite,
+                                onOuvrirFilm = onOuvrirFilm,
+                                onLongClickNonVu = onLongClickNonVu,
+                            )
+                        }
+                    } else {
+                        val depliee = depliees[decennie.decennie] == true
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable { depliees[decennie.decennie] = !depliee }
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Text(libelleCourtsEtSeries(decennie.courtsEtSeries), style = MaterialTheme.typography.labelMedium)
+                                Icon(
+                                    if (depliee) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                                    contentDescription = if (depliee) "Replier" else "Déplier",
                                 )
                             }
-                            if (page.suivi) {
-                                OutlinedButton(onClick = vm::retirer) { Text("Suivi") }
-                            } else {
-                                FilledTonalButton(onClick = vm::suivre) { Text("Suivre") }
-                            }
                         }
-
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
-                        ) {
-                            items(page.films, key = { it.tmdb_id }) { film ->
-                                AfficheFilmographie(
-                                    film = film,
-                                    onClick = { onOuvrirFilm(film) },
-                                    onLongClick = { if (film.vu == null) feuillePour = film },
+                        if (depliee) {
+                            item(span = { GridItemSpan(maxLineSpan) }) {
+                                GrilleCourtsEtSeries(
+                                    films = decennie.courtsEtSeries,
+                                    largeur = largeurPetite,
+                                    hauteur = hauteurPetite,
+                                    gouttiere = gouttierePetite,
+                                    onOuvrirFilm = onOuvrirFilm,
+                                    onLongClickNonVu = onLongClickNonVu,
                                 )
                             }
                         }
@@ -171,19 +263,90 @@ fun RealisateurScreen(
     }
 }
 
-private val LARGEUR_AFFICHE = 72.dp
-private val HAUTEUR_AFFICHE = 108.dp
+/** L'en-tête de la page (décision 1 et 6) : photo, nom, dates, présentation, bouton, résumé. */
+@Composable
+private fun EnTeteRealisateur(page: RealisateurPageResponse, monde: Monde, onSuivre: () -> Unit, onRetirer: () -> Unit) {
+    Column(
+        Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Portrait(page.photo_url, page.name, 96.dp)
+        Text(
+            page.name,
+            style = MaterialTheme.typography.titleLarge.copy(letterSpacing = 4.sp, fontWeight = FontWeight.Bold),
+            color = monde.accent,
+            textAlign = TextAlign.Center,
+        )
+        val dates = ligneDates(page.naissance, page.deces, page.genre)
+        if (dates.isNotEmpty()) {
+            Text(dates, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (page.presentation.isNotEmpty()) {
+            Text(
+                page.presentation,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+        }
+        if (page.suivi) {
+            OutlinedButton(onClick = onRetirer) { Text("Suivi") }
+        } else {
+            FilledTonalButton(onClick = onSuivre) { Text("Suivre") }
+        }
+        Text(
+            ligneResume(page.films),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** Les courts et séries d'une décennie, quatre par ligne, plus petits que les longs (décision 3). */
+@Composable
+private fun GrilleCourtsEtSeries(
+    films: List<FilmDeFilmographie>,
+    largeur: Dp,
+    hauteur: Dp,
+    gouttiere: Dp,
+    onOuvrirFilm: (FilmDeFilmographie) -> Unit,
+    onLongClickNonVu: (FilmDeFilmographie) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(gouttiere)) {
+        films.chunked(4).forEach { ligne ->
+            Row(horizontalArrangement = Arrangement.spacedBy(gouttiere)) {
+                ligne.forEach { film ->
+                    AfficheFilmographie(
+                        film = film,
+                        largeur = largeur,
+                        hauteur = hauteur,
+                        onClick = { onOuvrirFilm(film) },
+                        onLongClick = { onLongClickNonVu(film) },
+                    )
+                }
+            }
+        }
+    }
+}
+
 private val FiltreDesature = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
 
+/**
+ * Une affiche de la filmographie (inchangé : vu en couleur avec pastille de note, sépia sinon,
+ * coin Plex, coin TV, liseré dans l'accent quand `annee_ouverte`), avec sous elle son titre (deux
+ * lignes au plus) puis son année (décision 2) — lisibles même sans jaquette, `Cover` gardant alors
+ * son rectangle sépia.
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun AfficheFilmographie(film: FilmDeFilmographie, onClick: () -> Unit, onLongClick: () -> Unit) {
+private fun AfficheFilmographie(film: FilmDeFilmographie, largeur: Dp, hauteur: Dp, onClick: () -> Unit, onLongClick: () -> Unit) {
     val vu = film.vu != null
     val monde = mondeDe(film.year ?: 1895)
     Column(
         Modifier
             .combinedClickable(onClick = onClick, onLongClick = if (film.vu == null) onLongClick else null)
-            .width(LARGEUR_AFFICHE),
+            .width(largeur),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(
@@ -193,9 +356,9 @@ private fun AfficheFilmographie(film: FilmDeFilmographie, onClick: () -> Unit, o
                 Modifier
             },
         ) {
-            Cover(film.cover_url, film.title, LARGEUR_AFFICHE, HAUTEUR_AFFICHE, colorFilter = if (vu) null else FiltreDesature)
+            Cover(film.cover_url, film.title, largeur, hauteur, colorFilter = if (vu) null else FiltreDesature)
             if (!vu) {
-                Box(Modifier.size(LARGEUR_AFFICHE, HAUTEUR_AFFICHE).background(TeinteSepia.copy(alpha = 0.35f)))
+                Box(Modifier.size(largeur, hauteur).background(TeinteSepia.copy(alpha = 0.35f)))
             }
             if (vu && film.vu?.rating != null) {
                 Box(
@@ -235,6 +398,14 @@ private fun AfficheFilmographie(film: FilmDeFilmographie, onClick: () -> Unit, o
                 )
             }
         }
+        Text(
+            film.title,
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 4.dp).width(largeur),
+        )
         Text(
             film.year?.toString() ?: "—",
             style = MaterialTheme.typography.labelSmall,

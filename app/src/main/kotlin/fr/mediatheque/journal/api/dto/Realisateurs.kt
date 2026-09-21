@@ -78,6 +78,8 @@ data class FilmDeFilmographie(
     val vu: VuDuFilm? = null,
     val introuvable: Boolean = false,
     val type: String = "movie",
+    /** Court métrage TMDB (1 à 40 min), toujours faux sur une série (reprise du 21 septembre 2026, « la page réalisateur, reprise »). */
+    val court: Boolean = false,
     val sur_le_plex: Boolean = false,
     val demande: Boolean = false,
     val plex_url: String? = null,
@@ -94,6 +96,8 @@ data class RealisateurPageResponse(
     val naissance: String? = null,
     val deces: String? = null,
     val presentation: String = "",
+    /** `gender` TMDB : `"homme"`, `"femme"` ou nul (reprise du 21 septembre 2026) — décide « né en »/« née en »/« naissance en ». */
+    val genre: String? = null,
     val suivi: Boolean = false,
     val films: List<FilmDeFilmographie> = emptyList(),
 )

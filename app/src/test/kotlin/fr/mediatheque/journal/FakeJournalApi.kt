@@ -238,6 +238,7 @@ class FakeJournalApi : JournalApi {
             rating: Int? = null,
             finishedAt: String = "2026-07-12",
             introuvable: Boolean = false,
+            court: Boolean = false,
             surLePlex: Boolean = false,
             demande: Boolean = false,
             plexUrl: String? = null,
@@ -251,6 +252,7 @@ class FakeJournalApi : JournalApi {
             type = type,
             vu = entryId?.let { VuDuFilm(it, rating, finishedAt) },
             introuvable = introuvable,
+            court = court,
             sur_le_plex = surLePlex,
             demande = demande,
             plex_url = plexUrl,
@@ -265,6 +267,7 @@ class FakeJournalApi : JournalApi {
             naissance: String? = null,
             deces: String? = null,
             presentation: String = "",
+            genre: String? = null,
             suivi: Boolean = false,
             films: List<FilmDeFilmographie> = emptyList(),
         ) = RealisateurPageResponse(
@@ -273,6 +276,7 @@ class FakeJournalApi : JournalApi {
             naissance = naissance,
             deces = deces,
             presentation = presentation,
+            genre = genre,
             suivi = suivi,
             films = films,
         )

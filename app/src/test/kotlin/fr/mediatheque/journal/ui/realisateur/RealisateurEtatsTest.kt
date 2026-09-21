@@ -2,34 +2,50 @@ package fr.mediatheque.journal.ui.realisateur
 
 import fr.mediatheque.journal.FakeJournalApi
 import fr.mediatheque.journal.api.dto.VoyageDeFilmographie
+import fr.mediatheque.journal.ui.frise.mondeDe
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Les fonctions pures de la page réalisateur (brief du 21 septembre 2026, « la page réalisateur »),
- * jumelles de `FicheVoyageEtatsTest.kt` — pas de réseau, pas de `ViewModel`.
+ * Les fonctions pures de la page réalisateur (brief du 21 septembre 2026, « la page réalisateur » ;
+ * reprise du même jour, « la page réalisateur, reprise »), jumelles de `FicheVoyageEtatsTest.kt` —
+ * pas de réseau, pas de `ViewModel`.
  */
 class RealisateurEtatsTest {
 
-    // « 1861 – 1938 » quand TMDB donne les deux dates. Mutation : n'afficher que l'une des deux
-    // années, ou inverser leur ordre, casse cette assertion.
+    // « 1861 – 1938 » quand TMDB donne les deux dates, quel que soit le genre. Mutation : n'afficher
+    // que l'une des deux années, ou inverser leur ordre, casse cette assertion.
     @Test
     fun `ligneDates montre les deux annees quand TMDB les donne`() {
-        assertEquals("1861 – 1938", ligneDates("1861-11-13", "1938-04-22"))
+        assertEquals("1861 – 1938", ligneDates("1861-11-13", "1938-04-22", "homme"))
     }
 
-    // « née en 1961 » quand seule la naissance est connue. Mutation : rendre la chaîne vide dans
-    // ce cas casse cette assertion.
+    // « né en 1958 » pour un homme (reprise, décision 5). Mutation : accorder au féminin ou omettre
+    // le genre casse cette assertion.
     @Test
-    fun `ligneDates montre seulement la naissance quand TMDB ne donne pas la mort`() {
-        assertEquals("née en 1961", ligneDates("1961-05-04", null))
+    fun `ligneDates dit ne en pour un homme`() {
+        assertEquals("né en 1958", ligneDates("1958-01-01", null, "homme"))
+    }
+
+    // « née en 1961 » pour une femme. Mutation : accorder au masculin casse cette assertion.
+    @Test
+    fun `ligneDates dit nee en pour une femme`() {
+        assertEquals("née en 1961", ligneDates("1961-05-04", null, "femme"))
+    }
+
+    // « naissance en 1958 » sans genre connu — ni « né » ni « née ». Mutation : retomber sur l'un
+    // des deux genres par défaut casse cette assertion.
+    @Test
+    fun `ligneDates dit naissance en sans genre connu`() {
+        assertEquals("naissance en 1958", ligneDates("1958-01-01", null, null))
     }
 
     // Vide quand TMDB ne donne ni l'une ni l'autre. Mutation : rendre autre chose qu'une chaîne
     // vide casse cette assertion.
     @Test
     fun `ligneDates est vide sans aucune date`() {
-        assertEquals("", ligneDates(null, null))
+        assertEquals("", ligneDates(null, null, null))
     }
 
     // Le tap sur une affiche (décision 2 du brief) : `voyage` non nul mène à sa fiche du Voyage.
@@ -119,5 +135,144 @@ class RealisateurEtatsTest {
     @Test
     fun `filmTmdbIdTouchable est nul sur une autre source`() {
         assertEquals(null, filmTmdbIdTouchable("senscritique", "27205"))
+    }
+
+    // --- La grille verticale par décennie (reprise du 21 septembre 2026, décision 1) -------------
+
+    // 1895 rejoint « Années 1890 » : l'en-tête arrondit à la décennie, pas au millésime. Mutation :
+    // arrondir au millésime lui-même (« Années 1895 ») casse cette assertion.
+    @Test
+    fun `regrouperParDecennie fait rejoindre 1895 aux annees 1890`() {
+        val film = FakeJournalApi.filmDeFilmographie(1, "L'Arrivee d'un train", 1895)
+        val decennies = regrouperParDecennie(listOf(film))
+        assertEquals(1890, decennies[0].decennie)
+    }
+
+    // Le libellé lui-même : « Années 1980 », jamais le millésime nu. Mutation : afficher le
+    // millésime seul (sans « Années ») casse cette assertion.
+    @Test
+    fun `libelleDecennie ecrit Annees suivi de la decennie`() {
+        assertEquals("Années 1980", libelleDecennie(1980))
+    }
+
+    // Sans décennie connue (aucun film daté du groupe), un libellé de repli plutôt qu'un texte nul.
+    // Mutation : renvoyer une chaîne vide au lieu du repli casse cette assertion.
+    @Test
+    fun `libelleDecennie a un repli sans decennie connue`() {
+        assertEquals("Année inconnue", libelleDecennie(null))
+    }
+
+    // L'ordre des groupes est celui de leur première rencontre dans la liste du back, jamais un tri
+    // par décennie. Mutation : trier les décennies par ordre croissant (`sortedBy`) casse cette
+    // assertion, qui donne volontairement un film de 1980 avant un film de 1970.
+    @Test
+    fun `regrouperParDecennie garde l ordre de rencontre, pas un tri par decennie`() {
+        val recent = FakeJournalApi.filmDeFilmographie(1, "Recent", 1980)
+        val ancien = FakeJournalApi.filmDeFilmographie(2, "Ancien", 1970)
+        val decennies = regrouperParDecennie(listOf(recent, ancien))
+        assertEquals(listOf(1980, 1970), decennies.map { it.decennie })
+    }
+
+    // Dans une décennie, les longs précèdent les courts et les séries, chaque groupe gardant l'ordre
+    // de la liste d'entrée. Mutation : mélanger les deux groupes, ou classer un court parmi les
+    // longs, casse cette assertion.
+    @Test
+    fun `regrouperParDecennie separe les longs des courts et series`() {
+        val long = FakeJournalApi.filmDeFilmographie(1, "Long", 1980)
+        val court = FakeJournalApi.filmDeFilmographie(2, "Court", 1980, court = true)
+        val serie = FakeJournalApi.filmDeFilmographie(3, "Serie", 1980, type = "tv")
+        val decennies = regrouperParDecennie(listOf(long, court, serie))
+        assertEquals(listOf(long), decennies[0].longs)
+        assertEquals(listOf(court, serie), decennies[0].courtsEtSeries)
+    }
+
+    // Une décennie sans long (Lumière, 1895–1905) a un groupe `longs` vide — ce que l'écran lit pour
+    // la déplier d'emblée, sans ligne à taper. Mutation : y glisser le court casse cette assertion.
+    @Test
+    fun `regrouperParDecennie une decennie sans long a un groupe longs vide`() {
+        val court = FakeJournalApi.filmDeFilmographie(1, "Court lumiere", 1895, court = true)
+        val decennies = regrouperParDecennie(listOf(court))
+        assertTrue(decennies[0].longs.isEmpty())
+        assertEquals(listOf(court), decennies[0].courtsEtSeries)
+    }
+
+    // « 2 courts · 1 série » : les deux parties, accordées, jointes par « · ». Mutation : omettre
+    // l'une des deux parties ou changer le séparateur casse cette assertion.
+    @Test
+    fun `libelleCourtsEtSeries joint courts et series accordes`() {
+        val films = listOf(
+            FakeJournalApi.filmDeFilmographie(1, "C1", 1980, court = true),
+            FakeJournalApi.filmDeFilmographie(2, "C2", 1980, court = true),
+            FakeJournalApi.filmDeFilmographie(3, "S1", 1980, type = "tv"),
+        )
+        assertEquals("2 courts · 1 série", libelleCourtsEtSeries(films))
+    }
+
+    // « 1 court » seul, sans série : la partie absente est omise plutôt que de laisser un « · » nu.
+    // Mutation : garder un séparateur ou une partie vide casse cette assertion.
+    @Test
+    fun `libelleCourtsEtSeries omet les series absentes`() {
+        val films = listOf(FakeJournalApi.filmDeFilmographie(1, "C1", 1980, court = true))
+        assertEquals("1 court", libelleCourtsEtSeries(films))
+    }
+
+    // « 2 séries » seules, sans court. Mutation : garder « 0 court » au lieu de l'omettre casse
+    // cette assertion.
+    @Test
+    fun `libelleCourtsEtSeries omet les courts absents`() {
+        val films = listOf(
+            FakeJournalApi.filmDeFilmographie(1, "S1", 1980, type = "tv"),
+            FakeJournalApi.filmDeFilmographie(2, "S2", 1980, type = "tv"),
+        )
+        assertEquals("2 séries", libelleCourtsEtSeries(films))
+    }
+
+    // « 3 films · 2 vus · 1 sur le Plex », comptée sur films, courts et séries confondus. Mutation :
+    // ne compter que les longs, ou inverser vus et Plex, casse cette assertion.
+    @Test
+    fun `ligneResume compte films vus et sur le plex toutes lignes confondues`() {
+        val films = listOf(
+            FakeJournalApi.filmDeFilmographie(1, "A", 2000, entryId = "e1", surLePlex = true),
+            FakeJournalApi.filmDeFilmographie(2, "B", 2001, type = "tv"),
+            FakeJournalApi.filmDeFilmographie(3, "C", 2002, entryId = "e3", court = true),
+        )
+        assertEquals("3 films · 2 vus · 1 sur le Plex", ligneResume(films))
+    }
+
+    // « 1 film · 1 vu · 1 sur le Plex » : accord au singulier. Mutation : garder le pluriel malgré
+    // un seul élément casse cette assertion.
+    @Test
+    fun `ligneResume accorde au singulier`() {
+        val films = listOf(FakeJournalApi.filmDeFilmographie(1, "A", 2000, entryId = "e1", surLePlex = true))
+        assertEquals("1 film · 1 vu · 1 sur le Plex", ligneResume(films))
+    }
+
+    // « 0 vu » et « 0 sur le Plex » s'écrivent quand même, jamais omis. Mutation : les remplacer par
+    // une chaîne vide dans ce cas casse cette assertion.
+    @Test
+    fun `ligneResume ecrit 0 vu et 0 sur le plex`() {
+        val films = listOf(FakeJournalApi.filmDeFilmographie(1, "A", 2000))
+        assertEquals("1 film · 0 vu · 0 sur le Plex", ligneResume(films))
+    }
+
+    // Le monde de la page est celui de l'année du premier film daté, un film sans année en tête ne
+    // comptant pas. Mutation : prendre le tout premier film sans filtrer sur `year` casse cette
+    // assertion (le film sans année passerait alors devant celui de 1980).
+    @Test
+    fun `mondeDeLaPage prend l annee du premier film date`() {
+        val films = listOf(
+            FakeJournalApi.filmDeFilmographie(1, "Sans annee", null),
+            FakeJournalApi.filmDeFilmographie(2, "Premier date", 1980),
+            FakeJournalApi.filmDeFilmographie(3, "Second date", 1990),
+        )
+        assertEquals(mondeDe(1980), mondeDeLaPage(films))
+    }
+
+    // Sans aucun film daté, le monde retombe sur 1895. Mutation : retomber sur une autre année (par
+    // exemple 1890, la décennie plutôt que le millésime) casse cette assertion.
+    @Test
+    fun `mondeDeLaPage retombe sur 1895 sans aucun film date`() {
+        val films = listOf(FakeJournalApi.filmDeFilmographie(1, "Sans annee", null))
+        assertEquals(mondeDe(1895), mondeDeLaPage(films))
     }
 }
