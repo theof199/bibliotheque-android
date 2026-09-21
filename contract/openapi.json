@@ -40887,7 +40887,7 @@
         "tags": [
           "voyage"
         ],
-        "description": "`annee_en_cours` sépare les trois statuts : `ouverte` avant elle (je peux toujours y revenir creuser), `en_cours` sur elle, `verrouillee` après (rien ne s’y ouvre encore).\n\n`visitee` dit si une ouverture existe déjà pour cette année, quel que soit son statut. `profondeur` compte les films de mon journal sortis cette année-là, y compris ceux vus avant d’y arriver ; un programme compte un, jamais ses bobines séparément. `affiche_url` est l’affiche du n°1 de mon podium cette année-là, nulle si la marche est vide.\n\n`recompense` vaut `ours` (profondeur ≥ 1, même sans ouverture), `lion` (« Les essentiels » entièrement vus ou introuvables) ou `palme` (`lion`, et au moins deux autres salles, à au moins un film, complètes au même sens) — `null` sinon.\n\n`tampons` porte le passeport : une ligne par décennie bouclée (`decennie` croissant, `boucle_le`), où chacune de ses années a un `ours` et où le ticket de la première année de la décennie suivante est `utilise_le`.\n\nRéponse mise en cache 60 s par membre, invalidée par une écriture au journal (`/me/journal`), une marque « introuvable » (`PUT`/`DELETE /me/introuvables/{tmdbId}`), l’ouverture d’une année, une fournée et une écriture au podium.",
+        "description": "`annee_en_cours` sépare les trois statuts : `ouverte` avant elle (je peux toujours y revenir creuser), `en_cours` sur elle, `verrouillee` après (rien ne s’y ouvre encore).\n\n`visitee` dit si une ouverture existe déjà pour cette année, quel que soit son statut. `profondeur` compte les films de mon journal sortis cette année-là, y compris ceux vus avant d’y arriver ; un programme compte un, jamais ses bobines séparément. `affiche_url` est l’affiche du n°1 de mon podium cette année-là, nulle si la marche est vide.\n\n`recompense` vaut `ours` (profondeur ≥ 1, même sans ouverture), `lion` (« Les essentiels » entièrement vus ou introuvables) ou `palme` (`lion`, et au moins deux autres salles, à au moins un film, complètes au même sens) — `null` sinon.\n\n`tampons` porte le passeport : une ligne par décennie bouclée (`decennie` croissant, `boucle_le`), où chacune de ses années a un `ours` et où le ticket de la première année de la décennie suivante est `utilise_le`.\n\n`seance_prise` porte la dernière séance que j’ai prise (`POST /me/voyage/seances/{id}/prendre`), tant que son long n’est pas encore vu — `null` dès qu’il l’est, ou si aucune séance n’est prise.\n\nRéponse mise en cache 60 s par membre, invalidée par une écriture au journal (`/me/journal`), une marque « introuvable » (`PUT`/`DELETE /me/introuvables/{tmdbId}`), l’ouverture d’une année, une fournée, une écriture au podium et toute écriture sur une séance.",
         "responses": {
           "200": {
             "description": "Ma progression dans le Voyage",
@@ -41042,6 +41042,80 @@
                         "description": "Une décennie bouclée, dans le passeport"
                       },
                       "description": "Le passeport : les décennies bouclées, croissantes"
+                    },
+                    "seance_prise": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "annee": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "long": {
+                              "type": "object",
+                              "properties": {
+                                "title": {
+                                  "type": "string"
+                                },
+                                "cover_url": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "uri"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "title",
+                                "cover_url"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "court": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "title": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "title"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "annee",
+                            "long",
+                            "court"
+                          ],
+                          "additionalProperties": false,
+                          "description": "La séance prise, tant que son long n’est pas encore vu — nulle dès qu’il l’est"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "La séance que j’ai prise, tant que son long n’est pas encore vu — nulle sinon"
                     }
                   },
                   "required": [
@@ -41050,7 +41124,8 @@
                     "annee_en_cours",
                     "annees",
                     "ticket_a_montrer",
-                    "tampons"
+                    "tampons",
+                    "seance_prise"
                   ],
                   "additionalProperties": false,
                   "description": "Ma progression dans le Voyage"
@@ -41097,7 +41172,16 @@
                           "decennie": 1890,
                           "boucle_le": "2026-01-14T10:00:00.000Z"
                         }
-                      ]
+                      ],
+                      "seance_prise": {
+                        "id": "a1b2c3d4-1234-4abc-9def-0123456789ab",
+                        "annee": 1895,
+                        "long": {
+                          "title": "L'Arrivée d'un train en gare de La Ciotat",
+                          "cover_url": "https://image.tmdb.org/t/p/w500/train.jpg"
+                        },
+                        "court": null
+                      }
                     }
                   }
                 }
@@ -41123,7 +41207,7 @@
         "tags": [
           "voyage"
         ],
-        "description": "`prete` (`200`) si l’ouverture existe déjà pour ce membre : ses salles, dans l’ordre, avec chaque film (état et note calculés à la lecture). `en_preparation` (`202`) à la première visite d’une année ouverte ou en cours — la demande enfile l’ouverture, à redemander dans quelques secondes. `verrouillee` (`200`) après mon année en cours : rien ne s’enfile, même en visitant. `{ configure: false }` (`200`) si `ANTHROPIC_API_KEY` manque et que l’année n’a pas encore d’ouverture.\n\n`etat` d’un film vaut `vu`, `sur_le_plex`, `demande`, `a_demander` ou `introuvable`. Pour un programme, `etat` ne vaut `vu` que quand **toutes** ses bobines le sont — chaque bobine porte le sien.\n\n`podium` porte les trois marches (`PUT`/`DELETE /me/voyage/annees/{annee}/podium/{place}`), `null` pour une place vide — présent sur `prete` et `verrouillee` (toujours vide sur cette dernière, le podium ne se posant que sur une année non verrouillée).\n\n`maturite` (`prete` seulement) porte le dernier jugement du chroniqueur sur cette année — `null` tant qu’aucun film de l’année n’a encore été noté. `ticket` (`prete` seulement) porte le ticket vers `annee + 1`, s’il a été gagné — `null` sinon.\n\n`recompense` et `progression` (`prete` seulement) : la récompense de cette année (voir `GET /me/voyage`) et de quoi dessiner sa barre — `essentiels_vus`/`essentiels_total` (strictement vus, un introuvable n’y compte pas), `salles_completes`/`salles_autres` (salles hors essentiels, à au moins un film, entièrement vues ou introuvables).",
+        "description": "`prete` (`200`) si l’ouverture existe déjà pour ce membre : ses salles, dans l’ordre, avec chaque film (état et note calculés à la lecture). `en_preparation` (`202`) à la première visite d’une année ouverte ou en cours — la demande enfile l’ouverture, à redemander dans quelques secondes. `verrouillee` (`200`) après mon année en cours : rien ne s’enfile, même en visitant. `{ configure: false }` (`200`) si `ANTHROPIC_API_KEY` manque et que l’année n’a pas encore d’ouverture.\n\n`etat` d’un film vaut `vu`, `sur_le_plex`, `demande`, `a_demander` ou `introuvable`. Pour un programme, `etat` ne vaut `vu` que quand **toutes** ses bobines le sont — chaque bobine porte le sien.\n\n`podium` porte les trois marches (`PUT`/`DELETE /me/voyage/annees/{annee}/podium/{place}`), `null` pour une place vide — présent sur `prete` et `verrouillee` (toujours vide sur cette dernière, le podium ne se posant que sur une année non verrouillée).\n\n`maturite` (`prete` seulement) porte le dernier jugement du chroniqueur sur cette année — `null` tant qu’aucun film de l’année n’a encore été noté. `ticket` (`prete` seulement) porte le ticket vers `annee + 1`, s’il a été gagné — `null` sinon.\n\n`recompense` et `progression` (`prete` seulement) : la récompense de cette année (voir `GET /me/voyage`) et de quoi dessiner sa barre — `essentiels_vus`/`essentiels_total` (strictement vus, un introuvable n’y compte pas), `salles_completes`/`salles_autres` (salles hors essentiels, à au moins un film, entièrement vues ou introuvables).\n\n`seances` (`prete` seulement, brief du 21 septembre 2026, « la séance ») porte mes séances composées, par rang décroissant — la plus récente d’abord —, chacune un `long` jamais vu et un `court` facultatif (`POST /me/voyage/annees/{annee}/seances`). `seance_en_cours` dit si une composition vient d’être demandée et s’écrit encore.",
         "parameters": [
           {
             "schema": {
@@ -41839,6 +41923,253 @@
                             }
                           ],
                           "description": "La dernière demande de salle, tant qu’elle est en_cours ou refusée et non vue ; nulle sinon"
+                        },
+                        "seances": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "rang": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "statut": {
+                                "type": "string",
+                                "enum": [
+                                  "proposee",
+                                  "prise",
+                                  "ignoree"
+                                ]
+                              },
+                              "composee_le": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                              },
+                              "anecdote": {
+                                "type": "string",
+                                "description": "Deux à quatre phrases, à lire pendant le générique"
+                              },
+                              "long": {
+                                "type": "object",
+                                "properties": {
+                                  "film_id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                    "description": "La ligne de mes salles (voyage_films) : le long, ou le programme du court"
+                                  },
+                                  "tmdb_id": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  },
+                                  "cover_url": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "uri"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "salle": {
+                                    "type": "string",
+                                    "description": "Le nom de la salle où ce film ou programme a été proposé"
+                                  },
+                                  "etat": {
+                                    "type": "string",
+                                    "enum": [
+                                      "vu",
+                                      "sur_le_plex",
+                                      "demande",
+                                      "a_demander",
+                                      "introuvable"
+                                    ]
+                                  },
+                                  "plex_url": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "uri"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "bobine": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "tmdb_id": {
+                                            "type": "integer",
+                                            "minimum": -9007199254740991,
+                                            "maximum": 9007199254740991
+                                          },
+                                          "title": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "tmdb_id",
+                                          "title"
+                                        ],
+                                        "additionalProperties": false,
+                                        "description": "La bobine composée pour ce soir"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "Non nulle quand le court est une bobine précise du programme, plutôt que le programme entier"
+                                  }
+                                },
+                                "required": [
+                                  "film_id",
+                                  "tmdb_id",
+                                  "title",
+                                  "cover_url",
+                                  "salle",
+                                  "etat",
+                                  "plex_url",
+                                  "bobine"
+                                ],
+                                "additionalProperties": false,
+                                "description": "Le long ou le court d’une séance"
+                              },
+                              "court": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "film_id": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                        "description": "La ligne de mes salles (voyage_films) : le long, ou le programme du court"
+                                      },
+                                      "tmdb_id": {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "title": {
+                                        "type": "string"
+                                      },
+                                      "cover_url": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "format": "uri"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "salle": {
+                                        "type": "string",
+                                        "description": "Le nom de la salle où ce film ou programme a été proposé"
+                                      },
+                                      "etat": {
+                                        "type": "string",
+                                        "enum": [
+                                          "vu",
+                                          "sur_le_plex",
+                                          "demande",
+                                          "a_demander",
+                                          "introuvable"
+                                        ]
+                                      },
+                                      "plex_url": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "format": "uri"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "bobine": {
+                                        "anyOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "tmdb_id": {
+                                                "type": "integer",
+                                                "minimum": -9007199254740991,
+                                                "maximum": 9007199254740991
+                                              },
+                                              "title": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "tmdb_id",
+                                              "title"
+                                            ],
+                                            "additionalProperties": false,
+                                            "description": "La bobine composée pour ce soir"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ],
+                                        "description": "Non nulle quand le court est une bobine précise du programme, plutôt que le programme entier"
+                                      }
+                                    },
+                                    "required": [
+                                      "film_id",
+                                      "tmdb_id",
+                                      "title",
+                                      "cover_url",
+                                      "salle",
+                                      "etat",
+                                      "plex_url",
+                                      "bobine"
+                                    ],
+                                    "additionalProperties": false,
+                                    "description": "Le long ou le court d’une séance"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "Nul si l’année n’a encore aucun court, programme ou bobine à proposer"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "rang",
+                              "statut",
+                              "composee_le",
+                              "anecdote",
+                              "long",
+                              "court"
+                            ],
+                            "additionalProperties": false,
+                            "description": "Une séance composée par le chroniqueur — un long jamais vu, un court en ouverture, une anecdote"
+                          },
+                          "description": "Par rang décroissant — la plus récente d’abord"
+                        },
+                        "seance_en_cours": {
+                          "type": "boolean",
+                          "description": "Une composition vient d’être demandée et s’écrit encore"
                         }
                       },
                       "required": [
@@ -41857,7 +42188,9 @@
                         "ticket",
                         "paragraphes",
                         "paragraphes_en_cours",
-                        "demande_salle"
+                        "demande_salle",
+                        "seances",
+                        "seance_en_cours"
                       ],
                       "additionalProperties": false,
                       "description": "L’année, prête à afficher"
@@ -42107,7 +42440,28 @@
                         "statut": "en_cours",
                         "motif": null,
                         "salle_id": null
-                      }
+                      },
+                      "seances": [
+                        {
+                          "id": "b2c3d4e5-2345-4bcd-8e0f-123456789abc",
+                          "rang": 1,
+                          "statut": "proposee",
+                          "composee_le": "2026-09-21T22:00:00.000Z",
+                          "anecdote": "En 1941, Hollywood tourne encore sous le Code Hays, qui verrouille les scénarios depuis 1934. En Europe, la guerre vide les salles pendant que les studios américains n’ont jamais autant produit.",
+                          "long": {
+                            "film_id": "c5f0a8d4-3e1b-4a4c-9d9f-8b3c4d5e6f70",
+                            "tmdb_id": 963,
+                            "title": "Le Faucon maltais",
+                            "cover_url": "https://image.tmdb.org/t/p/w500/hPgOKGzJ7hCq9zpG3jXPKGWQ7A6.jpg",
+                            "salle": "Les essentiels",
+                            "etat": "a_demander",
+                            "plex_url": null,
+                            "bobine": null
+                          },
+                          "court": null
+                        }
+                      ],
+                      "seance_en_cours": false
                     }
                   }
                 }
@@ -42932,6 +43286,1135 @@
         "responses": {
           "204": {
             "description": "Default Response"
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/voyage/annees/{annee}/seances": {
+      "post": {
+        "summary": "« Composer une séance » — un long jamais vu, un court facultatif",
+        "tags": [
+          "voyage"
+        ],
+        "description": "Enfile la composition (`seance:<userId>:<annee>`) et répond toujours `202 { statut: \"en_preparation\" }`. `409 CONFLICT` si une composition est déjà en cours pour cette année.\n\nOn ne compose une séance que dans mon année en cours : `404` sur toute autre année, ou si elle n’a pas encore été ouverte. `400 VALIDATION` si tous les films de mes salles de cette année sont déjà vus ou introuvables — il n’y a alors plus rien de neuf à proposer.\n\nLa composition choisit un long jamais vu (sur mon Plex d’abord, sinon à demander), et en ouverture un court, un programme ou une de ses bobines quand l’année en a — jamais si un titre rendu par le chroniqueur ne se résout sur aucun film ou bobine connus, ou si le long rendu est déjà vu : la génération échoue alors sans rien écrire, et le verrou se libère pour qu’une prochaine demande retente.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1895,
+              "maximum": 2027
+            },
+            "in": "path",
+            "name": "annee",
+            "required": true
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "La composition vient d’être enfilée, ou en était déjà une en cours",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "statut": {
+                      "type": "string",
+                      "enum": [
+                        "en_preparation"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "statut"
+                  ],
+                  "additionalProperties": false,
+                  "description": "La composition vient d’être enfilée, ou en était déjà une en cours"
+                },
+                "examples": {
+                  "Réponse type": {
+                    "value": {
+                      "statut": "en_preparation"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/voyage/seances/{id}/remplacer": {
+      "post": {
+        "summary": "Remplacer un morceau d’une séance — sans appel au chroniqueur",
+        "tags": [
+          "voyage"
+        ],
+        "description": "Corps `{ morceau: \"long\" | \"court\", film_id, bobine_tmdb_id? }`. `film_id` doit être une ligne de mes salles de cette année-là, sinon `404` (une autre séance, un autre membre, une autre année, ou inconnue).\n\nPour `morceau: \"long\"` : `film_id` doit être un long (sans programme), non vu, non introuvable, et `bobine_tmdb_id` doit être absent — sinon `400 VALIDATION`. Pour `morceau: \"court\"` : `film_id` doit être un programme ; sans `bobine_tmdb_id`, le programme entier doit n’être ni entièrement vu ni introuvable ; avec, `bobine_tmdb_id` doit appartenir à ce programme et n’être ni vu ni introuvable — sinon `400 VALIDATION`.\n\nRépond `200 { seance }` après l’écriture, et invalide le cache de `GET /me/voyage`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "morceau": {
+                    "type": "string",
+                    "enum": [
+                      "long",
+                      "court"
+                    ]
+                  },
+                  "film_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "description": "Un long (sans programme), ou un programme de mes salles de cette année"
+                  },
+                  "bobine_tmdb_id": {
+                    "description": "Une bobine du programme visé par film_id — seulement pour morceau: \"court\"",
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "morceau",
+                  "film_id"
+                ],
+                "description": "Le morceau de la séance à remplacer, et son remplaçant"
+              }
+            }
+          },
+          "description": "Le morceau de la séance à remplacer, et son remplaçant"
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "La séance après l’écriture",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "seance": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "rang": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "statut": {
+                          "type": "string",
+                          "enum": [
+                            "proposee",
+                            "prise",
+                            "ignoree"
+                          ]
+                        },
+                        "composee_le": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                        },
+                        "anecdote": {
+                          "type": "string",
+                          "description": "Deux à quatre phrases, à lire pendant le générique"
+                        },
+                        "long": {
+                          "type": "object",
+                          "properties": {
+                            "film_id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "description": "La ligne de mes salles (voyage_films) : le long, ou le programme du court"
+                            },
+                            "tmdb_id": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "title": {
+                              "type": "string"
+                            },
+                            "cover_url": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uri"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "salle": {
+                              "type": "string",
+                              "description": "Le nom de la salle où ce film ou programme a été proposé"
+                            },
+                            "etat": {
+                              "type": "string",
+                              "enum": [
+                                "vu",
+                                "sur_le_plex",
+                                "demande",
+                                "a_demander",
+                                "introuvable"
+                              ]
+                            },
+                            "plex_url": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uri"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "bobine": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "tmdb_id": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "tmdb_id",
+                                    "title"
+                                  ],
+                                  "additionalProperties": false,
+                                  "description": "La bobine composée pour ce soir"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "description": "Non nulle quand le court est une bobine précise du programme, plutôt que le programme entier"
+                            }
+                          },
+                          "required": [
+                            "film_id",
+                            "tmdb_id",
+                            "title",
+                            "cover_url",
+                            "salle",
+                            "etat",
+                            "plex_url",
+                            "bobine"
+                          ],
+                          "additionalProperties": false,
+                          "description": "Le long ou le court d’une séance"
+                        },
+                        "court": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "film_id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "description": "La ligne de mes salles (voyage_films) : le long, ou le programme du court"
+                                },
+                                "tmdb_id": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "title": {
+                                  "type": "string"
+                                },
+                                "cover_url": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "uri"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "salle": {
+                                  "type": "string",
+                                  "description": "Le nom de la salle où ce film ou programme a été proposé"
+                                },
+                                "etat": {
+                                  "type": "string",
+                                  "enum": [
+                                    "vu",
+                                    "sur_le_plex",
+                                    "demande",
+                                    "a_demander",
+                                    "introuvable"
+                                  ]
+                                },
+                                "plex_url": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "uri"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "bobine": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "tmdb_id": {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        "title": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "tmdb_id",
+                                        "title"
+                                      ],
+                                      "additionalProperties": false,
+                                      "description": "La bobine composée pour ce soir"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "description": "Non nulle quand le court est une bobine précise du programme, plutôt que le programme entier"
+                                }
+                              },
+                              "required": [
+                                "film_id",
+                                "tmdb_id",
+                                "title",
+                                "cover_url",
+                                "salle",
+                                "etat",
+                                "plex_url",
+                                "bobine"
+                              ],
+                              "additionalProperties": false,
+                              "description": "Le long ou le court d’une séance"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Nul si l’année n’a encore aucun court, programme ou bobine à proposer"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "rang",
+                        "statut",
+                        "composee_le",
+                        "anecdote",
+                        "long",
+                        "court"
+                      ],
+                      "additionalProperties": false,
+                      "description": "Une séance composée par le chroniqueur — un long jamais vu, un court en ouverture, une anecdote"
+                    }
+                  },
+                  "required": [
+                    "seance"
+                  ],
+                  "additionalProperties": false,
+                  "description": "La séance après l’écriture"
+                },
+                "examples": {
+                  "Réponse type": {
+                    "value": {
+                      "seance": {
+                        "id": "b2c3d4e5-2345-4bcd-8e0f-123456789abc",
+                        "rang": 1,
+                        "statut": "proposee",
+                        "composee_le": "2026-09-21T22:00:00.000Z",
+                        "anecdote": "En 1941, Hollywood tourne encore sous le Code Hays, qui verrouille les scénarios depuis 1934. En Europe, la guerre vide les salles pendant que les studios américains n’ont jamais autant produit.",
+                        "long": {
+                          "film_id": "c5f0a8d4-3e1b-4a4c-9d9f-8b3c4d5e6f70",
+                          "tmdb_id": 963,
+                          "title": "Le Faucon maltais",
+                          "cover_url": "https://image.tmdb.org/t/p/w500/hPgOKGzJ7hCq9zpG3jXPKGWQ7A6.jpg",
+                          "salle": "Les essentiels",
+                          "etat": "a_demander",
+                          "plex_url": null,
+                          "bobine": null
+                        },
+                        "court": null
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/voyage/seances/{id}/prendre": {
+      "post": {
+        "summary": "Prendre une séance telle quelle",
+        "tags": [
+          "voyage"
+        ],
+        "description": "Passe cette séance à `prise`, et ignore (`ignoree`) les autres séances `prise` de la même année — une seule prise à la fois, par année. `404` si cette séance n’existe pas, ou n’est pas la mienne.\n\nRépond `200 { seance }`, et invalide le cache de `GET /me/voyage` (`seance_prise` s’y met à jour).",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "La séance après l’écriture",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "seance": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "rang": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "statut": {
+                          "type": "string",
+                          "enum": [
+                            "proposee",
+                            "prise",
+                            "ignoree"
+                          ]
+                        },
+                        "composee_le": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                        },
+                        "anecdote": {
+                          "type": "string",
+                          "description": "Deux à quatre phrases, à lire pendant le générique"
+                        },
+                        "long": {
+                          "type": "object",
+                          "properties": {
+                            "film_id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "description": "La ligne de mes salles (voyage_films) : le long, ou le programme du court"
+                            },
+                            "tmdb_id": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "title": {
+                              "type": "string"
+                            },
+                            "cover_url": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uri"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "salle": {
+                              "type": "string",
+                              "description": "Le nom de la salle où ce film ou programme a été proposé"
+                            },
+                            "etat": {
+                              "type": "string",
+                              "enum": [
+                                "vu",
+                                "sur_le_plex",
+                                "demande",
+                                "a_demander",
+                                "introuvable"
+                              ]
+                            },
+                            "plex_url": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uri"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "bobine": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "tmdb_id": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "tmdb_id",
+                                    "title"
+                                  ],
+                                  "additionalProperties": false,
+                                  "description": "La bobine composée pour ce soir"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "description": "Non nulle quand le court est une bobine précise du programme, plutôt que le programme entier"
+                            }
+                          },
+                          "required": [
+                            "film_id",
+                            "tmdb_id",
+                            "title",
+                            "cover_url",
+                            "salle",
+                            "etat",
+                            "plex_url",
+                            "bobine"
+                          ],
+                          "additionalProperties": false,
+                          "description": "Le long ou le court d’une séance"
+                        },
+                        "court": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "film_id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "description": "La ligne de mes salles (voyage_films) : le long, ou le programme du court"
+                                },
+                                "tmdb_id": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "title": {
+                                  "type": "string"
+                                },
+                                "cover_url": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "uri"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "salle": {
+                                  "type": "string",
+                                  "description": "Le nom de la salle où ce film ou programme a été proposé"
+                                },
+                                "etat": {
+                                  "type": "string",
+                                  "enum": [
+                                    "vu",
+                                    "sur_le_plex",
+                                    "demande",
+                                    "a_demander",
+                                    "introuvable"
+                                  ]
+                                },
+                                "plex_url": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "uri"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "bobine": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "tmdb_id": {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        "title": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "tmdb_id",
+                                        "title"
+                                      ],
+                                      "additionalProperties": false,
+                                      "description": "La bobine composée pour ce soir"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "description": "Non nulle quand le court est une bobine précise du programme, plutôt que le programme entier"
+                                }
+                              },
+                              "required": [
+                                "film_id",
+                                "tmdb_id",
+                                "title",
+                                "cover_url",
+                                "salle",
+                                "etat",
+                                "plex_url",
+                                "bobine"
+                              ],
+                              "additionalProperties": false,
+                              "description": "Le long ou le court d’une séance"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Nul si l’année n’a encore aucun court, programme ou bobine à proposer"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "rang",
+                        "statut",
+                        "composee_le",
+                        "anecdote",
+                        "long",
+                        "court"
+                      ],
+                      "additionalProperties": false,
+                      "description": "Une séance composée par le chroniqueur — un long jamais vu, un court en ouverture, une anecdote"
+                    }
+                  },
+                  "required": [
+                    "seance"
+                  ],
+                  "additionalProperties": false,
+                  "description": "La séance après l’écriture"
+                },
+                "examples": {
+                  "Réponse type": {
+                    "value": {
+                      "seance": {
+                        "id": "b2c3d4e5-2345-4bcd-8e0f-123456789abc",
+                        "rang": 1,
+                        "statut": "proposee",
+                        "composee_le": "2026-09-21T22:00:00.000Z",
+                        "anecdote": "En 1941, Hollywood tourne encore sous le Code Hays, qui verrouille les scénarios depuis 1934. En Europe, la guerre vide les salles pendant que les studios américains n’ont jamais autant produit.",
+                        "long": {
+                          "film_id": "c5f0a8d4-3e1b-4a4c-9d9f-8b3c4d5e6f70",
+                          "tmdb_id": 963,
+                          "title": "Le Faucon maltais",
+                          "cover_url": "https://image.tmdb.org/t/p/w500/hPgOKGzJ7hCq9zpG3jXPKGWQ7A6.jpg",
+                          "salle": "Les essentiels",
+                          "etat": "a_demander",
+                          "plex_url": null,
+                          "bobine": null
+                        },
+                        "court": null
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/voyage/seances/{id}/ignorer": {
+      "post": {
+        "summary": "Ignorer une séance",
+        "tags": [
+          "voyage"
+        ],
+        "description": "Passe cette séance à `ignoree`. `404` si cette séance n’existe pas, ou n’est pas la mienne.\n\nRépond `200 { seance }`, et invalide le cache de `GET /me/voyage`.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "La séance après l’écriture",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "seance": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "rang": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "statut": {
+                          "type": "string",
+                          "enum": [
+                            "proposee",
+                            "prise",
+                            "ignoree"
+                          ]
+                        },
+                        "composee_le": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                        },
+                        "anecdote": {
+                          "type": "string",
+                          "description": "Deux à quatre phrases, à lire pendant le générique"
+                        },
+                        "long": {
+                          "type": "object",
+                          "properties": {
+                            "film_id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "description": "La ligne de mes salles (voyage_films) : le long, ou le programme du court"
+                            },
+                            "tmdb_id": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "title": {
+                              "type": "string"
+                            },
+                            "cover_url": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uri"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "salle": {
+                              "type": "string",
+                              "description": "Le nom de la salle où ce film ou programme a été proposé"
+                            },
+                            "etat": {
+                              "type": "string",
+                              "enum": [
+                                "vu",
+                                "sur_le_plex",
+                                "demande",
+                                "a_demander",
+                                "introuvable"
+                              ]
+                            },
+                            "plex_url": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uri"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "bobine": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "tmdb_id": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "tmdb_id",
+                                    "title"
+                                  ],
+                                  "additionalProperties": false,
+                                  "description": "La bobine composée pour ce soir"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "description": "Non nulle quand le court est une bobine précise du programme, plutôt que le programme entier"
+                            }
+                          },
+                          "required": [
+                            "film_id",
+                            "tmdb_id",
+                            "title",
+                            "cover_url",
+                            "salle",
+                            "etat",
+                            "plex_url",
+                            "bobine"
+                          ],
+                          "additionalProperties": false,
+                          "description": "Le long ou le court d’une séance"
+                        },
+                        "court": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "film_id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "description": "La ligne de mes salles (voyage_films) : le long, ou le programme du court"
+                                },
+                                "tmdb_id": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "title": {
+                                  "type": "string"
+                                },
+                                "cover_url": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "uri"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "salle": {
+                                  "type": "string",
+                                  "description": "Le nom de la salle où ce film ou programme a été proposé"
+                                },
+                                "etat": {
+                                  "type": "string",
+                                  "enum": [
+                                    "vu",
+                                    "sur_le_plex",
+                                    "demande",
+                                    "a_demander",
+                                    "introuvable"
+                                  ]
+                                },
+                                "plex_url": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "uri"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "bobine": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "tmdb_id": {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        "title": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "tmdb_id",
+                                        "title"
+                                      ],
+                                      "additionalProperties": false,
+                                      "description": "La bobine composée pour ce soir"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "description": "Non nulle quand le court est une bobine précise du programme, plutôt que le programme entier"
+                                }
+                              },
+                              "required": [
+                                "film_id",
+                                "tmdb_id",
+                                "title",
+                                "cover_url",
+                                "salle",
+                                "etat",
+                                "plex_url",
+                                "bobine"
+                              ],
+                              "additionalProperties": false,
+                              "description": "Le long ou le court d’une séance"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Nul si l’année n’a encore aucun court, programme ou bobine à proposer"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "rang",
+                        "statut",
+                        "composee_le",
+                        "anecdote",
+                        "long",
+                        "court"
+                      ],
+                      "additionalProperties": false,
+                      "description": "Une séance composée par le chroniqueur — un long jamais vu, un court en ouverture, une anecdote"
+                    }
+                  },
+                  "required": [
+                    "seance"
+                  ],
+                  "additionalProperties": false,
+                  "description": "La séance après l’écriture"
+                },
+                "examples": {
+                  "Réponse type": {
+                    "value": {
+                      "seance": {
+                        "id": "b2c3d4e5-2345-4bcd-8e0f-123456789abc",
+                        "rang": 1,
+                        "statut": "proposee",
+                        "composee_le": "2026-09-21T22:00:00.000Z",
+                        "anecdote": "En 1941, Hollywood tourne encore sous le Code Hays, qui verrouille les scénarios depuis 1934. En Europe, la guerre vide les salles pendant que les studios américains n’ont jamais autant produit.",
+                        "long": {
+                          "film_id": "c5f0a8d4-3e1b-4a4c-9d9f-8b3c4d5e6f70",
+                          "tmdb_id": 963,
+                          "title": "Le Faucon maltais",
+                          "cover_url": "https://image.tmdb.org/t/p/w500/hPgOKGzJ7hCq9zpG3jXPKGWQ7A6.jpg",
+                          "salle": "Les essentiels",
+                          "etat": "a_demander",
+                          "plex_url": null,
+                          "bobine": null
+                        },
+                        "court": null
+                      }
+                    }
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Default Response",
