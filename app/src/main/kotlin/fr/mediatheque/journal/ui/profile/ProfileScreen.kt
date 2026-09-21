@@ -32,6 +32,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -50,6 +53,7 @@ import fr.mediatheque.journal.ui.frise.TicketPortefeuilleUi
 import fr.mediatheque.journal.ui.suivis.SuiviState
 import fr.mediatheque.journal.ui.suivis.SuivisViewModel
 import fr.mediatheque.journal.ui.suivis.pret
+import java.time.YearMonth
 
 @Composable
 fun ProfileScreen(
@@ -62,6 +66,8 @@ fun ProfileScreen(
     passeport: List<TamponDecennie>,
     /** Le portefeuille de tickets (brief du 21 septembre 2026, « le ticket »), sous le passeport. */
     portefeuille: PortefeuilleViewModel,
+    /** Les dépenses au chroniqueur (décision 2 du brief du 21 septembre 2026, « les dépenses »), sous le portefeuille. */
+    depenses: DepensesViewModel,
     onBack: () -> Unit,
     onFilms: () -> Unit,
     onSensCritique: () -> Unit,
@@ -76,6 +82,7 @@ fun ProfileScreen(
     val bilanUi by bilan.ui.collectAsState()
     val suivisUi by suivis.ui.collectAsState()
     val portefeuilleUi by portefeuille.ui.collectAsState()
+    val depensesUi by depenses.ui.collectAsState()
 
     // Sélecteur de fichiers système (brief « importer Letterboxd », 16 septembre 2026) : le ZIP de
     // l'export ou `diary.csv` seul, `*/*` en repli pour les lecteurs qui ne déclarent aucun des deux
@@ -132,6 +139,7 @@ fun ProfileScreen(
                     BilanCard(bilanUi.journal, suivisUi.realisateurs, suivisUi.sagas)
                     PasseportCard(passeport, onOuvrirGenerique)
                     PortefeuilleCard(portefeuilleUi.tickets, onUtiliserTicket)
+                    DepensesCard(depensesUi.mois)
                     ListItem(
                         headlineContent = { Text("Mes films", style = MaterialTheme.typography.titleMedium) },
                         trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null) },
@@ -303,4 +311,39 @@ private fun PortefeuilleCard(tickets: List<TicketPortefeuilleUi>?, onUtiliser: (
 @Composable
 private fun LigneBilan(texte: String) {
     Text(texte, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+/**
+ * Les dépenses (décision 2 du brief du 21 septembre 2026, « les dépenses »), sous le portefeuille,
+ * dans un bloc jumeau du sien : la ligne du mois courant (`ligneMoisCourant`), un tap la déplie
+ * sur les mois précédents (`triMoisPrecedents`, du plus récent au plus ancien), un second tap la
+ * replie. `mois == null` tant que `GET /me/voyage/depenses` n'a pas répondu.
+ */
+@Composable
+private fun DepensesCard(mois: List<DepenseMoisUi>?) {
+    var deplie by remember { mutableStateOf(false) }
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceContainer, MaterialTheme.shapes.medium)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text("Dépenses", style = MaterialTheme.typography.titleMedium)
+        if (mois == null) {
+            LigneBilan("…")
+        } else {
+            val moisCourant = remember { YearMonth.now().toString() }
+            val courant = mois.firstOrNull { it.mois == moisCourant }
+            Text(
+                ligneMoisCourant(courant),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth().clickable { deplie = !deplie },
+            )
+            if (deplie) {
+                triMoisPrecedents(mois, moisCourant).forEach { m -> LigneBilan(ligneMoisPrecedent(m)) }
+            }
+        }
+    }
 }

@@ -70,4 +70,7 @@ object Endpoints {
     fun voyageChronique(annee: Int): String = "${voyageAnnee(annee)}/chronique"
     fun voyageSalles(annee: Int): String = "${voyageAnnee(annee)}/salles"
     fun voyageDemandeSalleVue(id: String): String = "me/voyage/demandes-salles/$id/vue"
+
+    /** `GET /me/voyage/depenses` (décision 2 du brief du 21 septembre 2026, « les dépenses »). */
+    const val voyageDepenses = "me/voyage/depenses"
 }

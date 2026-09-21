@@ -45,6 +45,7 @@ import fr.mediatheque.journal.ui.login.LoginScreen
 import fr.mediatheque.journal.ui.login.LoginViewModel
 import fr.mediatheque.journal.ui.frise.TicketCalque
 import fr.mediatheque.journal.ui.profile.BilanViewModel
+import fr.mediatheque.journal.ui.profile.DepensesViewModel
 import fr.mediatheque.journal.ui.profile.LetterboxdImportViewModel
 import fr.mediatheque.journal.ui.profile.PortefeuilleViewModel
 import fr.mediatheque.journal.ui.profile.ProfileScreen
@@ -252,6 +253,12 @@ fun Root(container: AppContainer) {
                             PortefeuilleViewModel(container.api, session::expire)
                         }
                         LaunchedEffect(Unit) { portefeuille.refresh() }
+                        // Les dépenses (décision 2 du brief du 21 septembre 2026, « les dépenses »),
+                        // sous le portefeuille : même mécanique, son propre appel.
+                        val depenses: DepensesViewModel = viewModel(key = "depenses") {
+                            DepensesViewModel(container.api, session::expire)
+                        }
+                        LaunchedEffect(Unit) { depenses.refresh() }
                         // Le passeport (brief du 16 septembre 2026, phase 2) se lit sur l'instance
                         // partagée de `FriseViewModel`, déjà chargée par l'accueil : aucun appel
                         // réseau de plus pour le profil, `BilanViewModel` tirant déjà le journal
@@ -265,6 +272,7 @@ fun Root(container: AppContainer) {
                             suivis,
                             passeport = friseUi.passeport,
                             portefeuille = portefeuille,
+                            depenses = depenses,
                             onBack = nav::pop,
                             onFilms = { nav.push(Screen.Films) },
                             onSensCritique = { nav.push(Screen.SensCritique) },

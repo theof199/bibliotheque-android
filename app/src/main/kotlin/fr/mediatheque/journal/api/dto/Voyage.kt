@@ -248,3 +248,23 @@ data class CartonFilmResponse(
 /** `POST /me/voyage/demander/{tmdbId}`. */
 @Serializable
 data class DemanderVoyageResponse(val demande: Boolean = false)
+
+/**
+ * La dépense IA d'un mois, pour moi seul (décision 2 du brief du 21 septembre 2026, « les
+ * dépenses ») : une ligne `appels_ia` par appel réussi (ouverture, fournée) déclenché — le carton
+ * d'un film n'y figure pas, il ne dépend d'aucun membre en particulier. `cout_centimes` est une
+ * estimation au tarif public d'Anthropic, la facture du compte Anthropic fait foi.
+ */
+@Serializable
+data class DepenseMoisVoyage(
+    /** Année-mois, ISO, fuseau du serveur — `"2026-08"`. */
+    val mois: String,
+    val appels: Int,
+    val input_tokens: Int,
+    val output_tokens: Int,
+    val cout_centimes: Double,
+)
+
+/** `GET /me/voyage/depenses` — mes dépenses au chroniqueur, du plus ancien au plus récent. */
+@Serializable
+data class VoyageDepensesResponse(val mois: List<DepenseMoisVoyage> = emptyList())

@@ -37,6 +37,7 @@ import fr.mediatheque.journal.api.dto.PodiumBody
 import fr.mediatheque.journal.api.dto.PodiumResponse
 import fr.mediatheque.journal.api.dto.SallePlusResponse
 import fr.mediatheque.journal.api.dto.TicketUtiliseResponse
+import fr.mediatheque.journal.api.dto.VoyageDepensesResponse
 import fr.mediatheque.journal.api.dto.VoyageResponse
 import fr.mediatheque.journal.api.dto.VoyageTicketsResponse
 import fr.mediatheque.journal.reactions.Reactions
@@ -292,6 +293,8 @@ class ApiClient(baseUrl: String, engine: HttpClientEngine) : JournalApi {
     override suspend fun voyageDemandeSalleVue(id: String) {
         call<Unit> { client.post(Endpoints.voyageDemandeSalleVue(id)) }
     }
+
+    override suspend fun voyageDepenses(): VoyageDepensesResponse = call { client.get(Endpoints.voyageDepenses) }
 
     private suspend inline fun <reified T> call(block: () -> HttpResponse): T {
         val response = try {

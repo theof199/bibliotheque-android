@@ -34,6 +34,7 @@ import fr.mediatheque.journal.api.dto.PodiumBody
 import fr.mediatheque.journal.api.dto.PodiumResponse
 import fr.mediatheque.journal.api.dto.SallePlusResponse
 import fr.mediatheque.journal.api.dto.TicketUtiliseResponse
+import fr.mediatheque.journal.api.dto.VoyageDepensesResponse
 import fr.mediatheque.journal.api.dto.VoyageResponse
 import fr.mediatheque.journal.api.dto.VoyageTicketsResponse
 import kotlinx.serialization.json.JsonObject
@@ -89,6 +90,7 @@ class FakeJournalApi : JournalApi {
     var onVoyageChronique: suspend (Int, ChroniqueBody) -> ChroniqueEcritureResponse = { _, _ -> ChroniqueEcritureResponse(statut = "en_preparation") }
     var onVoyageDemanderSalle: suspend (Int, String) -> DemandeSalleEcritureResponse = { _, _ -> DemandeSalleEcritureResponse(demande_id = "d-1") }
     var onVoyageDemandeSalleVue: suspend (String) -> Unit = { _ -> }
+    var onVoyageDepenses: suspend () -> VoyageDepensesResponse = { VoyageDepensesResponse() }
 
     override suspend fun login(pseudo: String, password: String) = track("login $pseudo") { onLogin(pseudo, password) }
     override suspend fun me() = track("me") { onMe() }
@@ -136,6 +138,7 @@ class FakeJournalApi : JournalApi {
     override suspend fun voyageDemanderSalle(annee: Int, demande: String) =
         track("voyageDemanderSalle $annee") { onVoyageDemanderSalle(annee, demande) }
     override suspend fun voyageDemandeSalleVue(id: String) = track("voyageDemandeSalleVue $id") { onVoyageDemandeSalleVue(id) }
+    override suspend fun voyageDepenses() = track("voyageDepenses") { onVoyageDepenses() }
 
     private suspend fun <T> track(name: String, block: suspend () -> T): T {
         calls += name

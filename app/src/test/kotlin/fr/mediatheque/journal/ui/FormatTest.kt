@@ -12,4 +12,14 @@ class FormatTest {
         assertEquals("Hayao Miyazaki", subtitle("Hayao Miyazaki", null))
         assertEquals("", subtitle(null, null))
     }
+
+    // Décision 2 du brief du 21 septembre 2026, « les dépenses ».
+    @Test fun `un mois en toutes lettres, capitalise`() = assertEquals("Août 2026", formatMoisAnnee("2026-08"))
+    @Test fun `un mois a deux chiffres reste capitalise`() = assertEquals("Décembre 2025", formatMoisAnnee("2025-12"))
+
+    @Test fun `une decimale, virgule a la francaise`() {
+        assertEquals("12,7", formatCentimes(12.7))
+        // Mutation : sans l'arrondi à une décimale, ce serait "101,16".
+        assertEquals("101,2", formatCentimes(101.16))
+    }
 }

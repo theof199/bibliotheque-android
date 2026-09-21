@@ -25,6 +25,7 @@ import fr.mediatheque.journal.api.dto.PodiumBody
 import fr.mediatheque.journal.api.dto.PodiumResponse
 import fr.mediatheque.journal.api.dto.SallePlusResponse
 import fr.mediatheque.journal.api.dto.TicketUtiliseResponse
+import fr.mediatheque.journal.api.dto.VoyageDepensesResponse
 import fr.mediatheque.journal.api.dto.VoyageResponse
 import fr.mediatheque.journal.api.dto.VoyageTicketsResponse
 import kotlinx.serialization.json.JsonObject
@@ -179,6 +180,12 @@ interface JournalApi {
 
     /** `POST /me/voyage/demandes-salles/{id}/vue` : marque une demande (typiquement un refus) comme vue. Idempotent, toujours `204`. */
     suspend fun voyageDemandeSalleVue(id: String)
+
+    /**
+     * `GET /me/voyage/depenses` (décision 2 du brief du 21 septembre 2026, « les dépenses ») : mes
+     * appels au chroniqueur, mois par mois, du plus ancien au plus récent.
+     */
+    suspend fun voyageDepenses(): VoyageDepensesResponse
 }
 
 /**
