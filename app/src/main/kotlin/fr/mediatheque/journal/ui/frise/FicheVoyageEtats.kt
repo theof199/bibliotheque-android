@@ -16,8 +16,8 @@ package fr.mediatheque.journal.ui.frise
 fun etatFilmVoyage(etatPropre: String, bobines: List<BobineUi>): String =
     if (bobines.isEmpty()) etatPropre else if (bobines.all { it.etat == "vu" }) "vu" else etatPropre
 
-/** Les cinq boutons possibles de la fiche d'un film (spec du 19 septembre 2026, §3). */
-enum class BoutonFicheVoyage { VOIR_SUR_LE_PLEX, JE_L_AI_VU, DEMANDER, MARQUER_INTROUVABLE, RETIRER_INTROUVABLE }
+/** Les six boutons possibles de la fiche d'un film (spec du 19 septembre 2026, §3 ; « Mettre sur le podium » ajouté le 21 septembre 2026). */
+enum class BoutonFicheVoyage { VOIR_SUR_LE_PLEX, JE_L_AI_VU, DEMANDER, MARQUER_INTROUVABLE, RETIRER_INTROUVABLE, METTRE_SUR_LE_PODIUM }
 
 /**
  * Les boutons à montrer, selon l'état du film et la présence d'un lien Plex :
@@ -26,7 +26,9 @@ enum class BoutonFicheVoyage { VOIR_SUR_LE_PLEX, JE_L_AI_VU, DEMANDER, MARQUER_I
  * - « Je l'ai vu » disparaît une fois le film vu, seul cas où il n'a plus lieu d'être ;
  * - « Demander sur Sir » n'apparaît que sur `a_demander`, jamais sur `demande` (déjà fait) ;
  * - « Introuvable » et son inverse sont mutuellement exclusifs, et aucun des deux ne sort sur un
- *   film déjà vu.
+ *   film déjà vu ;
+ * - « Mettre sur le podium » (décision 3 du brief du 21 septembre 2026) n'apparaît que sur un film
+ *   (ou un programme) vu — `etat` porte déjà le calcul programme-aware d'`etatFilmVoyage`.
  */
 fun boutonsFicheVoyage(etat: String, plexUrl: String?): List<BoutonFicheVoyage> = buildList {
     if (plexUrl != null) add(BoutonFicheVoyage.VOIR_SUR_LE_PLEX)
@@ -36,6 +38,7 @@ fun boutonsFicheVoyage(etat: String, plexUrl: String?): List<BoutonFicheVoyage> 
         etat == "introuvable" -> add(BoutonFicheVoyage.RETIRER_INTROUVABLE)
         etat != "vu" -> add(BoutonFicheVoyage.MARQUER_INTROUVABLE)
     }
+    if (etat == "vu") add(BoutonFicheVoyage.METTRE_SUR_LE_PODIUM)
 }
 
 /** Le lien à ouvrir pour « Voir sur le Plex » : soit l'appli (`plex://`), soit le web — jamais les deux à la fois. */

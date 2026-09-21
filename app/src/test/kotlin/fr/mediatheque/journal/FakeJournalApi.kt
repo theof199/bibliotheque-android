@@ -28,6 +28,8 @@ import fr.mediatheque.journal.api.dto.AnneeSuivanteResponse
 import fr.mediatheque.journal.api.dto.AnneeVoyageDetailResponse
 import fr.mediatheque.journal.api.dto.CartonFilmResponse
 import fr.mediatheque.journal.api.dto.DemanderVoyageResponse
+import fr.mediatheque.journal.api.dto.PodiumBody
+import fr.mediatheque.journal.api.dto.PodiumResponse
 import fr.mediatheque.journal.api.dto.SallePlusResponse
 import fr.mediatheque.journal.api.dto.VoyageResponse
 import kotlinx.serialization.json.JsonObject
@@ -76,6 +78,8 @@ class FakeJournalApi : JournalApi {
     var onVoyageSallePlus: suspend (String) -> SallePlusResponse = { SallePlusResponse(statut = "epuisee") }
     var onCartonFilm: suspend (Int) -> CartonFilmResponse = { CartonFilmResponse(configure = true) }
     var onDemanderVoyage: suspend (Int) -> DemanderVoyageResponse = { DemanderVoyageResponse(demande = true) }
+    var onPoserPodium: suspend (Int, Int, PodiumBody) -> PodiumResponse = { _, _, _ -> PodiumResponse() }
+    var onRetirerPodium: suspend (Int, Int) -> Unit = { _, _ -> }
 
     override suspend fun login(pseudo: String, password: String) = track("login $pseudo") { onLogin(pseudo, password) }
     override suspend fun me() = track("me") { onMe() }
@@ -113,6 +117,9 @@ class FakeJournalApi : JournalApi {
     override suspend fun voyageSallePlus(salleId: String) = track("voyageSallePlus $salleId") { onVoyageSallePlus(salleId) }
     override suspend fun cartonFilm(tmdbId: Int) = track("cartonFilm $tmdbId") { onCartonFilm(tmdbId) }
     override suspend fun demanderVoyage(tmdbId: Int) = track("demanderVoyage $tmdbId") { onDemanderVoyage(tmdbId) }
+    override suspend fun poserPodium(annee: Int, place: Int, corps: PodiumBody) =
+        track("poserPodium $annee $place ${corps.tmdb_id ?: corps.programme_id}") { onPoserPodium(annee, place, corps) }
+    override suspend fun retirerPodium(annee: Int, place: Int) = track("retirerPodium $annee $place") { onRetirerPodium(annee, place) }
 
     private suspend fun <T> track(name: String, block: suspend () -> T): T {
         calls += name

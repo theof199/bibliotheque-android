@@ -14,10 +14,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
@@ -25,11 +28,14 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -53,7 +59,9 @@ import fr.mediatheque.journal.ui.theme.TextePapier
  * journal déjà chargé par `FriseViewModel`) ; le carton « Et pendant ce temps… » existant ; pour un
  * programme, ses bobines, chacune ouvrant le formulaire pré-rempli ; puis les boutons selon l'état.
  *
- * Ni podium ni « Ajouter à la chronique » (étapes 2 et 4 de la spec, pas encore livrées).
+ * Le podium s'y ajoute le 21 septembre 2026 (décision 3 du brief « le podium ») : « Mettre sur le
+ * podium » ouvre le choix d'une marche (`lignesChoixMarche`) ; pas encore « Ajouter à la
+ * chronique » (étape 4 de la spec).
  *
  * Lit `vm` (le même `AnneeViewModel` que l'année d'où elle s'est ouverte, `Root.kt`) plutôt que de
  * recharger quoi que ce soit : `salleId` et `filmId` désignent le film dans son état déjà connu.
@@ -68,6 +76,7 @@ fun FicheVoyageScreen(
     carton: CartonViewModel,
     onBack: () -> Unit,
     onOpenForm: (SearchResult) -> Unit,
+    onPodiumChange: () -> Unit,
 ) {
     val ui by vm.ui.collectAsState()
     val salle = ui.salles.firstOrNull { it.id == salleId }
@@ -76,6 +85,7 @@ fun FicheVoyageScreen(
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(Unit) { vm.messages.collect { snackbar.showBriefly(it) } }
     val contexte = LocalContext.current
+    var choisirMarche by remember { mutableStateOf(false) }
 
     Scaffold(
         containerColor = monde.fond,
@@ -170,10 +180,61 @@ fun FicheVoyageScreen(
                         BoutonFicheVoyage.RETIRER_INTROUVABLE -> TextButton(onClick = { vm.retirerIntrouvable(film.tmdbId) }) {
                             Text("Le remettre à voir")
                         }
+                        BoutonFicheVoyage.METTRE_SUR_LE_PODIUM -> OutlinedButton(
+                            onClick = { choisirMarche = true },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text("Mettre sur le podium") }
                     }
                 }
                 if (etat == "demande") {
                     Text("demandé", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+
+        if (choisirMarche) {
+            // Un programme se pose par `programme_id` (la ligne de salle), un film ordinaire par
+            // `tmdb_id` : jamais les deux (`corpsPodium`, jumeau de `lignesChoixMarche` ci-dessous).
+            val candidat = if (film.programme != null) {
+                CandidatPodium.Programme(film.id, film.title, film.coverUrl)
+            } else {
+                CandidatPodium.Film(film.tmdbId, film.title, film.coverUrl, note = journalItem?.entry?.rating)
+            }
+            ChoisirMarcheSheet(
+                lignes = lignesChoixMarche(
+                    ui.podium,
+                    tmdbId = (candidat as? CandidatPodium.Film)?.tmdbId,
+                    programmeId = (candidat as? CandidatPodium.Programme)?.programmeId,
+                ),
+                onChoisir = { place -> choisirMarche = false; vm.poserPodium(place, candidat, onPodiumChange) },
+                onDismiss = { choisirMarche = false },
+            )
+        }
+    }
+}
+
+/** La feuille « Mettre sur le podium » (décision 3 du brief du 21 septembre 2026) : trois lignes, une par marche. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ChoisirMarcheSheet(lignes: List<LigneChoixMarche>, onChoisir: (place: Int) -> Unit, onDismiss: () -> Unit) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+            Text("Mettre sur le podium", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
+            lignes.forEach { ligne ->
+                Row(
+                    Modifier.fillMaxWidth().clickable { onChoisir(ligne.place) }.padding(vertical = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "Marche ${ligne.place} · ${ligne.occupantActuel ?: "libre"}",
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (ligne.estCeFilm) {
+                        Icon(Icons.Filled.Check, contentDescription = "Marche actuelle", tint = MaterialTheme.colorScheme.primary)
+                    }
                 }
             }
         }

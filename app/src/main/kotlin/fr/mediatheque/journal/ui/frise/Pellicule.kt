@@ -16,7 +16,9 @@ import kotlin.random.Random
 
 /**
  * Le dessin du Voyage (brief du 16 septembre 2026, phase 2) : la pellicule qui serpente, les
- * motifs de fond d'un monde, la marquise d'une décennie et les trois glyphes de festival.
+ * motifs de fond d'un monde, la marquise d'une décennie et les trois glyphes de festival. Le
+ * podium d'une année (21 septembre 2026) reprend cette bande, droite plutôt que serpentine
+ * (`bandeDePellicule`).
  *
  * Tout est vectoriel et dessiné au `Canvas` — aucune image bitmap, aucune ressource de plus. Les
  * fonctions sont des extensions de `DrawScope` : elles ne connaissent ni l'état de l'écran, ni les
@@ -83,6 +85,34 @@ fun DrawScope.segmentDePellicule(
                 }
             }
         }
+    }
+}
+
+/**
+ * Un bout de pellicule droit (brief du 21 septembre 2026, « le podium ») : jumeau horizontal de
+ * `segmentDePellicule`, sans le serpentin — une bande droite sur toute la largeur du `DrawScope`,
+ * perforée aux deux bords, sous les trois photogrammes du podium d'une année.
+ */
+fun DrawScope.bandeDePellicule(couleurBande: Color, couleurPerforation: Color) {
+    val largeur = size.height
+    val y = largeur / 2f
+    drawLine(couleurBande, Offset(0f, y), Offset(size.width, y), strokeWidth = largeur)
+
+    val ecart = largeur / 2f - largeur * 0.11f
+    val perfoL = largeur * 0.13f
+    val perfoH = largeur * 0.09f
+    val pas = perfoL * 3f
+    var x = pas / 2f
+    while (x < size.width) {
+        listOf(-1f, 1f).forEach { cote ->
+            drawRoundRect(
+                color = couleurPerforation,
+                topLeft = Offset(x - perfoL / 2f, y + ecart * cote - perfoH / 2f),
+                size = Size(perfoL, perfoH),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(perfoH / 3f),
+            )
+        }
+        x += pas
     }
 }
 

@@ -7,14 +7,26 @@ import fr.mediatheque.journal.api.dto.JournalItem
  * l'avancée de la frontière, les tampons du passeport. Fonctions pures, testées en JVM sans réseau
  * ni `ViewModel`, comme `VoyageEtats.kt` à côté.
  *
- * Brief du 21 septembre 2026 (« l'année en étages ») : `GET /me/voyage` ne sert plus ni essentiels
- * ni récompense par année (spec du 19 septembre 2026, §7 : « pour la carte, la liste des années
- * avec statut, profondeur, récompense » — la récompense n'arrive qu'à l'étape 5, §8). `Recompense`,
- * `recompense` et `phraseRecompenses` restent, pures et testées, pour ce jour-là : personne ne les
- * appelle encore avec autre chose qu'une liste vide. Jumeau pour le passeport : une décennie ne se
- * boucle qu'avec un Ours par année et le ticket suivant utilisé (spec §6, étape 3) — `tamponsPasseport`
- * ne peut donc encore rien tamponner.
+ * Brief du 21 septembre 2026 (« l'année en étages », puis « le podium ») : `GET /me/voyage` ne sert
+ * plus ni essentiels ni récompense par année (spec du 19 septembre 2026, §7 : « pour la carte, la
+ * liste des années avec statut, profondeur, récompense » — la récompense n'arrive qu'à l'étape 5,
+ * §8). `Recompense`, `recompense` et `phraseRecompenses` restent, pures et testées, pour ce jour-là :
+ * personne ne les appelle encore avec autre chose qu'une liste vide. Jumeau pour le passeport : une
+ * décennie ne se boucle qu'avec un Ours par année et le ticket suivant utilisé (spec §6, étape 3) —
+ * `tamponsPasseport` ne peut donc encore rien tamponner.
+ *
+ * `affiche_url` (étape 2, « le podium ») sert désormais le photogramme d'une année : `afficheAnnee`
+ * en dessous choisit entre elle et le dernier film vu, seule règle que la carte ajoute pour cette
+ * étape-là.
  */
+
+/**
+ * Le photogramme d'une année, sur la carte (brief du 21 septembre 2026, « le podium ») :
+ * `affiche_url` (l'affiche du n°1 du podium) quand elle existe, sinon le dernier film vu de l'année
+ * comme avant le podium — jamais l'inverse, un podium posé devant primer sur ce qui n'est qu'un
+ * repli.
+ */
+fun afficheAnnee(afficheUrl: String?, dernierVu: String?): String? = afficheUrl ?: dernierVu
 
 /**
  * La récompense d'une année faite (étape 5, à venir) — les trois festivals du brief du

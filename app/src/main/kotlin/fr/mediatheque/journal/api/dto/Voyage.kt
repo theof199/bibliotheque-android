@@ -20,6 +20,8 @@ data class AnneeVoyage(
     val visitee: Boolean = false,
     /** Films de mon journal sortis cette année-là ; un programme compte un, jamais ses bobines séparément. */
     val profondeur: Int = 0,
+    /** L'affiche du n°1 du podium (brief du 21 septembre 2026, « le podium ») — nulle si la marche 1 est vide. */
+    val affiche_url: String? = null,
 )
 
 /** `GET /me/voyage` — ma progression, la carte. */
@@ -85,6 +87,20 @@ data class SalleVoyage(
 )
 
 /**
+ * Une marche du podium, occupée (brief du 21 septembre 2026, « le podium ») : un item nul de la
+ * liste de `AnneeVoyageDetailResponse.podium` ou de `PodiumResponse.podium` dit une marche vide,
+ * jamais cette forme avec des champs nuls dedans.
+ */
+@Serializable
+data class PodiumMarcheVoyage(
+    val place: Int,
+    val tmdb_id: Int? = null,
+    val programme_id: String? = null,
+    val title: String = "",
+    val cover_url: String? = null,
+)
+
+/**
  * `GET /me/voyage/annees/{annee}` — les trois formes possibles du back aplaties en un seul DTO :
  * `configure` et `statut` disent laquelle est arrivée (`configure: false` / `en_preparation` /
  * `verrouillee` / `prete`), comme le faisait `ChroniqueAnneeResponse` pour l'ancien modèle. C'est
@@ -100,7 +116,17 @@ data class AnneeVoyageDetailResponse(
     val faits: List<String> = emptyList(),
     val ecrite_le: String? = null,
     val salles: List<SalleVoyage> = emptyList(),
+    /** Les trois marches, dans l'ordre — vide (plutôt que `[null, null, null]`) tant que le back n'en sert pas. */
+    val podium: List<PodiumMarcheVoyage?> = emptyList(),
 )
+
+/** Corps de `PUT /me/voyage/annees/{annee}/podium/{place}` : `tmdb_id` **ou** `programme_id`, jamais les deux. */
+@Serializable
+data class PodiumBody(val tmdb_id: Int? = null, val programme_id: String? = null)
+
+/** `PUT /me/voyage/annees/{annee}/podium/{place}` — le podium complet après l'écriture. */
+@Serializable
+data class PodiumResponse(val podium: List<PodiumMarcheVoyage?> = emptyList())
 
 /** `POST /me/voyage/annee-suivante` — provisoire, en attendant le ticket (étape 3 de la spec). */
 @Serializable

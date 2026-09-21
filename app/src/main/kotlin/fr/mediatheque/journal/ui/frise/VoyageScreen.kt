@@ -61,14 +61,15 @@ import java.time.LocalDate
  * années visitées, les récompenses de festival. Le clap de l'icône marque l'année en cours et
  * claque quand elle avance.
  *
- * Réécrit pour le brief du 21 septembre 2026 (« l'année en étages ») : `GET /me/voyage` ne sert
- * plus ni frontière ni essentiels — une année **ouverte** (avant l'année en cours) reste creusable
- * pour toujours, elle n'est jamais « faite ». Le photogramme d'une année ouverte montre donc sa
- * profondeur et l'affiche de son dernier film vu (le podium, qui la remplacera, viendra à l'étape
- * 2), et la carte « Prochaine étape » a disparu avec les essentiels qui la nourrissaient. Les
- * glyphes de récompense, le compte du HUD, la marquise allumée et le passeport restent dans le
- * code (`Recompense`, `phraseRecompenses`, `tamponsPasseport`) mais ne s'affichent que si le back
- * en donne — il n'en donne aucun à cette étape.
+ * Réécrit pour le brief du 21 septembre 2026 (« l'année en étages », puis « le podium ») : `GET
+ * /me/voyage` ne sert plus ni frontière ni essentiels — une année **ouverte** (avant l'année en
+ * cours) reste creusable pour toujours, elle n'est jamais « faite ». Le photogramme d'une année
+ * ouverte montre donc sa profondeur et l'affiche de son n°1 du podium, ou celle de son dernier film
+ * vu tant qu'aucun podium n'y est posé (`afficheAnnee`, `VoyageCarte.kt`) — et la carte « Prochaine
+ * étape » a disparu avec les essentiels qui la nourrissaient. Les glyphes de récompense, le compte
+ * du HUD, la marquise allumée et le passeport restent dans le code (`Recompense`,
+ * `phraseRecompenses`, `tamponsPasseport`) mais ne s'affichent que si le back en donne — il n'en
+ * donne aucun à cette étape.
  *
  * L'écran ne charge rien lui-même : `FriseViewModel` tient déjà le journal, le Plex et
  * `GET /me/voyage` pour l'accueil comme pour ici (`Root.kt`, clé « frise »).
@@ -199,7 +200,7 @@ private fun construireCarte(ui: FriseUi, anneeActuelle: Int): List<Cellule> {
                 annee = annee,
                 monde = monde,
                 statut = statutAnneeVoyage(fragment?.statut),
-                affiche = groupe.vus.firstNotNullOfOrNull { it.media.cover_url },
+                affiche = afficheAnnee(fragment?.affiche_url, groupe.vus.firstNotNullOfOrNull { it.media.cover_url }),
                 recompense = null,
                 profondeur = fragment?.profondeur ?: groupe.vus.size,
                 groupe = groupe,

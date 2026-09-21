@@ -19,12 +19,14 @@ import fr.mediatheque.journal.api.dto.AnneeSuivanteResponse
 import fr.mediatheque.journal.api.dto.AnneeVoyageDetailResponse
 import fr.mediatheque.journal.api.dto.CartonFilmResponse
 import fr.mediatheque.journal.api.dto.DemanderVoyageResponse
+import fr.mediatheque.journal.api.dto.PodiumBody
+import fr.mediatheque.journal.api.dto.PodiumResponse
 import fr.mediatheque.journal.api.dto.SallePlusResponse
 import fr.mediatheque.journal.api.dto.VoyageResponse
 import kotlinx.serialization.json.JsonObject
 
 /**
- * La seule porte des écrans vers le réseau. Vingt-sept opérations, celles que
+ * La seule porte des écrans vers le réseau. Trente-six opérations, celles que
  * l'application consomme ; les chemins n'existent que dans `Endpoints`, et ne
  * s'emploient que depuis `ApiClient`. Toute fonction peut lever `ApiError`.
  *
@@ -136,6 +138,16 @@ interface JournalApi {
 
     /** `POST /me/voyage/demander/{tmdbId}` : demande le film sur Seerr. `201` à la création, `200` s'il l'était déjà. */
     suspend fun demanderVoyage(tmdbId: Int): DemanderVoyageResponse
+
+    /**
+     * `PUT /me/voyage/annees/{annee}/podium/{place}` (brief du 21 septembre 2026, « le podium ») :
+     * pose ou déplace un film ou un programme sur une marche, `corps` portant `tmdb_id` **ou**
+     * `programme_id`, jamais les deux (`PodiumBody`). Répond le podium complet après l'écriture.
+     */
+    suspend fun poserPodium(annee: Int, place: Int, corps: PodiumBody): PodiumResponse
+
+    /** `DELETE /me/voyage/annees/{annee}/podium/{place}` : vide la marche. Idempotent, toujours `204`. */
+    suspend fun retirerPodium(annee: Int, place: Int)
 }
 
 /**

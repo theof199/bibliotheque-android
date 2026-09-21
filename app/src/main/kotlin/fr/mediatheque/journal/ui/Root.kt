@@ -383,6 +383,9 @@ fun Root(container: AppContainer) {
                             // l'année en cours ne touche pas `/me/voyage`, on relit donc la carte
                             // nous-mêmes pour qu'elle soit à jour au prochain passage dessus.
                             onAnneeSuivante = { frise.refresh() },
+                            // Idem pour le podium (brief du 21 septembre 2026) : `frise.refresh()`
+                            // relit `affiche_url`, seule chose que la carte en tire.
+                            onPodiumChange = { frise.refresh() },
                         )
                     }
                     is Screen.FicheVoyage -> {
@@ -412,6 +415,7 @@ fun Root(container: AppContainer) {
                             carton = carton,
                             onBack = nav::pop,
                             onOpenForm = { nav.push(Screen.Form(it)) },
+                            onPodiumChange = { frise.refresh() },
                         )
                     }
                     is Screen.Decennie -> {

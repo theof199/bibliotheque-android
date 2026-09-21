@@ -1,6 +1,7 @@
 package fr.mediatheque.journal.ui.frise
 
 import androidx.compose.ui.graphics.Color
+import fr.mediatheque.journal.ui.theme.PapierJauni
 
 /**
  * Les mondes du Voyage (brief du 16 septembre 2026, phase 2 « la carte ») : une décennie, un
@@ -97,4 +98,16 @@ fun chapitreRomain(index: Int): String {
 fun chapitreDe(annee: Int): String {
     val monde = mondeDe(annee)
     return "Chapitre ${chapitreRomain(MONDES.indexOf(monde))} · ${monde.nom}"
+}
+
+/**
+ * Les trois couleurs du podium d'une année (brief du 21 septembre 2026, « le podium ») : sobres,
+ * jamais un aplat de plus dans le thème global. La marche 1 prend l'accent du monde — son « ambre »,
+ * qui varie donc d'un chapitre à l'autre — la 2 le papier jauni du cartouche kitsch, la 3 le sépia
+ * déjà posé sur une affiche pas encore vue (`AnneeScreen.kt`).
+ */
+fun Monde.couleurPodium(place: Int): Color = when (place) {
+    1 -> accent
+    2 -> PapierJauni
+    else -> TeinteSepia
 }

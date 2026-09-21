@@ -55,4 +55,7 @@ object Endpoints {
     fun voyageSallePlus(salleId: String): String = "me/voyage/salles/$salleId/plus"
     fun chroniqueFilm(tmdbId: Int): String = "reference/chroniques/films/$tmdbId"
     fun demanderVoyage(tmdbId: Int): String = "me/voyage/demander/$tmdbId"
+
+    /** `PUT`/`DELETE /me/voyage/annees/{annee}/podium/{place}` (brief du 21 septembre 2026, « le podium »). */
+    fun voyagePodium(annee: Int, place: Int): String = "${voyageAnnee(annee)}/podium/$place"
 }

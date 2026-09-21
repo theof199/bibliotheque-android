@@ -8,6 +8,7 @@ import fr.mediatheque.journal.api.dto.AnneeVoyage
 import fr.mediatheque.journal.api.dto.AnneeVoyageDetailResponse
 import fr.mediatheque.journal.api.dto.BobineVoyage
 import fr.mediatheque.journal.api.dto.FilmSalleVoyage
+import fr.mediatheque.journal.api.dto.PodiumMarcheVoyage
 import fr.mediatheque.journal.api.dto.ProgrammeVoyage
 import fr.mediatheque.journal.api.dto.SalleVoyage
 import kotlinx.coroutines.Job
@@ -21,14 +22,15 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * Le Voyage, page d'année (brief du 21 septembre 2026, « l'année en étages », étape 1 côté appli) :
- * la chronique de l'année (ouverture, faits) et ses salles, chacune avec ses films et mon état sur
- * chacun, depuis `GET /me/voyage/annees/{annee}`.
+ * Le Voyage, page d'année (brief du 21 septembre 2026, « l'année en étages » puis « le podium ») :
+ * la chronique de l'année (ouverture, faits), ses salles et son podium, chacun avec ses films et mon
+ * état sur chacun, depuis `GET /me/voyage/annees/{annee}`.
  *
  * Remplace entièrement le modèle « essentiels » du 16 septembre 2026 — plus de frontière, plus de
- * podium (étape 2), plus de ticket (étape 3) : une année ouverte se creuse en salles, sans jamais
- * être « finie ». `Screen.FicheVoyage` lit ce même `ViewModel` (indexé sur l'année, `Root.kt`) pour
- * la fiche d'un film ou d'une bobine, plutôt que d'en recharger une copie.
+ * ticket (étape 3) : une année ouverte se creuse en salles, sans jamais être « finie ». Le podium
+ * (étape 2), lui, s'écrit et se retire d'ici (`poserPodium`, `retirerPodium`). `Screen.FicheVoyage`
+ * lit ce même `ViewModel` (indexé sur l'année, `Root.kt`) pour la fiche d'un film ou d'une bobine,
+ * plutôt que d'en recharger une copie.
  */
 
 /** Un film d'une salle est vu, sur le Plex, demandé, à demander ou introuvable. */
@@ -70,6 +72,9 @@ data class SalleUi(
     val films: List<FilmSalleUi>,
 )
 
+/** Une marche du podium, occupée (brief du 21 septembre 2026, « le podium ») — `null` dans `AnneeUi.podium` pour une marche vide. */
+data class PodiumMarcheUi(val place: Int, val tmdbId: Int?, val programmeId: String?, val title: String, val coverUrl: String?)
+
 /** L'état d'une année en détail — jumeau d'`EtatChronique`, avec `VERROUILLEE` en plus (§2 du brief). */
 enum class EtatAnnee { PRETE, EN_PREPARATION, VERROUILLEE, ABANDON, NON_CONFIGURE }
 
@@ -84,6 +89,8 @@ data class AnneeUi(
     val ouverture: String? = null,
     val faits: List<String> = emptyList(),
     val salles: List<SalleUi> = emptyList(),
+    /** Les trois marches, dans l'ordre — chacune nulle si vide (brief du 21 septembre 2026, « le podium »). */
+    val podium: List<PodiumMarcheUi?> = List(3) { null },
 ) {
     /** La récompense de l'année — nulle à cette étape, le back n'en sert aucune (`VoyageCarte.kt`). */
     val recompenseObtenue: Recompense? get() = null
@@ -107,6 +114,10 @@ private fun FilmSalleVoyage.versUi() = FilmSalleUi(
     programme = programme?.versUi(),
 )
 private fun SalleVoyage.versUi() = SalleUi(id, rang, nom, raison_d_etre, cle, epuisee, fournee_en_cours, films.map { it.versUi() })
+private fun PodiumMarcheVoyage.versUi() = PodiumMarcheUi(place, tmdb_id, programme_id, title, cover_url)
+
+/** Toujours trois marches, une entrée nulle pour chacune que le back ne sert pas (encore vide, ou réponse plus courte). */
+private fun List<PodiumMarcheVoyage?>.versPodiumUi(): List<PodiumMarcheUi?> = (0..2).map { i -> getOrNull(i)?.versUi() }
 
 /** Construit l'état initial depuis le fragment déjà chargé par `FriseViewModel` — fonction pure, testée en JVM. */
 fun anneeUiInitiale(annee: Int, snapshot: AnneeVoyage?): AnneeUi = AnneeUi(
@@ -197,6 +208,7 @@ class AnneeViewModel(
                 ouverture = reponse.ouverture ?: it.ouverture,
                 faits = reponse.faits.ifEmpty { it.faits },
                 salles = if (etat == EtatAnnee.PRETE) reponse.salles.sortedBy { s -> s.rang }.map { s -> s.versUi() } else it.salles,
+                podium = if (etat == EtatAnnee.PRETE) reponse.podium.versPodiumUi() else it.podium,
             )
         }
     }
@@ -311,6 +323,51 @@ class AnneeViewModel(
             _ui.update { it.copy(statutVoyage = StatutAnneeVoyage.OUVERTE) }
             onAvancee()
         }
+    }
+
+    /**
+     * Pose ou déplace un candidat sur une marche (décision 2 et 3 du brief du 21 septembre 2026,
+     * « le podium »). Après l'écriture, l'année se relit tout entière — `PUT` peut avoir vidé une
+     * autre marche (le candidat s'y trouvait déjà) et une simple mise à jour locale de `place` ne le
+     * verrait pas — puis `onEcrit` est appelé pour que l'appelant fasse suivre `frise.refresh()`,
+     * seule source de l'affiche de la carte.
+     */
+    fun poserPodium(place: Int, candidat: CandidatPodium, onEcrit: () -> Unit) {
+        viewModelScope.launch {
+            try {
+                api.poserPodium(annee, place, corpsPodium(candidat))
+            } catch (e: ApiError) {
+                if (e.isUnauthenticated) onUnauthenticated() else _messages.trySend(e.message ?: "Impossible pour l’instant")
+                return@launch
+            }
+            relireApresPodium(onEcrit)
+        }
+    }
+
+    /** Vide une marche (appui long sur une marche occupée, ou « Retirer du podium » de sa feuille). Idempotent côté back. */
+    fun retirerPodium(place: Int, onEcrit: () -> Unit) {
+        viewModelScope.launch {
+            try {
+                api.retirerPodium(annee, place)
+            } catch (e: ApiError) {
+                if (e.isUnauthenticated) onUnauthenticated() else _messages.trySend(e.message ?: "Impossible pour l’instant")
+                return@launch
+            }
+            relireApresPodium(onEcrit)
+        }
+    }
+
+    private suspend fun relireApresPodium(onEcrit: () -> Unit) {
+        val reponse = try {
+            api.voyageAnnee(annee)
+        } catch (e: ApiError) {
+            if (e.isUnauthenticated) onUnauthenticated()
+            return
+        }
+        if (reponse.configure && reponse.statut == "prete") {
+            _ui.update { it.copy(podium = reponse.podium.versPodiumUi()) }
+        }
+        onEcrit()
     }
 
     private fun mettreAJourFilm(tmdbId: Int, transforme: (FilmSalleUi) -> FilmSalleUi) {

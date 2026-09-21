@@ -1,14 +1,18 @@
 package fr.mediatheque.journal.ui.frise
 
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -19,10 +23,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
@@ -30,6 +37,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -64,15 +72,17 @@ import fr.mediatheque.journal.ui.theme.TextePapier
 import java.time.LocalDate
 
 /**
- * La fiche d'une année du Voyage (brief du 21 septembre 2026, « l'année en étages », spec du
- * 19 septembre 2026, §2-§3) : le cartouche kitsch (ouverture repliée, faits), puis une salle par
- * bloc — titre, raison d'être, étagère horizontale d'affiches — jusqu'à « Année suivante »,
- * provisoire, sur l'année en cours seulement.
+ * La fiche d'une année du Voyage (brief du 21 septembre 2026, « l'année en étages » puis « le
+ * podium », spec du 19 septembre 2026, §2-§3) : le cartouche kitsch (ouverture repliée, faits),
+ * **le podium** — trois photogrammes sur un bout de pellicule, entre le cartouche et les salles —
+ * puis une salle par bloc — titre, raison d'être, étagère horizontale d'affiches — jusqu'à « Année
+ * suivante », provisoire, sur l'année en cours seulement.
  *
  * Remplace entièrement l'écran « essentiels » du 16 septembre 2026 : plus de grille de vus ou
  * d'à-voir à part, les salles portent déjà tous les films de l'année. `annee` (le fragment du
  * journal/Plex chargé par `FriseViewModel`) ne sert plus qu'à connaître le millésime avant que
- * `GET /me/voyage/annees/{annee}` n'ait répondu.
+ * `GET /me/voyage/annees/{annee}` n'ait répondu, et à fournir mes films vus de l'année au podium
+ * (`annee.vus`, décision 2 du brief du 21 septembre 2026).
  */
 @Composable
 fun AnneeScreen(
@@ -81,6 +91,7 @@ fun AnneeScreen(
     onBack: () -> Unit,
     onOpenFilm: (salleId: String, filmId: String) -> Unit,
     onAnneeSuivante: () -> Unit,
+    onPodiumChange: () -> Unit,
 ) {
     val ui by vm.ui.collectAsState()
     val snackbar = remember { SnackbarHostState() }
@@ -88,6 +99,18 @@ fun AnneeScreen(
     LaunchedEffect(Unit) { vm.relire() }
     val millesime = annee.annee ?: LocalDate.now().year
     val monde = mondeDe(millesime)
+    var marcheOuverte by remember { mutableStateOf<Int?>(null) }
+
+    marcheOuverte?.let { place ->
+        MarcheSheet(
+            place = place,
+            marcheActuelle = ui.podium.getOrNull(place - 1),
+            candidats = candidatsPodium(annee.vus, millesime, ui.salles),
+            onChoisir = { candidat -> marcheOuverte = null; vm.poserPodium(place, candidat, onPodiumChange) },
+            onRetirer = { marcheOuverte = null; vm.retirerPodium(place, onPodiumChange) },
+            onDismiss = { marcheOuverte = null },
+        )
+    }
 
     Scaffold(
         containerColor = monde.fond,
@@ -121,6 +144,14 @@ fun AnneeScreen(
             item { Cartouche(millesime, ui, monde, onLireLaSuite = vm::deplierOuverture) }
 
             if (ui.etat == EtatAnnee.PRETE) {
+                item {
+                    BlocPodium(
+                        podium = ui.podium,
+                        monde = monde,
+                        onTap = { place -> marcheOuverte = place },
+                        onLongPress = { place -> vm.retirerPodium(place, onPodiumChange) },
+                    )
+                }
                 items(ui.salles, key = { it.id }) { salle ->
                     BlocSalle(salle, monde, onVoirPlus = { vm.voirPlus(salle.id) }, onOuvrirFilm = { filmId -> onOpenFilm(salle.id, filmId) })
                 }
@@ -270,6 +301,166 @@ private fun Modifier.ornemente(): Modifier = drawWithContent {
     )
 }
 
+// --- Le podium (brief du 21 septembre 2026, « le podium ») ---------------------------------------
+
+private val LARGEUR_PODIUM_GRAND = 84.dp
+private val LARGEUR_PODIUM_PETIT = 64.dp
+
+/**
+ * Le podium (décision 1 du brief) : trois photogrammes posés sur un bout de pellicule, le n°1 plus
+ * grand et au centre, le 2 à gauche, le 3 à droite. Toucher une marche ouvre `MarcheSheet` ; un
+ * appui long sur une marche occupée la vide directement, sans feuille (décision 2).
+ */
+@Composable
+private fun BlocPodium(podium: List<PodiumMarcheUi?>, monde: Monde, onTap: (Int) -> Unit, onLongPress: (Int) -> Unit) {
+    Box(Modifier.fillMaxWidth()) {
+        Canvas(Modifier.fillMaxWidth().height(LARGEUR_PELLICULE).align(Alignment.BottomCenter)) {
+            bandeDePellicule(couleurBande = monde.accent.copy(alpha = 0.16f), couleurPerforation = monde.fond)
+        }
+        Row(
+            Modifier.fillMaxWidth().padding(bottom = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            PhotogrammePodium(2, podium.getOrNull(1), monde, LARGEUR_PODIUM_PETIT, onClick = { onTap(2) }, onLongClick = { onLongPress(2) })
+            PhotogrammePodium(1, podium.getOrNull(0), monde, LARGEUR_PODIUM_GRAND, onClick = { onTap(1) }, onLongClick = { onLongPress(1) })
+            PhotogrammePodium(3, podium.getOrNull(2), monde, LARGEUR_PODIUM_PETIT, onClick = { onTap(3) }, onLongClick = { onLongPress(3) })
+        }
+    }
+}
+
+/**
+ * Un photogramme du podium : un cadre nu, sans texte d'invitation, quand la marche est vide ; sinon
+ * l'affiche et le titre sur une ligne (décision 1). Le cadre prend la couleur du chapitre selon la
+ * marche (`Monde.couleurPodium`) ; le numéro, en petit, se lit sous le cadre dans tous les cas.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun PhotogrammePodium(
+    place: Int,
+    marche: PodiumMarcheUi?,
+    monde: Monde,
+    largeur: Dp,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+) {
+    val shape = RoundedCornerShape(3.dp)
+    val hauteur = largeur * 1.5f
+    Column(
+        Modifier
+            .combinedClickable(onClick = onClick, onLongClick = if (marche != null) onLongClick else null)
+            .clearAndSetSemantics {
+                contentDescription = if (marche != null) "Marche $place, ${marche.title}" else "Marche $place, vide"
+            },
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            Modifier
+                .size(largeur, hauteur)
+                .background(Color.Black, shape)
+                .border(1.5.dp, monde.couleurPodium(place), shape),
+        ) {
+            marche?.let { Cover(it.coverUrl, it.title, largeur, hauteur) }
+        }
+        Text(
+            "$place",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 2.dp),
+        )
+        if (marche != null) {
+            Text(
+                marche.title,
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.width(largeur),
+            )
+        }
+    }
+}
+
+/**
+ * La feuille « Marche *N* » (décision 2) : « Retirer du podium » en tête si la marche est occupée,
+ * puis mes films vus de l'année et mes programmes entièrement vus (`candidatsPodium`), l'occupant
+ * actuel coché.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MarcheSheet(
+    place: Int,
+    marcheActuelle: PodiumMarcheUi?,
+    candidats: List<CandidatPodium>,
+    onChoisir: (CandidatPodium) -> Unit,
+    onRetirer: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val lignes = lignesFeuillePodium(place, marcheActuelle, candidats)
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Marche $place", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
+            if (candidats.isEmpty()) {
+                Text(
+                    "Rien à poser ici pour l’instant.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 16.dp),
+                )
+            }
+            LazyColumn(Modifier.weight(1f, fill = false)) {
+                items(lignes) { ligne ->
+                    when (ligne) {
+                        is LignePodiumFeuille.Retirer -> Row(
+                            Modifier.fillMaxWidth().clickable(onClick = onRetirer).padding(vertical = 10.dp),
+                        ) {
+                            Text("Retirer du podium", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
+                        }
+                        is LignePodiumFeuille.Candidat -> LigneCandidatPodium(ligne.candidat, ligne.estOccupant, onClick = { onChoisir(ligne.candidat) })
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LigneCandidatPodium(candidat: CandidatPodium, occupant: Boolean, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box {
+            Cover(candidat.coverUrl, candidat.title, 56.dp, 84.dp)
+            val note = (candidat as? CandidatPodium.Film)?.note
+            if (note != null) {
+                Box(
+                    Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(4.dp)
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh, CircleShape)
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                ) {
+                    Text("$note", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
+                }
+            }
+        }
+        Text(candidat.title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+        if (occupant) {
+            Box(Modifier.background(MaterialTheme.colorScheme.primary, CircleShape).padding(4.dp)) {
+                Icon(
+                    Icons.Filled.Check,
+                    contentDescription = "Occupant actuel",
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
+        }
+    }
+}
+
 // --- Les salles ----------------------------------------------------------------------------------
 
 private val LARGEUR_AFFICHE = 72.dp
@@ -277,7 +468,9 @@ private val HAUTEUR_AFFICHE = 108.dp
 
 /** La teinte sépia d'un film pas encore vu (spec §3) : un voile posé sur une affiche désaturée. */
 private val FiltreDesature = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
-private val TeinteSepia = Color(0xFF3A2C1E)
+
+/** Interne au paquet, pas seulement au fichier : `Mondes.kt` reprend ce même sépia pour la marche 3 du podium (brief du 21 septembre 2026). */
+internal val TeinteSepia = Color(0xFF3A2C1E)
 
 @Composable
 private fun BlocSalle(salle: SalleUi, monde: Monde, onVoirPlus: () -> Unit, onOuvrirFilm: (String) -> Unit) {

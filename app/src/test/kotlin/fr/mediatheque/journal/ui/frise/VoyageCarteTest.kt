@@ -50,6 +50,16 @@ class VoyageCarteTest {
         assertEquals("", phraseRecompenses(emptyList()))
     }
 
+    // Le photogramme de la carte (brief du 21 septembre 2026, « le podium ») : l'affiche du n°1 du
+    // podium prime sur le dernier film vu, jamais l'inverse. Mutation : inverser l'ordre du `?:`
+    // ferait retomber sur le dernier vu même quand un podium est posé.
+    @Test
+    fun `afficheAnnee prend l'affiche du podium avant le dernier vu, le dernier vu si nulle`() {
+        assertEquals("https://podium", afficheAnnee("https://podium", "https://dernier-vu"))
+        assertEquals("https://dernier-vu", afficheAnnee(null, "https://dernier-vu"))
+        assertNull(afficheAnnee(null, null))
+    }
+
     // C'est l'année **quittée** qui est bouclée, pas la nouvelle année en cours. Mutation :
     // `anneeBouclee = apres` ferait annoncer « 1899 dans la boîte ! » alors qu'on vient d'y entrer.
     @Test

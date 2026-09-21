@@ -8,6 +8,8 @@ import fr.mediatheque.journal.api.dto.AnneeVoyage
 import fr.mediatheque.journal.api.dto.AnneeVoyageDetailResponse
 import fr.mediatheque.journal.api.dto.DemanderVoyageResponse
 import fr.mediatheque.journal.api.dto.FilmSalleVoyage
+import fr.mediatheque.journal.api.dto.PodiumMarcheVoyage
+import fr.mediatheque.journal.api.dto.PodiumResponse
 import fr.mediatheque.journal.api.dto.SalleVoyage
 import fr.mediatheque.journal.api.dto.SallePlusResponse
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -270,5 +272,73 @@ class AnneeViewModelTest {
 
         assertFalse(rappelee)
         assertEquals(StatutAnneeVoyage.EN_COURS, vm.ui.value.statutVoyage)
+    }
+
+    // Le `PUT` répond déjà le podium complet, mais `poserPodium` relit l'année entière plutôt que
+    // de ne recopier que cette réponse (commentaire de la méthode) : c'est cette relecture, et non
+    // le retour du `PUT`, qui met `vm.ui.value.podium` à jour ci-dessous.
+    @Test
+    fun `poserPodium ecrit puis relit le podium et appelle le rappel`() = runTest(dispatcher) {
+        api.onVoyageAnnee = { prete(salle("s1", film("f1", 500, "vu"))) }
+        var appelsPut = 0
+        api.onPoserPodium = { _, _, _ -> appelsPut++; PodiumResponse(listOf(PodiumMarcheVoyage(1, 500, null, "Film 500", null), null, null)) }
+        val vm = AnneeViewModel(api, 1941, null) {}
+        vm.relire()
+        runCurrent()
+        assertEquals(listOf(null, null, null), vm.ui.value.podium)
+
+        var rappelee = false
+        api.onVoyageAnnee = { prete(salle("s1", film("f1", 500, "vu"))).copy(podium = listOf(PodiumMarcheVoyage(1, 500, null, "Film 500", null), null, null)) }
+        vm.poserPodium(1, CandidatPodium.Film(500, "Film 500", null, null)) { rappelee = true }
+        runCurrent()
+
+        assertEquals(1, appelsPut)
+        assertEquals(500, vm.ui.value.podium[0]?.tmdbId)
+        assertTrue(rappelee)
+        assertEquals(listOf("poserPodium 1941 1 500"), api.calls.filter { it.startsWith("poserPodium") })
+    }
+
+    @Test
+    fun `poserPodium en echec envoie le message du back au bandeau, sans appeler le rappel`() = runTest(dispatcher) {
+        api.onVoyageAnnee = { prete(salle("s1", film("f1", 500, "vu"))) }
+        api.onPoserPodium = { _, _, _ -> throw ApiError("VALIDATION", "Ce film n’est pas de cette annee-la.", retryable = false, status = 400) }
+        val vm = AnneeViewModel(api, 1941, null) {}
+        vm.relire()
+        runCurrent()
+
+        val messages = mutableListOf<String>()
+        val job = launch { vm.messages.collect { messages += it } }
+
+        var rappelee = false
+        vm.poserPodium(1, CandidatPodium.Film(500, "Film 500", null, null)) { rappelee = true }
+        runCurrent()
+
+        assertEquals(listOf("Ce film n’est pas de cette annee-la."), messages)
+        assertFalse(rappelee)
+        assertEquals(listOf(null, null, null), vm.ui.value.podium)
+        job.cancel()
+    }
+
+    @Test
+    fun `retirerPodium vide la marche, relit le podium et appelle le rappel`() = runTest(dispatcher) {
+        api.onVoyageAnnee = {
+            prete(salle("s1", film("f1", 500, "vu"))).copy(podium = listOf(PodiumMarcheVoyage(1, 500, null, "Film 500", null), null, null))
+        }
+        val vm = AnneeViewModel(api, 1941, null) {}
+        vm.relire()
+        runCurrent()
+        assertEquals(500, vm.ui.value.podium[0]?.tmdbId)
+
+        var appelsDelete = 0
+        api.onRetirerPodium = { _, _ -> appelsDelete++ }
+        api.onVoyageAnnee = { prete(salle("s1", film("f1", 500, "vu"))) }
+        var rappelee = false
+        vm.retirerPodium(1) { rappelee = true }
+        runCurrent()
+
+        assertEquals(1, appelsDelete)
+        assertNull(vm.ui.value.podium[0])
+        assertTrue(rappelee)
+        assertEquals(listOf("retirerPodium 1941 1"), api.calls.filter { it.startsWith("retirerPodium") })
     }
 }

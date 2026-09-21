@@ -33,12 +33,23 @@ class FicheVoyageEtatsTest {
         assertEquals("sur_le_plex", etatFilmVoyage("sur_le_plex", uneRestante))
     }
 
-    // Les cinq boutons, un par cas qui les distingue.
+    // Les six boutons, un par cas qui les distingue.
     @Test
     fun `boutonsFicheVoyage montre Voir sur le Plex des qu'un lien existe, quel que soit l'etat`() {
-        assertEquals(listOf(BoutonFicheVoyage.VOIR_SUR_LE_PLEX), boutonsFicheVoyage("vu", "https://app.plex.tv/x"))
+        assertEquals(listOf(BoutonFicheVoyage.VOIR_SUR_LE_PLEX, BoutonFicheVoyage.METTRE_SUR_LE_PODIUM), boutonsFicheVoyage("vu", "https://app.plex.tv/x"))
         assertEquals(true, boutonsFicheVoyage("a_demander", "https://app.plex.tv/x").contains(BoutonFicheVoyage.VOIR_SUR_LE_PLEX))
         assertEquals(false, boutonsFicheVoyage("a_demander", null).contains(BoutonFicheVoyage.VOIR_SUR_LE_PLEX))
+    }
+
+    // « Mettre sur le podium » (décision 3 du brief du 21 septembre 2026) n'apparaît que sur un
+    // film vu, jamais sur un état intermédiaire. Mutation : l'ajouter sans la garde `etat == "vu"`
+    // proposerait le podium pour un film qu'on n'a pas encore vu.
+    @Test
+    fun `boutonsFicheVoyage ne propose Mettre sur le podium que sur un film vu`() {
+        assertEquals(true, boutonsFicheVoyage("vu", null).contains(BoutonFicheVoyage.METTRE_SUR_LE_PODIUM))
+        assertEquals(false, boutonsFicheVoyage("a_demander", null).contains(BoutonFicheVoyage.METTRE_SUR_LE_PODIUM))
+        assertEquals(false, boutonsFicheVoyage("sur_le_plex", null).contains(BoutonFicheVoyage.METTRE_SUR_LE_PODIUM))
+        assertEquals(false, boutonsFicheVoyage("introuvable", null).contains(BoutonFicheVoyage.METTRE_SUR_LE_PODIUM))
     }
 
     @Test
