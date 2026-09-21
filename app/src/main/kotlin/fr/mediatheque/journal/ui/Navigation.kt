@@ -39,7 +39,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.withTimeoutOrNull
 import java.time.LocalDate
 
-/** Les dix-sept écrans. Un écran qui a besoin d'une donnée la porte. */
+/** Les vingt écrans. Un écran qui a besoin d'une donnée la porte. */
 sealed interface Screen {
     data object Home : Screen
     data object Search : Screen
@@ -118,6 +118,22 @@ sealed interface Screen {
     data class ChoisirFilmDeSaga(val tmdbId: Int) : Screen
 
     /**
+     * La page d'un réalisateur (brief du 21 septembre 2026, « la page réalisateur ») : sa fiche et
+     * sa filmographie complète — la même, suivi ou non. Ouverte depuis la liste de Suivis (un
+     * réalisateur), ou depuis un nom de réalisateur touchable ailleurs (`RealisateurResolveur`).
+     * Porte l'identifiant, pas les données : `Root.kt` indexe le `RealisateurViewModel` dessus.
+     */
+    data class Realisateur(val tmdbId: Int) : Screen
+
+    /**
+     * La fiche simple d'un film (décision 2 du brief du 21 septembre 2026), ouverte au tap sur une
+     * affiche de la filmographie dont `voyage` est nul — sinon c'est `Screen.FicheVoyage` qui
+     * s'ouvre. `realisateurTmdbId` désigne la page dont elle vient : elle relit son
+     * `RealisateurViewModel` (`Root.kt`, même clé) plutôt que de porter le film lui-même.
+     */
+    data class FicheFilm(val realisateurTmdbId: Int, val filmTmdbId: Int) : Screen
+
+    /**
      * L'import Letterboxd (brief du 16 septembre 2026), empilée depuis le profil dès qu'un fichier
      * est choisi. Un seul écran pour les deux états du design (§5, §6) : « Import en cours… » tant
      * que `LetterboxdImportViewModel.ui` ne porte ni rapport ni erreur, le rapport ou le message
@@ -158,7 +174,7 @@ fun Screen.bottomBarTab(): BottomTab? = when (this) {
     Screen.Profile, Screen.Films -> BottomTab.Profile
     Screen.Search, is Screen.Form, is Screen.Edit, Screen.SensCritique, is Screen.Annee, is Screen.Decennie,
     is Screen.FicheVoyage, Screen.ChercherSuivi, is Screen.FicheSuivi, is Screen.ChoisirFilmDeSaga, Screen.RapportImport,
-    is Screen.Generique,
+    is Screen.Generique, is Screen.Realisateur, is Screen.FicheFilm,
     -> null
 }
 

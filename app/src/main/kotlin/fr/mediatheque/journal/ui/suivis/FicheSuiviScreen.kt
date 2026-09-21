@@ -120,7 +120,7 @@ fun FicheSuiviScreen(
     feuillePour?.let { film ->
         IntrouvableSheet(
             film = film,
-            peutRetirerDeSaga = peutRetirerDeSaga(source, film),
+            peutRetirerDeSaga = peutRetirerDeSaga(film),
             onMarquer = { feuillePour = null; vm.marquerIntrouvable(source, tmdbId, film.tmdb_id) },
             onRetirer = { feuillePour = null; vm.retirerIntrouvable(source, tmdbId, film.tmdb_id) },
             onRetirerDeSaga = { feuillePour = null; vm.retirerFilm(tmdbId, film.tmdb_id) },
@@ -218,14 +218,17 @@ fun FicheSuiviScreen(
                                     // mauvais écran.
                                     when {
                                         entree != null -> onOuvrirVu(entree)
-                                        film.vu == null -> onOuvrirAVoir(film.toSearchResult(if (source == SourceSuivi.REALISATEURS) entite?.nom else null))
+                                        // Jamais de nom de réalisateur ici depuis le brief du
+                                        // 21 septembre 2026, « la page réalisateur » (décision 4) :
+                                        // cette fiche ne sert plus qu'aux sagas, qui n'en ont pas.
+                                        film.vu == null -> onOuvrirAVoir(film.toSearchResult(null))
                                         else -> Unit
                                     }
                                 },
                                 // Un film déjà vu n'a pas de marque « introuvable » à poser, mais un
                                 // film ajouté à la main reste retirable de la saga même vu (brief
                                 // « les films de saga ajoutés à la main », 15 septembre 2026).
-                                onLongClick = { if (film.vu == null || peutRetirerDeSaga(source, film)) feuillePour = film },
+                                onLongClick = { if (film.vu == null || peutRetirerDeSaga(film)) feuillePour = film },
                             )
                         }
                     }

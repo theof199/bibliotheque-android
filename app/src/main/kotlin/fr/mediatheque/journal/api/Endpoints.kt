@@ -27,6 +27,12 @@ object Endpoints {
     fun realisateur(tmdbId: Int): String = "$realisateurs/$tmdbId"
     fun filmographie(tmdbId: Int): String = "${realisateur(tmdbId)}/films"
 
+    /** `GET /reference/films/{tmdbId}/realisateurs` (brief du 21 septembre 2026, « la page réalisateur ») — l'identifiant d'un **film**, pas d'une personne. */
+    fun realisateursDuFilm(tmdbId: Int): String = "reference/films/$tmdbId/realisateurs"
+
+    /** `GET /me/realisateurs/{tmdbId}/page` (brief du 21 septembre 2026) : sa fiche et sa filmographie complète. */
+    fun pageRealisateur(tmdbId: Int): String = "${realisateur(tmdbId)}/page"
+
     /** `PUT`/`DELETE /me/introuvables/{tmdbId}` — l'identifiant d'un **film**, pas d'une personne. */
     fun introuvable(tmdbId: Int): String = "$introuvables/$tmdbId"
 

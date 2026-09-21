@@ -86,15 +86,13 @@ fun prochainAVoir(films: List<FilmSuivi>): FilmSuivi? =
 fun titreEtAnnee(film: FilmSuivi): String = film.year?.let { "${film.title} ($it)" } ?: film.title
 
 /**
- * « Retirer de la saga » n'a de sens que sur un film ajouté à la main, et
- * seulement dans une saga (brief « les films de saga ajoutés à la main »,
- * 15 septembre 2026) : rien de tout cela sur une fiche de réalisateur, qui
- * n'a pas cette route côté back — `film.ajoute` y est de toute façon toujours
- * faux (`FilmSuivi.ajoute` par défaut), mais la source est vérifiée en plus,
- * explicitement, plutôt que de s'y fier seule.
+ * « Retirer de la saga » n'a de sens que sur un film ajouté à la main (brief « les films de saga
+ * ajoutés à la main », 15 septembre 2026). Plus de vérification de source depuis le brief du
+ * 21 septembre 2026, « la page réalisateur » (décision 4) : `FicheSuiviScreen` ne sert plus qu'aux
+ * sagas, un réalisateur a sa propre page désormais et n'a de toute façon jamais cette route côté
+ * back (`film.ajoute` y restait toujours faux).
  */
-fun peutRetirerDeSaga(source: SourceSuivi, film: FilmSuivi): Boolean =
-    source == SourceSuivi.SAGAS && film.ajoute
+fun peutRetirerDeSaga(film: FilmSuivi): Boolean = film.ajoute
 
 /**
  * La ligne sous le nom, dans la liste : « 7 vus sur 13 · 2 introuvables ·

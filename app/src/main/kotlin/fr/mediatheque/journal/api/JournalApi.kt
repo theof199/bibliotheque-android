@@ -10,6 +10,8 @@ import fr.mediatheque.journal.api.dto.JournalResponse
 import fr.mediatheque.journal.api.dto.PersonneResult
 import fr.mediatheque.journal.api.dto.PlexResponse
 import fr.mediatheque.journal.api.dto.Realisateur
+import fr.mediatheque.journal.api.dto.RealisateurCredit
+import fr.mediatheque.journal.api.dto.RealisateurPageResponse
 import fr.mediatheque.journal.api.dto.Saga
 import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.api.dto.SortiesResponse
@@ -34,7 +36,7 @@ import fr.mediatheque.journal.api.dto.VoyageTicketsResponse
 import kotlinx.serialization.json.JsonObject
 
 /**
- * La seule porte des écrans vers le réseau. Quarante-deux opérations, celles que
+ * La seule porte des écrans vers le réseau. Quarante-huit opérations, celles que
  * l'application consomme ; les chemins n'existent que dans `Endpoints`, et ne
  * s'emploient que depuis `ApiClient`. Toute fonction peut lever `ApiError`.
  *
@@ -87,6 +89,19 @@ interface JournalApi {
 
     /** `GET /me/realisateurs/{tmdbId}/films` : sa filmographie, de la plus ancienne sortie à la plus récente. */
     suspend fun filmographie(tmdbId: Int): List<FilmSuivi>
+
+    /**
+     * `GET /reference/films/{tmdbId}/realisateurs` (brief du 21 septembre 2026, « la page
+     * réalisateur ») : les réalisateurs crédités sur ce film chez TMDB, dédoublonnés — de quoi
+     * naviguer d'une fiche vers `pageRealisateur`. Vide si TMDB n'en crédite aucun.
+     */
+    suspend fun realisateursDuFilm(tmdbId: Int): List<RealisateurCredit>
+
+    /**
+     * `GET /me/realisateurs/{tmdbId}/page` : la fiche d'un réalisateur (photo, dates,
+     * présentation) et sa filmographie complète, films et séries, qu'il soit suivi ou non.
+     */
+    suspend fun pageRealisateur(tmdbId: Int): RealisateurPageResponse
 
     /** `PUT /me/introuvables/{tmdbId}` : marque un film (son propre `tmdb_id`) introuvable. Idempotent, toujours `204`. */
     suspend fun marquerIntrouvable(tmdbId: Int)

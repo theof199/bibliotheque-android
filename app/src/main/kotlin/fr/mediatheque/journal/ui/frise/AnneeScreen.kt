@@ -73,6 +73,8 @@ import fr.mediatheque.journal.api.dto.SearchMetadata
 import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.ui.Cover
 import fr.mediatheque.journal.ui.formatDateTime
+import fr.mediatheque.journal.ui.realisateur.NomRealisateurTouchable
+import fr.mediatheque.journal.ui.realisateur.RealisateurResolveur
 import fr.mediatheque.journal.ui.showBriefly
 import fr.mediatheque.journal.ui.theme.CadrePapier
 import fr.mediatheque.journal.ui.theme.PapierJauni
@@ -100,6 +102,7 @@ import java.time.LocalDate
 fun AnneeScreen(
     annee: AnneeFrise,
     vm: AnneeViewModel,
+    realisateurResolveur: RealisateurResolveur,
     onBack: () -> Unit,
     onOpenFilm: (salleId: String, filmId: String) -> Unit,
     onTicketChange: () -> Unit,
@@ -108,6 +111,8 @@ fun AnneeScreen(
     onOpenForm: (SearchResult) -> Unit = {},
     /** « Prendre » relit `/me/voyage` (décision 2) : la ligne « Ce soir » de l'accueil en dépend, comme le podium et le ticket. */
     onSeanceChange: () -> Unit = {},
+    /** Le nom du réalisateur est touchable sur la carte de soirée (décision 3 du brief du 21 septembre 2026, « la page réalisateur »). */
+    onOuvrirRealisateur: (Int) -> Unit = {},
 ) {
     val ui by vm.ui.collectAsState()
     val snackbar = remember { SnackbarHostState() }
@@ -183,8 +188,10 @@ fun AnneeScreen(
                             monde = monde,
                             annee = millesime,
                             vm = vm,
+                            realisateurResolveur = realisateurResolveur,
                             onOpenForm = onOpenForm,
                             onSeanceChange = onSeanceChange,
+                            onOuvrirRealisateur = onOuvrirRealisateur,
                         )
                     }
                 }
@@ -543,8 +550,10 @@ private fun BlocSeance(
     monde: Monde,
     annee: Int,
     vm: AnneeViewModel,
+    realisateurResolveur: RealisateurResolveur,
     onOpenForm: (SearchResult) -> Unit,
     onSeanceChange: () -> Unit,
+    onOuvrirRealisateur: (Int) -> Unit,
 ) {
     var remplacement by remember { mutableStateOf<String?>(null) }
     val seanceCourante = seanceRecente(ui.seances)
@@ -559,12 +568,14 @@ private fun BlocSeance(
                 CarteSeance(
                     seance = seance,
                     monde = monde,
+                    realisateurResolveur = realisateurResolveur,
                     onPrendre = { vm.prendreSeance(seance.id, onSeanceChange) },
                     onIgnorer = { vm.ignorerSeance(seance.id) },
                     onAutreLong = { remplacement = "long" },
                     onAutreCourt = { remplacement = "court" },
                     onDemander = vm::demander,
                     onOpenForm = { film -> onOpenForm(film.versSearchResult(annee)) },
+                    onOuvrirRealisateur = onOuvrirRealisateur,
                 )
             }
             EtatZoneSeance.RIEN -> {}
@@ -621,12 +632,14 @@ private fun CarteAttenteSeance() {
 private fun CarteSeance(
     seance: SeanceUi,
     monde: Monde,
+    realisateurResolveur: RealisateurResolveur,
     onPrendre: () -> Unit,
     onIgnorer: () -> Unit,
     onAutreLong: () -> Unit,
     onAutreCourt: () -> Unit,
     onDemander: (Int) -> Unit,
     onOpenForm: (SeanceFilmUi) -> Unit,
+    onOuvrirRealisateur: (Int) -> Unit,
 ) {
     val shape = RoundedCornerShape(8.dp)
     Column(
@@ -651,6 +664,16 @@ private fun CarteSeance(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                // Le nom du réalisateur, touchable (décision 3 du brief du 21 septembre 2026, «
+                // la page réalisateur ») : sous le titre, comme sur la fiche du Voyage — nul ici
+                // (`nomConnu`), résolu par `NomRealisateurTouchable` elle-même.
+                NomRealisateurTouchable(
+                    filmTmdbId = seance.long.tmdbId,
+                    nomConnu = null,
+                    resolveur = realisateurResolveur,
+                    onOuvrirRealisateur = onOuvrirRealisateur,
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
         }
         seance.court?.let { court ->
@@ -661,6 +684,13 @@ private fun CarteSeance(
                     court.bobine?.let { bobine ->
                         Text(bobine.title, style = MaterialTheme.typography.bodyMedium)
                     }
+                    NomRealisateurTouchable(
+                        filmTmdbId = court.tmdbId,
+                        nomConnu = null,
+                        resolveur = realisateurResolveur,
+                        onOuvrirRealisateur = onOuvrirRealisateur,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
                 }
             }
         }

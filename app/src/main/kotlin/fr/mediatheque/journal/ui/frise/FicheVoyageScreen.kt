@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -47,6 +48,8 @@ import fr.mediatheque.journal.api.dto.SearchMetadata
 import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.reactions.Reactions
 import fr.mediatheque.journal.ui.Cover
+import fr.mediatheque.journal.ui.realisateur.NomRealisateurTouchable
+import fr.mediatheque.journal.ui.realisateur.RealisateurResolveur
 import fr.mediatheque.journal.ui.form.CartonCard
 import fr.mediatheque.journal.ui.form.CartonViewModel
 import fr.mediatheque.journal.ui.showBriefly
@@ -78,9 +81,12 @@ fun FicheVoyageScreen(
     filmId: String,
     journalItem: JournalItem?,
     carton: CartonViewModel,
+    realisateurResolveur: RealisateurResolveur,
     onBack: () -> Unit,
     onOpenForm: (SearchResult) -> Unit,
     onPodiumChange: () -> Unit,
+    /** Le nom du réalisateur est touchable ici aussi (décision 3 du brief du 21 septembre 2026, « la page réalisateur »). */
+    onOuvrirRealisateur: (Int) -> Unit,
 ) {
     val ui by vm.ui.collectAsState()
     val salle = ui.salles.firstOrNull { it.id == salleId }
@@ -96,11 +102,21 @@ fun FicheVoyageScreen(
         snackbarHost = { SnackbarHost(snackbar) { data -> Snackbar(snackbarData = data) } },
     ) { padding ->
         if (film == null) {
-            // La fiche s'ouvre toujours depuis une affiche déjà affichée par `AnneeScreen` : ce
-            // film est donc déjà dans `vm.ui` sauf coup de malchance (retour système pendant un
-            // rechargement des salles). `salle` est alors nécessairement nul aussi (`film` en
-            // dérive par appel sûr) — un simple retour plutôt qu'un écran d'erreur muet.
-            LaunchedEffect(Unit) { onBack() }
+            // La fiche s'ouvre le plus souvent depuis une affiche déjà affichée par `AnneeScreen`,
+            // salles déjà chargées — mais aussi, depuis le brief du 21 septembre 2026 (« la page
+            // réalisateur »), directement depuis une filmographie sans être jamais passé par
+            // `Screen.Annee` : le `AnneeViewModel` de cette année-là peut alors être encore à
+            // `NON_CONFIGURE`/`EN_PREPARATION`, ses salles pas encore là. On attend dans ce cas
+            // (`Root.kt` relit l'année à l'entrée sur cet écran aussi) plutôt que de rebondir tout
+            // de suite ; un état terminal (prête, verrouillée, abandon) sans ce film, lui, est bien
+            // une absence réelle — retour plutôt qu'un écran muet.
+            if (ui.etat == EtatAnnee.EN_PREPARATION || ui.etat == EtatAnnee.NON_CONFIGURE) {
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                }
+            } else {
+                LaunchedEffect(Unit) { onBack() }
+            }
             return@Scaffold
         }
 
@@ -124,7 +140,12 @@ fun FicheVoyageScreen(
                     if (film.originalTitle != null && film.originalTitle != film.title) {
                         Text(film.originalTitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Text(film.realisateur, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    NomRealisateurTouchable(
+                        filmTmdbId = film.tmdbId,
+                        nomConnu = film.realisateur,
+                        resolveur = realisateurResolveur,
+                        onOuvrirRealisateur = onOuvrirRealisateur,
+                    )
                     film.programme?.let { programme ->
                         Text(
                             "${programme.dureeMin} min",

@@ -17,6 +17,9 @@ import fr.mediatheque.journal.api.dto.PersonneResult
 import fr.mediatheque.journal.api.dto.PersonnesResponse
 import fr.mediatheque.journal.api.dto.PlexResponse
 import fr.mediatheque.journal.api.dto.Realisateur
+import fr.mediatheque.journal.api.dto.RealisateurPageResponse
+import fr.mediatheque.journal.api.dto.RealisateursDuFilmResponse
+import fr.mediatheque.journal.api.dto.RealisateurCredit
 import fr.mediatheque.journal.api.dto.Saga
 import fr.mediatheque.journal.api.dto.SearchResponse
 import fr.mediatheque.journal.api.dto.SearchResult
@@ -205,6 +208,12 @@ class ApiClient(baseUrl: String, engine: HttpClientEngine) : JournalApi {
 
     override suspend fun filmographie(tmdbId: Int): List<FilmSuivi> =
         call<FilmsResponse> { client.get(Endpoints.filmographie(tmdbId)) }.films
+
+    override suspend fun realisateursDuFilm(tmdbId: Int): List<RealisateurCredit> =
+        call<RealisateursDuFilmResponse> { client.get(Endpoints.realisateursDuFilm(tmdbId)) }.realisateurs
+
+    override suspend fun pageRealisateur(tmdbId: Int): RealisateurPageResponse =
+        call { client.get(Endpoints.pageRealisateur(tmdbId)) }
 
     override suspend fun marquerIntrouvable(tmdbId: Int) {
         call<Unit> { client.put(Endpoints.introuvable(tmdbId)) }

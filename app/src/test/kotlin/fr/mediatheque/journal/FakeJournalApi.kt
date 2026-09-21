@@ -6,6 +6,7 @@ import fr.mediatheque.journal.api.dto.AddMediaResponse
 import fr.mediatheque.journal.api.dto.AddedMedia
 import fr.mediatheque.journal.api.dto.Carnet
 import fr.mediatheque.journal.api.dto.CollectionResult
+import fr.mediatheque.journal.api.dto.FilmDeFilmographie
 import fr.mediatheque.journal.api.dto.FilmSuivi
 import fr.mediatheque.journal.api.dto.ImportLetterboxdResponse
 import fr.mediatheque.journal.api.dto.JournalCreateBody
@@ -16,6 +17,8 @@ import fr.mediatheque.journal.api.dto.LogEntry
 import fr.mediatheque.journal.api.dto.PersonneResult
 import fr.mediatheque.journal.api.dto.PlexResponse
 import fr.mediatheque.journal.api.dto.Realisateur
+import fr.mediatheque.journal.api.dto.RealisateurCredit
+import fr.mediatheque.journal.api.dto.RealisateurPageResponse
 import fr.mediatheque.journal.api.dto.Saga
 import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.api.dto.SortiesEnCours
@@ -39,6 +42,7 @@ import fr.mediatheque.journal.api.dto.SeanceFilmVoyage
 import fr.mediatheque.journal.api.dto.SeanceRemplacerBody
 import fr.mediatheque.journal.api.dto.SeanceVoyage
 import fr.mediatheque.journal.api.dto.TicketUtiliseResponse
+import fr.mediatheque.journal.api.dto.VoyageDeFilmographie
 import fr.mediatheque.journal.api.dto.VoyageDepensesResponse
 import fr.mediatheque.journal.api.dto.VoyageResponse
 import fr.mediatheque.journal.api.dto.VoyageTicketsResponse
@@ -73,6 +77,8 @@ class FakeJournalApi : JournalApi {
     var onSuivreRealisateur: suspend (Int) -> Realisateur = { id -> realisateur(id, "Personne $id") }
     var onRetirerRealisateur: suspend (Int) -> Unit = {}
     var onFilmographie: suspend (Int) -> List<FilmSuivi> = { emptyList() }
+    var onRealisateursDuFilm: suspend (Int) -> List<RealisateurCredit> = { emptyList() }
+    var onPageRealisateur: suspend (Int) -> RealisateurPageResponse = { id -> pageRealisateur(id, "Personne $id") }
     var onMarquerIntrouvable: suspend (Int) -> Unit = {}
     var onRetirerIntrouvable: suspend (Int) -> Unit = {}
     var onChercherSagas: suspend (String) -> List<CollectionResult> = { emptyList() }
@@ -121,6 +127,8 @@ class FakeJournalApi : JournalApi {
     override suspend fun suivreRealisateur(tmdbId: Int) = track("suivreRealisateur $tmdbId") { onSuivreRealisateur(tmdbId) }
     override suspend fun retirerRealisateur(tmdbId: Int) = track("retirerRealisateur $tmdbId") { onRetirerRealisateur(tmdbId) }
     override suspend fun filmographie(tmdbId: Int) = track("filmographie $tmdbId") { onFilmographie(tmdbId) }
+    override suspend fun realisateursDuFilm(tmdbId: Int) = track("realisateursDuFilm $tmdbId") { onRealisateursDuFilm(tmdbId) }
+    override suspend fun pageRealisateur(tmdbId: Int) = track("pageRealisateur $tmdbId") { onPageRealisateur(tmdbId) }
     override suspend fun marquerIntrouvable(tmdbId: Int) = track("marquerIntrouvable $tmdbId") { onMarquerIntrouvable(tmdbId) }
     override suspend fun retirerIntrouvable(tmdbId: Int) = track("retirerIntrouvable $tmdbId") { onRetirerIntrouvable(tmdbId) }
     override suspend fun chercherSagas(query: String) = track("chercherSagas $query") { onChercherSagas(query) }
@@ -215,6 +223,58 @@ class FakeJournalApi : JournalApi {
             vu = entryId?.let { VuDuFilm(it, rating, finishedAt) },
             introuvable = introuvable,
             ajoute = ajoute,
+        )
+
+        /** Un réalisateur crédité sur un film (`GET /reference/films/{tmdbId}/realisateurs`). */
+        fun realisateurCredit(tmdbId: Int, name: String) = RealisateurCredit(tmdbId, name)
+
+        /** Un film de la filmographie d'une page réalisateur (brief du 21 septembre 2026, « la page réalisateur »). */
+        fun filmDeFilmographie(
+            tmdbId: Int,
+            title: String,
+            year: Int? = null,
+            type: String = "movie",
+            entryId: String? = null,
+            rating: Int? = null,
+            finishedAt: String = "2026-07-12",
+            introuvable: Boolean = false,
+            surLePlex: Boolean = false,
+            demande: Boolean = false,
+            plexUrl: String? = null,
+            anneeOuverte: Boolean = false,
+            voyage: VoyageDeFilmographie? = null,
+        ) = FilmDeFilmographie(
+            tmdb_id = tmdbId,
+            title = title,
+            year = year,
+            release_date = year?.let { "$it-01-01" } ?: "2000-01-01",
+            type = type,
+            vu = entryId?.let { VuDuFilm(it, rating, finishedAt) },
+            introuvable = introuvable,
+            sur_le_plex = surLePlex,
+            demande = demande,
+            plex_url = plexUrl,
+            annee_ouverte = anneeOuverte,
+            voyage = voyage,
+        )
+
+        /** `GET /me/realisateurs/{tmdbId}/page` par défaut : une fiche minimale, sans film. */
+        fun pageRealisateur(
+            tmdbId: Int,
+            name: String,
+            naissance: String? = null,
+            deces: String? = null,
+            presentation: String = "",
+            suivi: Boolean = false,
+            films: List<FilmDeFilmographie> = emptyList(),
+        ) = RealisateurPageResponse(
+            tmdb_id = tmdbId,
+            name = name,
+            naissance = naissance,
+            deces = deces,
+            presentation = presentation,
+            suivi = suivi,
+            films = films,
         )
 
         /** Une séance par défaut (brief du 21 septembre 2026, « la séance »), pour les réponses de `prendre`/`ignorer`/`remplacer`. */

@@ -131,6 +131,8 @@ class NavigationTest {
             Screen.FicheSuivi(SourceSuivi.REALISATEURS, 240),
             Screen.ChoisirFilmDeSaga(8091),
             Screen.RapportImport,
+            Screen.Realisateur(525),
+            Screen.FicheFilm(525, 27205),
         )
         caches.forEach { screen -> assertNull(screen.bottomBarTab()) }
     }

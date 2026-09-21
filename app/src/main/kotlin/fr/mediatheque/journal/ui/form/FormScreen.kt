@@ -57,10 +57,13 @@ import fr.mediatheque.journal.reactions.Reactions
 import fr.mediatheque.journal.ui.Cover
 import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.Navigator
+import fr.mediatheque.journal.ui.Screen
 import fr.mediatheque.journal.ui.formatDate
 import fr.mediatheque.journal.ui.frise.ChroniqueUi
 import fr.mediatheque.journal.ui.frise.ChroniqueViewModel
 import fr.mediatheque.journal.ui.frise.EtatBoutonChronique
+import fr.mediatheque.journal.ui.realisateur.NomRealisateurTouchable
+import fr.mediatheque.journal.ui.realisateur.RealisateurResolveur
 import fr.mediatheque.journal.ui.subtitle
 import java.time.Instant
 import java.time.LocalDate
@@ -71,6 +74,7 @@ import java.time.ZoneOffset
 fun FormScreen(
     vm: FormViewModel,
     nav: Navigator,
+    realisateurResolveur: RealisateurResolveur,
     onBack: () -> Unit,
     carton: CartonViewModel? = null,
     /**
@@ -114,7 +118,25 @@ fun FormScreen(
                 Cover(coverUrl, title, 96.dp, 144.dp)
                 Column(Modifier.align(Alignment.CenterVertically)) {
                     Text(title, style = MaterialTheme.typography.titleLarge)
-                    Text(sub, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    // Le réalisateur des métadonnées, touchable, seulement en correction (décision
+                    // 3 du brief du 21 septembre 2026, « la page réalisateur ») : `Screen.Edit`
+                    // seul connaît le `tmdb_id` du film déjà journalisé ; une création n'a que le
+                    // nom que la recherche a rendu, jamais son propre identifiant de personne.
+                    val filmTmdbIdEdition = (vm.mode as? FormMode.Edit)?.item?.media?.external_id?.toIntOrNull()
+                    val realisateurEdition = (vm.mode as? FormMode.Edit)?.item?.media?.director
+                    if (filmTmdbIdEdition != null && !realisateurEdition.isNullOrBlank()) {
+                        NomRealisateurTouchable(
+                            filmTmdbId = filmTmdbIdEdition,
+                            nomConnu = realisateurEdition,
+                            resolveur = realisateurResolveur,
+                            onOuvrirRealisateur = { nav.push(Screen.Realisateur(it)) },
+                        )
+                        (vm.mode as? FormMode.Edit)?.item?.media?.year?.let { annee ->
+                            Text(annee.toString(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    } else {
+                        Text(sub, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             }
 

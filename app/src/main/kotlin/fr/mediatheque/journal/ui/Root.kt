@@ -55,6 +55,12 @@ import fr.mediatheque.journal.ui.profile.RapportImportScreen
 import fr.mediatheque.journal.ui.profile.SensCritiqueScreen
 import fr.mediatheque.journal.ui.profile.SensCritiqueViewModel
 import fr.mediatheque.journal.ui.profile.toSearchResult
+import fr.mediatheque.journal.ui.realisateur.DestinationFilm
+import fr.mediatheque.journal.ui.realisateur.FicheFilmScreen
+import fr.mediatheque.journal.ui.realisateur.RealisateurResolveur
+import fr.mediatheque.journal.ui.realisateur.RealisateurScreen
+import fr.mediatheque.journal.ui.realisateur.RealisateurViewModel
+import fr.mediatheque.journal.ui.realisateur.destinationFilm
 import fr.mediatheque.journal.ui.suivis.ChercherSuiviScreen
 import fr.mediatheque.journal.ui.suivis.ChercherSuiviViewModel
 import fr.mediatheque.journal.ui.suivis.FicheSuiviScreen
@@ -135,6 +141,13 @@ fun Root(container: AppContainer) {
             // déjà.
             val suivis: SuivisViewModel = viewModel(key = "suivis") {
                 SuivisViewModel(container.api, session::expire)
+            }
+            // Un nom de réalisateur touchable partout où il s'affiche (décision 3 du brief du
+            // 21 septembre 2026, « la page réalisateur ») : une seule instance, indexée sur
+            // l'Activité comme `suivis` ci-dessus — son cache par film ne doit pas se vider en
+            // passant d'un écran à l'autre.
+            val realisateurResolveur: RealisateurResolveur = viewModel(key = "realisateur-resolveur") {
+                RealisateurResolveur(container.api)
             }
             // Indexé sur l'Activité comme les autres ci-dessus (brief « importer Letterboxd »,
             // 16 septembre 2026) : `Screen.RapportImport` ne porte aucune donnée, elle relit cette
@@ -245,7 +258,7 @@ fun Root(container: AppContainer) {
                                 session::expire,
                             )
                         }
-                        FormScreen(form, nav = nav, onBack = nav::pop)
+                        FormScreen(form, nav = nav, realisateurResolveur = realisateurResolveur, onBack = nav::pop)
                     }
                     Screen.Profile -> {
                         val profile: ProfileViewModel = viewModel(key = "profile") { ProfileViewModel(container.api, session::expire) }
@@ -385,7 +398,14 @@ fun Root(container: AppContainer) {
                                 null
                             }
                         }
-                        FormScreen(form, nav = nav, onBack = nav::pop, carton = carton, chronique = chronique)
+                        FormScreen(
+                            form,
+                            nav = nav,
+                            realisateurResolveur = realisateurResolveur,
+                            onBack = nav::pop,
+                            carton = carton,
+                            chronique = chronique,
+                        )
                     }
                     Screen.SensCritique -> SensCritiqueScreen(senscritique, onBack = nav::pop)
                     Screen.Cinema -> {
@@ -445,6 +465,7 @@ fun Root(container: AppContainer) {
                         AnneeScreen(
                             screen.annee,
                             anneeVm,
+                            realisateurResolveur = realisateurResolveur,
                             onBack = nav::pop,
                             onOpenFilm = { salleId, filmId -> nav.push(Screen.FicheVoyage(screen.annee.annee ?: 0, salleId, filmId)) },
                             // Le ticket (brief du 21 septembre 2026) : encaisser le ticket de la
@@ -462,6 +483,7 @@ fun Root(container: AppContainer) {
                             // « Prendre » (décision 2) : `frise.refresh()` relit `seance_prise`, que
                             // la ligne « Ce soir » de l'accueil porte.
                             onSeanceChange = { frise.refresh() },
+                            onOuvrirRealisateur = { id -> nav.push(Screen.Realisateur(id)) },
                         )
                     }
                     is Screen.FicheVoyage -> {
@@ -482,6 +504,12 @@ fun Root(container: AppContainer) {
                         val carton: CartonViewModel = viewModel(key = "carton-voyage-${screen.filmId}") {
                             CartonViewModel(container.api, film?.tmdbId ?: 0, poll = false, session::expire)
                         }
+                        // Atteinte directement depuis une filmographie (décision 2 du brief du
+                        // 21 septembre 2026, « la page réalisateur »), sans être jamais passé par
+                        // `Screen.Annee`, `anneeVm` peut être une instance neuve — `relire()` la
+                        // charge dans ce cas ; sur une instance déjà prête (venue d'`Screen.Annee`),
+                        // elle rend la main tout de suite (jumeau du `LaunchedEffect` d'`AnneeScreen`).
+                        LaunchedEffect(Unit) { anneeVm.relire() }
                         FicheVoyageScreen(
                             annee = screen.annee,
                             vm = anneeVm,
@@ -489,9 +517,11 @@ fun Root(container: AppContainer) {
                             filmId = screen.filmId,
                             journalItem = journalItem,
                             carton = carton,
+                            realisateurResolveur = realisateurResolveur,
                             onBack = nav::pop,
                             onOpenForm = { nav.push(Screen.Form(it)) },
                             onPodiumChange = { frise.refresh() },
+                            onOuvrirRealisateur = { id -> nav.push(Screen.Realisateur(id)) },
                         )
                     }
                     is Screen.Decennie -> {
@@ -529,7 +559,15 @@ fun Root(container: AppContainer) {
                         SuivisScreen(
                             suivis,
                             onAjouter = { nav.push(Screen.ChercherSuivi) },
-                            onOuvrir = { source, tmdbId -> nav.push(Screen.FicheSuivi(source, tmdbId)) },
+                            // Un réalisateur ouvre sa page (décision 4 du brief du 21 septembre
+                            // 2026, « la page réalisateur ») ; une saga garde sa fiche existante.
+                            onOuvrir = { source, tmdbId ->
+                                if (source == SourceSuivi.REALISATEURS) {
+                                    nav.push(Screen.Realisateur(tmdbId))
+                                } else {
+                                    nav.push(Screen.FicheSuivi(source, tmdbId))
+                                }
+                            },
                             bottomBar = {
                                 JournalBottomBar(
                                     screen,
@@ -580,6 +618,44 @@ fun Root(container: AppContainer) {
                         // même `onAjouterFilm` sur une fiche de réalisateur ne fait donc jamais rien.
                         onAjouterFilm = { nav.push(Screen.ChoisirFilmDeSaga(screen.tmdbId)) },
                     )
+                    is Screen.Realisateur -> {
+                        val realisateurVm: RealisateurViewModel = viewModel(key = "realisateur-${screen.tmdbId}") {
+                            RealisateurViewModel(screen.tmdbId, container.api, session::expire)
+                        }
+                        LaunchedEffect(Unit) { realisateurVm.charger() }
+                        RealisateurScreen(
+                            realisateurVm,
+                            realisateurResolveur,
+                            onBack = nav::pop,
+                            // Le tap sur une affiche (décision 2 du brief du 21 septembre 2026, «
+                            // la page réalisateur ») : la fiche du Voyage si le film y a une ligne,
+                            // sinon la fiche simple de ce même écran.
+                            onOuvrirFilm = { film ->
+                                when (val destination = destinationFilm(film)) {
+                                    is DestinationFilm.Voyage ->
+                                        nav.push(Screen.FicheVoyage(destination.annee, destination.salleId, destination.filmId))
+                                    is DestinationFilm.Simple ->
+                                        nav.push(Screen.FicheFilm(screen.tmdbId, destination.film.tmdb_id))
+                                }
+                            },
+                        )
+                    }
+                    is Screen.FicheFilm -> {
+                        // Même clé que `Screen.Realisateur` juste au-dessus : cette instance existe
+                        // déjà (la fiche ne s'ouvre que depuis une affiche de cet écran-là), le
+                        // constructeur ci-dessous ne sert donc qu'à la signature de `viewModel`.
+                        val realisateurVm: RealisateurViewModel = viewModel(key = "realisateur-${screen.realisateurTmdbId}") {
+                            RealisateurViewModel(screen.realisateurTmdbId, container.api, session::expire)
+                        }
+                        FicheFilmScreen(
+                            realisateurVm,
+                            realisateurResolveur,
+                            filmTmdbId = screen.filmTmdbId,
+                            onBack = nav::pop,
+                            onOuvrirForm = { nav.push(Screen.Form(it)) },
+                            onOuvrirRealisateur = { id -> nav.push(Screen.Realisateur(id)) },
+                        )
+                    }
                     is Screen.ChoisirFilmDeSaga -> {
                         // Instance propre à cet écran (jumeau de `chercher` sur
                         // `Screen.ChercherSuivi` juste au-dessus), pas la `search` hoistée
