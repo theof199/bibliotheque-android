@@ -40964,13 +40964,48 @@
                         "description": "Une année, telle qu’elle apparaît sur la carte"
                       },
                       "description": "De 1895 à l’année courante"
+                    },
+                    "ticket_a_montrer": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "annee": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991,
+                              "description": "L’année que ce ticket ouvre"
+                            },
+                            "motif": {
+                              "type": "string"
+                            },
+                            "emis_le": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                            }
+                          },
+                          "required": [
+                            "annee",
+                            "motif",
+                            "emis_le"
+                          ],
+                          "additionalProperties": false,
+                          "description": "Un ticket émis, jamais encore montré"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Un ticket gagné et pas encore montré — à afficher une fois, puis `POST .../montre`"
                     }
                   },
                   "required": [
                     "configure",
                     "depart",
                     "annee_en_cours",
-                    "annees"
+                    "annees",
+                    "ticket_a_montrer"
                   ],
                   "additionalProperties": false,
                   "description": "Ma progression dans le Voyage"
@@ -41003,7 +41038,12 @@
                           "profondeur": 0,
                           "affiche_url": null
                         }
-                      ]
+                      ],
+                      "ticket_a_montrer": {
+                        "annee": 1942,
+                        "motif": "1941 t’a bien occupé, 1942 t’attend.",
+                        "emis_le": "2026-09-21T21:00:00.000Z"
+                      }
                     }
                   }
                 }
@@ -41029,7 +41069,7 @@
         "tags": [
           "voyage"
         ],
-        "description": "`prete` (`200`) si l’ouverture existe déjà pour ce membre : ses salles, dans l’ordre, avec chaque film (état et note calculés à la lecture). `en_preparation` (`202`) à la première visite d’une année ouverte ou en cours — la demande enfile l’ouverture, à redemander dans quelques secondes. `verrouillee` (`200`) après mon année en cours : rien ne s’enfile, même en visitant. `{ configure: false }` (`200`) si `ANTHROPIC_API_KEY` manque et que l’année n’a pas encore d’ouverture.\n\n`etat` d’un film vaut `vu`, `sur_le_plex`, `demande`, `a_demander` ou `introuvable`. Pour un programme, `etat` ne vaut `vu` que quand **toutes** ses bobines le sont — chaque bobine porte le sien.\n\n`podium` porte les trois marches (`PUT`/`DELETE /me/voyage/annees/{annee}/podium/{place}`), `null` pour une place vide — présent sur `prete` et `verrouillee` (toujours vide sur cette dernière, le podium ne se posant que sur une année non verrouillée).",
+        "description": "`prete` (`200`) si l’ouverture existe déjà pour ce membre : ses salles, dans l’ordre, avec chaque film (état et note calculés à la lecture). `en_preparation` (`202`) à la première visite d’une année ouverte ou en cours — la demande enfile l’ouverture, à redemander dans quelques secondes. `verrouillee` (`200`) après mon année en cours : rien ne s’enfile, même en visitant. `{ configure: false }` (`200`) si `ANTHROPIC_API_KEY` manque et que l’année n’a pas encore d’ouverture.\n\n`etat` d’un film vaut `vu`, `sur_le_plex`, `demande`, `a_demander` ou `introuvable`. Pour un programme, `etat` ne vaut `vu` que quand **toutes** ses bobines le sont — chaque bobine porte le sien.\n\n`podium` porte les trois marches (`PUT`/`DELETE /me/voyage/annees/{annee}/podium/{place}`), `null` pour une place vide — présent sur `prete` et `verrouillee` (toujours vide sur cette dernière, le podium ne se posant que sur une année non verrouillée).\n\n`maturite` (`prete` seulement) porte le dernier jugement du chroniqueur sur cette année — `null` tant qu’aucun film de l’année n’a encore été noté. `ticket` (`prete` seulement) porte le ticket vers `annee + 1`, s’il a été gagné — `null` sinon.",
         "parameters": [
           {
             "schema": {
@@ -41432,6 +41472,79 @@
                             ]
                           },
                           "description": "Les trois marches, dans l’ordre"
+                        },
+                        "maturite": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "mure": {
+                                  "type": "boolean"
+                                },
+                                "motif": {
+                                  "type": "string",
+                                  "description": "Une seule phrase, au tutoiement, sans chiffres ni nom de salle entre guillemets — une invitation si mûre, une piste sinon"
+                                },
+                                "jugee_le": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                                }
+                              },
+                              "required": [
+                                "mure",
+                                "motif",
+                                "jugee_le"
+                              ],
+                              "additionalProperties": false,
+                              "description": "Le dernier jugement de maturité du chroniqueur sur cette année"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "ticket": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "annee": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991,
+                                  "description": "L’année que ce ticket ouvre — celle-ci + 1"
+                                },
+                                "emis_le": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                                },
+                                "utilise_le": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "date-time",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "annee",
+                                "emis_le",
+                                "utilise_le"
+                              ],
+                              "additionalProperties": false,
+                              "description": "Le ticket vers l’année suivante, s’il a été gagné"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -41443,7 +41556,9 @@
                         "faits",
                         "ecrite_le",
                         "salles",
-                        "podium"
+                        "podium",
+                        "maturite",
+                        "ticket"
                       ],
                       "additionalProperties": false,
                       "description": "L’année, prête à afficher"
@@ -41649,7 +41764,17 @@
                         },
                         null,
                         null
-                      ]
+                      ],
+                      "maturite": {
+                        "mure": true,
+                        "motif": "1941 t’a bien occupé, 1942 t’attend.",
+                        "jugee_le": "2026-09-21T21:00:00.000Z"
+                      },
+                      "ticket": {
+                        "annee": 1942,
+                        "emis_le": "2026-09-21T21:00:00.000Z",
+                        "utilise_le": null
+                      }
                     }
                   }
                 }
@@ -42196,16 +42321,200 @@
         }
       }
     },
-    "/me/voyage/annee-suivante": {
-      "post": {
-        "summary": "Avancer mon année en cours — provisoire, remplacée par le ticket (étape 3)",
+    "/me/voyage/tickets": {
+      "get": {
+        "summary": "Mon portefeuille de tickets",
         "tags": [
           "voyage"
         ],
-        "description": "Avance `annee_en_cours` d’un an, plafonnée à l’année courante. **Provisoire** : le brief du 19 septembre 2026 prévoit qu’une année suivante ne s’ouvre normalement qu’avec un ticket, gagné par le jugement de maturité du chroniqueur (étape 3 du §8) — cette route tient sa place le temps que ce mécanisme existe, et disparaîtra à son profit.\n\nJe continue de pouvoir creuser une année déjà `ouverte` sans que ça la fasse bouger : seule cette route avance `annee_en_cours`.",
+        "description": "Tous mes tickets, gagnés par le jugement de maturité du chroniqueur (brief du 21 septembre 2026, étape 3), par année croissante — celle qu’ils ouvrent. Un ticket ne se périme pas : `montre_le` et `utilise_le` restent nuls jusqu’à `POST .../montre` et `POST .../utiliser`.",
         "responses": {
           "200": {
-            "description": "Mon année en cours après avance — provisoire, en attendant le jugement de maturité et le ticket",
+            "description": "Mon portefeuille de tickets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tickets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "annee": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "L’année que ce ticket ouvre"
+                          },
+                          "motif": {
+                            "type": "string"
+                          },
+                          "emis_le": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                          },
+                          "montre_le": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "utilise_le": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "annee",
+                          "motif",
+                          "emis_le",
+                          "montre_le",
+                          "utilise_le"
+                        ],
+                        "additionalProperties": false,
+                        "description": "Un ticket, du portefeuille"
+                      },
+                      "description": "Par année croissante"
+                    }
+                  },
+                  "required": [
+                    "tickets"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Mon portefeuille de tickets"
+                },
+                "examples": {
+                  "Réponse type": {
+                    "value": {
+                      "tickets": [
+                        {
+                          "annee": 1941,
+                          "motif": "1940 t’a bien occupé, 1941 t’attend.",
+                          "emis_le": "2026-08-30T18:00:00.000Z",
+                          "montre_le": "2026-08-30T19:12:00.000Z",
+                          "utilise_le": "2026-08-30T19:12:30.000Z"
+                        },
+                        {
+                          "annee": 1942,
+                          "motif": "1941 t’a bien occupé, 1942 t’attend.",
+                          "emis_le": "2026-09-21T21:00:00.000Z",
+                          "montre_le": null,
+                          "utilise_le": null
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/voyage/tickets/{annee}/montre": {
+      "post": {
+        "summary": "Marquer un ticket comme montré",
+        "tags": [
+          "voyage"
+        ],
+        "description": "Pose `montre_le` sur le ticket qui ouvre `annee`, la première fois qu’il s’affiche à l’écran (spec §5 : « une seule fois »). **Idempotent** : `204` même si `montre_le` était déjà posé, sans le réécrire. `404` sans ticket pour cette année — le mien, jamais celui d’un autre membre. Invalide le cache de `GET /me/voyage` (`ticket_a_montrer` redevient `null`).",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1895,
+              "maximum": 2027
+            },
+            "in": "path",
+            "name": "annee",
+            "required": true
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response"
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/voyage/tickets/{annee}/utiliser": {
+      "post": {
+        "summary": "Encaisser un ticket — ouvre l’année et devient mon année en cours",
+        "tags": [
+          "voyage"
+        ],
+        "description": "Pose `utilise_le` sur le ticket qui ouvre `annee`, et fait de `annee` mon `annee_en_cours` (en transaction). Je continue de pouvoir creuser l’ancienne année autant que je veux : rien ne l’en empêche, seule `annee_en_cours` a bougé.\n\n`404` sans ticket pour cette année, ou si le ticket est déjà utilisé — le mien, jamais celui d’un autre membre. Invalide le cache de `GET /me/voyage`.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1895,
+              "maximum": 2027
+            },
+            "in": "path",
+            "name": "annee",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Le ticket est encaissé — mon année en cours a avancé",
             "content": {
               "application/json": {
                 "schema": {
@@ -42214,14 +42523,15 @@
                     "annee_en_cours": {
                       "type": "integer",
                       "minimum": -9007199254740991,
-                      "maximum": 9007199254740991
+                      "maximum": 9007199254740991,
+                      "description": "Devenue l’année de ce ticket"
                     }
                   },
                   "required": [
                     "annee_en_cours"
                   ],
                   "additionalProperties": false,
-                  "description": "Mon année en cours après avance — provisoire, en attendant le jugement de maturité et le ticket"
+                  "description": "Le ticket est encaissé — mon année en cours a avancé"
                 },
                 "examples": {
                   "Réponse type": {
@@ -42233,7 +42543,27 @@
               }
             }
           },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
           "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
             "description": "Default Response",
             "content": {
               "application/json": {
