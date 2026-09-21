@@ -73,4 +73,11 @@ object Endpoints {
 
     /** `GET /me/voyage/depenses` (décision 2 du brief du 21 septembre 2026, « les dépenses »). */
     const val voyageDepenses = "me/voyage/depenses"
+
+    // --- La séance (brief du 21 septembre 2026, « la séance »). ---
+
+    fun voyageSeances(annee: Int): String = "${voyageAnnee(annee)}/seances"
+    fun voyageSeanceRemplacer(id: String): String = "me/voyage/seances/$id/remplacer"
+    fun voyageSeancePrendre(id: String): String = "me/voyage/seances/$id/prendre"
+    fun voyageSeanceIgnorer(id: String): String = "me/voyage/seances/$id/ignorer"
 }

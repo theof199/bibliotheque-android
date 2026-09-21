@@ -24,6 +24,9 @@ import fr.mediatheque.journal.api.dto.DemanderVoyageResponse
 import fr.mediatheque.journal.api.dto.PodiumBody
 import fr.mediatheque.journal.api.dto.PodiumResponse
 import fr.mediatheque.journal.api.dto.SallePlusResponse
+import fr.mediatheque.journal.api.dto.SeanceComposerResponse
+import fr.mediatheque.journal.api.dto.SeanceEcritureResponse
+import fr.mediatheque.journal.api.dto.SeanceRemplacerBody
 import fr.mediatheque.journal.api.dto.TicketUtiliseResponse
 import fr.mediatheque.journal.api.dto.VoyageDepensesResponse
 import fr.mediatheque.journal.api.dto.VoyageResponse
@@ -186,6 +189,24 @@ interface JournalApi {
      * appels au chroniqueur, mois par mois, du plus ancien au plus récent.
      */
     suspend fun voyageDepenses(): VoyageDepensesResponse
+
+    // --- La séance (brief du 21 septembre 2026, « la séance »). ---
+
+    /**
+     * `POST /me/voyage/annees/{annee}/seances` : « Composer une séance ». Toujours `202`, qu'elle
+     * vienne de s'enfiler ou qu'une composition soit déjà en cours pour cette année ; `409` sur une
+     * composition déjà en cours (variante distincte selon le back), `404`/`400` selon l'année.
+     */
+    suspend fun voyageComposerSeance(annee: Int): SeanceComposerResponse
+
+    /** `POST /me/voyage/seances/{id}/remplacer` : remplace le long ou le court, sans appel au chroniqueur. */
+    suspend fun voyageRemplacerSeance(id: String, corps: SeanceRemplacerBody): SeanceEcritureResponse
+
+    /** `POST /me/voyage/seances/{id}/prendre` : prend la séance telle quelle, ignore les autres séances prises de l'année. */
+    suspend fun voyagePrendreSeance(id: String): SeanceEcritureResponse
+
+    /** `POST /me/voyage/seances/{id}/ignorer` : ignore la séance. */
+    suspend fun voyageIgnorerSeance(id: String): SeanceEcritureResponse
 }
 
 /**

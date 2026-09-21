@@ -18,6 +18,11 @@ import fr.mediatheque.journal.api.dto.PodiumResponse
 import fr.mediatheque.journal.api.dto.ProgressionVoyage
 import fr.mediatheque.journal.api.dto.SalleVoyage
 import fr.mediatheque.journal.api.dto.SallePlusResponse
+import fr.mediatheque.journal.api.dto.SeanceComposerResponse
+import fr.mediatheque.journal.api.dto.SeanceEcritureResponse
+import fr.mediatheque.journal.api.dto.SeanceFilmVoyage
+import fr.mediatheque.journal.api.dto.SeanceRemplacerBody
+import fr.mediatheque.journal.api.dto.SeanceVoyage
 import fr.mediatheque.journal.api.dto.TicketAnneeVoyage
 import fr.mediatheque.journal.api.dto.TicketUtiliseResponse
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -67,6 +72,15 @@ class AnneeViewModelTest {
         epuisee = epuisee,
         fournee_en_cours = fourneeEnCours,
         films = films.toList(),
+    )
+
+    private fun seanceVoyage(id: String = "sc-1", rang: Int = 1, statut: String = "proposee") = SeanceVoyage(
+        id = id,
+        rang = rang,
+        statut = statut,
+        composee_le = "2026-09-21T22:00:00.000Z",
+        anecdote = "Une anecdote.",
+        long = SeanceFilmVoyage(film_id = "f-long", tmdb_id = 1, title = "Un long", salle = "Les essentiels", etat = "a_demander"),
     )
 
     private fun prete(vararg salles: SalleVoyage) = AnneeVoyageDetailResponse(
@@ -589,5 +603,114 @@ class AnneeViewModelTest {
 
         assertEquals(Recompense.LION, vm.ui.value.recompense)
         assertEquals(ProgressionUi(3, 5, 2, 4), vm.ui.value.progression)
+    }
+
+    // « Composer une séance » (décision 1 du brief du 21 septembre 2026, « la séance ») : marque
+    // `seanceEnCours` tout de suite (optimiste), puis relit jusqu'à ce qu'elle retombe — jumeau de
+    // `voirPlus enfile une fournee...`.
+    @Test
+    fun `composerSeance marque en cours puis relit jusqu'a ce que seance_en_cours retombe`() = runTest(dispatcher) {
+        var relectures = 0
+        api.onVoyageAnnee = {
+            relectures++
+            when (relectures) {
+                1 -> prete(salle("s1")).copy(seance_en_cours = false)
+                2 -> prete(salle("s1")).copy(seance_en_cours = true)
+                else -> prete(salle("s1")).copy(seance_en_cours = false, seances = listOf(seanceVoyage()))
+            }
+        }
+        api.onVoyageComposerSeance = { SeanceComposerResponse(statut = "en_preparation") }
+        val vm = AnneeViewModel(api, 1941, null) {}
+        vm.relire()
+        runCurrent()
+        assertTrue(vm.ui.value.seances.isEmpty())
+
+        vm.composerSeance()
+        // Le bouton passe en cours tout de suite, avant même la première relecture.
+        runCurrent()
+        assertTrue(vm.ui.value.seanceEnCours)
+
+        testScheduler.advanceUntilIdle()
+
+        assertFalse(vm.ui.value.seanceEnCours)
+        assertEquals(listOf("sc-1"), vm.ui.value.seances.map { it.id })
+        assertEquals(listOf("voyageComposerSeance 1941"), api.calls.filter { it.startsWith("voyageComposerSeance") })
+    }
+
+    @Test
+    fun `composerSeance en echec envoie le message du back au bandeau, sans marquer en cours`() = runTest(dispatcher) {
+        api.onVoyageAnnee = { prete(salle("s1")) }
+        api.onVoyageComposerSeance = { throw ApiError("VALIDATION", "Plus rien de neuf a proposer.", retryable = false, status = 400) }
+        val vm = AnneeViewModel(api, 1941, null) {}
+        vm.relire()
+        runCurrent()
+
+        val messages = mutableListOf<String>()
+        val job = launch { vm.messages.collect { messages += it } }
+
+        vm.composerSeance()
+        runCurrent()
+
+        assertEquals(listOf("Plus rien de neuf a proposer."), messages)
+        assertFalse(vm.ui.value.seanceEnCours)
+        job.cancel()
+    }
+
+    // « Prendre » (décision 2) relit l'année et appelle le rappel — la ligne « Ce soir » de
+    // l'accueil en dépend (`frise.refresh()` côté appelant).
+    @Test
+    fun `prendreSeance relit l'annee et appelle le rappel`() = runTest(dispatcher) {
+        api.onVoyageAnnee = { prete(salle("s1")).copy(seances = listOf(seanceVoyage(statut = "proposee"))) }
+        val vm = AnneeViewModel(api, 1941, null) {}
+        vm.relire()
+        runCurrent()
+        assertEquals("proposee", vm.ui.value.seances.single().statut)
+
+        api.onVoyageAnnee = { prete(salle("s1")).copy(seances = listOf(seanceVoyage(statut = "prise"))) }
+        var rappelee = false
+        vm.prendreSeance("sc-1") { rappelee = true }
+        runCurrent()
+
+        assertEquals("prise", vm.ui.value.seances.single().statut)
+        assertTrue(rappelee)
+        assertEquals(listOf("voyagePrendreSeance sc-1"), api.calls.filter { it.startsWith("voyagePrendreSeance") })
+    }
+
+    // « Ignorer » (décision 2) relit l'année — la carte retombe (`etatZoneSeance` passe à `RIEN`).
+    @Test
+    fun `ignorerSeance relit l'annee`() = runTest(dispatcher) {
+        api.onVoyageAnnee = { prete(salle("s1")).copy(seances = listOf(seanceVoyage(statut = "proposee"))) }
+        val vm = AnneeViewModel(api, 1941, null) {}
+        vm.relire()
+        runCurrent()
+
+        api.onVoyageAnnee = { prete(salle("s1")).copy(seances = listOf(seanceVoyage(statut = "ignoree"))) }
+        vm.ignorerSeance("sc-1")
+        runCurrent()
+
+        assertEquals("ignoree", vm.ui.value.seances.single().statut)
+        assertEquals(listOf("voyageIgnorerSeance sc-1"), api.calls.filter { it.startsWith("voyageIgnorerSeance") })
+    }
+
+    // « Autre long » / « Autre court » (décision 3) : le corps est envoyé tel quel, sans appel de
+    // plus avant celui-ci, puis l'année se relit tout entière.
+    @Test
+    fun `remplacerSeance envoie le corps donne puis relit l'annee`() = runTest(dispatcher) {
+        api.onVoyageAnnee = { prete(salle("s1")).copy(seances = listOf(seanceVoyage())) }
+        val vm = AnneeViewModel(api, 1941, null) {}
+        vm.relire()
+        runCurrent()
+
+        var corpsRecu: SeanceRemplacerBody? = null
+        api.onVoyageRemplacerSeance = { id, corps -> corpsRecu = corps; SeanceEcritureResponse(seanceVoyage(id)) }
+        api.onVoyageAnnee = { prete(salle("s1")).copy(seances = listOf(seanceVoyage(rang = 2))) }
+
+        vm.remplacerSeance("sc-1", SeanceRemplacerBody(morceau = "long", film_id = "f-autre"))
+        runCurrent()
+
+        assertEquals("long", corpsRecu?.morceau)
+        assertEquals("f-autre", corpsRecu?.film_id)
+        assertEquals(2, vm.ui.value.seances.single().rang)
+        assertEquals(listOf("voyageRemplacerSeance sc-1 long f-autre null"), api.calls.filter { it.startsWith("voyageRemplacerSeance") })
     }
 }

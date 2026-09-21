@@ -33,6 +33,11 @@ import fr.mediatheque.journal.api.dto.DemanderVoyageResponse
 import fr.mediatheque.journal.api.dto.PodiumBody
 import fr.mediatheque.journal.api.dto.PodiumResponse
 import fr.mediatheque.journal.api.dto.SallePlusResponse
+import fr.mediatheque.journal.api.dto.SeanceComposerResponse
+import fr.mediatheque.journal.api.dto.SeanceEcritureResponse
+import fr.mediatheque.journal.api.dto.SeanceFilmVoyage
+import fr.mediatheque.journal.api.dto.SeanceRemplacerBody
+import fr.mediatheque.journal.api.dto.SeanceVoyage
 import fr.mediatheque.journal.api.dto.TicketUtiliseResponse
 import fr.mediatheque.journal.api.dto.VoyageDepensesResponse
 import fr.mediatheque.journal.api.dto.VoyageResponse
@@ -91,6 +96,11 @@ class FakeJournalApi : JournalApi {
     var onVoyageDemanderSalle: suspend (Int, String) -> DemandeSalleEcritureResponse = { _, _ -> DemandeSalleEcritureResponse(demande_id = "d-1") }
     var onVoyageDemandeSalleVue: suspend (String) -> Unit = { _ -> }
     var onVoyageDepenses: suspend () -> VoyageDepensesResponse = { VoyageDepensesResponse() }
+    var onVoyageComposerSeance: suspend (Int) -> SeanceComposerResponse = { SeanceComposerResponse() }
+    var onVoyageRemplacerSeance: suspend (String, SeanceRemplacerBody) -> SeanceEcritureResponse =
+        { id, _ -> SeanceEcritureResponse(seance(id)) }
+    var onVoyagePrendreSeance: suspend (String) -> SeanceEcritureResponse = { id -> SeanceEcritureResponse(seance(id)) }
+    var onVoyageIgnorerSeance: suspend (String) -> SeanceEcritureResponse = { id -> SeanceEcritureResponse(seance(id)) }
 
     override suspend fun login(pseudo: String, password: String) = track("login $pseudo") { onLogin(pseudo, password) }
     override suspend fun me() = track("me") { onMe() }
@@ -139,6 +149,11 @@ class FakeJournalApi : JournalApi {
         track("voyageDemanderSalle $annee") { onVoyageDemanderSalle(annee, demande) }
     override suspend fun voyageDemandeSalleVue(id: String) = track("voyageDemandeSalleVue $id") { onVoyageDemandeSalleVue(id) }
     override suspend fun voyageDepenses() = track("voyageDepenses") { onVoyageDepenses() }
+    override suspend fun voyageComposerSeance(annee: Int) = track("voyageComposerSeance $annee") { onVoyageComposerSeance(annee) }
+    override suspend fun voyageRemplacerSeance(id: String, corps: SeanceRemplacerBody) =
+        track("voyageRemplacerSeance $id ${corps.morceau} ${corps.film_id} ${corps.bobine_tmdb_id}") { onVoyageRemplacerSeance(id, corps) }
+    override suspend fun voyagePrendreSeance(id: String) = track("voyagePrendreSeance $id") { onVoyagePrendreSeance(id) }
+    override suspend fun voyageIgnorerSeance(id: String) = track("voyageIgnorerSeance $id") { onVoyageIgnorerSeance(id) }
 
     private suspend fun <T> track(name: String, block: suspend () -> T): T {
         calls += name
@@ -200,6 +215,16 @@ class FakeJournalApi : JournalApi {
             vu = entryId?.let { VuDuFilm(it, rating, finishedAt) },
             introuvable = introuvable,
             ajoute = ajoute,
+        )
+
+        /** Une séance par défaut (brief du 21 septembre 2026, « la séance »), pour les réponses de `prendre`/`ignorer`/`remplacer`. */
+        fun seance(id: String, statut: String = "proposee", rang: Int = 1) = SeanceVoyage(
+            id = id,
+            rang = rang,
+            statut = statut,
+            composee_le = "2026-09-21T22:00:00.000Z",
+            anecdote = "Une anecdote de générique.",
+            long = SeanceFilmVoyage(film_id = "f-long", tmdb_id = 1, title = "Un long", salle = "Les essentiels", etat = "a_demander"),
         )
 
         fun unauthorized() = ApiError("UNAUTHENTICATED", "Connecte-toi d’abord.", retryable = false, status = 401)

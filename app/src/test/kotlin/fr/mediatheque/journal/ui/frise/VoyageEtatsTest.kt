@@ -1,6 +1,9 @@
 package fr.mediatheque.journal.ui.frise
 
 import fr.mediatheque.journal.api.dto.AnneeVoyage
+import fr.mediatheque.journal.api.dto.SeancePriseCourtVoyage
+import fr.mediatheque.journal.api.dto.SeancePriseFilmVoyage
+import fr.mediatheque.journal.api.dto.SeancePriseVoyage
 import fr.mediatheque.journal.api.dto.TamponVoyage
 import fr.mediatheque.journal.api.dto.TicketAMontrerVoyage
 import fr.mediatheque.journal.api.dto.VoyageResponse
@@ -86,6 +89,45 @@ class VoyageEtatsTest {
     fun `toVoyageUi sans tampon reste vide`() {
         val ui = VoyageResponse(configure = true).toVoyageUi()
         assertTrue(ui.tampons.isEmpty())
+    }
+
+    // La séance prise (décision 4 du brief du 21 septembre 2026, « la séance ») : se lit quand
+    // elle est présente, reste nulle sinon — jumeau des tests du ticket ci-dessus.
+    @Test
+    fun `toVoyageUi lit la seance prise quand elle est presente`() {
+        val reponse = VoyageResponse(
+            configure = true,
+            seance_prise = SeancePriseVoyage(
+                id = "sc-1",
+                annee = 1941,
+                long = SeancePriseFilmVoyage("Le Faucon maltais", "https://exemple/faucon.jpg"),
+                court = SeancePriseCourtVoyage("Un chien andalou"),
+            ),
+        )
+        val ui = reponse.toVoyageUi()
+
+        assertEquals(
+            SeancePriseUi(1941, "Le Faucon maltais", "https://exemple/faucon.jpg", "Un chien andalou"),
+            ui.seancePrise,
+        )
+    }
+
+    @Test
+    fun `toVoyageUi sans seance prise reste nulle`() {
+        val ui = VoyageResponse(configure = true).toVoyageUi()
+        assertNull(ui.seancePrise)
+    }
+
+    // Le texte de la ligne « Ce soir » (décision 4) : le long seul, ou le long et le court réunis
+    // par un « + ». Fonction pure.
+    // Mutation : inverser la condition afficherait le court seul, ou « + » sans court.
+    @Test
+    fun `texteCeSoir donne le long seul, ou le long et le court`() {
+        assertEquals("Le Faucon maltais", texteCeSoir(SeancePriseUi(1941, "Le Faucon maltais", null, null)))
+        assertEquals(
+            "Le Faucon maltais + Un chien andalou",
+            texteCeSoir(SeancePriseUi(1941, "Le Faucon maltais", null, "Un chien andalou")),
+        )
     }
 
     @Test

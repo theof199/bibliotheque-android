@@ -46,6 +46,8 @@ import fr.mediatheque.journal.ui.Navigator
 import fr.mediatheque.journal.ui.films.FilmsViewModel
 import fr.mediatheque.journal.ui.form.CartonCard
 import fr.mediatheque.journal.ui.form.CartonViewModel
+import fr.mediatheque.journal.ui.frise.SeancePriseUi
+import fr.mediatheque.journal.ui.frise.texteCeSoir
 import fr.mediatheque.journal.ui.suivis.EnCours
 import fr.mediatheque.journal.ui.suivis.titreEtAnnee
 import fr.mediatheque.journal.ui.showBriefly
@@ -73,6 +75,9 @@ fun HomeScreen(
     /** La saga en cours et son prochain film (brief du 15 septembre 2026, généralisé le même jour) — même règle, même composant que le réalisateur en cours ci-dessus. */
     ensuiteSaga: EnCours? = null,
     onOpenEnsuiteSaga: (EnCours) -> Unit = {},
+    /** La séance prise (décision 4 du brief du 21 septembre 2026, « la séance ») — même règle que les lignes ci-dessus : nulle tant que `/me/voyage` n'a pas répondu, ou que rien n'est pris. Disparaît d'elle-même quand le back la rend nulle. */
+    ceSoir: SeancePriseUi? = null,
+    onOpenCeSoir: (SeancePriseUi) -> Unit = {},
     /** Le Voyage (brief du 16 septembre 2026) : la carte « Et pendant ce temps… » sous le bandeau, après une création. Nulle hors de cette fenêtre. */
     carton: CartonViewModel? = null,
     onCartonDismiss: () -> Unit = {},
@@ -132,6 +137,18 @@ fun HomeScreen(
                         attente = true,
                         onDismiss = onCartonDismiss,
                         modifier = Modifier.padding(bottom = 12.dp),
+                    )
+                }
+                // « Ce soir » (décision 4 du brief du 21 septembre 2026, « la séance ») : au-dessus
+                // d'« Ensuite », même gabarit qu'elle (`LigneEnsuite`) — chargement non bloquant,
+                // comme les trois lignes qui suivent.
+                ceSoir?.let { seance ->
+                    LigneEnsuite(
+                        coverUrl = seance.longCoverUrl,
+                        titreAffiche = seance.longTitre,
+                        libelle = "Ce soir",
+                        titre = texteCeSoir(seance),
+                        onClick = { onOpenCeSoir(seance) },
                     )
                 }
                 // Pas de chargement bloquant (brief du 15 septembre 2026) : la ligne n'existe

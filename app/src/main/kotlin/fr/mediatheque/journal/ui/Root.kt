@@ -202,6 +202,15 @@ fun Root(container: AppContainer) {
                             ensuite = friseUi.ensuite,
                             ensuiteRealisateur = entiteEnCours(SourceSuivi.REALISATEURS, suivisUi.realisateurs.entites, suivisUi.realisateurs.filmographies),
                             ensuiteSaga = entiteEnCours(SourceSuivi.SAGAS, suivisUi.sagas.entites, suivisUi.sagas.filmographies),
+                            // « Ce soir » (décision 4 du brief du 21 septembre 2026, « la séance ») :
+                            // la même année que `Screen.Decennie` retrouve, avec le même repli sans
+                            // vus ni à-voir si `FriseViewModel` ne l'a pas (encore) dans `annees`.
+                            ceSoir = friseUi.voyage.seancePrise,
+                            onOpenCeSoir = { seance ->
+                                val groupe = friseUi.annees.firstOrNull { it.annee == seance.annee }
+                                    ?: AnneeFrise(seance.annee, emptyList(), emptyList())
+                                nav.push(Screen.Annee(groupe, friseUi.voyage.parAnnee[seance.annee]))
+                            },
                             carton = carton,
                             onCartonDismiss = { cartonTmdbId = null },
                             onAdd = { nav.push(Screen.Search) },
@@ -446,6 +455,13 @@ fun Root(container: AppContainer) {
                             // Idem pour le podium (brief du 21 septembre 2026) : `frise.refresh()`
                             // relit `affiche_url`, seule chose que la carte en tire.
                             onPodiumChange = { frise.refresh() },
+                            // « Je l'ai vu » sur la carte de soirée (décision 2 du brief du
+                            // 21 septembre 2026, « la séance ») : le même formulaire pré-rempli que
+                            // partout ailleurs dans le Voyage.
+                            onOpenForm = { nav.push(Screen.Form(it)) },
+                            // « Prendre » (décision 2) : `frise.refresh()` relit `seance_prise`, que
+                            // la ligne « Ce soir » de l'accueil porte.
+                            onSeanceChange = { frise.refresh() },
                         )
                     }
                     is Screen.FicheVoyage -> {

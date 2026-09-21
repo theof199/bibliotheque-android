@@ -53,6 +53,8 @@ data class VoyageResponse(
     val ticket_a_montrer: TicketAMontrerVoyage? = null,
     /** Le passeport : les décennies bouclées, décennie croissante (étape 5). */
     val tampons: List<TamponVoyage> = emptyList(),
+    /** La séance prise, tant que son long n'est pas encore vu (brief du 21 septembre 2026, « la séance ») — nulle sinon. */
+    val seance_prise: SeancePriseVoyage? = null,
 )
 
 /** Une bobine d'un programme (avant ~1915), avec mon état sur elle. */
@@ -205,6 +207,10 @@ data class AnneeVoyageDetailResponse(
     val paragraphes: List<ParagrapheVoyage> = emptyList(),
     val paragraphes_en_cours: List<ParagrapheEnCoursVoyage> = emptyList(),
     val demande_salle: DemandeSalleVoyage? = null,
+    /** Mes séances composées cette année (brief du 21 septembre 2026, « la séance »), `prete` seulement. */
+    val seances: List<SeanceVoyage> = emptyList(),
+    /** Une composition vient d'être demandée et s'écrit encore — `prete` seulement. */
+    val seance_en_cours: Boolean = false,
 )
 
 /** Corps de `POST /me/voyage/annees/{annee}/chronique` : `tmdb_id` **ou** `programme_id`, jamais les deux. */
@@ -276,6 +282,67 @@ data class CartonFilmResponse(
 /** `POST /me/voyage/demander/{tmdbId}`. */
 @Serializable
 data class DemanderVoyageResponse(val demande: Boolean = false)
+
+// --- La séance (brief du 21 septembre 2026, « la séance »). ---
+
+/** La bobine composée pour ce soir — seulement son identité, jamais son état (celui du `court` qui la porte fait foi). */
+@Serializable
+data class SeanceBobineVoyage(val tmdb_id: Int, val title: String)
+
+/** Le long ou le court d'une séance : `bobine` non nulle seulement quand le court est une bobine précise du programme. */
+@Serializable
+data class SeanceFilmVoyage(
+    val film_id: String,
+    val tmdb_id: Int,
+    val title: String,
+    val cover_url: String? = null,
+    val salle: String,
+    val etat: String,
+    val plex_url: String? = null,
+    val bobine: SeanceBobineVoyage? = null,
+)
+
+/** Une séance composée par le chroniqueur — un long jamais vu, un court en ouverture, une anecdote. */
+@Serializable
+data class SeanceVoyage(
+    val id: String,
+    val rang: Int,
+    /** `"proposee"` · `"prise"` · `"ignoree"`. */
+    val statut: String,
+    val composee_le: String,
+    val anecdote: String,
+    val long: SeanceFilmVoyage,
+    val court: SeanceFilmVoyage? = null,
+)
+
+/** `POST /me/voyage/annees/{annee}/seances` — toujours `202`, la composition vient de s'enfiler (ou en avait déjà une en cours). */
+@Serializable
+data class SeanceComposerResponse(val statut: String = "en_preparation")
+
+/** Corps de `POST /me/voyage/seances/{id}/remplacer` : `morceau` (`"long"`|`"court"`), `film_id`, `+ bobine_tmdb_id` pour une bobine. */
+@Serializable
+data class SeanceRemplacerBody(val morceau: String, val film_id: String, val bobine_tmdb_id: Int? = null)
+
+/** `POST .../remplacer`, `.../prendre`, `.../ignorer` — la séance après l'écriture. */
+@Serializable
+data class SeanceEcritureResponse(val seance: SeanceVoyage)
+
+/** Le long de la séance prise, tel que `GET /me/voyage` le donne. */
+@Serializable
+data class SeancePriseFilmVoyage(val title: String, val cover_url: String? = null)
+
+/** Le court de la séance prise — juste son titre. */
+@Serializable
+data class SeancePriseCourtVoyage(val title: String)
+
+/** La séance prise, tant que son long n'est pas encore vu — nulle dès qu'il l'est. */
+@Serializable
+data class SeancePriseVoyage(
+    val id: String,
+    val annee: Int,
+    val long: SeancePriseFilmVoyage,
+    val court: SeancePriseCourtVoyage? = null,
+)
 
 /**
  * La dépense IA d'un mois, pour moi seul (décision 2 du brief du 21 septembre 2026, « les

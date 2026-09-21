@@ -16,6 +16,10 @@ import fr.mediatheque.journal.api.dto.PodiumMarcheVoyage
 import fr.mediatheque.journal.api.dto.ProgrammeVoyage
 import fr.mediatheque.journal.api.dto.ProgressionVoyage
 import fr.mediatheque.journal.api.dto.SalleVoyage
+import fr.mediatheque.journal.api.dto.SeanceBobineVoyage
+import fr.mediatheque.journal.api.dto.SeanceFilmVoyage
+import fr.mediatheque.journal.api.dto.SeanceRemplacerBody
+import fr.mediatheque.journal.api.dto.SeanceVoyage
 import fr.mediatheque.journal.api.dto.TicketAnneeVoyage
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -108,6 +112,33 @@ data class DemandeSalleUi(val id: String, val demande: String, val statut: Strin
 /** Ma progression vers le Lion et la Palme, pour cette année (étape 5 du brief du 21 septembre 2026, « les récompenses »). */
 data class ProgressionUi(val essentielsVus: Int, val essentielsTotal: Int, val sallesCompletes: Int, val sallesAutres: Int)
 
+/** La bobine composée pour ce soir (décision 2 du brief du 21 septembre 2026, « la séance ») — un simple titre, jamais son propre état. */
+data class SeanceBobineUi(val tmdbId: Int, val title: String)
+
+/** Le long ou le court d'une séance (décision 2) : état et lien Plex portés par ce film lui-même, même quand `bobine` en précise une. */
+data class SeanceFilmUi(
+    val filmId: String,
+    val tmdbId: Int,
+    val title: String,
+    val coverUrl: String?,
+    val salle: String,
+    val etat: String,
+    val plexUrl: String?,
+    val bobine: SeanceBobineUi?,
+)
+
+/** Une séance composée par le chroniqueur (décision 1-2 du brief du 21 septembre 2026, « la séance »). */
+data class SeanceUi(
+    val id: String,
+    val rang: Int,
+    /** `"proposee"` · `"prise"` · `"ignoree"`. */
+    val statut: String,
+    val composeeLe: String,
+    val anecdote: String,
+    val long: SeanceFilmUi,
+    val court: SeanceFilmUi?,
+)
+
 /**
  * La ligne sous la profondeur, dans l'en-tête de la fiche d'année (décision 2 du brief du
  * 21 septembre 2026, « les récompenses ») : « *N* essentiels sur *M* · *N* salles complètes sur
@@ -173,6 +204,10 @@ data class AnneeUi(
     val recompense: Recompense? = null,
     /** Ma progression vers le Lion et la Palme (`prete` seulement, étape 5) — nulle avant le premier chargement. */
     val progression: ProgressionUi? = null,
+    /** Mes séances composées cette année, par rang croissant (décision 1-2 du brief du 21 septembre 2026, « la séance ») — `prete` seulement. */
+    val seances: List<SeanceUi> = emptyList(),
+    /** Une composition vient d'être demandée et s'écrit encore (décision 1) — `prete` seulement. */
+    val seanceEnCours: Boolean = false,
 )
 
 private fun BobineVoyage.versUi() = BobineUi(tmdb_id, title, duree_min, cover_url, plex_url, etat)
@@ -199,6 +234,9 @@ private fun TicketAnneeVoyage.versUi() = TicketAnneeUi(annee, utilise = utilise_
 private fun ParagrapheVoyage.versUi() = ParagrapheUi(id, tmdb_id, programme_id, titre, texte, ecrit_le, film.title, film.cover_url)
 private fun DemandeSalleVoyage.versUi() = DemandeSalleUi(id, demande, statut, motif)
 private fun ProgressionVoyage.versUi() = ProgressionUi(essentiels_vus, essentiels_total, salles_completes, salles_autres)
+private fun SeanceBobineVoyage.versUi() = SeanceBobineUi(tmdb_id, title)
+private fun SeanceFilmVoyage.versUi() = SeanceFilmUi(film_id, tmdb_id, title, cover_url, salle, etat, plex_url, bobine?.versUi())
+private fun SeanceVoyage.versUi() = SeanceUi(id, rang, statut, composee_le, anecdote, long.versUi(), court?.versUi())
 
 /** Toujours trois marches, une entrée nulle pour chacune que le back ne sert pas (encore vide, ou réponse plus courte). */
 private fun List<PodiumMarcheVoyage?>.versPodiumUi(): List<PodiumMarcheUi?> = (0..2).map { i -> getOrNull(i)?.versUi() }
@@ -306,6 +344,8 @@ class AnneeViewModel(
                 },
                 recompense = if (etat == EtatAnnee.PRETE) recompenseDe(reponse.recompense) else it.recompense,
                 progression = if (etat == EtatAnnee.PRETE) reponse.progression?.versUi() else it.progression,
+                seances = if (etat == EtatAnnee.PRETE) reponse.seances.sortedBy { s -> s.rang }.map { s -> s.versUi() } else it.seances,
+                seanceEnCours = if (etat == EtatAnnee.PRETE) reponse.seance_en_cours else it.seanceEnCours,
             )
         }
         if (etat == EtatAnnee.PRETE) appliquerDemandeSalle(reponse.demande_salle)
@@ -483,6 +523,10 @@ class AnneeViewModel(
                 return@launch
             }
             mettreAJourFilm(tmdbId) { it.copy(etat = "demande") }
+            // Un film demandé depuis la carte de soirée porte le même `tmdb_id` dans `salles`
+            // (décision 2 du brief du 21 septembre 2026, « la séance ») : la carte se met à jour
+            // sans attendre `relireApresSeance`.
+            mettreAJourSeanceFilm(tmdbId) { it.copy(etat = "demande") }
         }
     }
 
@@ -603,6 +647,123 @@ class AnneeViewModel(
 
     private fun mettreAJourSalle(salleId: String, transforme: (SalleUi) -> SalleUi) {
         _ui.update { ui -> ui.copy(salles = ui.salles.map { salle -> if (salle.id == salleId) transforme(salle) else salle }) }
+    }
+
+    private fun mettreAJourSeanceFilm(tmdbId: Int, transforme: (SeanceFilmUi) -> SeanceFilmUi) {
+        _ui.update { ui ->
+            ui.copy(
+                seances = ui.seances.map { s ->
+                    s.copy(
+                        long = if (s.long.tmdbId == tmdbId) transforme(s.long) else s.long,
+                        court = s.court?.let { c -> if (c.tmdbId == tmdbId) transforme(c) else c },
+                    )
+                },
+            )
+        }
+    }
+
+    // --- La séance (brief du 21 septembre 2026, « la séance »). ---
+
+    private var seanceJob: Job? = null
+
+    /**
+     * « Composer une séance » (décision 1) : enfile la composition (toujours `202`), marque tout de
+     * suite `seanceEnCours` (optimiste, jumeau de `voirPlus`), puis relit l'année toutes les cinq
+     * secondes jusqu'à ce que `seance_en_cours` retombe, abandon au plafond de l'année
+     * (`etatSeanceSuivant`, qui réutilise `etatChroniqueSuivant`, `CHRONIQUE_ANNEE_ESSAIS_MAX`).
+     * Une `409` ou une `400` envoie le message du back au bandeau, sans rien changer d'autre.
+     */
+    fun composerSeance() {
+        if (seanceJob?.isActive == true) return
+        seanceJob = viewModelScope.launch {
+            try {
+                api.voyageComposerSeance(annee)
+            } catch (e: ApiError) {
+                if (e.isUnauthenticated) onUnauthenticated() else _messages.trySend(e.message ?: "Impossible pour l’instant")
+                return@launch
+            }
+            _ui.update { it.copy(seanceEnCours = true) }
+
+            var essais = 0
+            while (true) {
+                delay(POLL_INTERVAL_MS)
+                val detail = try {
+                    api.voyageAnnee(annee)
+                } catch (e: ApiError) {
+                    if (e.isUnauthenticated) onUnauthenticated()
+                    return@launch
+                }
+                if (detail.configure && detail.statut == "prete") {
+                    _ui.update {
+                        it.copy(
+                            seances = detail.seances.sortedBy { s -> s.rang }.map { s -> s.versUi() },
+                            seanceEnCours = detail.seance_en_cours,
+                        )
+                    }
+                }
+                val (etatSuivant, prochainEssai) = etatSeanceSuivant(_ui.value.seanceEnCours, essais)
+                essais = prochainEssai
+                if (etatSuivant != EtatChronique.EN_PREPARATION) return@launch
+            }
+        }
+    }
+
+    /** Après « Prendre », « Ignorer » ou « Remplacer » (décision 2-3) : l'année se relit tout entière — jumeau de `relireApresPodium`. */
+    private suspend fun relireApresSeance() {
+        val reponse = try {
+            api.voyageAnnee(annee)
+        } catch (e: ApiError) {
+            if (e.isUnauthenticated) onUnauthenticated()
+            return
+        }
+        if (reponse.configure && reponse.statut == "prete") {
+            _ui.update {
+                it.copy(
+                    seances = reponse.seances.sortedBy { s -> s.rang }.map { s -> s.versUi() },
+                    seanceEnCours = reponse.seance_en_cours,
+                )
+            }
+        }
+    }
+
+    /** « Prendre » (décision 2) : `onEcrit` fait suivre `frise.refresh()`, la ligne « Ce soir » de l'accueil en dépend. */
+    fun prendreSeance(id: String, onEcrit: () -> Unit) {
+        viewModelScope.launch {
+            try {
+                api.voyagePrendreSeance(id)
+            } catch (e: ApiError) {
+                if (e.isUnauthenticated) onUnauthenticated() else _messages.trySend(e.message ?: "Impossible pour l’instant")
+                return@launch
+            }
+            relireApresSeance()
+            onEcrit()
+        }
+    }
+
+    /** « Ignorer » (décision 2) : la carte disparaît (`etatZoneSeance` retombe à `RIEN`), sans toucher à l'accueil. */
+    fun ignorerSeance(id: String) {
+        viewModelScope.launch {
+            try {
+                api.voyageIgnorerSeance(id)
+            } catch (e: ApiError) {
+                if (e.isUnauthenticated) onUnauthenticated() else _messages.trySend(e.message ?: "Impossible pour l’instant")
+                return@launch
+            }
+            relireApresSeance()
+        }
+    }
+
+    /** « Autre long » / « Autre court » (décision 3) : le corps est construit localement (`corpsRemplacementSeance`), sans appel de plus avant celui-ci. */
+    fun remplacerSeance(id: String, corps: SeanceRemplacerBody) {
+        viewModelScope.launch {
+            try {
+                api.voyageRemplacerSeance(id, corps)
+            } catch (e: ApiError) {
+                if (e.isUnauthenticated) onUnauthenticated() else _messages.trySend(e.message ?: "Impossible pour l’instant")
+                return@launch
+            }
+            relireApresSeance()
+        }
     }
 
     companion object {

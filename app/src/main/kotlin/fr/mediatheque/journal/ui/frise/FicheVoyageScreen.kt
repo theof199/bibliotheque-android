@@ -309,8 +309,12 @@ private fun LigneBobine(bobine: BobineUi, onClick: () -> Unit) {
     }
 }
 
-/** `plex://` en premier s'il commence ainsi, sinon le lien web — `lienPlexVoyage` choisit, `Intent.ACTION_VIEW` ouvre. */
-private fun ouvrirPlex(contexte: android.content.Context, plexUrl: String?) {
+/**
+ * `plex://` en premier s'il commence ainsi, sinon le lien web — `lienPlexVoyage` choisit,
+ * `Intent.ACTION_VIEW` ouvre. Partagée avec `AnneeScreen.kt` (« Voir sur le Plex » de la carte de
+ * soirée, décision 2 du brief du 21 septembre 2026, « la séance ») : même paquet, jamais copiée.
+ */
+fun ouvrirPlex(contexte: android.content.Context, plexUrl: String?) {
     val lien = lienPlexVoyage(plexUrl) ?: return
     runCatching { contexte.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(lien.uri))) }
 }

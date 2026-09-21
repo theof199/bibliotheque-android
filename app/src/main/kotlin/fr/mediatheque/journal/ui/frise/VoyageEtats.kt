@@ -30,6 +30,19 @@ fun statutAnneeVoyage(brut: String?): StatutAnneeVoyage? = when (brut) {
  */
 data class TicketAMontrerUi(val annee: Int, val motif: String)
 
+/**
+ * La séance prise, mise en forme pour l'accueil (décision 4 du brief du 21 septembre 2026,
+ * « la séance ») : de quoi construire la ligne « Ce soir », et l'année où l'ouvrir.
+ */
+data class SeancePriseUi(val annee: Int, val longTitre: String, val longCoverUrl: String?, val courtTitre: String?)
+
+/**
+ * « Le Faucon maltais » seul, ou « Le Faucon maltais + Un chien andalou » avec un court — décision
+ * 4 du brief du 21 septembre 2026, « la séance ». Fonction pure, testée en JVM.
+ */
+fun texteCeSoir(seance: SeancePriseUi): String =
+    if (seance.courtTitre != null) "${seance.longTitre} + ${seance.courtTitre}" else seance.longTitre
+
 /** Ma progression, mise en forme pour l'écran — `VoyageResponse.toVoyageUi()` plus bas. */
 data class VoyageUi(
     val configure: Boolean = false,
@@ -41,6 +54,8 @@ data class VoyageUi(
     val ticketAMontrer: TicketAMontrerUi? = null,
     /** Le passeport : les décennies bouclées, décennie croissante (étape 5, « les récompenses »). */
     val tampons: List<TamponVoyage> = emptyList(),
+    /** La séance prise, tant que son long n'est pas encore vu (brief du 21 septembre 2026, « la séance ») — nulle sinon. */
+    val seancePrise: SeancePriseUi? = null,
 )
 
 fun VoyageResponse.toVoyageUi(): VoyageUi = VoyageUi(
@@ -50,6 +65,7 @@ fun VoyageResponse.toVoyageUi(): VoyageUi = VoyageUi(
     parAnnee = annees.associateBy { it.annee },
     ticketAMontrer = ticket_a_montrer?.let { TicketAMontrerUi(it.annee, it.motif) },
     tampons = tampons,
+    seancePrise = seance_prise?.let { SeancePriseUi(it.annee, it.long.title, it.long.cover_url, it.court?.title) },
 )
 
 /** Le statut d'une année précise, tel que la carte et `Screen.Decennie` le colorent. */
@@ -158,6 +174,22 @@ fun etatParagrapheSuivant(
 ): Pair<EtatChronique, Int> = etatChroniqueSuivant(
     configure = true,
     statut = if (paragrapheTrouve) "prete" else "en_preparation",
+    essaisPrecedents = essaisPrecedents,
+    plafond = plafond,
+)
+
+/**
+ * La relecture après « Composer une séance » (décision 1 du brief du 21 septembre 2026, « la
+ * séance ») : s'arrête dès que `seance_en_cours` retombe, abandon au plafond de l'année sinon —
+ * réutilise `etatChroniqueSuivant` avec un statut synthétique, jumeau d'`etatParagrapheSuivant`.
+ */
+fun etatSeanceSuivant(
+    seanceEnCours: Boolean,
+    essaisPrecedents: Int,
+    plafond: Int = CHRONIQUE_ANNEE_ESSAIS_MAX,
+): Pair<EtatChronique, Int> = etatChroniqueSuivant(
+    configure = true,
+    statut = if (seanceEnCours) "en_preparation" else "prete",
     essaisPrecedents = essaisPrecedents,
     plafond = plafond,
 )

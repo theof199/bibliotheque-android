@@ -36,6 +36,9 @@ import fr.mediatheque.journal.api.dto.DemanderVoyageResponse
 import fr.mediatheque.journal.api.dto.PodiumBody
 import fr.mediatheque.journal.api.dto.PodiumResponse
 import fr.mediatheque.journal.api.dto.SallePlusResponse
+import fr.mediatheque.journal.api.dto.SeanceComposerResponse
+import fr.mediatheque.journal.api.dto.SeanceEcritureResponse
+import fr.mediatheque.journal.api.dto.SeanceRemplacerBody
 import fr.mediatheque.journal.api.dto.TicketUtiliseResponse
 import fr.mediatheque.journal.api.dto.VoyageDepensesResponse
 import fr.mediatheque.journal.api.dto.VoyageResponse
@@ -295,6 +298,23 @@ class ApiClient(baseUrl: String, engine: HttpClientEngine) : JournalApi {
     }
 
     override suspend fun voyageDepenses(): VoyageDepensesResponse = call { client.get(Endpoints.voyageDepenses) }
+
+    override suspend fun voyageComposerSeance(annee: Int): SeanceComposerResponse =
+        call { client.post(Endpoints.voyageSeances(annee)) }
+
+    override suspend fun voyageRemplacerSeance(id: String, corps: SeanceRemplacerBody): SeanceEcritureResponse =
+        call {
+            client.post(Endpoints.voyageSeanceRemplacer(id)) {
+                contentType(ContentType.Application.Json)
+                setBody(corps)
+            }
+        }
+
+    override suspend fun voyagePrendreSeance(id: String): SeanceEcritureResponse =
+        call { client.post(Endpoints.voyageSeancePrendre(id)) }
+
+    override suspend fun voyageIgnorerSeance(id: String): SeanceEcritureResponse =
+        call { client.post(Endpoints.voyageSeanceIgnorer(id)) }
 
     private suspend inline fun <reified T> call(block: () -> HttpResponse): T {
         val response = try {

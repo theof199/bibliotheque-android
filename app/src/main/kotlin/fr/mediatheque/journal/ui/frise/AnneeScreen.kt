@@ -59,6 +59,7 @@ import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontStyle
@@ -68,6 +69,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
+import fr.mediatheque.journal.api.dto.SearchMetadata
+import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.ui.Cover
 import fr.mediatheque.journal.ui.formatDateTime
 import fr.mediatheque.journal.ui.showBriefly
@@ -80,7 +83,9 @@ import java.time.LocalDate
  * La fiche d'une année du Voyage (brief du 21 septembre 2026, « l'année en étages », « le podium »,
  * puis « le ticket », spec du 19 septembre 2026, §2-§3, §5) : le cartouche kitsch (ouverture
  * repliée, faits), **le podium** — trois photogrammes sur un bout de pellicule, entre le cartouche
- * et les salles — puis une salle par bloc — titre, raison d'être, étagère horizontale d'affiches —
+ * et les salles — **la séance** (brief du 21 septembre 2026, « la séance ») — bouton, carte
+ * d'attente ou carte de soirée, sur l'année en cours seulement, entre le podium et les salles
+ * (`BlocSeance`) — puis une salle par bloc — titre, raison d'être, étagère horizontale d'affiches —
  * jusqu'à la ligne du bas, sur l'année en cours seulement : le ticket qui attend, ou le verdict de
  * maturité, ou rien (`LigneBasAnneeEnCours`) — le bouton provisoire « Année suivante » a disparu
  * avec elle.
@@ -99,6 +104,10 @@ fun AnneeScreen(
     onOpenFilm: (salleId: String, filmId: String) -> Unit,
     onTicketChange: () -> Unit,
     onPodiumChange: () -> Unit,
+    /** « Je l'ai vu » sur la carte de soirée (décision 2 du brief du 21 septembre 2026, « la séance »), même formulaire pré-rempli que la fiche d'un film. */
+    onOpenForm: (SearchResult) -> Unit = {},
+    /** « Prendre » relit `/me/voyage` (décision 2) : la ligne « Ce soir » de l'accueil en dépend, comme le podium et le ticket. */
+    onSeanceChange: () -> Unit = {},
 ) {
     val ui by vm.ui.collectAsState()
     val snackbar = remember { SnackbarHostState() }
@@ -164,6 +173,20 @@ fun AnneeScreen(
                         onTap = { place -> marcheOuverte = place },
                         onLongPress = { place -> vm.retirerPodium(place, onPodiumChange) },
                     )
+                }
+                // La séance (décision 1 du brief du 21 septembre 2026, « la séance ») : seulement
+                // dans la fiche de l'année en cours, entre le podium et les salles.
+                if (ui.statutVoyage == StatutAnneeVoyage.EN_COURS) {
+                    item {
+                        BlocSeance(
+                            ui = ui,
+                            monde = monde,
+                            annee = millesime,
+                            vm = vm,
+                            onOpenForm = onOpenForm,
+                            onSeanceChange = onSeanceChange,
+                        )
+                    }
                 }
                 items(ui.salles, key = { it.id }) { salle ->
                     BlocSalle(salle, monde, onVoirPlus = { vm.voirPlus(salle.id) }, onOuvrirFilm = { filmId -> onOpenFilm(salle.id, filmId) })
@@ -506,6 +529,271 @@ private fun LigneCandidatPodium(candidat: CandidatPodium, occupant: Boolean, onC
         }
     }
 }
+
+// --- La séance (brief du 21 septembre 2026, « la séance ») ---------------------------------------
+
+/**
+ * La zone séance, entre le podium et les salles, sur l'année en cours seulement (décision 1) :
+ * le bouton « Composer une séance », la carte d'attente pendant la composition, la carte de soirée
+ * pour la séance la plus récente (`etatZoneSeance`), puis « Séances passées » sous tout ça.
+ */
+@Composable
+private fun BlocSeance(
+    ui: AnneeUi,
+    monde: Monde,
+    annee: Int,
+    vm: AnneeViewModel,
+    onOpenForm: (SearchResult) -> Unit,
+    onSeanceChange: () -> Unit,
+) {
+    var remplacement by remember { mutableStateOf<String?>(null) }
+    val seanceCourante = seanceRecente(ui.seances)
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        when (etatZoneSeance(ui.seanceEnCours, ui.seances)) {
+            EtatZoneSeance.BOUTON -> OutlinedButton(onClick = vm::composerSeance, modifier = Modifier.fillMaxWidth()) {
+                Text("Composer une séance")
+            }
+            EtatZoneSeance.EN_COURS -> CarteAttenteSeance()
+            EtatZoneSeance.CARTE_PROPOSEE, EtatZoneSeance.CARTE_PRISE -> seanceCourante?.let { seance ->
+                CarteSeance(
+                    seance = seance,
+                    monde = monde,
+                    onPrendre = { vm.prendreSeance(seance.id, onSeanceChange) },
+                    onIgnorer = { vm.ignorerSeance(seance.id) },
+                    onAutreLong = { remplacement = "long" },
+                    onAutreCourt = { remplacement = "court" },
+                    onDemander = vm::demander,
+                    onOpenForm = { film -> onOpenForm(film.versSearchResult(annee)) },
+                )
+            }
+            EtatZoneSeance.RIEN -> {}
+        }
+
+        val passees = seancesPassees(ui.seances)
+        if (passees.isNotEmpty()) {
+            SeancesPasseesBloc(passees)
+        }
+    }
+
+    remplacement?.let { morceau ->
+        val seance = seanceCourante
+        if (seance == null) {
+            remplacement = null
+        } else {
+            val groupes = if (morceau == "long") candidatsSeanceLong(ui.salles) else candidatsSeanceCourt(ui.salles)
+            val occupantTmdbId = if (morceau == "long") seance.long.tmdbId else seance.court?.tmdbId
+            RemplacementSeanceSheet(
+                morceau = morceau,
+                groupes = groupes,
+                occupantTmdbId = occupantTmdbId,
+                onChoisir = { candidat ->
+                    remplacement = null
+                    vm.remplacerSeance(seance.id, corpsRemplacementSeance(morceau, candidat))
+                },
+                onDismiss = { remplacement = null },
+            )
+        }
+    }
+}
+
+@Composable
+private fun CarteAttenteSeance() {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(8.dp))
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.primary)
+        Text("Le chroniqueur compose…", style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+/**
+ * La carte de soirée (décision 2) : sobre, dans la palette du monde — un fond neutre, un liseré
+ * dans l'accent du monde, jamais le papier jauni kitsch du cartouche. Le long, puis le court en
+ * plus petit s'il y en a un, puis l'anecdote en italique, puis les actions selon le statut.
+ */
+@Composable
+private fun CarteSeance(
+    seance: SeanceUi,
+    monde: Monde,
+    onPrendre: () -> Unit,
+    onIgnorer: () -> Unit,
+    onAutreLong: () -> Unit,
+    onAutreCourt: () -> Unit,
+    onDemander: (Int) -> Unit,
+    onOpenForm: (SeanceFilmUi) -> Unit,
+) {
+    val shape = RoundedCornerShape(8.dp)
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceContainer, shape)
+            .border(1.dp, monde.accent.copy(alpha = 0.4f), shape)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            "CE SOIR",
+            style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 2.sp),
+            color = monde.accent,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Cover(seance.long.coverUrl, seance.long.title, 56.dp, 84.dp)
+            Column {
+                Text(seance.long.title, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "${seance.long.salle} · ${etiquetteEtatSeanceFilm(seance.long.etat)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        seance.court?.let { court ->
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Cover(court.coverUrl, court.title, 40.dp, 60.dp)
+                Column {
+                    Text("en ouverture", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    court.bobine?.let { bobine ->
+                        Text(bobine.title, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            }
+        }
+        Column {
+            Text("Pendant le générique", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(seance.anecdote, style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic))
+        }
+        when (seance.statut) {
+            "proposee" -> Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                TextButton(onClick = onPrendre) { Text("Prendre") }
+                TextButton(onClick = onAutreLong) { Text("Autre long") }
+                TextButton(onClick = onAutreCourt) { Text("Autre court") }
+                TextButton(onClick = onIgnorer) { Text("Ignorer") }
+            }
+            "prise" -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Prise", style = MaterialTheme.typography.labelMedium, color = monde.accent)
+                LigneActionsFilmSeance(seance.long, onDemander, onOpenForm)
+                seance.court?.let { LigneActionsFilmSeance(it, onDemander, onOpenForm) }
+            }
+        }
+    }
+}
+
+/** « Voir sur le Plex » (lien `plex://` puis web, comme la fiche) ou « Demander sur Sir », et « Je l'ai vu » — sur chaque film (décision 2). */
+@Composable
+private fun LigneActionsFilmSeance(film: SeanceFilmUi, onDemander: (Int) -> Unit, onOpenForm: (SeanceFilmUi) -> Unit) {
+    val contexte = LocalContext.current
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (film.plexUrl != null) {
+            TextButton(onClick = { ouvrirPlex(contexte, film.plexUrl) }) { Text("Voir sur le Plex") }
+        } else if (film.etat == "a_demander") {
+            TextButton(onClick = { onDemander(film.tmdbId) }) { Text("Demander sur Sir") }
+        }
+        if (film.etat != "vu") {
+            TextButton(onClick = { onOpenForm(film) }) { Text("Je l’ai vu") }
+        }
+    }
+}
+
+/** « Séances passées » (décision 2) : titre du long · date, repliées sous ce titre — un tap sur une ligne ne fait rien. */
+@Composable
+private fun SeancesPasseesBloc(passees: List<SeanceUi>) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("Séances passées", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        passees.forEach { seance ->
+            Text(
+                "${seance.long.title} · ${formatDateTime(seance.composeeLe)}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/**
+ * La feuille « Autre long » / « Autre court » (décision 3) : un choix local, sans appel — les
+ * candidats viennent des salles déjà chargées (`candidatsSeanceLong`/`candidatsSeanceCourt`),
+ * groupés par salle, une bobine en retrait sous son programme. L'occupant actuel coché.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RemplacementSeanceSheet(
+    morceau: String,
+    groupes: List<GroupeCandidatsSeance>,
+    occupantTmdbId: Int?,
+    onChoisir: (CandidatSeance) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                if (morceau == "long") "Un autre long" else "Un autre court",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+            if (groupes.isEmpty()) {
+                Text(
+                    "Rien à proposer pour l’instant.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 16.dp),
+                )
+            }
+            LazyColumn(Modifier.weight(1f, fill = false)) {
+                groupes.forEach { groupe ->
+                    item {
+                        Text(
+                            groupe.salle,
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
+                        )
+                    }
+                    items(groupe.candidats) { candidat ->
+                        val retrait = candidat is CandidatSeance.Bobine
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable(onClick = { onChoisir(candidat) })
+                                .padding(start = if (retrait) 24.dp else 0.dp, top = 8.dp, bottom = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Cover(candidat.coverUrl, candidat.title, 40.dp, 60.dp)
+                            Text(candidat.title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                            if (candidat.tmdbId == occupantTmdbId) {
+                                Icon(
+                                    Icons.Filled.Check,
+                                    contentDescription = "Occupant actuel",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Le même formulaire pré-rempli qu'un film ou une bobine de la fiche du Voyage. */
+private fun SeanceFilmUi.versSearchResult(annee: Int): SearchResult = SearchResult(
+    source = "tmdb",
+    external_id = tmdbId.toString(),
+    type = "movie",
+    title = title,
+    year = annee,
+    cover_url = coverUrl,
+    metadata = SearchMetadata(director = null),
+    original_title = title,
+)
 
 // --- Les salles ----------------------------------------------------------------------------------
 
