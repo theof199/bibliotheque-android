@@ -41881,7 +41881,7 @@
         "tags": [
           "voyage"
         ],
-        "description": "`prete` (`200`) si l’ouverture existe déjà pour ce membre : ses salles, dans l’ordre, avec chaque film (état et note calculés à la lecture). `en_preparation` (`202`) à la première visite d’une année ouverte ou en cours — la demande enfile l’ouverture, à redemander dans quelques secondes. `verrouillee` (`200`) après mon année en cours : rien ne s’enfile, même en visitant. `{ configure: false }` (`200`) si `ANTHROPIC_API_KEY` manque et que l’année n’a pas encore d’ouverture.\n\n`etat` d’un film vaut `vu`, `sur_le_plex`, `demande`, `a_demander` ou `introuvable`. Pour un programme, `etat` ne vaut `vu` que quand **toutes** ses bobines le sont — chaque bobine porte le sien.\n\n`podium` porte les trois marches (`PUT`/`DELETE /me/voyage/annees/{annee}/podium/{place}`), `null` pour une place vide — présent sur `prete` et `verrouillee` (toujours vide sur cette dernière, le podium ne se posant que sur une année non verrouillée).\n\n`maturite` (`prete` seulement) porte le dernier jugement du chroniqueur sur cette année — `null` tant qu’aucun film de l’année n’a encore été noté. `ticket` (`prete` seulement) porte le ticket vers `annee + 1`, s’il a été gagné — `null` sinon.\n\n`recompense` et `progression` (`prete` seulement) : la récompense de cette année (voir `GET /me/voyage`) et de quoi dessiner sa barre — `essentiels_vus`/`essentiels_total` (strictement vus, un introuvable n’y compte pas), `salles_completes`/`salles_autres` (salles hors essentiels, à au moins un film, entièrement vues ou introuvables).\n\n`seances` (`prete` seulement, brief du 21 septembre 2026, « la séance ») porte mes séances composées, par rang décroissant — la plus récente d’abord —, chacune un `long` jamais vu et un `court` facultatif (`POST /me/voyage/annees/{annee}/seances`). `seance_en_cours` dit si une composition vient d’être demandée et s’écrit encore.",
+        "description": "`prete` (`200`) si l’ouverture existe déjà pour ce membre : ses salles, dans l’ordre, avec chaque film (état et note calculés à la lecture). `en_preparation` (`202`) à la première visite d’une année ouverte ou en cours — la demande enfile l’ouverture, à redemander dans quelques secondes. `verrouillee` (`200`) après mon année en cours : rien ne s’enfile, même en visitant. `{ configure: false }` (`200`) si `ANTHROPIC_API_KEY` manque et que l’année n’a pas encore d’ouverture.\n\n`etat` d’un film vaut `vu`, `sur_le_plex`, `demande`, `a_demander` ou `introuvable`. Pour un programme, `etat` ne vaut `vu` que quand **toutes** ses bobines le sont — chaque bobine porte le sien.\n\n`podium` porte les trois marches (`PUT`/`DELETE /me/voyage/annees/{annee}/podium/{place}`), `null` pour une place vide — présent sur `prete` et `verrouillee` (toujours vide sur cette dernière, le podium ne se posant que sur une année non verrouillée).\n\n`maturite` (`prete` seulement) porte le dernier jugement du chroniqueur sur cette année — `null` tant qu’aucun film de l’année n’a encore été noté. `ticket` (`prete` seulement) porte le ticket vers `annee + 1`, s’il a été gagné — `null` sinon.\n\n`recompense` et `progression` (`prete` seulement) : la récompense de cette année (voir `GET /me/voyage`) et de quoi dessiner sa barre — `essentiels_vus`/`essentiels_total` (strictement vus, un introuvable n’y compte pas), `salles_completes`/`salles_autres` (salles hors essentiels, à au moins un film, entièrement vues ou introuvables).\n\n`seances` (`prete` seulement, brief du 21 septembre 2026, « la séance ») porte mes séances composées, par rang décroissant — la plus récente d’abord —, chacune un `long` jamais vu et un `court` facultatif (`POST /me/voyage/annees/{annee}/seances`). `seance_en_cours` dit si une composition vient d’être demandée et s’écrit encore.\n\n`pistes` (`prete` seulement, brief du 22 septembre 2026) : des salles que le chroniqueur propose sans jamais en ouvrir une lui-même — vide possible, renouvelée trois à la fois par `POST /me/voyage/annees/{annee}/pistes`. Une piste utilisée pour ouvrir une salle (`POST /me/voyage/annees/{annee}/salles`, corps `piste`) en disparaît.",
         "parameters": [
           {
             "schema": {
@@ -41995,6 +41995,33 @@
                           "type": "string",
                           "format": "date-time",
                           "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                        },
+                        "pistes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "nom": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 60,
+                                "description": "Le nom d’une salle que je n’ai pas encore ouverte"
+                              },
+                              "raison": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200,
+                                "description": "Ce que cette salle rassemblerait, écrit pour moi"
+                              }
+                            },
+                            "required": [
+                              "nom",
+                              "raison"
+                            ],
+                            "additionalProperties": false,
+                            "description": "Une salle que le chroniqueur propose sans l’ouvrir"
+                          },
+                          "description": "Des salles que le chroniqueur propose sans les ouvrir — vide possible, renouvelée par `POST /me/voyage/annees/:annee/pistes`"
                         },
                         "salles": {
                           "type": "array",
@@ -42889,6 +42916,7 @@
                         "ouverture",
                         "faits",
                         "ecrite_le",
+                        "pistes",
                         "salles",
                         "podium",
                         "maturite",
@@ -43049,6 +43077,16 @@
                         "Le premier long métrage d'animation en couleurs de Disney à sortir cette année-là, Dumbo, coûte le dixième de Fantasia"
                       ],
                       "ecrite_le": "2026-09-19T20:04:11.000Z",
+                      "pistes": [
+                        {
+                          "nom": "Le cinéma muet allemand",
+                          "raison": "Expressionnisme et ombres, un genre que 1941 n’a pas encore croisé."
+                        },
+                        {
+                          "nom": "Les débuts du technicolor",
+                          "raison": "La couleur commence à s’installer, encore rare cette année-là."
+                        }
+                      ],
                       "salles": [
                         {
                           "id": "a3d8e6b2-1c9f-4e2a-9b7d-6f1a2c3d4e5f",
@@ -43861,7 +43899,7 @@
         "tags": [
           "voyage"
         ],
-        "description": "Corps `{ demande }`, une phrase de 1 à 200 caractères (« la comédie italienne cette année-là »). Année verrouillée ou sans ouverture → `404`. Une demande `en_cours` existe déjà pour cette année → `409 CONFLICT`.\n\nEnfile la génération (`salle:<userId>:<demandeId>`) et répond toujours `202 { statut: \"en_preparation\", demande_id }`. Douze salles déjà ouvertes cette année-là ? La demande se refuse dès sa génération, **sans appel au chroniqueur** — la réponse à cette route reste `202`, et `demande_salle` (`GET /me/voyage/annees/{annee}`) montre `refusee` juste après.\n\nLa génération crée la salle en dernier rang si elle est acceptée et qu’au moins un film s’est résolu, sinon refuse la demande avec un motif. Invalide dans les deux cas le cache de `GET /me/voyage`.",
+        "description": "Corps `{ demande, piste? }` : `demande` est une phrase de 1 à 200 caractères (« la comédie italienne cette année-là ») ; `piste` reprend, si j’en ai suivi une, le `nom` d’une piste de l’année (`GET /me/voyage/annees/{annee}`) — que `demande` la reprenne mot pour mot ou non. Année verrouillée ou sans ouverture → `404`. Une demande `en_cours` existe déjà pour cette année → `409 CONFLICT`.\n\n`piste` fournie et connue : retirée de la liste des pistes de l’année tout de suite, avant même que le chroniqueur ait répondu — une piste inconnue est ignorée, sans erreur.\n\nEnfile la génération (`salle:<userId>:<demandeId>`) et répond toujours `202 { statut: \"en_preparation\", demande_id }`. Douze salles déjà ouvertes cette année-là ? La demande se refuse dès sa génération, **sans appel au chroniqueur** — la réponse à cette route reste `202`, et `demande_salle` (`GET /me/voyage/annees/{annee}`) montre `refusee` juste après.\n\nLa génération crée la salle en dernier rang si elle est acceptée et qu’au moins un film s’est résolu, sinon refuse la demande avec un motif. Invalide dans les deux cas le cache de `GET /me/voyage`.",
         "requestBody": {
           "required": true,
           "content": {
@@ -43874,6 +43912,12 @@
                     "minLength": 1,
                     "maxLength": 200,
                     "description": "Une phrase qui décrit la salle demandée"
+                  },
+                  "piste": {
+                    "description": "Le `nom` d’une piste de l’année (`GET /me/voyage/annees/:annee`) — retirée de la liste si elle existe encore, ignorée sinon",
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 60
                   }
                 },
                 "required": [
@@ -43966,6 +44010,133 @@
             }
           },
           "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/voyage/annees/{annee}/pistes": {
+      "post": {
+        "summary": "Renouveler les pistes de salles",
+        "tags": [
+          "voyage"
+        ],
+        "description": "Appel **synchrone** au chroniqueur (contrairement au reste du Voyage) : modèle `CHRONIQUES_MODEL` — jamais `MATURITE_MODEL`, un texte qu’on lit. Trois salles que je n’ai pas ouvertes, choisies à partir des salles déjà ouvertes cette année-là, des pistes déjà proposées (à ne pas redonner) et de mes dix dernières notes de l’année.\n\nLes trois pistes rendues **remplacent** la liste précédente de l’année — `pistes` sur `GET /me/voyage/annees/{annee}` (prête). Utiliser une piste pour ouvrir une salle la retire de cette liste (`POST /me/voyage/annees/{annee}/salles`, corps `piste`), jamais cette route.\n\n`404` si cette année n’a pas encore d’ouverture pour moi, ou si elle est verrouillée. `503 SERVICE_UNCONFIGURED` si `ANTHROPIC_API_KEY` n’est pas posée sur ce serveur. `503 UPSTREAM_UNAVAILABLE` si le chroniqueur ne répond pas ou rend une sortie inexploitable — réessaie plus tard.\n\nLe coût de l’appel se journalise dans `appels_ia` (type `pistes`), comme les autres appels au chroniqueur — voir `GET /me/voyage/depenses`.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1895,
+              "maximum": 2027
+            },
+            "in": "path",
+            "name": "annee",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Les pistes de salles de cette année, après le renouvellement",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "pistes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "nom": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 60,
+                            "description": "Le nom d’une salle que je n’ai pas encore ouverte"
+                          },
+                          "raison": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200,
+                            "description": "Ce que cette salle rassemblerait, écrit pour moi"
+                          }
+                        },
+                        "required": [
+                          "nom",
+                          "raison"
+                        ],
+                        "additionalProperties": false,
+                        "description": "Une salle que le chroniqueur propose sans l’ouvrir"
+                      },
+                      "description": "Trois pistes, qui remplacent la liste précédente de l’année"
+                    }
+                  },
+                  "required": [
+                    "pistes"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Les pistes de salles de cette année, après le renouvellement"
+                },
+                "examples": {
+                  "Réponse type": {
+                    "value": {
+                      "pistes": [
+                        {
+                          "nom": "Le cinéma muet allemand",
+                          "raison": "Expressionnisme et ombres, un genre que 1941 n’a pas encore croisé."
+                        },
+                        {
+                          "nom": "Les débuts du technicolor",
+                          "raison": "La couleur commence à s’installer, encore rare cette année-là."
+                        },
+                        {
+                          "nom": "Le cinéma soviétique du montage",
+                          "raison": "Eisenstein et ses héritiers, une école à part entière."
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
             "description": "Default Response",
             "content": {
               "application/json": {
@@ -45169,7 +45340,7 @@
         "tags": [
           "voyage"
         ],
-        "description": "Une ligne `appels_ia` par appel réussi (ouverture, fournée) que j’ai déclenché. Le carton d’un film n’y figure pas : il ne dépend d’aucun membre en particulier.\n\n`cout_centimes` est une estimation au tarif public d’Anthropic, en centimes de dollar — la facture du compte Anthropic fait foi.",
+        "description": "Une ligne `appels_ia` par appel réussi (ouverture, fournée, pistes) que j’ai déclenché. Le carton d’un film n’y figure pas : il ne dépend d’aucun membre en particulier.\n\n`cout_centimes` est une estimation au tarif public d’Anthropic, en centimes de dollar — la facture du compte Anthropic fait foi.",
         "responses": {
           "200": {
             "description": "Mes appels au chroniqueur, mois par mois",
