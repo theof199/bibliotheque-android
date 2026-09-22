@@ -196,6 +196,36 @@ class RealisateurEtatsTest {
         assertEquals(listOf(court), decennies[0].courtsEtSeries)
     }
 
+    // L'interrupteur activé retire les films que j'ai marqués introuvables, et eux seuls (retouche
+    // du 22 septembre 2026). Mutation : rendre la liste entière, ou retirer les vus au lieu des
+    // introuvables, casse cette assertion.
+    @Test
+    fun `filmsAffiches retire les introuvables quand l interrupteur est active`() {
+        val visible = FakeJournalApi.filmDeFilmographie(1, "Visible", 1980)
+        val perdu = FakeJournalApi.filmDeFilmographie(2, "Perdu", 1981, introuvable = true)
+        val vu = FakeJournalApi.filmDeFilmographie(3, "Vu", 1982, entryId = "e3", rating = 7)
+        assertEquals(listOf(visible, vu), filmsAffiches(listOf(visible, perdu, vu), masquerIntrouvables = true))
+    }
+
+    // Désactivé, il rend tout, introuvables compris, dans l'ordre. Mutation : filtrer quand même
+    // casse cette assertion.
+    @Test
+    fun `filmsAffiches garde les introuvables quand l interrupteur est desactive`() {
+        val visible = FakeJournalApi.filmDeFilmographie(1, "Visible", 1980)
+        val perdu = FakeJournalApi.filmDeFilmographie(2, "Perdu", 1981, introuvable = true)
+        assertEquals(listOf(visible, perdu), filmsAffiches(listOf(visible, perdu), masquerIntrouvables = false))
+    }
+
+    // Filtré avant le regroupement, une décennie dont tous les films sont introuvables disparaît
+    // avec eux. Mutation : regrouper avant de filtrer laisserait un groupe vide et casse l'assertion.
+    @Test
+    fun `une decennie entierement introuvable disparait de la grille`() {
+        val perdu = FakeJournalApi.filmDeFilmographie(1, "Perdu", 1971, introuvable = true)
+        val visible = FakeJournalApi.filmDeFilmographie(2, "Visible", 1985)
+        val decennies = regrouperParDecennie(filmsAffiches(listOf(perdu, visible), masquerIntrouvables = true))
+        assertEquals(listOf(1980), decennies.map { it.decennie })
+    }
+
     // « 2 courts · 1 série » : les deux parties, accordées, jointes par « · ». Mutation : omettre
     // l'une des deux parties ou changer le séparateur casse cette assertion.
     @Test

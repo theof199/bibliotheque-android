@@ -140,7 +140,16 @@ fun regrouperParDecennie(films: List<FilmDeFilmographie>): List<DecennieFilmogra
     }
 
 /**
- * Le libellé de la ligne repliée d'une décennie (décision 3) : « 6 courts · 1 série », accordé au
+ * Les films que la page montre (retouche du 22 septembre 2026) : sans les films que j'ai marqués
+ * introuvables tant que l'interrupteur « Masquer les introuvables » est activé, tous sinon. Se
+ * calcule **avant** `regrouperParDecennie` : une décennie dont tous les films sont introuvables
+ * disparaît avec eux, plutôt que de laisser un en-tête sans affiche.
+ */
+fun filmsAffiches(films: List<FilmDeFilmographie>, masquerIntrouvables: Boolean): List<FilmDeFilmographie> =
+    if (masquerIntrouvables) films.filterNot { it.introuvable } else films
+
+/**
+ * Le libellé de la ligne de repli d'une décennie (décision 3) : « 6 courts · 1 série », accordé au
  * pluriel au-delà de un, la partie absente (aucun court, ou aucune série) omise.
  */
 fun libelleCourtsEtSeries(courtsEtSeries: List<FilmDeFilmographie>): String {

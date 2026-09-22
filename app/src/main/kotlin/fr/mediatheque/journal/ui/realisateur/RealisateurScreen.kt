@@ -38,6 +38,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -48,6 +49,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -80,9 +82,12 @@ import fr.mediatheque.journal.ui.suivis.Portrait
  * premier film daté (`mondeDeLaPage`). Un seul défilement, `LazyVerticalGrid` (`GridCells.Fixed(3)`) :
  * l'en-tête (photo, nom, dates, présentation, bouton Suivre/Suivi, résumé) en est le tout premier
  * item, en pleine largeur, puis la filmographie groupée par décennie (`regrouperParDecennie`) —
- * les longs en grand trois par ligne, puis, derrière une ligne repliée à taper, les courts et les
- * séries plus petits quatre par ligne (une décennie sans long les montre dépliés d'emblée). Appui
- * long sur un non-vu marque ou démarque « introuvable ».
+ * les longs en grand trois par ligne, puis, sous une ligne « 6 courts · 1 série » qui replie ou
+ * déplie, les courts et les séries plus petits quatre par ligne, dépliés d'emblée (retouche du
+ * 22 septembre 2026 ; une décennie sans long n'a pas de ligne du tout). Les films marqués
+ * introuvables sont absents tant que l'interrupteur « Masquer les introuvables » de l'en-tête est
+ * activé (même retouche, jumeau de la fiche d'une saga ; `filmsAffiches`). Appui long sur un
+ * non-vu marque ou démarque « introuvable ».
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -155,8 +160,9 @@ fun RealisateurScreen(
 
 /**
  * La grille verticale (décision 1) : l'en-tête, puis chaque décennie — son en-tête, ses longs, et
- * ses courts/séries (repliés derrière une ligne à taper, sauf décennie sans long). `depliees`
- * mémorise l'état de chaque ligne repliée pour la session de cet écran (état local par décennie).
+ * ses courts/séries (dépliés d'emblée sous une ligne qui les replie, sauf décennie sans long, qui
+ * n'a pas de ligne). `depliees` mémorise l'état de chaque ligne pour la session de cet écran (état
+ * local par décennie, absent = déplié) ; `masquerIntrouvables` survit à une rotation.
  */
 @Composable
 private fun GrilleFilmographie(
@@ -168,7 +174,10 @@ private fun GrilleFilmographie(
     onOuvrirFilm: (FilmDeFilmographie) -> Unit,
     onLongClickNonVu: (FilmDeFilmographie) -> Unit,
 ) {
-    val decennies = remember(page.films) { regrouperParDecennie(page.films) }
+    var masquerIntrouvables by rememberSaveable { mutableStateOf(true) }
+    val decennies = remember(page.films, masquerIntrouvables) {
+        regrouperParDecennie(filmsAffiches(page.films, masquerIntrouvables))
+    }
     val depliees = remember { mutableStateMapOf<Int?, Boolean>() }
 
     BoxWithConstraints(modifier) {
@@ -189,7 +198,14 @@ private fun GrilleFilmographie(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item(span = { GridItemSpan(maxLineSpan) }) {
-                EnTeteRealisateur(page = page, monde = monde, onSuivre = onSuivre, onRetirer = onRetirer)
+                EnTeteRealisateur(
+                    page = page,
+                    monde = monde,
+                    masquerIntrouvables = masquerIntrouvables,
+                    onMasquerIntrouvables = { masquerIntrouvables = it },
+                    onSuivre = onSuivre,
+                    onRetirer = onRetirer,
+                )
             }
 
             decennies.forEach { decennie ->
@@ -215,7 +231,7 @@ private fun GrilleFilmographie(
 
                 if (decennie.courtsEtSeries.isNotEmpty()) {
                     if (decennie.longs.isEmpty()) {
-                        // Décennie sans long (Lumière, 1895–1905) : dépliée d'emblée, sans ligne à taper.
+                        // Décennie sans long (Lumière, 1895–1905) : rien à replier, donc pas de ligne.
                         item(span = { GridItemSpan(maxLineSpan) }) {
                             GrilleCourtsEtSeries(
                                 films = decennie.courtsEtSeries,
@@ -227,7 +243,7 @@ private fun GrilleFilmographie(
                             )
                         }
                     } else {
-                        val depliee = depliees[decennie.decennie] == true
+                        val depliee = depliees[decennie.decennie] != false
                         item(span = { GridItemSpan(maxLineSpan) }) {
                             Row(
                                 Modifier
@@ -263,9 +279,16 @@ private fun GrilleFilmographie(
     }
 }
 
-/** L'en-tête de la page (décision 1 et 6) : photo, nom, dates, présentation, bouton, résumé. */
+/** L'en-tête de la page (décision 1 et 6) : photo, nom, dates, présentation, bouton, résumé, et l'interrupteur des introuvables. */
 @Composable
-private fun EnTeteRealisateur(page: RealisateurPageResponse, monde: Monde, onSuivre: () -> Unit, onRetirer: () -> Unit) {
+private fun EnTeteRealisateur(
+    page: RealisateurPageResponse,
+    monde: Monde,
+    masquerIntrouvables: Boolean,
+    onMasquerIntrouvables: (Boolean) -> Unit,
+    onSuivre: () -> Unit,
+    onRetirer: () -> Unit,
+) {
     Column(
         Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -300,6 +323,16 @@ private fun EnTeteRealisateur(page: RealisateurPageResponse, monde: Monde, onSui
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        // Le résumé compte tout, introuvables compris : l'interrupteur cache des affiches, il ne
+        // change pas la filmographie. Même interrupteur que la fiche d'une saga.
+        Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "Masquer les introuvables",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f),
+            )
+            Switch(checked = masquerIntrouvables, onCheckedChange = onMasquerIntrouvables)
+        }
     }
 }
 
