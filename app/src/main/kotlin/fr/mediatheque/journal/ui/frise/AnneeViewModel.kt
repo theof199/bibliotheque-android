@@ -570,11 +570,21 @@ class AnneeViewModel(
             // `GET /me/voyage/annees/{annee}` recalcule `etat` à chaque lecture, un « remettre à
             // voir » retombe donc sur ce que le back sait déjà (sur le Plex, demandé, à demander).
             // On relit les salles plutôt que de deviner localement lequel des trois c'est.
-            relireSalles()
+            relireApresEnregistrement()
         }
     }
 
-    private fun relireSalles() {
+    /**
+     * Relit les salles de l'année, sans passer par `etat` ni `essais` (jumelle de `relireApresPodium`
+     * et `relireApresSeance`) — à la différence de `relire()`, elle ne rend jamais la main tout de
+     * suite sur une année déjà `PRETE` : c'est justement le cas qu'elle sert. Appelée ici après
+     * « Introuvable »/« Le remettre à voir », et par `Root.kt` (`Screen.Annee`, `Screen.FicheVoyage`)
+     * au retour du formulaire, quand `FriseViewModel.ui.enregistrements` a changé depuis le dernier
+     * chargement (22 septembre 2026, correctif « la fiche du Voyage se relit après un
+     * enregistrement ») : sans elle, un film tout juste noté restait affiché « à voir » dans sa
+     * salle jusqu'à la fermeture et la réouverture de l'application.
+     */
+    fun relireApresEnregistrement() {
         viewModelScope.launch {
             val reponse = try {
                 api.voyageAnnee(annee)

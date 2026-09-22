@@ -231,6 +231,27 @@ class AnneeViewModelTest {
         assertEquals(listOf("marquerIntrouvable 500"), api.calls.filter { it.startsWith("marquerIntrouvable") })
     }
 
+    // Correctif du 22 septembre 2026 (« la fiche du Voyage se relit après un enregistrement ») :
+    // contrairement à `relire()`, elle ne rend jamais la main tout de suite sur une année déjà
+    // `PRETE` — c'est justement le cas qu'elle sert, au retour du formulaire après un enregistrement.
+    @Test
+    fun `relireApresEnregistrement relit les salles meme sur une annee deja prete`() = runTest(dispatcher) {
+        api.onVoyageAnnee = { prete(salle("s1", film("f1", 500, "a_demander"))) }
+        val vm = AnneeViewModel(api, 1941, null) {}
+        vm.relire()
+        runCurrent()
+        assertEquals(EtatAnnee.PRETE, vm.ui.value.etat)
+        assertEquals("a_demander", vm.ui.value.salles.first().films.first().etat)
+
+        api.onVoyageAnnee = { prete(salle("s1", film("f1", 500, "vu"))) }
+        // Mutation : faire `relireApresEnregistrement()` rendre la main tout de suite comme `relire()`
+        // (`if (_ui.value.etat == EtatAnnee.PRETE) return`) laisserait l'état à "a_demander" ci-dessous.
+        vm.relireApresEnregistrement()
+        runCurrent()
+
+        assertEquals("vu", vm.ui.value.salles.first().films.first().etat)
+    }
+
     @Test
     fun `voirPlus epuisee tout de suite ne relit rien de plus`() = runTest(dispatcher) {
         api.onVoyageAnnee = { prete(salle("s1")) }

@@ -134,6 +134,13 @@ fun Root(container: AppContainer) {
             // `cartonTmdbId` plus bas, sans quoi un événement à un coup pourrait arriver avant que
             // la branche qui le collecte ne soit recomposée.
             LaunchedEffect(Unit) { nav.ticketRelectures.collect { annee -> frise.relireApresCreation(annee) } }
+            // Le journal ne se rechargeait qu'à l'entrée sur la Frise ou l'accueil (`LaunchedEffect(Unit)`
+            // plus bas), jamais en y revenant depuis le formulaire (correctif du 22 septembre 2026,
+            // « la fiche du Voyage se relit après un enregistrement ») : `nav.enregistrements` porte
+            // tout succès du formulaire, `refreshApresEnregistrement()` recharge le journal comme
+            // `refresh()` et incrémente `frise.ui.enregistrements`, que `Screen.Annee` et
+            // `Screen.FicheVoyage` collectent plus bas pour relire leurs salles.
+            LaunchedEffect(Unit) { nav.enregistrements.collect { frise.refreshApresEnregistrement() } }
             // Une seule instance pour l'écran Suivis (ses deux segments), ses fiches, les deux
             // secondes lignes « Ensuite » de l'accueil et les deux dernières lignes du Bilan du
             // profil (brief du 15 septembre 2026, généralisé aux sagas le même jour) : toutes
@@ -471,6 +478,14 @@ fun Root(container: AppContainer) {
                         val anneeVm: AnneeViewModel = viewModel(key = "annee-${screen.annee.annee}") {
                             AnneeViewModel(container.api, screen.annee.annee ?: 0, screen.voyage, session::expire)
                         }
+                        // Relit les salles au retour du formulaire (correctif du 22 septembre 2026,
+                        // « la fiche du Voyage se relit après un enregistrement ») : `relire()`, appelé
+                        // par `AnneeScreen` à chaque entrée, rend la main tout de suite sur une année
+                        // déjà `PRETE` — jumeau du `LaunchedEffect` de `Screen.FicheVoyage` plus bas.
+                        val friseUiPourAnnee by frise.ui.collectAsState()
+                        LaunchedEffect(friseUiPourAnnee.enregistrements) {
+                            if (friseUiPourAnnee.enregistrements > 0) anneeVm.relireApresEnregistrement()
+                        }
                         AnneeScreen(
                             screen.annee,
                             anneeVm,
@@ -505,10 +520,18 @@ fun Root(container: AppContainer) {
                         val anneeUi by anneeVm.ui.collectAsState()
                         val film = anneeUi.salles.firstOrNull { it.id == screen.salleId }?.films?.firstOrNull { it.id == screen.filmId }
                         // Ma note et mes réactions si je l'ai déjà vu (spec §3) : cherchées dans le
-                        // journal déjà chargé par `FriseViewModel`, jamais rechargées ici.
+                        // journal déjà chargé par `FriseViewModel`, relu après tout enregistrement
+                        // réussi (`nav.enregistrements`, plus haut) — jamais rechargées *ici*, sur
+                        // cet écran lui-même.
                         val friseUi by frise.ui.collectAsState()
                         val journalItem = film?.let { f ->
                             friseUi.annees.flatMap { it.vus }.firstOrNull { it.media.external_id.toIntOrNull() == f.tmdbId }
+                        }
+                        // Relit la salle au retour du formulaire (correctif du 22 septembre 2026, « la
+                        // fiche du Voyage se relit après un enregistrement ») — jumeau du
+                        // `LaunchedEffect` de `Screen.Annee` plus haut.
+                        LaunchedEffect(friseUi.enregistrements) {
+                            if (friseUi.enregistrements > 0) anneeVm.relireApresEnregistrement()
                         }
                         val carton: CartonViewModel = viewModel(key = "carton-voyage-${screen.filmId}") {
                             CartonViewModel(container.api, film?.tmdbId ?: 0, poll = false, session::expire)

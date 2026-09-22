@@ -115,6 +115,35 @@ class FriseViewModelTest {
         assertEquals(true, vm.ui.value.plexConfigure)
     }
 
+    // Correctif du 22 septembre 2026 (« la fiche du Voyage se relit après un enregistrement ») :
+    // le journal ne se rechargeait qu'à l'entrée sur les écrans de la Frise ou l'accueil, jamais en
+    // y revenant depuis le formulaire. `refreshApresEnregistrement()` recharge le journal comme
+    // `refresh()` (la fausse API a reçu `journal` une seconde fois, et `ui` porte la nouvelle note)
+    // et incrémente `ui.enregistrements`, que `Screen.Annee`/`Screen.FicheVoyage` (`Root.kt`)
+    // collectent pour relire leurs salles.
+    @Test
+    fun `refreshApresEnregistrement recharge le journal et incremente le compteur`() = runTest(dispatcher) {
+        api.onJournal = { page("1") }
+        val vm = FriseViewModel(api) { expire++ }
+        vm.refresh()
+        testScheduler.advanceUntilIdle()
+        val appelsAvant = api.calls.count { it.startsWith("journal") }
+        assertEquals(0, vm.ui.value.enregistrements)
+        assertNull(vm.ui.value.annees.single().vus.single().entry.rating)
+
+        api.onJournal = {
+            JournalResponse(listOf(FakeJournalApi.item("m-1", "2026-01-10", 5, emptyList(), null, externalId = "1")), null)
+        }
+        // Mutation : retirer l'appel à `refresh()` du corps de `refreshApresEnregistrement()`
+        // laisserait le compte d'appels et la note inchangés ci-dessous, seul le compteur bougerait.
+        vm.refreshApresEnregistrement()
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(1, vm.ui.value.enregistrements)
+        assertEquals(5, vm.ui.value.annees.single().vus.single().entry.rating)
+        assertEquals(appelsAvant + 1, api.calls.count { it.startsWith("journal") })
+    }
+
     @Test
     fun `un 401 sur le journal previent la session`() = runTest(dispatcher) {
         api.onJournal = { throw FakeJournalApi.unauthorized() }

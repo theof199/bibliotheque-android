@@ -276,6 +276,19 @@ class Navigator {
     val ticketRelectures: Flow<Int> = _ticketRelectures.receiveAsFlow()
 
     /**
+     * Un enregistrement réussi (création, correction ou suppression, 22 septembre 2026) : la Frise
+     * ne relit son journal qu'à l'entrée sur ses propres écrans, jamais quand on revient dessus
+     * depuis le formulaire (constat du propriétaire : « je note un film du Voyage, je reviens
+     * dessus, il est encore vu comme non noté »). `_ticketRelectures` ci-dessus ne porte pas assez
+     * pour combler ça : il n'émet que sur une création dont l'année est connue (`filmAnnee` reste
+     * nul sur une correction ou une suppression, cf. `FormViewModel.edit`/`delete`), jamais sur les
+     * deux autres gestes. Celui-ci émet à chaque succès du formulaire, quel que soit le film ou le
+     * geste — c'est `home()` ci-dessous qui décide, sur la seule présence d'un message.
+     */
+    private val _enregistrements = Channel<Unit>(Channel.BUFFERED)
+    val enregistrements: Flow<Unit> = _enregistrements.receiveAsFlow()
+
+    /**
      * Compteur dédié à `Screen.Search`, incrémenté seulement quand `push` y entre — jamais à un
      * `pop`, jamais sur un `push` vers un autre écran. Il sert à ne remettre à zéro la recherche
      * qu'à l'entrée depuis l'accueil (revue de la vague finale, mineur 8) : voir le commentaire
@@ -304,6 +317,9 @@ class Navigator {
         if (message != null) _messages.trySend(message)
         if (cartonTmdbId != null) _cartonRequests.trySend(cartonTmdbId)
         if (filmAnnee != null) _ticketRelectures.trySend(filmAnnee)
+        // Un message ne sort que sur un geste terminé avec succès (« Enregistré », « Corrigé »,
+        // « Supprimé ») — jamais sur un simple retour à l'accueil par la barre du bas.
+        if (message != null) _enregistrements.trySend(Unit)
         stack = listOf(Screen.Home)
     }
 }

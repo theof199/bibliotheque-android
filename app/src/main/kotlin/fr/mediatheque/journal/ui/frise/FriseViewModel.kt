@@ -180,6 +180,13 @@ data class FriseUi(
     val voyage: VoyageUi = VoyageUi(),
     /** Les décennies déjà bouclées (brief du 16 septembre 2026, phase 2 ; réel depuis l'étape 5 du brief du 21 septembre 2026, « les récompenses »), pour le passeport du profil et les génériques de fin. */
     val passeport: List<TamponDecennie> = emptyList(),
+    /**
+     * Le compte d'enregistrements réussis vus par `refreshApresEnregistrement()` (22 septembre
+     * 2026), depuis l'ouverture de l'Activité — jamais remis à zéro. `Screen.Annee` et
+     * `Screen.FicheVoyage` (`Root.kt`) le collectent pour relire leurs salles dès qu'il change,
+     * sans savoir eux-mêmes qu'un enregistrement a eu lieu.
+     */
+    val enregistrements: Int = 0,
     val loading: Boolean = false,
     val error: ApiError? = null,
 )
@@ -257,8 +264,14 @@ class FriseViewModel(private val api: JournalApi, private val onUnauthenticated:
             val frise = construireFrise(journal, plex)
             val voyageUi = voyage.toVoyageUi()
             val passeport = tamponsPasseport(voyageUi, journal)
+            // `it.copy(...)`, pas un `FriseUi(...)` neuf (correctif du 22 septembre 2026, « la fiche
+            // du Voyage se relit après un enregistrement ») : une construction neuve retombait sur
+            // les défauts de tous les champs qu'elle ne nomme pas, `enregistrements` compris — un
+            // `refreshApresEnregistrement()` remettait donc son propre compteur à zéro dès que son
+            // `refresh()` terminait, avant même que `Screen.Annee`/`Screen.FicheVoyage` (`Root.kt`)
+            // n'aient eu la chance de le voir changer.
             _ui.update {
-                FriseUi(
+                it.copy(
                     annees = frise.annees,
                     anneeEnCours = frise.anneeEnCours,
                     ensuite = frise.ensuite,
@@ -312,6 +325,18 @@ class FriseViewModel(private val api: JournalApi, private val onUnauthenticated:
                 if (etat != EtatRelectureTicket.EN_COURS) return@launch
             }
         }
+    }
+
+    /**
+     * Après un enregistrement réussi, quel que soit le film (canal `enregistrements` de
+     * `Navigator`, 22 septembre 2026) : recharge le journal comme `refresh()` — c'est le seul
+     * chemin qui le fait, `relireApresCreation` ne relisant que `GET /me/voyage` — et incrémente
+     * `enregistrements` pour que `Screen.Annee` et `Screen.FicheVoyage` sachent qu'il faut relire
+     * leurs salles au retour du formulaire, même sur une année déjà prête.
+     */
+    fun refreshApresEnregistrement() {
+        _ui.update { it.copy(enregistrements = it.enregistrements + 1) }
+        refresh()
     }
 
     /**
