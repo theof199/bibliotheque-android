@@ -3,7 +3,6 @@ package fr.mediatheque.journal.ui.realisateur
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,8 +23,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -46,7 +43,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -78,16 +74,17 @@ import fr.mediatheque.journal.ui.suivis.Portrait
 
 /**
  * La page d'un réalisateur (reprise du 21 septembre 2026, « la page réalisateur, reprise » —
- * jugée illisible en étagère horizontale) : le fond est celui du monde du Voyage de l'année du
- * premier film daté (`mondeDeLaPage`). Un seul défilement, `LazyVerticalGrid` (`GridCells.Fixed(3)`) :
- * l'en-tête (photo, nom, dates, présentation, bouton Suivre/Suivi, résumé) en est le tout premier
- * item, en pleine largeur, puis la filmographie groupée par décennie (`regrouperParDecennie`) —
- * les longs en grand trois par ligne, puis, sous une ligne « 6 courts · 1 série » qui replie ou
- * déplie, les courts et les séries plus petits quatre par ligne, dépliés d'emblée (retouche du
- * 22 septembre 2026 ; une décennie sans long n'a pas de ligne du tout). Les films marqués
- * introuvables sont absents tant que l'interrupteur « Masquer les introuvables » de l'en-tête est
- * activé (même retouche, jumeau de la fiche d'une saga ; `filmsAffiches`). Appui long sur un
- * non-vu marque ou démarque « introuvable ».
+ * jugée illisible en étagère horizontale ; retouche du 22 septembre 2026, « la filmographie dans
+ * l'ordre »). Les séries sont retirées d'emblée (`filmsSansSeries`), avant que quoi que ce soit
+ * d'autre ne lise la filmographie : le fond est celui du monde du Voyage de l'année du premier
+ * film daté (`mondeDeLaPage`), calculé sur cette même liste. Un seul défilement, `LazyVerticalGrid`
+ * (`GridCells.Fixed(3)`) : l'en-tête (photo, nom, dates, présentation, bouton Suivre/Suivi, résumé)
+ * en est le tout premier item, en pleine largeur, puis la filmographie groupée par décennie
+ * (`regrouperParDecennie`) — une seule grille par décennie, trois affiches par ligne, longs et
+ * courts mêlés dans l'ordre du back, sans rien réordonner. Les films marqués introuvables sont
+ * absents tant que l'interrupteur « Masquer les introuvables » de l'en-tête est activé (retouche
+ * du 22 septembre 2026, jumeau de la fiche d'une saga ; `filmsAffiches`). Appui long sur un non-vu
+ * marque ou démarque « introuvable ».
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -112,8 +109,10 @@ fun RealisateurScreen(
     }
 
     // Le fond suit le monde de la page (décision 6) une fois la fiche chargée ; celui des origines
-    // par défaut le temps du premier chargement, où il n'y a encore aucun film à dater.
-    val monde = (ui.etat as? EtatPageRealisateur.Pret)?.let { mondeDeLaPage(it.page.films) } ?: mondeDe(1895)
+    // par défaut le temps du premier chargement, où il n'y a encore aucun film à dater. Les séries
+    // en sont déjà sorties (décision 3 de la retouche du 22 septembre 2026) : un film sans année ne
+    // doit rien à une série écartée avant lui.
+    val monde = (ui.etat as? EtatPageRealisateur.Pret)?.let { mondeDeLaPage(filmsSansSeries(it.page.films)) } ?: mondeDe(1895)
 
     Scaffold(
         containerColor = monde.fond,
@@ -145,7 +144,11 @@ fun RealisateurScreen(
                 )
 
                 is EtatPageRealisateur.Pret -> GrilleFilmographie(
-                    page = etat.page,
+                    // Les séries sortent de la page ici, avant que `GrilleFilmographie` ou son
+                    // en-tête ne touchent à `page.films` : `regrouperParDecennie` et `ligneResume`
+                    // n'en voient donc plus aucune trace (décision 3 de la retouche du 22 septembre
+                    // 2026).
+                    page = etat.page.copy(films = filmsSansSeries(etat.page.films)),
                     monde = monde,
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                     onSuivre = vm::suivre,
@@ -159,10 +162,10 @@ fun RealisateurScreen(
 }
 
 /**
- * La grille verticale (décision 1) : l'en-tête, puis chaque décennie — son en-tête, ses longs, et
- * ses courts/séries (dépliés d'emblée sous une ligne qui les replie, sauf décennie sans long, qui
- * n'a pas de ligne). `depliees` mémorise l'état de chaque ligne pour la session de cet écran (état
- * local par décennie, absent = déplié) ; `masquerIntrouvables` survit à une rotation.
+ * La grille verticale (décision 1 de la retouche du 22 septembre 2026, « la filmographie dans
+ * l'ordre ») : l'en-tête, puis chaque décennie — son en-tête, puis une seule grille de trois
+ * affiches par ligne pour tous ses films, longs et courts mêlés dans l'ordre du back. Plus d'état
+ * déplié/replié à mémoriser ; `masquerIntrouvables` survit lui à une rotation.
  */
 @Composable
 private fun GrilleFilmographie(
@@ -178,17 +181,13 @@ private fun GrilleFilmographie(
     val decennies = remember(page.films, masquerIntrouvables) {
         regrouperParDecennie(filmsAffiches(page.films, masquerIntrouvables))
     }
-    val depliees = remember { mutableStateMapOf<Int?, Boolean>() }
 
     BoxWithConstraints(modifier) {
         val margeHorizontale = 16.dp
         val gouttiere = 12.dp
         val largeurContenu = maxWidth - margeHorizontale * 2
-        val largeurLong = (largeurContenu - gouttiere * 2) / 3
-        val hauteurLong = largeurLong * 1.5f
-        val gouttierePetite = 8.dp
-        val largeurPetite = (largeurContenu - gouttierePetite * 3) / 4
-        val hauteurPetite = largeurPetite * 1.5f
+        val largeurAffiche = (largeurContenu - gouttiere * 2) / 3
+        val hauteurAffiche = largeurAffiche * 1.5f
 
         LazyVerticalGrid(
             columns = GridCells.Fixed(3),
@@ -219,60 +218,14 @@ private fun GrilleFilmographie(
                     )
                 }
 
-                items(decennie.longs, key = { "long-${it.tmdb_id}" }) { film ->
+                items(decennie.films, key = { "film-${it.tmdb_id}" }) { film ->
                     AfficheFilmographie(
                         film = film,
-                        largeur = largeurLong,
-                        hauteur = hauteurLong,
+                        largeur = largeurAffiche,
+                        hauteur = hauteurAffiche,
                         onClick = { onOuvrirFilm(film) },
                         onLongClick = { onLongClickNonVu(film) },
                     )
-                }
-
-                if (decennie.courtsEtSeries.isNotEmpty()) {
-                    if (decennie.longs.isEmpty()) {
-                        // Décennie sans long (Lumière, 1895–1905) : rien à replier, donc pas de ligne.
-                        item(span = { GridItemSpan(maxLineSpan) }) {
-                            GrilleCourtsEtSeries(
-                                films = decennie.courtsEtSeries,
-                                largeur = largeurPetite,
-                                hauteur = hauteurPetite,
-                                gouttiere = gouttierePetite,
-                                onOuvrirFilm = onOuvrirFilm,
-                                onLongClickNonVu = onLongClickNonVu,
-                            )
-                        }
-                    } else {
-                        val depliee = depliees[decennie.decennie] != false
-                        item(span = { GridItemSpan(maxLineSpan) }) {
-                            Row(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .clickable { depliees[decennie.decennie] = !depliee }
-                                    .padding(vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            ) {
-                                Text(libelleCourtsEtSeries(decennie.courtsEtSeries), style = MaterialTheme.typography.labelMedium)
-                                Icon(
-                                    if (depliee) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                                    contentDescription = if (depliee) "Replier" else "Déplier",
-                                )
-                            }
-                        }
-                        if (depliee) {
-                            item(span = { GridItemSpan(maxLineSpan) }) {
-                                GrilleCourtsEtSeries(
-                                    films = decennie.courtsEtSeries,
-                                    largeur = largeurPetite,
-                                    hauteur = hauteurPetite,
-                                    gouttiere = gouttierePetite,
-                                    onOuvrirFilm = onOuvrirFilm,
-                                    onLongClickNonVu = onLongClickNonVu,
-                                )
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -336,40 +289,14 @@ private fun EnTeteRealisateur(
     }
 }
 
-/** Les courts et séries d'une décennie, quatre par ligne, plus petits que les longs (décision 3). */
-@Composable
-private fun GrilleCourtsEtSeries(
-    films: List<FilmDeFilmographie>,
-    largeur: Dp,
-    hauteur: Dp,
-    gouttiere: Dp,
-    onOuvrirFilm: (FilmDeFilmographie) -> Unit,
-    onLongClickNonVu: (FilmDeFilmographie) -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(gouttiere)) {
-        films.chunked(4).forEach { ligne ->
-            Row(horizontalArrangement = Arrangement.spacedBy(gouttiere)) {
-                ligne.forEach { film ->
-                    AfficheFilmographie(
-                        film = film,
-                        largeur = largeur,
-                        hauteur = hauteur,
-                        onClick = { onOuvrirFilm(film) },
-                        onLongClick = { onLongClickNonVu(film) },
-                    )
-                }
-            }
-        }
-    }
-}
-
 private val FiltreDesature = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
 
 /**
  * Une affiche de la filmographie (inchangé : vu en couleur avec pastille de note, sépia sinon,
- * coin Plex, coin TV, liseré dans l'accent quand `annee_ouverte`), avec sous elle son titre (deux
- * lignes au plus) puis son année (décision 2) — lisibles même sans jaquette, `Cover` gardant alors
- * son rectangle sépia.
+ * coin Plex, liseré dans l'accent quand `annee_ouverte`), avec sous elle son titre (deux lignes au
+ * plus) puis son année — lisibles même sans jaquette, `Cover` gardant alors son rectangle sépia.
+ * Le coin « Court » (retouche du 22 septembre 2026, décision 2 : jumeau du coin « TV » qu'il
+ * remplace — même place, même style — les séries ayant quitté la page) marque un court métrage.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -419,9 +346,9 @@ private fun AfficheFilmographie(film: FilmDeFilmographie, largeur: Dp, hauteur: 
                         .alpha(0.9f),
                 )
             }
-            if (film.type == "tv") {
+            if (film.court) {
                 Text(
-                    "TV",
+                    "Court",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier

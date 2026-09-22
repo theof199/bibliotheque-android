@@ -107,17 +107,17 @@ fun resultatTapRealisateur(realisateurs: List<RealisateurCredit>): ResultatReali
 fun filmTmdbIdTouchable(source: String, externalId: String): Int? =
     if (source == "tmdb") externalId.toIntOrNull() else null
 
-// --- La grille verticale par décennie (décision 1 de la reprise du 21 septembre 2026) -----------
+// --- La grille verticale par décennie (décision 1 de la reprise du 21 septembre 2026 ; grille --
+// --- unique, dans l'ordre du back, décision de la retouche du 22 septembre 2026) ----------------
 
 /**
- * Une décennie de la filmographie groupée pour la grille (décision 1) : les longs
- * (`court == false && type == "movie"`), puis les courts et les séries — une décennie sans long a
- * `longs` vide, ce que l'écran lit pour la montrer dépliée d'emblée, sans ligne à taper.
+ * Une décennie de la filmographie groupée pour la grille (retouche du 22 septembre 2026, « la
+ * filmographie dans l'ordre ») : une seule liste `films`, longs et courts mêlés dans l'ordre où le
+ * back les rend (date de sortie croissante) — l'appli ne réordonne plus rien.
  */
 data class DecennieFilmographie(
     val decennie: Int?,
-    val longs: List<FilmDeFilmographie>,
-    val courtsEtSeries: List<FilmDeFilmographie>,
+    val films: List<FilmDeFilmographie>,
 )
 
 /** « Années 1980 » : 1895 rejoint « Années 1890 », l'en-tête arrondissant au millésime de décennie. */
@@ -126,17 +126,15 @@ fun libelleDecennie(decennie: Int?): String = if (decennie != null) "Années $de
 private fun decennieDe(annee: Int?): Int? = annee?.let { (it / 10) * 10 }
 
 /**
- * La filmographie groupée par décennie. L'ordre des groupes est celui de leur première rencontre
- * dans `films` (`groupBy` construit une `LinkedHashMap`, jamais un tri par décennie) : l'ordre
- * chronologique du back se retrouve donc tel quel dans l'ordre des groupes.
+ * La filmographie groupée par décennie, chaque groupe gardant l'ordre d'entrée de `films` (longs
+ * et courts mêlés, plus aucun tri interne au groupe). L'ordre des groupes eux-mêmes est celui de
+ * leur première rencontre (`groupBy` construit une `LinkedHashMap`, jamais un tri par décennie) :
+ * l'ordre chronologique du back se retrouve donc tel quel, décennie par décennie puis film par
+ * film.
  */
 fun regrouperParDecennie(films: List<FilmDeFilmographie>): List<DecennieFilmographie> =
     films.groupBy { decennieDe(it.year) }.map { (decennie, filmsDeLaDecennie) ->
-        DecennieFilmographie(
-            decennie = decennie,
-            longs = filmsDeLaDecennie.filter { !it.court && it.type == "movie" },
-            courtsEtSeries = filmsDeLaDecennie.filter { it.court || it.type != "movie" },
-        )
+        DecennieFilmographie(decennie = decennie, films = filmsDeLaDecennie)
     }
 
 /**
@@ -149,22 +147,19 @@ fun filmsAffiches(films: List<FilmDeFilmographie>, masquerIntrouvables: Boolean)
     if (masquerIntrouvables) films.filterNot { it.introuvable } else films
 
 /**
- * Le libellé de la ligne de repli d'une décennie (décision 3) : « 6 courts · 1 série », accordé au
- * pluriel au-delà de un, la partie absente (aucun court, ou aucune série) omise.
+ * Les séries sortent de la page (décision 3 de la retouche du 22 septembre 2026, « la
+ * filmographie dans l'ordre ») : le propriétaire n'a pas besoin des séries ici, seulement des
+ * films et des courts métrages. Filtré avant tout — avant `regrouperParDecennie`, avant
+ * `ligneResume`, avant `mondeDeLaPage` — pour qu'aucun des trois ne les compte ni ne les affiche.
  */
-fun libelleCourtsEtSeries(courtsEtSeries: List<FilmDeFilmographie>): String {
-    val courts = courtsEtSeries.count { it.court }
-    val series = courtsEtSeries.count { it.type != "movie" }
-    return listOfNotNull(
-        if (courts > 0) "$courts court${if (courts > 1) "s" else ""}" else null,
-        if (series > 0) "$series série${if (series > 1) "s" else ""}" else null,
-    ).joinToString(" · ")
-}
+fun filmsSansSeries(films: List<FilmDeFilmographie>): List<FilmDeFilmographie> =
+    films.filter { it.type == "movie" }
 
 /**
  * La ligne de résumé sous le bouton Suivre (décision 4) : « 42 films · 9 vus · 3 sur le Plex »,
- * comptée sur toutes les lignes (films, courts et séries confondus), accordée au singulier — « 0 vu »
- * et « 0 sur le Plex » s'écrivent quand même, jamais omis.
+ * comptée sur les films et les courts métrages (les séries en sont déjà sorties par
+ * `filmsSansSeries`, appliqué avant l'appel), accordée au singulier — « 0 vu » et « 0 sur le
+ * Plex » s'écrivent quand même, jamais omis.
  */
 fun ligneResume(films: List<FilmDeFilmographie>): String {
     val total = films.size

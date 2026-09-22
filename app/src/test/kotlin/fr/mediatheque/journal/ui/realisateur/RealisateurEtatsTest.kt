@@ -4,7 +4,6 @@ import fr.mediatheque.journal.FakeJournalApi
 import fr.mediatheque.journal.api.dto.VoyageDeFilmographie
 import fr.mediatheque.journal.ui.frise.mondeDe
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -173,27 +172,28 @@ class RealisateurEtatsTest {
         assertEquals(listOf(1980, 1970), decennies.map { it.decennie })
     }
 
-    // Dans une décennie, les longs précèdent les courts et les séries, chaque groupe gardant l'ordre
-    // de la liste d'entrée. Mutation : mélanger les deux groupes, ou classer un court parmi les
-    // longs, casse cette assertion.
+    // Un court entre deux longs de la même décennie reste entre les deux : l'appli ne réordonne
+    // rien, elle garde l'ordre chronologique du back (décision 1 de la retouche du 22 septembre
+    // 2026, « la filmographie dans l'ordre »). Mutation : faire remonter le court en tête ou en
+    // queue du groupe casse cette assertion.
     @Test
-    fun `regrouperParDecennie separe les longs des courts et series`() {
-        val long = FakeJournalApi.filmDeFilmographie(1, "Long", 1980)
-        val court = FakeJournalApi.filmDeFilmographie(2, "Court", 1980, court = true)
-        val serie = FakeJournalApi.filmDeFilmographie(3, "Serie", 1980, type = "tv")
-        val decennies = regrouperParDecennie(listOf(long, court, serie))
-        assertEquals(listOf(long), decennies[0].longs)
-        assertEquals(listOf(court, serie), decennies[0].courtsEtSeries)
+    fun `regrouperParDecennie garde l ordre d entree long court melanges`() {
+        val premier = FakeJournalApi.filmDeFilmographie(1, "Premier long", 1980)
+        val court = FakeJournalApi.filmDeFilmographie(2, "Court entre deux", 1981, court = true)
+        val second = FakeJournalApi.filmDeFilmographie(3, "Second long", 1982)
+        val decennies = regrouperParDecennie(listOf(premier, court, second))
+        assertEquals(listOf(premier, court, second), decennies[0].films)
     }
 
-    // Une décennie sans long (Lumière, 1895–1905) a un groupe `longs` vide — ce que l'écran lit pour
-    // la déplier d'emblée, sans ligne à taper. Mutation : y glisser le court casse cette assertion.
+    // Un groupe ne sépare plus rien : `DecennieFilmographie` n'a plus qu'une seule liste `films`,
+    // plus de `longs`/`courtsEtSeries` distincts. Mutation : reclasser le court après le long au
+    // lieu de garder l'ordre d'entrée casse cette assertion.
     @Test
-    fun `regrouperParDecennie une decennie sans long a un groupe longs vide`() {
-        val court = FakeJournalApi.filmDeFilmographie(1, "Court lumiere", 1895, court = true)
-        val decennies = regrouperParDecennie(listOf(court))
-        assertTrue(decennies[0].longs.isEmpty())
-        assertEquals(listOf(court), decennies[0].courtsEtSeries)
+    fun `regrouperParDecennie ne separe plus les longs des courts`() {
+        val long = FakeJournalApi.filmDeFilmographie(1, "Long", 1980)
+        val court = FakeJournalApi.filmDeFilmographie(2, "Court", 1980, court = true)
+        val decennies = regrouperParDecennie(listOf(court, long))
+        assertEquals(listOf(court, long), decennies[0].films)
     }
 
     // L'interrupteur activé retire les films que j'ai marqués introuvables, et eux seuls (retouche
@@ -226,47 +226,45 @@ class RealisateurEtatsTest {
         assertEquals(listOf(1980), decennies.map { it.decennie })
     }
 
-    // « 2 courts · 1 série » : les deux parties, accordées, jointes par « · ». Mutation : omettre
-    // l'une des deux parties ou changer le séparateur casse cette assertion.
+    // Films et courts métrages restent (`type` vaut toujours « movie » pour les deux) ; seules les
+    // séries (`type: "tv"`) sont écartées (décision 3 de la retouche du 22 septembre 2026, « la
+    // filmographie dans l'ordre »). Mutation : filtrer aussi les courts casse cette assertion.
     @Test
-    fun `libelleCourtsEtSeries joint courts et series accordes`() {
-        val films = listOf(
-            FakeJournalApi.filmDeFilmographie(1, "C1", 1980, court = true),
-            FakeJournalApi.filmDeFilmographie(2, "C2", 1980, court = true),
-            FakeJournalApi.filmDeFilmographie(3, "S1", 1980, type = "tv"),
-        )
-        assertEquals("2 courts · 1 série", libelleCourtsEtSeries(films))
+    fun `filmsSansSeries garde les films et les courts`() {
+        val film = FakeJournalApi.filmDeFilmographie(1, "Film", 1980)
+        val court = FakeJournalApi.filmDeFilmographie(2, "Court", 1980, court = true)
+        assertEquals(listOf(film, court), filmsSansSeries(listOf(film, court)))
     }
 
-    // « 1 court » seul, sans série : la partie absente est omise plutôt que de laisser un « · » nu.
-    // Mutation : garder un séparateur ou une partie vide casse cette assertion.
+    // Les séries sont absentes des groupes eux-mêmes, une fois filtrées avant `regrouperParDecennie`
+    // (décision 3). Mutation : laisser passer la série casse cette assertion.
     @Test
-    fun `libelleCourtsEtSeries omet les series absentes`() {
-        val films = listOf(FakeJournalApi.filmDeFilmographie(1, "C1", 1980, court = true))
-        assertEquals("1 court", libelleCourtsEtSeries(films))
+    fun `filmsSansSeries retire les series avant regrouperParDecennie`() {
+        val film = FakeJournalApi.filmDeFilmographie(1, "Film", 1980)
+        val serie = FakeJournalApi.filmDeFilmographie(2, "Serie", 1980, type = "tv")
+        val decennies = regrouperParDecennie(filmsSansSeries(listOf(film, serie)))
+        assertEquals(listOf(film), decennies[0].films)
     }
 
-    // « 2 séries » seules, sans court. Mutation : garder « 0 court » au lieu de l'omettre casse
-    // cette assertion.
+    // « 3 films · 2 vus · 1 sur le Plex », comptée sur films et courts métrages confondus.
+    // Mutation : ne compter que les longs, ou inverser vus et Plex, casse cette assertion.
     @Test
-    fun `libelleCourtsEtSeries omet les courts absents`() {
-        val films = listOf(
-            FakeJournalApi.filmDeFilmographie(1, "S1", 1980, type = "tv"),
-            FakeJournalApi.filmDeFilmographie(2, "S2", 1980, type = "tv"),
-        )
-        assertEquals("2 séries", libelleCourtsEtSeries(films))
-    }
-
-    // « 3 films · 2 vus · 1 sur le Plex », comptée sur films, courts et séries confondus. Mutation :
-    // ne compter que les longs, ou inverser vus et Plex, casse cette assertion.
-    @Test
-    fun `ligneResume compte films vus et sur le plex toutes lignes confondues`() {
+    fun `ligneResume compte films et courts vus et sur le plex confondus`() {
         val films = listOf(
             FakeJournalApi.filmDeFilmographie(1, "A", 2000, entryId = "e1", surLePlex = true),
-            FakeJournalApi.filmDeFilmographie(2, "B", 2001, type = "tv"),
-            FakeJournalApi.filmDeFilmographie(3, "C", 2002, entryId = "e3", court = true),
+            FakeJournalApi.filmDeFilmographie(2, "B", 2001, entryId = "e2", court = true),
+            FakeJournalApi.filmDeFilmographie(3, "C", 2002),
         )
         assertEquals("3 films · 2 vus · 1 sur le Plex", ligneResume(films))
+    }
+
+    // Le résumé compte donc films et courts seulement (décision 3) : une série filtrée avant
+    // l'appel n'y contribue plus. Mutation : la compter quand même casse cette assertion.
+    @Test
+    fun `filmsSansSeries retire les series avant ligneResume`() {
+        val film = FakeJournalApi.filmDeFilmographie(1, "Film", 2000, entryId = "e1")
+        val serie = FakeJournalApi.filmDeFilmographie(2, "Serie", 2000, type = "tv", entryId = "e2")
+        assertEquals("1 film · 1 vu · 0 sur le Plex", ligneResume(filmsSansSeries(listOf(film, serie))))
     }
 
     // « 1 film · 1 vu · 1 sur le Plex » : accord au singulier. Mutation : garder le pluriel malgré
