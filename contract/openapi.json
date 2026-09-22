@@ -17608,6 +17608,145 @@
         }
       }
     },
+    "/reference/reactions": {
+      "get": {
+        "summary": "Le catalogue des réactions du carnet",
+        "tags": [
+          "référence"
+        ],
+        "description": "Les treize réactions du carnet (`POST /me/journal`, `PATCH /me/journal/{id}`), avec leur clé, leur emoji et leur phrase — dans l’ordre d’affichage.\n\nSource unique (décision du 22 septembre 2026) : jusqu’ici, l’appli portait sa propre copie de ce vocabulaire, sans rien pour la tenir alignée sur le back qui écrit `carnet.reactions`. L’appli garde une copie compilée pour l’écran hors ligne, mais un test la compare à cette route et rougit à la moindre divergence.\n\nConstant pour une version donnée de l’API, sans cache : à lire une fois et à garder, comme `GET /reference/statuses`. `ReactionKeySchema` (le corps d’écriture du carnet) reste une clé libre — ce catalogue donne un sens aux clés qu’il connaît, il n’en interdit aucune autre.",
+        "responses": {
+          "200": {
+            "description": "Le catalogue des réactions — l’exemple *est* la réponse, son contenu étant constant",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "reactions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "cle": {
+                            "type": "string",
+                            "description": "Clé de la réaction, telle qu’écrite dans `carnet.reactions`"
+                          },
+                          "emoji": {
+                            "type": "string",
+                            "description": "Emoji affiché à côté de la phrase"
+                          },
+                          "phrase": {
+                            "type": "string",
+                            "description": "Le texte à afficher, rédigé côté serveur"
+                          }
+                        },
+                        "required": [
+                          "cle",
+                          "emoji",
+                          "phrase"
+                        ],
+                        "additionalProperties": false,
+                        "description": "Une réaction du catalogue : sa clé, son emoji, sa phrase"
+                      },
+                      "description": "Le catalogue complet, dans l’ordre d’affichage"
+                    }
+                  },
+                  "required": [
+                    "reactions"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Le catalogue des réactions — l’exemple *est* la réponse, son contenu étant constant"
+                },
+                "examples": {
+                  "Réponse type": {
+                    "value": {
+                      "reactions": [
+                        {
+                          "cle": "adore",
+                          "emoji": "❤️",
+                          "phrase": "J’ai adoré"
+                        },
+                        {
+                          "cle": "sympa",
+                          "emoji": "👍",
+                          "phrase": "Sympa"
+                        },
+                        {
+                          "cle": "nul",
+                          "emoji": "👎",
+                          "phrase": "Nul"
+                        },
+                        {
+                          "cle": "marre",
+                          "emoji": "😂",
+                          "phrase": "Je me suis marré"
+                        },
+                        {
+                          "cle": "touche",
+                          "emoji": "🥲",
+                          "phrase": "Ça m’a touché"
+                        },
+                        {
+                          "cle": "flippe",
+                          "emoji": "😱",
+                          "phrase": "Ça fait flipper"
+                        },
+                        {
+                          "cle": "long",
+                          "emoji": "🥱",
+                          "phrase": "C’était long"
+                        },
+                        {
+                          "cle": "visuel",
+                          "emoji": "🤩",
+                          "phrase": "Wahou, visuellement"
+                        },
+                        {
+                          "cle": "stressant",
+                          "emoji": "😬",
+                          "phrase": "Stressant"
+                        },
+                        {
+                          "cle": "reflechir",
+                          "emoji": "🤔",
+                          "phrase": "Ça fait réfléchir"
+                        },
+                        {
+                          "cle": "confus",
+                          "emoji": "🌀",
+                          "phrase": "Trop confus"
+                        },
+                        {
+                          "cle": "a_revoir",
+                          "emoji": "🔁",
+                          "phrase": "À revoir"
+                        },
+                        {
+                          "cle": "en_salle",
+                          "emoji": "🎬",
+                          "phrase": "En salle"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/auth/login": {
       "post": {
         "summary": "Ouvrir une session",
@@ -27256,7 +27395,7 @@
                                 "items": {
                                   "type": "string",
                                   "pattern": "^[a-z0-9_]{1,32}$",
-                                  "description": "Clé de réaction, dont le sens vit dans le client"
+                                  "description": "Clé de réaction — forme validée ici, sens dans le catalogue de `GET /reference/reactions`"
                                 }
                               },
                               "comment": {
@@ -27414,7 +27553,7 @@
                     "items": {
                       "type": "string",
                       "pattern": "^[a-z0-9_]{1,32}$",
-                      "description": "Clé de réaction, dont le sens vit dans le client"
+                      "description": "Clé de réaction — forme validée ici, sens dans le catalogue de `GET /reference/reactions`"
                     },
                     "description": "Réactions cochées, 12 au plus, sans doublon"
                   },
@@ -27624,7 +27763,7 @@
                           "items": {
                             "type": "string",
                             "pattern": "^[a-z0-9_]{1,32}$",
-                            "description": "Clé de réaction, dont le sens vit dans le client"
+                            "description": "Clé de réaction — forme validée ici, sens dans le catalogue de `GET /reference/reactions`"
                           }
                         },
                         "comment": {
@@ -27872,7 +28011,7 @@
                           "items": {
                             "type": "string",
                             "pattern": "^[a-z0-9_]{1,32}$",
-                            "description": "Clé de réaction, dont le sens vit dans le client"
+                            "description": "Clé de réaction — forme validée ici, sens dans le catalogue de `GET /reference/reactions`"
                           }
                         },
                         "comment": {
@@ -28235,7 +28374,7 @@
                     "items": {
                       "type": "string",
                       "pattern": "^[a-z0-9_]{1,32}$",
-                      "description": "Clé de réaction, dont le sens vit dans le client"
+                      "description": "Clé de réaction — forme validée ici, sens dans le catalogue de `GET /reference/reactions`"
                     }
                   },
                   "comment": {
@@ -28452,7 +28591,7 @@
                           "items": {
                             "type": "string",
                             "pattern": "^[a-z0-9_]{1,32}$",
-                            "description": "Clé de réaction, dont le sens vit dans le client"
+                            "description": "Clé de réaction — forme validée ici, sens dans le catalogue de `GET /reference/reactions`"
                           }
                         },
                         "comment": {
@@ -42705,6 +42844,39 @@
                         "seance_en_cours": {
                           "type": "boolean",
                           "description": "Une composition vient d’être demandée et s’écrit encore"
+                        },
+                        "carnet": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "fabrique_le": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                                },
+                                "pages": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": 0,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "fabrique_le",
+                                "pages"
+                              ],
+                              "additionalProperties": false,
+                              "description": "Le carnet de cette année, s’il a déjà été fabriqué"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Le carnet de cette année (brief du 22 septembre 2026), s’il a déjà été fabriqué"
+                        },
+                        "carnet_en_cours": {
+                          "type": "boolean",
+                          "description": "La fabrication du carnet de cette année tourne encore"
                         }
                       },
                       "required": [
@@ -42725,7 +42897,9 @@
                         "paragraphes_en_cours",
                         "demande_salle",
                         "seances",
-                        "seance_en_cours"
+                        "seance_en_cours",
+                        "carnet",
+                        "carnet_en_cours"
                       ],
                       "additionalProperties": false,
                       "description": "L’année, prête à afficher"
@@ -42996,7 +43170,12 @@
                           "court": null
                         }
                       ],
-                      "seance_en_cours": false
+                      "seance_en_cours": false,
+                      "carnet": {
+                        "fabrique_le": "2026-09-22T07:12:00.000Z",
+                        "pages": 9
+                      },
+                      "carnet_en_cours": false
                     }
                   }
                 }
@@ -45453,6 +45632,252 @@
           }
         }
       }
+    },
+    "/me/voyage/annees/{annee}/carnet": {
+      "post": {
+        "summary": "Fabriquer le carnet de cette année — un PDF",
+        "tags": [
+          "voyage"
+        ],
+        "description": "Lance la fabrication en tâche de fond (`carnet/fabriquer.ts`) : la couverture avec l’affiche du n°1 du podium, l’ouverture et ses paragraphes, le podium, les salles avec mes notes et mes réactions. `202 { statut: \"en_preparation\" }` toujours — cette route ne rend jamais le PDF, voir `GET /me/voyage/carnets/{annee}/pdf`.\n\n`404` si cette année n’a pas encore d’ouverture pour moi. `409 CONFLICT` si une fabrication est déjà en cours pour elle — `carnet_en_cours` sur `GET /me/voyage/annees/{annee}`, ou `en_cours` sur `GET /me/voyage/carnets`, disent quand redemander.\n\nRefaire (l’année a déjà un carnet) remplace la ligne : `fabrique_le` avance.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1895,
+              "maximum": 2027
+            },
+            "in": "path",
+            "name": "annee",
+            "required": true
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "La fabrication du carnet vient d’être lancée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "statut": {
+                      "type": "string",
+                      "enum": [
+                        "en_preparation"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "statut"
+                  ],
+                  "additionalProperties": false,
+                  "description": "La fabrication du carnet vient d’être lancée"
+                },
+                "examples": {
+                  "Réponse type": {
+                    "value": {
+                      "statut": "en_preparation"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/voyage/carnets": {
+      "get": {
+        "summary": "Mes carnets déjà fabriqués",
+        "tags": [
+          "voyage"
+        ],
+        "description": "Par année croissante, sans leurs octets — `GET /me/voyage/carnets/{annee}/pdf` sert le fichier. `en_cours` liste les années dont la fabrication tourne encore.",
+        "responses": {
+          "200": {
+            "description": "Mes carnets, tous ceux déjà fabriqués",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "carnets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "annee": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "fabrique_le": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                          },
+                          "pages": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "taille_octets": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "annee",
+                          "fabrique_le",
+                          "pages",
+                          "taille_octets"
+                        ],
+                        "additionalProperties": false,
+                        "description": "Un carnet déjà fabriqué"
+                      },
+                      "description": "Par année croissante"
+                    },
+                    "en_cours": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "description": "Les années dont la fabrication tourne encore"
+                    }
+                  },
+                  "required": [
+                    "carnets",
+                    "en_cours"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Mes carnets, tous ceux déjà fabriqués"
+                },
+                "examples": {
+                  "Réponse type": {
+                    "value": {
+                      "carnets": [
+                        {
+                          "annee": 1941,
+                          "fabrique_le": "2026-09-22T07:12:00.000Z",
+                          "pages": 9,
+                          "taille_octets": 412388
+                        }
+                      ],
+                      "en_cours": [
+                        1942
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/voyage/carnets/{annee}/pdf": {
+      "get": {
+        "summary": "Le PDF d’un carnet",
+        "tags": [
+          "voyage"
+        ],
+        "description": "Le fichier lui-même, `application/pdf`, en pièce jointe (`carnet-1895.pdf`). `404` sans carnet pour cette année — le mien, jamais celui d’un autre membre : viser l’année d’un autre membre répond `404`, il n’existe pas de carnet à mon nom pour cette année-là.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1895,
+              "maximum": 2027
+            },
+            "in": "path",
+            "name": "annee",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Le PDF du carnet",
+            "content": {
+              "application/pdf": {
+                "schema": {}
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "servers": [
@@ -45465,6 +45890,10 @@
     {
       "name": "système",
       "description": "Santé et diagnostic"
+    },
+    {
+      "name": "référence",
+      "description": "Données de référence constantes, indépendantes de tout compte — à lire une fois et à garder."
     },
     {
       "name": "auth",
