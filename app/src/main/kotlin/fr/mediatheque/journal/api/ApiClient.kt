@@ -37,6 +37,7 @@ import fr.mediatheque.journal.api.dto.ChroniqueEcritureResponse
 import fr.mediatheque.journal.api.dto.DemandeSalleBody
 import fr.mediatheque.journal.api.dto.DemandeSalleEcritureResponse
 import fr.mediatheque.journal.api.dto.DemanderVoyageResponse
+import fr.mediatheque.journal.api.dto.PistesVoyageResponse
 import fr.mediatheque.journal.api.dto.PodiumBody
 import fr.mediatheque.journal.api.dto.PodiumResponse
 import fr.mediatheque.journal.api.dto.SallePlusResponse
@@ -296,17 +297,20 @@ class ApiClient(baseUrl: String, engine: HttpClientEngine) : JournalApi {
             }
         }
 
-    override suspend fun voyageDemanderSalle(annee: Int, demande: String): DemandeSalleEcritureResponse =
+    override suspend fun voyageDemanderSalle(annee: Int, demande: String, piste: String?): DemandeSalleEcritureResponse =
         call {
             client.post(Endpoints.voyageSalles(annee)) {
                 contentType(ContentType.Application.Json)
-                setBody(DemandeSalleBody(demande))
+                setBody(DemandeSalleBody(demande, piste))
             }
         }
 
     override suspend fun voyageDemandeSalleVue(id: String) {
         call<Unit> { client.post(Endpoints.voyageDemandeSalleVue(id)) }
     }
+
+    override suspend fun voyagePistes(annee: Int): PistesVoyageResponse =
+        call { client.post(Endpoints.voyagePistes(annee)) }
 
     override suspend fun voyageDepenses(): VoyageDepensesResponse = call { client.get(Endpoints.voyageDepenses) }
 

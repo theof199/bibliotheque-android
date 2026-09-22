@@ -13,6 +13,7 @@ import fr.mediatheque.journal.api.dto.DemandeSalleVoyage
 import fr.mediatheque.journal.api.dto.FilmSalleVoyage
 import fr.mediatheque.journal.api.dto.MaturiteVoyage
 import fr.mediatheque.journal.api.dto.ParagrapheVoyage
+import fr.mediatheque.journal.api.dto.PisteVoyage
 import fr.mediatheque.journal.api.dto.PodiumMarcheVoyage
 import fr.mediatheque.journal.api.dto.ProgrammeVoyage
 import fr.mediatheque.journal.api.dto.ProgressionVoyage
@@ -213,6 +214,10 @@ data class AnneeUi(
     val carnet: CarnetUi? = null,
     /** Sa fabrication tourne encore (décision 2) — `prete` seulement. */
     val carnetEnCours: Boolean = false,
+    /** Les pistes de salles proposées par le chroniqueur (brief du 22 septembre 2026, « les pistes ») — `prete` seulement, vide possible. */
+    val pistes: List<PisteUi> = emptyList(),
+    /** « D'autres pistes » vient d'être demandé et l'appel synchrone tourne encore (décision 3 du brief). */
+    val pistesEnCours: Boolean = false,
 )
 
 private fun BobineVoyage.versUi() = BobineUi(tmdb_id, title, duree_min, cover_url, plex_url, etat)
@@ -238,6 +243,7 @@ private fun MaturiteVoyage.versUi() = MaturiteUi(mure, motif)
 private fun TicketAnneeVoyage.versUi() = TicketAnneeUi(annee, utilise = utilise_le != null)
 private fun ParagrapheVoyage.versUi() = ParagrapheUi(id, tmdb_id, programme_id, titre, texte, ecrit_le, film.title, film.cover_url)
 private fun DemandeSalleVoyage.versUi() = DemandeSalleUi(id, demande, statut, motif)
+private fun PisteVoyage.versUi() = PisteUi(nom, raison)
 private fun ProgressionVoyage.versUi() = ProgressionUi(essentiels_vus, essentiels_total, salles_completes, salles_autres)
 private fun SeanceBobineVoyage.versUi() = SeanceBobineUi(tmdb_id, title)
 private fun SeanceFilmVoyage.versUi() = SeanceFilmUi(film_id, tmdb_id, title, cover_url, salle, etat, plex_url, bobine?.versUi())
@@ -354,6 +360,7 @@ class AnneeViewModel(
                 seanceEnCours = if (etat == EtatAnnee.PRETE) reponse.seance_en_cours else it.seanceEnCours,
                 carnet = if (etat == EtatAnnee.PRETE) reponse.carnet?.versUi() else it.carnet,
                 carnetEnCours = if (etat == EtatAnnee.PRETE) reponse.carnet_en_cours else it.carnetEnCours,
+                pistes = if (etat == EtatAnnee.PRETE) reponse.pistes.map { p -> p.versUi() } else it.pistes,
             )
         }
         if (etat == EtatAnnee.PRETE) appliquerDemandeSalle(reponse.demande_salle)
@@ -482,23 +489,30 @@ class AnneeViewModel(
     }
 
     /**
-     * « Ouvrir une nouvelle salle » (décision 3 du brief du 21 septembre 2026) : enfile la demande
-     * (toujours `202`), marque tout de suite l'étagère fantôme (optimiste, jumeau de `voirPlus`),
+     * « Ouvrir une nouvelle salle » (décision 3 du brief du 21 septembre 2026, décision 1-2 du
+     * brief du 22 septembre 2026, « les pistes ») : enfile la demande (toujours `202`), retire tout
+     * de suite `piste` de la liste des pistes si elle en portait une (`pistesApresUsage`, décision
+     * 2 — le back l'a retirée aussi) et marque l'étagère fantôme (optimiste, jumeau de `voirPlus`),
      * puis relit l'année toutes les cinq secondes jusqu'à ce que `demande_salle` ne soit plus
      * `en_cours` (`creee` : la salle apparaît dans `salles`, le bouton revient ; `refusee` : le
      * motif s'affiche, marqué vu par `appliquerDemandeSalle`), abandon au plafond de l'année sinon
      * (`etatFourneeSuivant`, même plafond que la chronique — `CHRONIQUE_ANNEE_ESSAIS_MAX`).
      */
-    fun ouvrirNouvelleSalle(demande: String) {
+    fun ouvrirNouvelleSalle(demande: String, piste: String? = null) {
         if (salleDemandeJob?.isActive == true) return
         salleDemandeJob = viewModelScope.launch {
             val reponse = try {
-                api.voyageDemanderSalle(annee, demande)
+                api.voyageDemanderSalle(annee, demande, piste)
             } catch (e: ApiError) {
                 if (e.isUnauthenticated) onUnauthenticated() else _messages.trySend(e.message ?: "Impossible pour l’instant")
                 return@launch
             }
-            _ui.update { it.copy(demandeSalle = DemandeSalleUi(reponse.demande_id, demande, "en_cours", null)) }
+            _ui.update {
+                it.copy(
+                    demandeSalle = DemandeSalleUi(reponse.demande_id, demande, "en_cours", null),
+                    pistes = pistesApresUsage(it.pistes, piste),
+                )
+            }
 
             var essais = 0
             while (true) {
@@ -786,6 +800,32 @@ class AnneeViewModel(
                 return@launch
             }
             relireApresSeance()
+        }
+    }
+
+    // --- Les pistes de salles (brief du 22 septembre 2026, « les pistes »). ---
+
+    private var pistesJob: Job? = null
+
+    /**
+     * « D'autres pistes » (décision 3 du brief) : appel **synchrone** au chroniqueur — pas
+     * d'enfilement ni de relecture, contrairement au reste du Voyage (`fabriquerCarnet`,
+     * `composerSeance`…). Marque `pistesEnCours` tout de suite, le temps de l'appel ; les trois
+     * pistes rendues remplacent la liste précédente. Un échec envoie le message du back au bandeau
+     * et rend le bouton (`pistesEnCours` retombe), sans toucher aux pistes déjà affichées.
+     */
+    fun demanderPistes() {
+        if (pistesJob?.isActive == true) return
+        pistesJob = viewModelScope.launch {
+            _ui.update { it.copy(pistesEnCours = true) }
+            val reponse = try {
+                api.voyagePistes(annee)
+            } catch (e: ApiError) {
+                _ui.update { it.copy(pistesEnCours = false) }
+                if (e.isUnauthenticated) onUnauthenticated() else _messages.trySend(e.message ?: "Impossible pour l’instant")
+                return@launch
+            }
+            _ui.update { it.copy(pistes = reponse.pistes.map { p -> p.versUi() }, pistesEnCours = false) }
         }
     }
 

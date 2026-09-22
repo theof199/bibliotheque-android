@@ -77,6 +77,9 @@ object Endpoints {
     fun voyageSalles(annee: Int): String = "${voyageAnnee(annee)}/salles"
     fun voyageDemandeSalleVue(id: String): String = "me/voyage/demandes-salles/$id/vue"
 
+    /** `POST /me/voyage/annees/{annee}/pistes` (brief du 22 septembre 2026, « les pistes »). */
+    fun voyagePistes(annee: Int): String = "${voyageAnnee(annee)}/pistes"
+
     /** `GET /me/voyage/depenses` (décision 2 du brief du 21 septembre 2026, « les dépenses »). */
     const val voyageDepenses = "me/voyage/depenses"
 

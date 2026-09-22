@@ -34,6 +34,7 @@ import fr.mediatheque.journal.api.dto.ChroniqueBody
 import fr.mediatheque.journal.api.dto.ChroniqueEcritureResponse
 import fr.mediatheque.journal.api.dto.DemandeSalleEcritureResponse
 import fr.mediatheque.journal.api.dto.DemanderVoyageResponse
+import fr.mediatheque.journal.api.dto.PistesVoyageResponse
 import fr.mediatheque.journal.api.dto.PodiumBody
 import fr.mediatheque.journal.api.dto.PodiumResponse
 import fr.mediatheque.journal.api.dto.SallePlusResponse
@@ -101,8 +102,10 @@ class FakeJournalApi : JournalApi {
     var onMontrerTicket: suspend (Int) -> Unit = { _ -> }
     var onUtiliserTicket: suspend (Int) -> TicketUtiliseResponse = { TicketUtiliseResponse() }
     var onVoyageChronique: suspend (Int, ChroniqueBody) -> ChroniqueEcritureResponse = { _, _ -> ChroniqueEcritureResponse(statut = "en_preparation") }
-    var onVoyageDemanderSalle: suspend (Int, String) -> DemandeSalleEcritureResponse = { _, _ -> DemandeSalleEcritureResponse(demande_id = "d-1") }
+    var onVoyageDemanderSalle: suspend (Int, String, String?) -> DemandeSalleEcritureResponse =
+        { _, _, _ -> DemandeSalleEcritureResponse(demande_id = "d-1") }
     var onVoyageDemandeSalleVue: suspend (String) -> Unit = { _ -> }
+    var onVoyagePistes: suspend (Int) -> PistesVoyageResponse = { PistesVoyageResponse() }
     var onVoyageDepenses: suspend () -> VoyageDepensesResponse = { VoyageDepensesResponse() }
     var onVoyageComposerSeance: suspend (Int) -> SeanceComposerResponse = { SeanceComposerResponse() }
     var onVoyageRemplacerSeance: suspend (String, SeanceRemplacerBody) -> SeanceEcritureResponse =
@@ -158,9 +161,10 @@ class FakeJournalApi : JournalApi {
     override suspend fun utiliserTicket(annee: Int) = track("utiliserTicket $annee") { onUtiliserTicket(annee) }
     override suspend fun voyageChronique(annee: Int, corps: ChroniqueBody) =
         track("voyageChronique $annee ${corps.tmdb_id ?: corps.programme_id}") { onVoyageChronique(annee, corps) }
-    override suspend fun voyageDemanderSalle(annee: Int, demande: String) =
-        track("voyageDemanderSalle $annee") { onVoyageDemanderSalle(annee, demande) }
+    override suspend fun voyageDemanderSalle(annee: Int, demande: String, piste: String?) =
+        track("voyageDemanderSalle $annee") { onVoyageDemanderSalle(annee, demande, piste) }
     override suspend fun voyageDemandeSalleVue(id: String) = track("voyageDemandeSalleVue $id") { onVoyageDemandeSalleVue(id) }
+    override suspend fun voyagePistes(annee: Int) = track("voyagePistes $annee") { onVoyagePistes(annee) }
     override suspend fun voyageDepenses() = track("voyageDepenses") { onVoyageDepenses() }
     override suspend fun voyageComposerSeance(annee: Int) = track("voyageComposerSeance $annee") { onVoyageComposerSeance(annee) }
     override suspend fun voyageRemplacerSeance(id: String, corps: SeanceRemplacerBody) =

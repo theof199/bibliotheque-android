@@ -24,6 +24,7 @@ import fr.mediatheque.journal.api.dto.ChroniqueBody
 import fr.mediatheque.journal.api.dto.ChroniqueEcritureResponse
 import fr.mediatheque.journal.api.dto.DemandeSalleEcritureResponse
 import fr.mediatheque.journal.api.dto.DemanderVoyageResponse
+import fr.mediatheque.journal.api.dto.PistesVoyageResponse
 import fr.mediatheque.journal.api.dto.PodiumBody
 import fr.mediatheque.journal.api.dto.PodiumResponse
 import fr.mediatheque.journal.api.dto.SallePlusResponse
@@ -193,13 +194,22 @@ interface JournalApi {
     suspend fun voyageChronique(annee: Int, corps: ChroniqueBody): ChroniqueEcritureResponse
 
     /**
-     * `POST /me/voyage/annees/{annee}/salles` : « Ouvrir une nouvelle salle » sur une phrase.
-     * Toujours `202`, la génération s'enfile ; `409` si une demande est déjà en cours pour l'année.
+     * `POST /me/voyage/annees/{annee}/salles` : « Ouvrir une nouvelle salle » sur une phrase,
+     * `piste` (nul par défaut) reprenant le `nom` d'une piste suivie (brief du 22 septembre 2026,
+     * « les pistes »). Toujours `202`, la génération s'enfile ; `409` si une demande est déjà en
+     * cours pour l'année.
      */
-    suspend fun voyageDemanderSalle(annee: Int, demande: String): DemandeSalleEcritureResponse
+    suspend fun voyageDemanderSalle(annee: Int, demande: String, piste: String? = null): DemandeSalleEcritureResponse
 
     /** `POST /me/voyage/demandes-salles/{id}/vue` : marque une demande (typiquement un refus) comme vue. Idempotent, toujours `204`. */
     suspend fun voyageDemandeSalleVue(id: String)
+
+    /**
+     * `POST /me/voyage/annees/{annee}/pistes` (brief du 22 septembre 2026, « les pistes ») :
+     * renouvelle les trois pistes de salles de l'année — appel **synchrone** au chroniqueur, pas
+     * d'enfilement ni de relecture, contrairement au reste du Voyage.
+     */
+    suspend fun voyagePistes(annee: Int): PistesVoyageResponse
 
     /**
      * `GET /me/voyage/depenses` (décision 2 du brief du 21 septembre 2026, « les dépenses ») : mes

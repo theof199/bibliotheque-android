@@ -15,6 +15,8 @@ import fr.mediatheque.journal.api.dto.FilmSalleVoyage
 import fr.mediatheque.journal.api.dto.MaturiteVoyage
 import fr.mediatheque.journal.api.dto.ParagrapheFilmVoyage
 import fr.mediatheque.journal.api.dto.ParagrapheVoyage
+import fr.mediatheque.journal.api.dto.PisteVoyage
+import fr.mediatheque.journal.api.dto.PistesVoyageResponse
 import fr.mediatheque.journal.api.dto.PodiumMarcheVoyage
 import fr.mediatheque.journal.api.dto.PodiumResponse
 import fr.mediatheque.journal.api.dto.ProgressionVoyage
@@ -28,6 +30,7 @@ import fr.mediatheque.journal.api.dto.SeanceVoyage
 import fr.mediatheque.journal.api.dto.TicketAnneeVoyage
 import fr.mediatheque.journal.api.dto.TicketUtiliseResponse
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runCurrent
@@ -483,7 +486,7 @@ class AnneeViewModelTest {
     @Test
     fun `ouvrirNouvelleSalle marque en cours puis relit jusqu'a la creation`() = runTest(dispatcher) {
         api.onVoyageAnnee = { prete(salle("s1")) }
-        api.onVoyageDemanderSalle = { _, _ -> DemandeSalleEcritureResponse(demande_id = "d1") }
+        api.onVoyageDemanderSalle = { _, _, _ -> DemandeSalleEcritureResponse(demande_id = "d1") }
         val vm = AnneeViewModel(api, 1941, null) {}
         vm.relire()
         runCurrent()
@@ -520,11 +523,104 @@ class AnneeViewModelTest {
         // La même demande revue plus tard (une nouvelle salle demandée pendant que le back n'a pas
         // encore digéré la vue) ne la fait pas marquer vue deux fois — mutation : retirer la garde
         // `demandeSalleVueEnvoyeePour` ferait remonter ce compte à 2.
-        api.onVoyageDemanderSalle = { _, _ -> DemandeSalleEcritureResponse(demande_id = "d2") }
+        api.onVoyageDemanderSalle = { _, _, _ -> DemandeSalleEcritureResponse(demande_id = "d2") }
         vm.ouvrirNouvelleSalle("une autre salle")
         testScheduler.advanceUntilIdle()
 
         assertEquals(1, vueAppels)
+    }
+
+    // Décision 2 du brief du 22 septembre 2026 (« les pistes ») : une piste utilisée pour ouvrir
+    // une salle disparaît tout de suite, avant même que le chroniqueur ait répondu — le back l'a
+    // retirée aussi, la fiche se relit ensuite comme pour toute nouvelle salle (jumeau de
+    // `ouvrirNouvelleSalle marque en cours puis relit jusqu'a la creation`).
+    @Test
+    fun `ouvrirNouvelleSalle avec piste la retire localement puis relit la fiche`() = runTest(dispatcher) {
+        val muette = PisteVoyage("Le cinéma muet allemand", "Expressionnisme et ombres.")
+        val autre = PisteVoyage("Une autre piste", "Une autre raison.")
+        api.onVoyageAnnee = { prete(salle("s1")).copy(pistes = listOf(muette, autre)) }
+        api.onVoyageDemanderSalle = { _, _, _ -> DemandeSalleEcritureResponse(demande_id = "d1") }
+        val vm = AnneeViewModel(api, 1941, null) {}
+        vm.relire()
+        runCurrent()
+        assertEquals(listOf("Le cinéma muet allemand", "Une autre piste"), vm.ui.value.pistes.map { it.nom })
+
+        vm.ouvrirNouvelleSalle("le cinéma muet allemand", piste = "Le cinéma muet allemand")
+        runCurrent()
+
+        // Mutation : ne pas appeler `pistesApresUsage` ici laisserait la pastille utilisée
+        // affichée jusqu'à la première relecture, cinq secondes plus tard.
+        assertEquals(listOf("Une autre piste"), vm.ui.value.pistes.map { it.nom })
+        assertEquals("en_cours", vm.ui.value.demandeSalle?.statut)
+
+        api.onVoyageAnnee = { prete(salle("s1"), salle("s2")).copy(pistes = listOf(autre)) }
+        testScheduler.advanceUntilIdle()
+
+        assertNull(vm.ui.value.demandeSalle)
+        assertEquals(listOf("s1", "s2"), vm.ui.value.salles.map { it.id })
+    }
+
+    // Décision 3 du brief du 22 septembre 2026 (« les pistes ») : « D'autres pistes » est un appel
+    // **synchrone** — pas d'enfilement ni de relecture — qui remplace la liste par les trois
+    // pistes rendues. Le `delay` dans la doublure rend l'appel observable à mi-course (même
+    // procédé que `SuivisViewModelTest`) : sans lui, la doublure répondrait dans le même tour de
+    // boucle et `pistesEnCours` serait vrai sans jamais être visible.
+    @Test
+    fun `demanderPistes remplace la liste par celle de la fausse API`() = runTest(dispatcher) {
+        api.onVoyageAnnee = { prete(salle("s1")).copy(pistes = listOf(PisteVoyage("Une ancienne piste", "Une ancienne raison."))) }
+        val vm = AnneeViewModel(api, 1941, null) {}
+        vm.relire()
+        runCurrent()
+        assertEquals(listOf("Une ancienne piste"), vm.ui.value.pistes.map { it.nom })
+
+        api.onVoyagePistes = {
+            delay(100)
+            PistesVoyageResponse(
+                pistes = listOf(
+                    PisteVoyage("Le cinéma muet allemand", "Expressionnisme et ombres."),
+                    PisteVoyage("Les débuts du technicolor", "La couleur commence à s’installer."),
+                    PisteVoyage("Le cinéma soviétique du montage", "Eisenstein et ses héritiers."),
+                ),
+            )
+        }
+        vm.demanderPistes()
+        runCurrent()
+        // Mutation : ne pas marquer `pistesEnCours` avant l'appel laisserait le bouton actif
+        // pendant tout l'aller-retour au chroniqueur.
+        assertTrue(vm.ui.value.pistesEnCours)
+        assertEquals(listOf("Une ancienne piste"), vm.ui.value.pistes.map { it.nom })
+
+        testScheduler.advanceUntilIdle()
+
+        assertFalse(vm.ui.value.pistesEnCours)
+        assertEquals(
+            listOf("Le cinéma muet allemand", "Les débuts du technicolor", "Le cinéma soviétique du montage"),
+            vm.ui.value.pistes.map { it.nom },
+        )
+        assertEquals(listOf("voyagePistes 1941"), api.calls.filter { it.startsWith("voyagePistes") })
+    }
+
+    // Un échec (503 le plus souvent : le chroniqueur mal configuré ou injoignable) envoie le
+    // message du back au bandeau et rend le bouton — mutation : ne pas remettre `pistesEnCours` à
+    // faux bloquerait « D'autres pistes » sur « Le chroniqueur cherche… » pour toujours.
+    @Test
+    fun `demanderPistes en echec envoie le message du back au bandeau et rend le bouton`() = runTest(dispatcher) {
+        api.onVoyageAnnee = { prete(salle("s1")) }
+        api.onVoyagePistes = { throw ApiError("UPSTREAM_UNAVAILABLE", "Le chroniqueur ne répond pas. Réessaie plus tard.", retryable = true, status = 503) }
+        val vm = AnneeViewModel(api, 1941, null) {}
+        vm.relire()
+        runCurrent()
+
+        val messages = mutableListOf<String>()
+        val job = launch { vm.messages.collect { messages += it } }
+
+        vm.demanderPistes()
+        runCurrent()
+
+        assertEquals(listOf("Le chroniqueur ne répond pas. Réessaie plus tard."), messages)
+        assertFalse(vm.ui.value.pistesEnCours)
+        assertTrue(vm.ui.value.pistes.isEmpty())
+        job.cancel()
     }
 
     // La ligne du bas de la fiche d'année (décision 4 du brief du 21 septembre 2026, « le ticket »),

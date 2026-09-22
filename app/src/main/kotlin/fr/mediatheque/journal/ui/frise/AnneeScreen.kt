@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -202,7 +203,15 @@ fun AnneeScreen(
                 items(ui.salles, key = { it.id }) { salle ->
                     BlocSalle(salle, monde, onVoirPlus = { vm.voirPlus(salle.id) }, onOuvrirFilm = { filmId -> onOpenFilm(salle.id, filmId) })
                 }
-                item { BlocNouvelleSalle(ui.demandeSalle, onDemander = { texte -> vm.ouvrirNouvelleSalle(texte) }) }
+                item {
+                    BlocNouvelleSalle(
+                        demandeSalle = ui.demandeSalle,
+                        pistes = ui.pistes,
+                        pistesEnCours = ui.pistesEnCours,
+                        onDemander = { texte, piste -> vm.ouvrirNouvelleSalle(texte, piste) },
+                        onDemanderPistes = vm::demanderPistes,
+                    )
+                }
             }
 
             if (ui.statutVoyage == StatutAnneeVoyage.EN_COURS) {
@@ -1016,10 +1025,17 @@ private fun TuileEtagere(epuisee: Boolean, fourneeEnCours: Boolean, onClick: () 
  * Le bouton « Ouvrir une nouvelle salle » sous la dernière étagère, l'étagère fantôme pendant que
  * la demande s'écrit, ou le motif du refus sous le bouton (`etatZoneSalleVoyage`) — jamais les deux
  * à la fois. `creee` (la salle apparue dans `salles`, `demandeSalle` retombé à `null`) retombe sur
- * le bouton, sans rien de plus à dire ici.
+ * le bouton, sans rien de plus à dire ici. `pistes`/`pistesEnCours` ne font que traverser vers la
+ * feuille (brief du 22 septembre 2026, « les pistes ») : rien sur la fiche d'année hors d'elle.
  */
 @Composable
-private fun BlocNouvelleSalle(demandeSalle: DemandeSalleUi?, onDemander: (String) -> Unit) {
+private fun BlocNouvelleSalle(
+    demandeSalle: DemandeSalleUi?,
+    pistes: List<PisteUi>,
+    pistesEnCours: Boolean,
+    onDemander: (demande: String, piste: String?) -> Unit,
+    onDemanderPistes: () -> Unit,
+) {
     var sheetOuverte by remember { mutableStateOf(false) }
 
     when (etatZoneSalleVoyage(demandeSalle?.statut)) {
@@ -1041,7 +1057,10 @@ private fun BlocNouvelleSalle(demandeSalle: DemandeSalleUi?, onDemander: (String
 
     if (sheetOuverte) {
         NouvelleSalleSheet(
-            onDemander = { texte -> sheetOuverte = false; onDemander(texte) },
+            pistes = pistes,
+            pistesEnCours = pistesEnCours,
+            onDemander = { texte, piste -> sheetOuverte = false; onDemander(texte, piste) },
+            onDemanderPistes = onDemanderPistes,
             onDismiss = { sheetOuverte = false },
         )
     }
@@ -1067,28 +1086,64 @@ private fun EtagereFantome() {
     }
 }
 
-/** La feuille « Quelle salle ? » (décision 3) : une phrase de 200 caractères au plus, « Demander » l'enfile. */
+/**
+ * La feuille « Quelle salle ? » (décision 3 du brief du 21 septembre 2026, décision 1 et 3 du
+ * brief du 22 septembre 2026, « les pistes ») : au-dessus du champ, une pastille par piste
+ * (`AssistChip`, le `nom`) — un tap la touche (`nouvelleSalleSuivant`), remplit le champ avec son
+ * nom et affiche sa `raison` en dessous, sous la rangée (choix le plus simple entre elle et un
+ * tooltip, décision 1). Le champ reste éditable ensuite : retoucher le texte ne défait jamais la
+ * pastille touchée, c'est elle que « Demander » envoie en `piste`. Sans aucune piste, « D'autres
+ * pistes » (décision 3) : désactivé et « Le chroniqueur cherche… » pendant l'appel synchrone.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun NouvelleSalleSheet(onDemander: (String) -> Unit, onDismiss: () -> Unit) {
+private fun NouvelleSalleSheet(
+    pistes: List<PisteUi>,
+    pistesEnCours: Boolean,
+    onDemander: (demande: String, piste: String?) -> Unit,
+    onDemanderPistes: () -> Unit,
+    onDismiss: () -> Unit,
+) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var texte by remember { mutableStateOf("") }
+    var etat by remember { mutableStateOf(NouvelleSalleEtat()) }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text("Quelle salle ?", style = MaterialTheme.typography.titleMedium)
+            if (pistes.isNotEmpty()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    pistes.forEach { piste ->
+                        AssistChip(
+                            onClick = { etat = nouvelleSalleSuivant(etat, NouvelleSalleEvenement.ToucherPiste(piste)) },
+                            label = { Text(piste.nom, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        )
+                    }
+                }
+                pistes.firstOrNull { it.nom == etat.pisteTouchee }?.let { touchee ->
+                    Text(
+                        touchee.raison,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            if (autresPistesVisible(pistes)) {
+                TextButton(onClick = onDemanderPistes, enabled = !pistesEnCours) {
+                    Text(if (pistesEnCours) "Le chroniqueur cherche…" else "D’autres pistes")
+                }
+            }
             OutlinedTextField(
-                value = texte,
-                onValueChange = { if (it.length <= 200) texte = it },
+                value = etat.texte,
+                onValueChange = { if (it.length <= 200) etat = nouvelleSalleSuivant(etat, NouvelleSalleEvenement.Ecrire(it)) },
                 singleLine = true,
                 supportingText = { Text("une phrase : la comédie italienne cette année-là") },
                 modifier = Modifier.fillMaxWidth(),
             )
             Button(
-                onClick = { onDemander(texte.trim()) },
-                enabled = texte.isNotBlank(),
+                onClick = { onDemander(etat.texte.trim(), etat.pisteTouchee) },
+                enabled = etat.texte.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("Demander") }
         }

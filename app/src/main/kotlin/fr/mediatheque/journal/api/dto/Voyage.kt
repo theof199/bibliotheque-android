@@ -168,6 +168,15 @@ data class DemandeSalleVoyage(
 )
 
 /**
+ * Une salle que le chroniqueur propose sans jamais l'ouvrir (brief du 22 septembre 2026, « les
+ * pistes ») : une pastille au-dessus du champ de « Nouvelle salle » — vide possible, renouvelée
+ * trois à la fois par `POST /me/voyage/annees/{annee}/pistes`. Utiliser une piste pour ouvrir une
+ * salle (`POST /me/voyage/annees/{annee}/salles`, corps `piste`) l'en retire.
+ */
+@Serializable
+data class PisteVoyage(val nom: String, val raison: String)
+
+/**
  * Ma progression vers le Lion et la Palme, pour une année (`prete` seulement, étape 5) : de quoi
  * dessiner la ligne « *N* essentiels sur *M* · *N* salles complètes sur *M* » sous la profondeur.
  */
@@ -207,6 +216,8 @@ data class AnneeVoyageDetailResponse(
     val paragraphes: List<ParagrapheVoyage> = emptyList(),
     val paragraphes_en_cours: List<ParagrapheEnCoursVoyage> = emptyList(),
     val demande_salle: DemandeSalleVoyage? = null,
+    /** Des salles que le chroniqueur propose sans les ouvrir (brief du 22 septembre 2026, « les pistes ») — `prete` seulement, vide possible. */
+    val pistes: List<PisteVoyage> = emptyList(),
     /** Mes séances composées cette année (brief du 21 septembre 2026, « la séance »), `prete` seulement. */
     val seances: List<SeanceVoyage> = emptyList(),
     /** Une composition vient d'être demandée et s'écrit encore — `prete` seulement. */
@@ -228,13 +239,25 @@ data class ChroniqueBody(val tmdb_id: Int? = null, val programme_id: String? = n
 @Serializable
 data class ChroniqueEcritureResponse(val statut: String, val paragraphe: ParagrapheVoyage? = null)
 
-/** Corps de `POST /me/voyage/annees/{annee}/salles` : une phrase de 1 à 200 caractères. */
+/**
+ * Corps de `POST /me/voyage/annees/{annee}/salles` : une phrase de 1 à 200 caractères, `piste`
+ * (nul par défaut) reprenant le `nom` d'une piste de l'année si j'en ai suivi une (brief du
+ * 22 septembre 2026, « les pistes »).
+ */
 @Serializable
-data class DemandeSalleBody(val demande: String)
+data class DemandeSalleBody(val demande: String, val piste: String? = null)
 
 /** `POST /me/voyage/annees/{annee}/salles` — toujours `202`, la génération vient de s'enfiler. */
 @Serializable
 data class DemandeSalleEcritureResponse(val statut: String = "en_preparation", val demande_id: String = "")
+
+/**
+ * `POST /me/voyage/annees/{annee}/pistes` (brief du 22 septembre 2026, « les pistes ») : les
+ * trois pistes qui remplacent la liste précédente de l'année — appel synchrone, sans `statut`
+ * `en_preparation` ni relecture.
+ */
+@Serializable
+data class PistesVoyageResponse(val pistes: List<PisteVoyage> = emptyList())
 
 /** Corps de `PUT /me/voyage/annees/{annee}/podium/{place}` : `tmdb_id` **ou** `programme_id`, jamais les deux. */
 @Serializable
