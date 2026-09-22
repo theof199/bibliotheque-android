@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -1095,7 +1097,7 @@ private fun EtagereFantome() {
  * pastille touchée, c'est elle que « Demander » envoie en `piste`. Sans aucune piste, « D'autres
  * pistes » (décision 3) : désactivé et « Le chroniqueur cherche… » pendant l'appel synchrone.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun NouvelleSalleSheet(
     pistes: List<PisteUi>,
@@ -1113,11 +1115,13 @@ private fun NouvelleSalleSheet(
         ) {
             Text("Quelle salle ?", style = MaterialTheme.typography.titleMedium)
             if (pistes.isNotEmpty()) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // FlowRow, pas Row : trois noms de salle ne tiennent pas sur une ligne, la
+                // troisième pastille se retrouvait coupée à trois lettres (retouche du 22 septembre 2026).
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     pistes.forEach { piste ->
                         AssistChip(
                             onClick = { etat = nouvelleSalleSuivant(etat, NouvelleSalleEvenement.ToucherPiste(piste)) },
-                            label = { Text(piste.nom, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                            label = { Text(piste.nom) },
                         )
                     }
                 }
