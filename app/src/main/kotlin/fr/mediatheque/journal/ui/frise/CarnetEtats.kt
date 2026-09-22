@@ -1,5 +1,6 @@
 package fr.mediatheque.journal.ui.frise
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.FileProvider
@@ -109,9 +110,12 @@ suspend fun ouvrirCarnet(contexte: Context, annee: Int, telecharger: suspend () 
         setDataAndType(uri, "application/pdf")
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
-    if (intent.resolveActivity(contexte.packageManager) == null) {
+    // Lancer puis rattraper, plutôt que `resolveActivity` avant : la visibilité des paquets
+    // (Android 11+) rend `resolveActivity` nul dès que le manifeste ne déclare pas la requête —
+    // le `<queries>` du manifeste la déclare, et l'exception reste le seul constat fiable.
+    try {
+        contexte.startActivity(intent)
+    } catch (e: ActivityNotFoundException) {
         onMessage("Aucune application ne sait ouvrir un PDF.")
-        return
     }
-    contexte.startActivity(intent)
 }
