@@ -27,18 +27,17 @@ import fr.mediatheque.journal.R
  * un porteur ordinaire, hors du système d'instantanés de Compose — l'écrire depuis `update`, qui
  * court à l'application de la composition, relancerait une recomposition à chaque passage.
  *
- * `description` (complément du 23 septembre 2026 à l'habillage « papier et pellicule », retour du
- * propriétaire sur le clap dessiné à la main du calque d'un film enregistré) : « Tu es ici »
- * convient sur la Frise, pas ailleurs — `FilmEnregistreCalque.kt` réutilise ce composable plutôt
- * que d'en redessiner un jumeau, sa taille se paramétrant déjà par `modifier`.
+ * Seul appelant restant depuis le brief des animations Lottie du 23 septembre 2026 (soir) : la
+ * célébration d'un film enregistré (`FilmEnregistreCalque.kt`) a son propre clap, `clap-2.json`
+ * joué par `Animation` (`ui/theme/Animations.kt`), et ne réutilise plus ce composable.
  */
 private class DernierClaque(var valeur: Int)
 
 @Composable
-fun ClapAvatar(claques: Int, modifier: Modifier = Modifier, description: String = "Tu es ici") {
+fun ClapAvatar(claques: Int, modifier: Modifier = Modifier) {
     val dernier = remember { DernierClaque(claques) }
     AndroidView(
-        modifier = modifier.semantics { contentDescription = description },
+        modifier = modifier.semantics { contentDescription = "Tu es ici" },
         factory = { contexte -> ImageView(contexte).apply { setImageResource(R.drawable.ic_launcher_animated) } },
         update = { vue ->
             if (dernier.valeur != claques) {

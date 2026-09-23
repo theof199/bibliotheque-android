@@ -24,7 +24,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -34,33 +33,36 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import fr.mediatheque.journal.ui.FilmEnregistre
 import fr.mediatheque.journal.ui.form.CartonCard
 import fr.mediatheque.journal.ui.form.CartonViewModel
-import fr.mediatheque.journal.ui.frise.ClapAvatar
+import fr.mediatheque.journal.ui.theme.Animation
 import fr.mediatheque.journal.ui.theme.Limelight
 import fr.mediatheque.journal.ui.theme.Or
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * La durée du claquement du volet, lue dans `res/animator/ic_launcher_volet_claque.xml` (120 ms
- * pour s'armer à −46°, puis 260 ms pour claquer à 0° avec rebond) : 380 ms au total, la même valeur
- * que `MainActivity.SPLASH_ICON_ANIMATION_DURATION_MS` — les trois doivent rester égales.
+ * L'instant de l'impact (brief des animations Lottie du 23 septembre 2026, soir), lu dans
+ * `assets/lottie/clap-2.json` plutôt que deviné : le calque « burst for clapper » s'y arme à la
+ * frame 53 sur 145 au total (29,97 im/s, `assets/lottie/LICENCES.md`) — 53 / 29,97 ≈ 1 768 ms,
+ * proche du repli à 40 % de la durée que le brief prévoyait sans cette lecture (≈ 1 935 ms), mais
+ * effectivement lu dans l'animation.
  */
-private const val DUREE_CLAQUEMENT_MS = 380L
+private const val INSTANT_IMPACT_MS = 1_768L
 
 /**
  * La célébration d'un film enregistré (complément du 23 septembre 2026 à l'habillage « papier et
- * pellicule », retouchée le même jour après un premier essai sur le téléphone — « le clap est un
- * peu mal fait ») : plein écran, le clap **de l'icône elle-même** (`ClapAvatar.kt`, l'`AndroidView`
- * qui joue `R.drawable.ic_launcher_animated`), affiché en grand et centré, plutôt qu'un jumeau
- * redessiné à la main en Compose — celui-là ne rendait pas aussi bien. L'éclair blanc et la
- * secousse se calent sur l'instant où le volet se ferme (`DUREE_CLAQUEMENT_MS`, ci-dessus), lu dans
- * le XML de l'animateur plutôt que deviné, puis l'année du film en Limelight or et le carton du
- * chroniqueur qui monte depuis le bas.
+ * pellicule », remplacée le même jour, en soirée, par une animation Lottie récoltée sous licence
+ * libre — `clap-2.json`, `assets/lottie/LICENCES.md` — à la place du clap de l'icône redessiné en
+ * `ClapAvatar`, qui ne rendait pas aussi bien) : plein écran, le clap joué en grand et centré.
+ * L'éclair blanc et la secousse se calent sur l'instant de l'impact (`INSTANT_IMPACT_MS`,
+ * ci-dessus), puis l'année du film en Limelight or et le carton du chroniqueur qui monte depuis le
+ * bas.
  *
  * Le carton est le **même** `CartonViewModel` que celui que `HomeScreen` affiche déjà sous son
  * bandeau « Enregistré » (`Root.kt` le construit une fois, indexé sur `cartonTmdbId`, et le passe
@@ -74,24 +76,21 @@ private const val DUREE_CLAQUEMENT_MS = 380L
  * valeur approximée ici.
  *
  * Piloté par un `Channel` à un coup (`Navigator.filmsEnregistres`) : jamais rejoué au retour ni à
- * la recomposition, un `Channel` ne redonnant pas ce qu'il a déjà rendu à un collecteur.
+ * la recomposition, un `Channel` ne redonnant pas ce qu'il a déjà rendu à un collecteur — la
+ * composition Lottie repart donc d'elle-même à chaque nouvelle apparition du calque, sans compteur
+ * à incrémenter comme `ClapAvatar` en avait besoin.
  */
 @Composable
 fun FilmEnregistreCalque(film: FilmEnregistre, carton: CartonViewModel?, onFermer: () -> Unit) {
     val haptique = LocalHapticFeedback.current
-    // `ClapAvatar` ne rejoue son `AnimatedVectorDrawable` que sur un changement de `claques`
-    // (`ClapAvatar.kt`) : partir de 0 puis l'incrémenter dans l'effet ci-dessous, plutôt que de
-    // partir déjà à 1, est ce qui produit ce changement à la toute première composition.
-    var claques by remember { mutableIntStateOf(0) }
     val secousse = remember { Animatable(Offset.Zero, Offset.VectorConverter) }
     var flashVisible by remember { mutableStateOf(false) }
     var contenuVisible by remember { mutableStateOf(false) }
 
     LaunchedEffect(film) {
-        claques += 1
-        // L'éclair, la secousse et l'haptique se calent sur l'instant où le volet se ferme, pas
-        // sur une durée codée à la main.
-        delay(DUREE_CLAQUEMENT_MS)
+        // L'éclair, la secousse et l'haptique se calent sur l'instant de l'impact, pas sur une
+        // durée codée à la main.
+        delay(INSTANT_IMPACT_MS)
         haptique.performHapticFeedback(HapticFeedbackType.Confirm)
         flashVisible = true
         // La secousse, 300 ms, en même temps que l'éclair.
@@ -116,14 +115,15 @@ fun FilmEnregistreCalque(film: FilmEnregistre, carton: CartonViewModel?, onFerme
         contentAlignment = Alignment.Center,
     ) {
         // Le clap agrandi (retour du propriétaire, 23 septembre 2026 soir : « un peu petit ») :
-        // 260 dp, ou 70 % de la largeur de l'écran si c'est plus petit (un téléphone étroit) —
-        // toujours net, l'`AnimatedVectorDrawable` de `ClapAvatar` restant un vecteur à toute taille.
+        // 260 dp, ou 70 % de la largeur de l'écran si c'est plus petit (un téléphone étroit).
         val tailleClap = minOf(260.dp, maxWidth * 0.7f)
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            ClapAvatar(
-                claques = claques,
-                description = "${film.titre} enregistré",
-                modifier = Modifier.size(tailleClap).offset(x = secousse.value.x.dp, y = secousse.value.y.dp),
+            Animation(
+                nom = "clap-2",
+                modifier = Modifier
+                    .size(tailleClap)
+                    .offset(x = secousse.value.x.dp, y = secousse.value.y.dp)
+                    .semantics { contentDescription = "${film.titre} enregistré" },
             )
             AnimatedVisibility(visible = contenuVisible, enter = fadeIn(tween(200))) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
