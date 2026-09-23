@@ -29,37 +29,37 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import fr.mediatheque.journal.AppContainer
 import fr.mediatheque.journal.reactions.Reactions
+import fr.mediatheque.journal.ui.celebrations.FilmEnregistreCalque
 import fr.mediatheque.journal.ui.cinema.routeCinema
 import fr.mediatheque.journal.ui.films.routeFilms
 import fr.mediatheque.journal.ui.form.CartonViewModel
-import fr.mediatheque.journal.ui.form.routeForm
 import fr.mediatheque.journal.ui.form.routeEdit
+import fr.mediatheque.journal.ui.form.routeForm
 import fr.mediatheque.journal.ui.frise.FriseViewModel
+import fr.mediatheque.journal.ui.frise.TicketHote
+import fr.mediatheque.journal.ui.frise.routeAnnee
+import fr.mediatheque.journal.ui.frise.routeDecennie
+import fr.mediatheque.journal.ui.frise.routeFicheVoyage
+import fr.mediatheque.journal.ui.frise.routeFrise
+import fr.mediatheque.journal.ui.frise.routeGenerique
 import fr.mediatheque.journal.ui.home.routeHome
 import fr.mediatheque.journal.ui.login.LoginScreen
 import fr.mediatheque.journal.ui.login.LoginViewModel
-import fr.mediatheque.journal.ui.celebrations.FilmEnregistreCalque
-import fr.mediatheque.journal.ui.frise.routeFrise
-import fr.mediatheque.journal.ui.frise.routeAnnee
-import fr.mediatheque.journal.ui.frise.routeFicheVoyage
-import fr.mediatheque.journal.ui.frise.routeDecennie
-import fr.mediatheque.journal.ui.frise.routeGenerique
-import fr.mediatheque.journal.ui.frise.TicketHote
 import fr.mediatheque.journal.ui.profile.LetterboxdImportViewModel
 import fr.mediatheque.journal.ui.profile.SensCritiqueViewModel
 import fr.mediatheque.journal.ui.profile.routeProfile
-import fr.mediatheque.journal.ui.profile.routeSensCritique
 import fr.mediatheque.journal.ui.profile.routeRapportImport
+import fr.mediatheque.journal.ui.profile.routeSensCritique
 import fr.mediatheque.journal.ui.realisateur.RealisateurResolveur
-import fr.mediatheque.journal.ui.realisateur.routeRealisateur
 import fr.mediatheque.journal.ui.realisateur.routeFicheFilm
-import fr.mediatheque.journal.ui.suivis.SuivisViewModel
-import fr.mediatheque.journal.ui.suivis.routeSuivis
-import fr.mediatheque.journal.ui.suivis.routeChercherSuivi
-import fr.mediatheque.journal.ui.suivis.routeFicheSuivi
-import fr.mediatheque.journal.ui.suivis.routeChoisirFilmDeSaga
-import fr.mediatheque.journal.ui.search.routeSearch
+import fr.mediatheque.journal.ui.realisateur.routeRealisateur
 import fr.mediatheque.journal.ui.search.SearchViewModel
+import fr.mediatheque.journal.ui.search.routeSearch
+import fr.mediatheque.journal.ui.suivis.SuivisViewModel
+import fr.mediatheque.journal.ui.suivis.routeChercherSuivi
+import fr.mediatheque.journal.ui.suivis.routeChoisirFilmDeSaga
+import fr.mediatheque.journal.ui.suivis.routeFicheSuivi
+import fr.mediatheque.journal.ui.suivis.routeSuivis
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -248,7 +248,6 @@ fun Root(container: AppContainer) {
                     }
                 },
             ) { pile ->
-                val animatedVisibilityScope = this
                 // Le contexte que chaque route reçoit (`PorteeEcrans.kt`), construit ici et pas
                 // au-dessus : `this` est la portée de visibilité de *cette* branche, différente
                 // pour celle qui sort et celle qui entre pendant une transition.
