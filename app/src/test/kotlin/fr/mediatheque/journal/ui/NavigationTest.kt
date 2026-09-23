@@ -16,6 +16,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -135,5 +136,66 @@ class NavigationTest {
             Screen.FicheFilm(525, 27205),
         )
         caches.forEach { screen -> assertNull(screen.bottomBarTab()) }
+    }
+
+    // La clé du défilement sauvegardé (peaufinage du 23 septembre 2026, « le défilement survit au
+    // retour ») : fonction pure de la position dans la pile et de l'écran. Mutation : une clé qui
+    // ignore la position (ne renvoyant que l'écran) fait tomber la première assertion, deux
+    // occurrences du même écran à des places différentes se confondant alors.
+    @Test
+    fun `saveableKey depend de la position et de l ecran`() {
+        assertNotEquals(saveableKey(0, Screen.Home), saveableKey(1, Screen.Home))
+        assertEquals(saveableKey(2, Screen.Frise), saveableKey(2, Screen.Frise))
+        assertNotEquals(saveableKey(1, Screen.Frise), saveableKey(1, Screen.Suivis))
+    }
+
+    // La clé reste courte même pour un écran qui porte une grosse charge (relecture du
+    // 23 septembre 2026) : `toString()` d'un `Screen.Annee` embarquerait tous ses films, une clé
+    // de plusieurs Ko dans le `SaveableStateHolder` et le Bundle d'instance. Mutation : revenir à
+    // `"$index:$screen"` (l'ancienne formule) fait dépasser la longueur attendue.
+    @Test
+    fun `saveableKey reste courte meme pour un ecran charge`() {
+        val filmExemple = JournalItem(
+            entry = LogEntry(id = "entry-1", media_id = "media-1", finished_at = "2026-09-03"),
+            media = JournalMedia(id = "media-1", title = "Le Voyage de Chihiro"),
+            carnet = Carnet(),
+        )
+        val anneeChargee = fr.mediatheque.journal.ui.frise.AnneeFrise(2001, List(50) { filmExemple }, emptyList())
+        val cle = saveableKey(3, Screen.Annee(anneeChargee))
+        assertTrue("la cle devrait faire moins de 80 caracteres, en fait ${cle.length}", cle.length < 80)
+    }
+
+    // `clesLibereesParChangementDePile` ne rend que la queue dépilée (un `pop`, ou `home()` qui
+    // vide davantage), jamais ce qui reste en tête ni ce qui s'ajoute. Mutation : libérer aussi la
+    // tête commune fait tomber la première assertion (elle attend une liste vide sur un simple
+    // `push`) ; ne rien libérer sur un `pop` fait tomber la deuxième.
+    @Test
+    fun `clesLibereesParChangementDePile ne rend que la queue depilee`() {
+        val ancienne = listOf(Screen.Home, Screen.Frise, Screen.Suivis)
+
+        assertEquals(
+            emptyList<String>(),
+            clesLibereesParChangementDePile(listOf(Screen.Home), listOf(Screen.Home, Screen.Frise)),
+        )
+
+        val apresPop = clesLibereesParChangementDePile(ancienne, listOf(Screen.Home, Screen.Frise))
+        assertEquals(listOf(saveableKey(2, Screen.Suivis)), apresPop)
+
+        val apresHome = clesLibereesParChangementDePile(ancienne, listOf(Screen.Home))
+        assertEquals(listOf(saveableKey(1, Screen.Frise), saveableKey(2, Screen.Suivis)), apresHome)
+    }
+
+    // Le sens d'une transition (geste 7, « transitions avec profondeur ») se déduit de la seule
+    // taille de la pile avant et après. Mutation : inverser les deux branches (`1 -> Pop`, `-1 ->
+    // Push`) fait tomber les deux premières assertions.
+    @Test
+    fun `sensDeTransition distingue push, pop et remplace`() {
+        assertEquals(SensTransition.Push, sensDeTransition(listOf(Screen.Home), listOf(Screen.Home, Screen.Frise)))
+        assertEquals(SensTransition.Pop, sensDeTransition(listOf(Screen.Home, Screen.Frise), listOf(Screen.Home)))
+        assertEquals(
+            SensTransition.Remplace,
+            sensDeTransition(listOf(Screen.Home, Screen.Frise, Screen.Suivis), listOf(Screen.Home)),
+        )
+        assertEquals(SensTransition.Remplace, sensDeTransition(listOf(Screen.Home), listOf(Screen.Home)))
     }
 }

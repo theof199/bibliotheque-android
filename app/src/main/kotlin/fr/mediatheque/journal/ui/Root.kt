@@ -14,6 +14,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -180,8 +181,28 @@ fun Root(container: AppContainer) {
             // au-dessus du `Crossfade`, dans ce `Box` : il doit pouvoir s'afficher par-dessus
             // n'importe quel écran (la Frise à son ouverture, ou l'accueil juste après un
             // enregistrement), pas seulement l'un d'eux.
+            //
+            // Le défilement survit au retour (peaufinage du 23 septembre 2026) : `stateHolder`,
+            // hoisté ici comme `nav` plus haut, garde l'état sauvegardable (`rememberLazyListState`
+            // et consorts) de chaque entrée de la pile pendant qu'elle est disposée par le
+            // `Crossfade` — sans lui, revenir en arrière rouvrirait toujours en haut de la page.
+            // `pileConnue` retient l'ancienne pile pour libérer les clés des entrées qui l'ont
+            // quittée (`clesLibereesParChangementDePile`, `Navigation.kt`) : un écran rouvert plus
+            // tard repart donc en haut plutôt que de fuiter l'état d'une visite oubliée.
+            val stateHolder = rememberSaveableStateHolder()
+            var pileConnue by remember { mutableStateOf(nav.stack) }
+            LaunchedEffect(nav.stack) {
+                clesLibereesParChangementDePile(pileConnue, nav.stack).forEach { stateHolder.removeState(it) }
+                pileConnue = nav.stack
+            }
             Box(Modifier.fillMaxSize()) {
-            Crossfade(targetState = nav.current, animationSpec = tween(200), label = "ecran") { screen ->
+            // `targetState` porte la pile entière, pas seulement `nav.current` : la lambda a ainsi
+            // toujours la position exacte de l'écran qu'elle rend (`pile.lastIndex`), y compris
+            // pour la branche encore affichée pendant le fondu, plutôt que de relire `nav.stack`
+            // au moment de la composition, déjà avancé sur la pile suivante.
+            Crossfade(targetState = nav.stack, animationSpec = tween(200), label = "ecran") { pile ->
+                val screen = pile.last()
+                stateHolder.SaveableStateProvider(saveableKey(pile.lastIndex, screen)) {
                 when (screen) {
                     Screen.Home -> {
                         // Même `FilmsViewModel` que `Screen.Films` plus bas (même clé `"films"`) :
@@ -725,6 +746,7 @@ fun Root(container: AppContainer) {
                             onTermine = nav::pop,
                         )
                     }
+                }
                 }
             }
             // Nourri par `FriseViewModel` (décision 2) : dès que `ticketAMontrer` est non nul, le

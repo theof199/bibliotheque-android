@@ -328,6 +328,56 @@ class Navigator {
 fun rememberNavigator(): Navigator = remember { Navigator() }
 
 /**
+ * Le défilement survit au retour (peaufinage du 23 septembre 2026) : `Root.kt` dispose la branche
+ * quittée à chaque changement d'écran (`Crossfade`, puis `AnimatedContent` au geste 7), et
+ * `rememberLazyListState`/`rememberScrollState` repartent donc à zéro sans un `rememberSaveableStateHolder()`
+ * hoisté au-dessus, dont chaque écran lit et écrit son état par cette clé.
+ *
+ * Fonction pure de la position dans la pile et de l'écran : deux entrées différentes de la pile
+ * (position ou écran différents) donnent deux clés, la même entrée (même position, même écran) la
+ * même clé. La position seule ne suffirait pas (un `pop` suivi d'un `push` vers un autre écran
+ * réutiliserait l'état de l'ancien occupant de la place) ; l'écran seul non plus (le revoir plus
+ * bas dans la pile, empilé deux fois, partagerait son défilement avec lui-même).
+ *
+ * Le nom de la classe et `hashCode()`, pas `toString()` (relecture du 23 septembre 2026) :
+ * `toString()` d'un `Screen.Annee` ou d'un `Screen.Edit` embarque l'objet entier, listes de films
+ * comprises — une clé de plusieurs Ko dans le `SaveableStateHolder` et dans le Bundle d'instance.
+ * `hashCode()` d'une `data class` reste stable pour un même contenu, courte, et distingue déjà
+ * deux écrans différents dans l'immense majorité des cas.
+ */
+fun saveableKey(index: Int, screen: Screen): String = "$index:${screen::class.simpleName}:${screen.hashCode()}"
+
+/**
+ * Les clés à libérer de `rememberSaveableStateHolder()` quand la pile change : celles des entrées
+ * de l'ancienne pile qui n'ont plus leur pareille (même position, même écran) dans la nouvelle —
+ * essentiellement la queue dépilée par un `pop` ou vidée par `home()`. Un écran rouvert plus tard
+ * reçoit donc un état neuf (« repart en haut »), sans que l'ancien n'ait jamais fui.
+ */
+fun clesLibereesParChangementDePile(ancienne: List<Screen>, nouvelle: List<Screen>): List<String> =
+    ancienne.mapIndexedNotNull { index, screen ->
+        val cle = saveableKey(index, screen)
+        val nouvelEcran = nouvelle.getOrNull(index)
+        if (nouvelEcran == null || saveableKey(index, nouvelEcran) != cle) cle else null
+    }
+
+/**
+ * Le sens d'une transition entre deux piles (geste 7 du peaufinage du 23 septembre 2026,
+ * « transitions avec profondeur ») : `Push` quand la nouvelle pile est exactement un cran plus
+ * profonde (`Navigator.push`), `Pop` quand elle est exactement un cran moins profonde
+ * (`Navigator.pop`), `Remplace` sinon — en particulier `home()`, qui vide la pile d'un coup et
+ * peut donc la faire descendre de plus d'un cran. Fonction pure, déduite de la seule taille de la
+ * pile avant et après.
+ */
+enum class SensTransition { Push, Pop, Remplace }
+
+fun sensDeTransition(ancienne: List<Screen>, nouvelle: List<Screen>): SensTransition =
+    when (nouvelle.size - ancienne.size) {
+        1 -> SensTransition.Push
+        -1 -> SensTransition.Pop
+        else -> SensTransition.Remplace
+    }
+
+/**
  * Deux secondes (design §6), jamais la durée par défaut de Material : l'API
  * `SnackbarHostState.showSnackbar` n'a pas de paramètre de durée libre, donc
  * une snackbar indéfinie qu'on referme nous-mêmes après le délai (décision 3
