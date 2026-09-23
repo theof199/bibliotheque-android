@@ -11,6 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -107,18 +108,22 @@ fun FilmEnregistreCalque(film: FilmEnregistre, carton: CartonViewModel?, onFerme
         onFermer()
     }
 
-    Box(
+    BoxWithConstraints(
         Modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.92f))
             .clickable(onClick = onFermer),
         contentAlignment = Alignment.Center,
     ) {
+        // Le clap agrandi (retour du propriétaire, 23 septembre 2026 soir : « un peu petit ») :
+        // 260 dp, ou 70 % de la largeur de l'écran si c'est plus petit (un téléphone étroit) —
+        // toujours net, l'`AnimatedVectorDrawable` de `ClapAvatar` restant un vecteur à toute taille.
+        val tailleClap = minOf(260.dp, maxWidth * 0.7f)
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
             ClapAvatar(
                 claques = claques,
                 description = "${film.titre} enregistré",
-                modifier = Modifier.size(160.dp).offset(x = secousse.value.x.dp, y = secousse.value.y.dp),
+                modifier = Modifier.size(tailleClap).offset(x = secousse.value.x.dp, y = secousse.value.y.dp),
             )
             AnimatedVisibility(visible = contenuVisible, enter = fadeIn(tween(200))) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
