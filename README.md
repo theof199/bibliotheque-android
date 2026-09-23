@@ -161,6 +161,12 @@ contraintes se croisent :
 Reste la 3.4.0 : Kotlin 2.3.10, `minCompileSdk=35`. Monter Coil demandera donc
 de monter Kotlin, et ce sera une décision à prendre en entier, pas en passant.
 
+Les polices embarquées (`res/font/`, jamais téléchargées) sont toutes sous licence SIL Open Font
+License : Manrope, Fraunces (`undercasetype/Fraunces`, statiques de `fonts/ttf/`, habillage
+« papier et pellicule » du 23 septembre 2026) et Limelight (`google/fonts` → `ofl/limelight`, un
+seul style, réservée aux titres de célébration). Les trois licences, `OFL-Manrope.txt`,
+`OFL-Fraunces.txt` et `OFL-Limelight.txt`, vivent dans `app/src/main/assets/`.
+
 ## SensCritique
 
 Décision du propriétaire du 14 septembre 2026 : quand il note un film dans l'appli, la note et la
