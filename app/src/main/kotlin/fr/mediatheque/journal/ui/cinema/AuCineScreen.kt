@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -174,7 +175,12 @@ private fun SortiesSection(
     }
     val films = semaine?.films
     when {
-        films == null && loading -> Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+        // Le bloc à spinner réserve la hauteur d'une rangée d'affiches (peaufinage du 23 septembre
+        // 2026, geste 6) : la grille qui arrive ne décale plus « Tes séances » d'un coup.
+        films == null && loading -> Box(
+            Modifier.fillMaxWidth().heightIn(min = hauteur).padding(vertical = 8.dp),
+            contentAlignment = Alignment.Center,
+        ) {
             CircularProgressIndicator(Modifier.size(40.dp), color = MaterialTheme.colorScheme.primary)
         }
         films.isNullOrEmpty() -> Text(
@@ -237,7 +243,11 @@ private fun SortiesEnCoursSection(
 
     val message = enCours?.messageAuCine()
     when {
-        enCours == null && loading -> Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+        // Jumeau de `SortiesSection` ci-dessus (geste 6) : même réserve de hauteur.
+        enCours == null && loading -> Box(
+            Modifier.fillMaxWidth().heightIn(min = hauteur).padding(vertical = 8.dp),
+            contentAlignment = Alignment.Center,
+        ) {
             CircularProgressIndicator(Modifier.size(40.dp), color = MaterialTheme.colorScheme.primary)
         }
         // Ni chargement ni réponse encore arrivée (premier rendu, avant `refresh()`) : rien à montrer.

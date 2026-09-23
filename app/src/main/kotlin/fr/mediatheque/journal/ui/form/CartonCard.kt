@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -68,7 +69,11 @@ fun CartonCard(ui: CartonUi, attente: Boolean, onDismiss: () -> Unit, modifier: 
                         ui.faits.forEach { fait -> Text("· $fait", style = MaterialTheme.typography.bodyMedium, color = TextePapier) }
                     }
                 }
+                // Le bloc à spinner réserve à peu près la hauteur du contexte et de son premier
+                // fait (peaufinage du 23 septembre 2026, geste 6) : la grille de l'accueil, juste
+                // en dessous, ne saute plus d'un coup quand le chroniqueur a fini d'écrire.
                 EtatChronique.EN_PREPARATION -> Row(
+                    Modifier.heightIn(min = 64.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
