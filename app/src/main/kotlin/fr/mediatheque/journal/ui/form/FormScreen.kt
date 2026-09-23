@@ -105,20 +105,22 @@ fun FormScreen(
     // d'enregistrement ci-dessous et par `RatingDot` plus bas dans ce fichier.
     val haptique = LocalHapticFeedback.current
 
-    // Le `ViewModel` ne connaît pas `nav` (correction 1 de la tâche 6) : indexé sur le film ou
-    // l'entrée, il survivrait à une recréation d'Activité avec une référence à un `Navigator` mort
-    // avec la composition qui l'a créé. C'est `FormScreen`, recomposé avec le `nav` du moment, qui
-    // consomme le signal et referme la boucle.
-    LaunchedEffect(ui.done) {
-        ui.done?.let {
-            nav.home(it, ui.doneCartonTmdbId, ui.doneFilmAnnee)
-            vm.doneConsumed()
-        }
-    }
-
     val (title, coverUrl, sub) = when (val m = vm.mode) {
         is FormMode.Create -> Triple(m.result.title, m.result.cover_url, subtitle(m.result.metadata.director, m.result.year))
         is FormMode.Edit -> Triple(m.item.media.title, m.item.media.cover_url, subtitle(m.item.media.director, m.item.media.year))
+    }
+
+    // Le `ViewModel` ne connaît pas `nav` (correction 1 de la tâche 6) : indexé sur le film ou
+    // l'entrée, il survivrait à une recréation d'Activité avec une référence à un `Navigator` mort
+    // avec la composition qui l'a créé. C'est `FormScreen`, recomposé avec le `nav` du moment, qui
+    // consomme le signal et referme la boucle. `title` passe avec lui, pour la célébration
+    // (habillage du 23 septembre 2026, geste 9) — le film et l'année viennent du formulaire, par ce
+    // même canal, jamais par un état global.
+    LaunchedEffect(ui.done) {
+        ui.done?.let {
+            nav.home(it, ui.doneCartonTmdbId, ui.doneFilmAnnee, title)
+            vm.doneConsumed()
+        }
     }
     // Le réalisateur des métadonnées, touchable (décision 3 du brief du 21 septembre 2026, « la
     // page réalisateur », retouche du même jour : sur la création aussi, pas seulement en

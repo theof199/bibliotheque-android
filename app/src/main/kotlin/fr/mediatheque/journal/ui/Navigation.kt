@@ -289,6 +289,15 @@ class Navigator {
     val enregistrements: Flow<Unit> = _enregistrements.receiveAsFlow()
 
     /**
+     * Le film enregistré (habillage du 23 septembre 2026, geste 9) : le titre et l'année qui
+     * nourrissent le calque de célébration plein écran — jumeau de `_cartonRequests` (un événement
+     * à un coup), posé seulement sur une création réussie, jamais une correction ni une
+     * suppression (mêmes deux conditions que le carton et le ticket ci-dessus).
+     */
+    private val _filmsEnregistres = Channel<FilmEnregistre>(Channel.BUFFERED)
+    val filmsEnregistres: Flow<FilmEnregistre> = _filmsEnregistres.receiveAsFlow()
+
+    /**
      * Compteur dédié à `Screen.Search`, incrémenté seulement quand `push` y entre — jamais à un
      * `pop`, jamais sur un `push` vers un autre écran. Il sert à ne remettre à zéro la recherche
      * qu'à l'entrée depuis l'accueil (revue de la vague finale, mineur 8) : voir le commentaire
@@ -313,16 +322,22 @@ class Navigator {
      * l'année de sortie du film (brief du 21 septembre 2026, « le ticket ») qui déclenche la
      * relecture du ticket. Les deux sont nuls sur une correction ou une suppression.
      */
-    fun home(message: String? = null, cartonTmdbId: Int? = null, filmAnnee: Int? = null) {
+    fun home(message: String? = null, cartonTmdbId: Int? = null, filmAnnee: Int? = null, filmTitre: String? = null) {
         if (message != null) _messages.trySend(message)
         if (cartonTmdbId != null) _cartonRequests.trySend(cartonTmdbId)
         if (filmAnnee != null) _ticketRelectures.trySend(filmAnnee)
         // Un message ne sort que sur un geste terminé avec succès (« Enregistré », « Corrigé »,
         // « Supprimé ») — jamais sur un simple retour à l'accueil par la barre du bas.
         if (message != null) _enregistrements.trySend(Unit)
+        // La célébration (geste 9) ne sort que sur une création (le carton en est le même signal :
+        // `cartonTmdbId` reste nul sur une correction ou une suppression).
+        if (cartonTmdbId != null && filmTitre != null) _filmsEnregistres.trySend(FilmEnregistre(filmTitre, filmAnnee))
         stack = listOf(Screen.Home)
     }
 }
+
+/** Le film et l'année qui nourrissent le calque de célébration (habillage du 23 septembre 2026, geste 9). */
+data class FilmEnregistre(val titre: String, val annee: Int?)
 
 @Composable
 fun rememberNavigator(): Navigator = remember { Navigator() }

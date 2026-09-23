@@ -55,6 +55,7 @@ import fr.mediatheque.journal.ui.home.HomeScreen
 import fr.mediatheque.journal.ui.login.LoginScreen
 import fr.mediatheque.journal.ui.login.LoginViewModel
 import fr.mediatheque.journal.ui.frise.TicketAMontrerUi
+import fr.mediatheque.journal.ui.celebrations.FilmEnregistreCalque
 import fr.mediatheque.journal.ui.frise.TicketCalque
 import fr.mediatheque.journal.ui.profile.BilanViewModel
 import fr.mediatheque.journal.ui.profile.CarnetsViewModel
@@ -189,6 +190,18 @@ fun Root(container: AppContainer) {
             // `Screen.Home` ne soit recomposé pour le collecter.
             var cartonTmdbId by remember { mutableStateOf<Int?>(null) }
             LaunchedEffect(Unit) { nav.cartonRequests.collect { cartonTmdbId = it } }
+            // Hoisté ici (plutôt que dans la seule branche `Screen.Home` plus bas) : le calque de
+            // célébration (geste 9 ci-dessous) en a besoin par-dessus l'écran courant, pas
+            // seulement quand `Screen.Home` est affiché — `viewModel(key = ...)` rend la même
+            // instance des deux côtés, indexée sur l'Activité comme les autres ci-dessus.
+            val cartonHome: CartonViewModel? = cartonTmdbId?.let { id ->
+                viewModel(key = "carton-home-$id") { CartonViewModel(container.api, id, poll = true, session::expire) }
+            }
+            // La célébration d'un enregistrement (habillage du 23 septembre 2026, geste 9) : même
+            // raisonnement que `cartonTmdbId` ci-dessus, hoisté hors du `Crossfade` — l'événement à
+            // un coup de `nav.filmsEnregistres` doit trouver quelqu'un déjà là pour le collecter.
+            var filmEnregistre by remember { mutableStateOf<FilmEnregistre?>(null) }
+            LaunchedEffect(Unit) { nav.filmsEnregistres.collect { filmEnregistre = it } }
             // Le calque du ticket (décision 2 du brief du 21 septembre 2026, « le ticket ») se pose
             // au-dessus de l'`AnimatedContent`, dans ce `Box` : il doit pouvoir s'afficher par-
             // dessus n'importe quel écran (la Frise à son ouverture, ou l'accueil juste après un
@@ -276,9 +289,8 @@ fun Root(container: AppContainer) {
                         // Le Voyage : une instance par film demandé, jamais réutilisée pour un
                         // suivant (clé sur le `tmdb_id`) — `cartonTmdbId` retombe à `null` quand la
                         // carte se ferme, ce qui la démonte plutôt que de la garder en mémoire.
-                        val carton: CartonViewModel? = cartonTmdbId?.let { id ->
-                            viewModel(key = "carton-home-$id") { CartonViewModel(container.api, id, poll = true, session::expire) }
-                        }
+                        // Hoistée plus haut (`cartonHome`), partagée avec le calque de célébration.
+                        val carton: CartonViewModel? = cartonHome
                         HomeScreen(
                             vm = films,
                             nav = nav,
@@ -839,6 +851,17 @@ fun Root(container: AppContainer) {
                         onGarder = { frise.garderTicket(ticket.annee) },
                     )
                 }
+            }
+            // La célébration d'un enregistrement (habillage du 23 septembre 2026, geste 9) : le
+            // même genre de calque maison, au-dessus de tout — `nav.home(...)` a déjà vidé la pile
+            // sur `Screen.Home` au moment où l'événement arrive, donc `cartonHome` (hoisté plus
+            // haut) est déjà la bonne instance, la même que celle que l'accueil affiche derrière.
+            filmEnregistre?.let { film ->
+                FilmEnregistreCalque(
+                    film = film,
+                    carton = cartonHome,
+                    onFermer = { filmEnregistre = null },
+                )
             }
             }
         }
