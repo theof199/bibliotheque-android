@@ -30,7 +30,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -38,15 +37,19 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import fr.mediatheque.journal.ui.Embleme
-import fr.mediatheque.journal.ui.Emblemes
+import com.airbnb.lottie.LottieProperty
+import com.airbnb.lottie.compose.rememberLottieDynamicProperties
+import com.airbnb.lottie.compose.rememberLottieDynamicProperty
 import fr.mediatheque.journal.ui.frise.FrontiereAvancee
 import fr.mediatheque.journal.ui.frise.Recompense
+import fr.mediatheque.journal.ui.theme.Animation
+import fr.mediatheque.journal.ui.theme.Corail
 import fr.mediatheque.journal.ui.theme.Limelight
 import fr.mediatheque.journal.ui.theme.Or
 import kotlinx.coroutines.delay
@@ -132,15 +135,36 @@ private fun AmorceCompteARebours(chiffre: Int, tours: Float) {
     }
 }
 
-/** La récompense dorée et lustrée, le titre en Limelight, le bilan simplifié, et l'année suivante qui se dévoile. */
+/**
+ * La récompense, le titre en Limelight, le bilan simplifié, et l'année suivante qui se dévoile.
+ *
+ * Le glyphe vectoriel d'origine (`Embleme`) cède la place, pour cette seule apparition (brief des
+ * animations Lottie du 23 septembre 2026, soir), au trophée animé `trophee-1.json` — recoloré or
+ * `#E6B94A` / corail `#FF6B57` par propriété dynamique : le fichier ne porte que des oranges
+ * (`assets/lottie/LICENCES.md`), qui passent toutes à l'or ; la branche corail, écrite pour tout
+ * fichier qui porterait aussi des rouges, reste inerte ici — assumé, pas une erreur de lecture des
+ * couleurs d'origine. `Embleme` continue de servir ailleurs (la carte du Voyage, le cartouche de
+ * l'année, le passeport, le tampon « perdu ») : seule cette apparition change.
+ */
 @Composable
 private fun ContenuRecompense(anneeBouclee: Int, recompense: Recompense?, revele: Boolean) {
-    val echelle = remember { Animatable(0.4f) }
-    LaunchedEffect(Unit) { echelle.animateTo(1f, tween(700, easing = CubicBezierEasing(0.2f, 1.4f, 0.4f, 1f))) }
-
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
         recompense?.let {
-            Embleme(Emblemes.typeDe(it), taille = 72.dp, modifier = Modifier.scale(echelle.value), encre = Or, fond = Color.Black)
+            Animation(
+                nom = "trophee-1",
+                iterations = 1,
+                proprietes = rememberLottieDynamicProperties(
+                    rememberLottieDynamicProperty(
+                        property = LottieProperty.COLOR,
+                        keyPath = arrayOf("**"),
+                    ) { frameInfo ->
+                        val original = Color(frameInfo.startValue)
+                        // Oranges (vert dominant) vers l'or, rouges (vert faible) vers le corail.
+                        (if (original.green > 0.5f) Or else Corail).toArgb()
+                    },
+                ),
+                modifier = Modifier.size(72.dp),
+            )
         }
         Text(
             "$anneeBouclee\nDANS LA BOÎTE",
