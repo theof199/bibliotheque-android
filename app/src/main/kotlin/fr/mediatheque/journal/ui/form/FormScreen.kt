@@ -50,6 +50,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -99,6 +101,9 @@ fun FormScreen(
     var confirmDelete by remember { mutableStateOf(false) }
     var cartonVisible by remember { mutableStateOf(true) }
     val editing = vm.mode is FormMode.Edit
+    // Retour haptique (peaufinage du 23 septembre 2026, geste 10) : partagé par le bouton
+    // d'enregistrement ci-dessous et par `RatingDot` plus bas dans ce fichier.
+    val haptique = LocalHapticFeedback.current
 
     // Le `ViewModel` ne connaît pas `nav` (correction 1 de la tâche 6) : indexé sur le film ou
     // l'entrée, il survivrait à une recréation d'Activité avec une référence à un `Navigator` mort
@@ -235,7 +240,8 @@ fun FormScreen(
 
         Column(Modifier.padding(16.dp)) {
             Button(
-                onClick = vm::save,
+                // Retour haptique (geste 10) : valider un enregistrement est un `Confirm`.
+                onClick = { haptique.performHapticFeedback(HapticFeedbackType.Confirm); vm.save() },
                 enabled = !ui.busy,
                 shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.fillMaxWidth().height(52.dp),
@@ -323,11 +329,14 @@ private fun RatingDot(n: Int, selected: Boolean, onClick: () -> Unit) {
         animationSpec = tween(150), label = "note",
     )
     val texte = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+    // Retour haptique (peaufinage du 23 septembre 2026, geste 10) : poser une note est un des
+    // gestes de la palette Compose, `SegmentTick` — au tap comme au retrait.
+    val haptique = LocalHapticFeedback.current
     Box(
         Modifier
             .size(48.dp)
             .background(fond, CircleShape)
-            .clickable(onClick = onClick)
+            .clickable(onClick = { haptique.performHapticFeedback(HapticFeedbackType.SegmentTick); onClick() })
             .semantics { contentDescription = "Note $n sur 10"; this.selected = selected },
         contentAlignment = Alignment.Center,
     ) { Text("$n", style = MaterialTheme.typography.labelLarge, color = texte) }

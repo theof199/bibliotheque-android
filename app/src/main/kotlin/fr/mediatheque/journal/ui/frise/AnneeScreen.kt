@@ -71,6 +71,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
@@ -1178,6 +1180,8 @@ private fun NouvelleSalleSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var etat by remember { mutableStateOf(NouvelleSalleEtat()) }
+    // Retour haptique (peaufinage du 23 septembre 2026, geste 10) : valider une nouvelle salle.
+    val haptique = LocalHapticFeedback.current
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
@@ -1216,7 +1220,10 @@ private fun NouvelleSalleSheet(
                 modifier = Modifier.fillMaxWidth(),
             )
             Button(
-                onClick = { onDemander(etat.texte.trim(), etat.pisteTouchee) },
+                onClick = {
+                    haptique.performHapticFeedback(HapticFeedbackType.Confirm)
+                    onDemander(etat.texte.trim(), etat.pisteTouchee)
+                },
                 enabled = etat.texte.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("Demander") }

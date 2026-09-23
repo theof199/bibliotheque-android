@@ -60,6 +60,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
@@ -429,12 +431,20 @@ private fun AfficheFilmographie(
 @Composable
 private fun IntrouvableSheetFilmographie(film: FilmDeFilmographie, onMarquer: () -> Unit, onRetirer: () -> Unit, onDismiss: () -> Unit) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    // Retour haptique (peaufinage du 23 septembre 2026, geste 10) : jumeau d'`IntrouvableSheet`.
+    val haptique = LocalHapticFeedback.current
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
             if (film.introuvable) {
-                TextButton(onClick = onRetirer) { Text("Le remettre à voir") }
+                TextButton(onClick = {
+                    haptique.performHapticFeedback(HapticFeedbackType.ToggleOff)
+                    onRetirer()
+                }) { Text("Le remettre à voir") }
             } else {
-                TextButton(onClick = onMarquer) { Text("Marquer introuvable") }
+                TextButton(onClick = {
+                    haptique.performHapticFeedback(HapticFeedbackType.ToggleOn)
+                    onMarquer()
+                }) { Text("Marquer introuvable") }
             }
             TextButton(onClick = onDismiss) { Text("Annuler") }
         }

@@ -44,6 +44,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextAlign
@@ -266,13 +268,22 @@ private fun IntrouvableSheet(
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    // Retour haptique (peaufinage du 23 septembre 2026, geste 10) : cocher ou décocher
+    // « introuvable » est un `ToggleOn`/`ToggleOff`.
+    val haptique = LocalHapticFeedback.current
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
             if (film.vu == null) {
                 if (film.introuvable) {
-                    TextButton(onClick = onRetirer) { Text("Le remettre à voir") }
+                    TextButton(onClick = {
+                        haptique.performHapticFeedback(HapticFeedbackType.ToggleOff)
+                        onRetirer()
+                    }) { Text("Le remettre à voir") }
                 } else {
-                    TextButton(onClick = onMarquer) { Text("Marquer introuvable") }
+                    TextButton(onClick = {
+                        haptique.performHapticFeedback(HapticFeedbackType.ToggleOn)
+                        onMarquer()
+                    }) { Text("Marquer introuvable") }
                 }
             }
             if (peutRetirerDeSaga) {
