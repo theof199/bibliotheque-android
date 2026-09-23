@@ -228,6 +228,15 @@ ligne est la date du visionnage, écrite en toutes lettres : « 3 septembre
 `titleMedium onSurface` : « 8 ». Les réactions sont sous le titre, emojis
 seuls, sans leur phrase.
 
+### Les icônes (23 septembre 2026, soir)
+
+Toutes les icônes de l'application viennent de [Tabler Icons](https://tabler.io/icons) (MIT), à la
+place du fait main : le propriétaire les a trouvées plus crédibles, plus pro. Trait 1,75, couleur
+`#FFFFFFFF` teintée à l'usage par `IconeTabler` (`?attr/colorControlNormal` de l'idiome vue
+classique, ici la couleur du contenu qui les entoure) — jamais une icône Material. La chaîne qui
+les produit, `bin/icones`, et le format qu'elles remplacent (`Icons.*`, les `Text("✦")`) sont dans
+le README, « Les icônes ».
+
 ---
 
 ## 4. Formes, tailles, espacements
@@ -933,7 +942,13 @@ d'API hors de `Endpoints.kt` », pour la même raison.
   décoratives », contraires à « sobre » : la sobriété elle-même est retombée ce jour-là (§1, §7), et
   l'application porte maintenant des dizaines de gestes qui n'existent que pour eux-mêmes — le
   calque d'un film enregistré, le générique d'une décennie, le carton-titre d'un monde. Le retour
-  haptique, resté seul rescapé de cette ligne au peaufinage, l'a alors déjà quittée.*
+  haptique, resté seul rescapé de cette ligne au peaufinage, l'a alors déjà quittée.* *Le 23 septembre
+  2026 (soir), une exception étroite et assumée : les trois récompenses du Voyage (Ours, Lion,
+  Palme) et les deux tampons (passeport, « perdu ») seront, à terme, des images que le propriétaire
+  dessine lui-même — « les choses faites main ne sont pas si bien faites » — plutôt que les glyphes
+  vectoriels d'aujourd'hui, qui restent leur substitut tant que ces images n'existent pas
+  (`Embleme`, README « Les emblèmes »). Cinq images, pas une politique : le reste de l'application
+  ne change rien à cette ligne.*
 - **Une police téléchargeable.** Manrope, Fraunces et Limelight (§3) vivent toutes trois en fichiers
   statiques dans `res/font/` : le téléphone n'a pas à dépendre des services Google pour afficher un
   titre. *Jusqu'au 23 septembre 2026, cette ligne disait « une police pour les titres différente de
