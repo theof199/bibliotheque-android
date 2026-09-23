@@ -2,6 +2,8 @@ package fr.mediatheque.journal.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -79,6 +81,7 @@ import fr.mediatheque.journal.ui.suivis.formulaire
 import fr.mediatheque.journal.ui.search.SearchScreen
 import fr.mediatheque.journal.ui.search.SearchViewModel
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun Root(container: AppContainer) {
     val session: SessionViewModel = viewModel {
@@ -200,7 +203,12 @@ fun Root(container: AppContainer) {
                 clesLibereesParChangementDePile(pileConnue, nav.stack).forEach { stateHolder.removeState(it) }
                 pileConnue = nav.stack
             }
-            Box(Modifier.fillMaxSize()) {
+            // L'affiche partagée (geste 8) : `SharedTransitionLayout` remplace le `Box` — il se
+            // comporte comme lui pour la superposition du calque du ticket plus bas — et fournit
+            // la portée que `Cover` a besoin de connaître (`AfficheVolante`, `ui/Cover.kt`) pour
+            // faire voler une affiche entre une grille et sa fiche.
+            SharedTransitionLayout(Modifier.fillMaxSize()) {
+            val sharedTransitionScope = this
             // `targetState` porte la pile entière, pas seulement `nav.current` : la lambda a ainsi
             // toujours la position exacte de l'écran qu'elle rend (`pile.lastIndex`), y compris
             // pour la branche encore affichée pendant la transition, plutôt que de relire
@@ -229,6 +237,7 @@ fun Root(container: AppContainer) {
                     }
                 },
             ) { pile ->
+                val animatedVisibilityScope = this
                 val screen = pile.last()
                 stateHolder.SaveableStateProvider(saveableKey(pile.lastIndex, screen)) {
                 when (screen) {
@@ -269,6 +278,10 @@ fun Root(container: AppContainer) {
                         HomeScreen(
                             vm = films,
                             nav = nav,
+                            // L'affiche partagée (geste 8) : la grille de l'accueil est un des deux
+                            // bouts de la paire vers « la fiche d'entrée » (`Screen.Edit` ci-dessous).
+                            sharedTransitionScope = sharedTransitionScope,
+                            animatedVisibilityScope = animatedVisibilityScope,
                             ensuite = friseUi.ensuite,
                             ensuiteRealisateur = entiteEnCours(SourceSuivi.REALISATEURS, suivisUi.realisateurs.entites, suivisUi.realisateurs.filmographies),
                             ensuiteSaga = entiteEnCours(SourceSuivi.SAGAS, suivisUi.sagas.entites, suivisUi.sagas.filmographies),
@@ -404,6 +417,9 @@ fun Root(container: AppContainer) {
                             films,
                             onBack = nav::pop,
                             onOpen = { nav.push(Screen.Edit(it)) },
+                            // L'affiche partagée (geste 8) : jumeau de l'accueil, même paire.
+                            sharedTransitionScope = sharedTransitionScope,
+                            animatedVisibilityScope = animatedVisibilityScope,
                             // « Profil » est surlignée ici mais ramène au profil par un `pop`, pas
                             // un `push` : cet écran ne s'empile que depuis lui.
                             bottomBar = {
@@ -470,6 +486,9 @@ fun Root(container: AppContainer) {
                             onBack = nav::pop,
                             carton = carton,
                             chronique = chronique,
+                            // L'affiche partagée (geste 8) : l'autre bout de la paire ouverte
+                            // depuis l'accueil ou « Mes films » — même clé qu'elles.
+                            volante = AfficheVolante(sharedTransitionScope, animatedVisibilityScope, "affiche-journal-${screen.item.entry.id}"),
                         )
                     }
                     Screen.SensCritique -> SensCritiqueScreen(senscritique, onBack = nav::pop)
@@ -540,6 +559,10 @@ fun Root(container: AppContainer) {
                             anneeVm,
                             realisateurResolveur = realisateurResolveur,
                             onBack = nav::pop,
+                            // L'affiche partagée (geste 8) : la salle du Voyage est un des deux
+                            // bouts de la paire vers `Screen.FicheVoyage` plus bas — même clé.
+                            sharedTransitionScope = sharedTransitionScope,
+                            animatedVisibilityScope = animatedVisibilityScope,
                             onOpenFilm = { salleId, filmId -> nav.push(Screen.FicheVoyage(screen.annee.annee ?: 0, salleId, filmId)) },
                             // Le ticket (brief du 21 septembre 2026) : encaisser le ticket de la
                             // ligne du bas avance l'année en cours côté back sans toucher
@@ -599,6 +622,9 @@ fun Root(container: AppContainer) {
                             journalItem = journalItem,
                             carton = carton,
                             realisateurResolveur = realisateurResolveur,
+                            // L'affiche partagée (geste 8) : même clé que la salle d'où on vient —
+                            // absente (donc sans vol) quand on arrive directement d'une filmographie.
+                            volante = AfficheVolante(sharedTransitionScope, animatedVisibilityScope, "affiche-voyage-${screen.salleId}-${screen.filmId}"),
                             onBack = nav::pop,
                             onOpenForm = { nav.push(Screen.Form(it)) },
                             onPodiumChange = { frise.refresh() },
@@ -708,6 +734,10 @@ fun Root(container: AppContainer) {
                             realisateurVm,
                             realisateurResolveur,
                             onBack = nav::pop,
+                            // L'affiche partagée (geste 8) : la grille de la filmographie est un des
+                            // deux bouts de la paire vers `Screen.FicheFilm` plus bas — même clé.
+                            sharedTransitionScope = sharedTransitionScope,
+                            animatedVisibilityScope = animatedVisibilityScope,
                             // Le tap sur une affiche (décision 2 du brief du 21 septembre 2026, «
                             // la page réalisateur ») : la fiche du Voyage si le film y a une ligne,
                             // sinon la fiche simple de ce même écran.
@@ -733,6 +763,8 @@ fun Root(container: AppContainer) {
                             realisateurResolveur,
                             filmTmdbId = screen.filmTmdbId,
                             onBack = nav::pop,
+                            // L'affiche partagée (geste 8) : même clé que la grille d'où on vient.
+                            volante = AfficheVolante(sharedTransitionScope, animatedVisibilityScope, "affiche-realisateur-${screen.filmTmdbId}"),
                             onOuvrirForm = { nav.push(Screen.Form(it)) },
                             onOuvrirRealisateur = { id -> nav.push(Screen.Realisateur(id)) },
                         )

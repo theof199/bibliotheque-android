@@ -1,5 +1,6 @@
 package fr.mediatheque.journal.ui.realisateur
 
+import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,7 +36,9 @@ import androidx.compose.ui.unit.dp
 import fr.mediatheque.journal.api.dto.FilmDeFilmographie
 import fr.mediatheque.journal.api.dto.SearchMetadata
 import fr.mediatheque.journal.api.dto.SearchResult
+import fr.mediatheque.journal.ui.AfficheVolante
 import fr.mediatheque.journal.ui.Cover
+import fr.mediatheque.journal.ui.voler
 import fr.mediatheque.journal.ui.frise.ouvrirPlex
 import fr.mediatheque.journal.ui.showBriefly
 
@@ -50,6 +53,7 @@ import fr.mediatheque.journal.ui.showBriefly
  * Une série (`type == "tv"`) n'a ni « Je l'ai vu » ni formulaire (`boutonsFicheFilm`) : elle garde
  * seulement Plex et Sir, avec la ligne « Les séries se suivent dans Suivis ».
  */
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun FicheFilmScreen(
     vm: RealisateurViewModel,
@@ -58,6 +62,9 @@ fun FicheFilmScreen(
     onBack: () -> Unit,
     onOuvrirForm: (SearchResult) -> Unit,
     onOuvrirRealisateur: (Int) -> Unit,
+    // L'affiche partagée (peaufinage du 23 septembre 2026, geste 8) : même clé que la grille de la
+    // filmographie d'où cette fiche s'est ouverte (`Root.kt`).
+    volante: AfficheVolante? = null,
 ) {
     val ui by vm.ui.collectAsState()
     val snackbar = remember { SnackbarHostState() }
@@ -97,7 +104,7 @@ fun FicheFilmScreen(
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Cover(film.cover_url, film.title, 96.dp, 144.dp)
+                Cover(film.cover_url, film.title, 96.dp, 144.dp, modifier = Modifier.voler(volante))
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(film.title, style = MaterialTheme.typography.titleLarge)
                     if (film.original_title != null && film.original_title != film.title) {

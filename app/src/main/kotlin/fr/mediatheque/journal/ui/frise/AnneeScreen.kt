@@ -1,6 +1,9 @@
 package fr.mediatheque.journal.ui.frise
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -82,7 +85,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import fr.mediatheque.journal.api.dto.SearchMetadata
 import fr.mediatheque.journal.api.dto.SearchResult
+import fr.mediatheque.journal.ui.AfficheVolante
 import fr.mediatheque.journal.ui.Cover
+import fr.mediatheque.journal.ui.afficheVolante
+import fr.mediatheque.journal.ui.voler
 import fr.mediatheque.journal.ui.formatDateTime
 import fr.mediatheque.journal.ui.realisateur.NomRealisateurTouchable
 import fr.mediatheque.journal.ui.realisateur.RealisateurResolveur
@@ -110,6 +116,7 @@ import java.time.LocalDate
  * `GET /me/voyage/annees/{annee}` n'ait répondu, et à fournir mes films vus de l'année au podium
  * (`annee.vus`, décision 2 du brief du 21 septembre 2026).
  */
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun AnneeScreen(
     annee: AnneeFrise,
@@ -125,6 +132,10 @@ fun AnneeScreen(
     onSeanceChange: () -> Unit = {},
     /** Le nom du réalisateur est touchable sur la carte de soirée (décision 3 du brief du 21 septembre 2026, « la page réalisateur »). */
     onOuvrirRealisateur: (Int) -> Unit = {},
+    // L'affiche partagée (peaufinage du 23 septembre 2026, geste 8) : la salle est un des deux
+    // bouts de la paire vers `Screen.FicheVoyage` (`Root.kt`).
+    sharedTransitionScope: SharedTransitionScope? = null,
+    animatedVisibilityScope: AnimatedVisibilityScope? = null,
 ) {
     val ui by vm.ui.collectAsState()
     val snackbar = remember { SnackbarHostState() }
@@ -210,7 +221,14 @@ fun AnneeScreen(
                     }
                 }
                 items(ui.salles, key = { it.id }) { salle ->
-                    BlocSalle(salle, monde, onVoirPlus = { vm.voirPlus(salle.id) }, onOuvrirFilm = { filmId -> onOpenFilm(salle.id, filmId) })
+                    BlocSalle(
+                        salle,
+                        monde,
+                        onVoirPlus = { vm.voirPlus(salle.id) },
+                        onOuvrirFilm = { filmId -> onOpenFilm(salle.id, filmId) },
+                        sharedTransitionScope = sharedTransitionScope,
+                        animatedVisibilityScope = animatedVisibilityScope,
+                    )
                 }
                 item {
                     BlocNouvelleSalle(
@@ -944,8 +962,16 @@ private val FiltreDesature = ColorFilter.colorMatrix(ColorMatrix().apply { setTo
 /** Interne au paquet, pas seulement au fichier : `Mondes.kt` reprend ce même sépia pour la marche 3 du podium (brief du 21 septembre 2026). */
 internal val TeinteSepia = Color(0xFF3A2C1E)
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-private fun BlocSalle(salle: SalleUi, monde: Monde, onVoirPlus: () -> Unit, onOuvrirFilm: (String) -> Unit) {
+private fun BlocSalle(
+    salle: SalleUi,
+    monde: Monde,
+    onVoirPlus: () -> Unit,
+    onOuvrirFilm: (String) -> Unit,
+    sharedTransitionScope: SharedTransitionScope? = null,
+    animatedVisibilityScope: AnimatedVisibilityScope? = null,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(salle.nom, style = MaterialTheme.typography.titleMedium)
         Text(salle.raisonDEtre, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -954,7 +980,12 @@ private fun BlocSalle(salle: SalleUi, monde: Monde, onVoirPlus: () -> Unit, onOu
             contentPadding = PaddingValues(vertical = 4.dp),
         ) {
             items(salle.films, key = { it.id }) { film ->
-                AfficheFilm(film, onClick = { onOuvrirFilm(film.id) })
+                AfficheFilm(
+                    film,
+                    onClick = { onOuvrirFilm(film.id) },
+                    // L'affiche partagée (geste 8) : même clé que `Screen.FicheVoyage`.
+                    volante = afficheVolante(sharedTransitionScope, animatedVisibilityScope, "affiche-voyage-${salle.id}-${film.id}"),
+                )
             }
             item {
                 TuileEtagere(
@@ -967,8 +998,9 @@ private fun BlocSalle(salle: SalleUi, monde: Monde, onVoirPlus: () -> Unit, onOu
     }
 }
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-private fun AfficheFilm(film: FilmSalleUi, onClick: () -> Unit) {
+private fun AfficheFilm(film: FilmSalleUi, onClick: () -> Unit, volante: AfficheVolante? = null) {
     val etat = etatFilmVoyage(film.etat, film.programme?.bobines ?: emptyList())
     val vu = etat == "vu"
     val etiquette = etiquetteEtatFilm(etat)
@@ -978,7 +1010,14 @@ private fun AfficheFilm(film: FilmSalleUi, onClick: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box {
-            Cover(film.coverUrl, film.title, LARGEUR_AFFICHE, HAUTEUR_AFFICHE, colorFilter = if (vu) null else FiltreDesature)
+            Cover(
+                film.coverUrl,
+                film.title,
+                LARGEUR_AFFICHE,
+                HAUTEUR_AFFICHE,
+                modifier = Modifier.voler(volante),
+                colorFilter = if (vu) null else FiltreDesature,
+            )
             if (!vu) {
                 Box(Modifier.size(LARGEUR_AFFICHE, HAUTEUR_AFFICHE).background(TeinteSepia.copy(alpha = 0.35f)))
             }

@@ -1,5 +1,8 @@
 package fr.mediatheque.journal.ui.realisateur
 
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -67,7 +70,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import fr.mediatheque.journal.api.dto.FilmDeFilmographie
 import fr.mediatheque.journal.api.dto.RealisateurPageResponse
+import fr.mediatheque.journal.ui.AfficheVolante
 import fr.mediatheque.journal.ui.Cover
+import fr.mediatheque.journal.ui.afficheVolante
+import fr.mediatheque.journal.ui.voler
 import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.frise.Monde
 import fr.mediatheque.journal.ui.frise.TeinteSepia
@@ -90,13 +96,17 @@ import fr.mediatheque.journal.ui.suivis.Portrait
  * du 22 septembre 2026, jumeau de la fiche d'une saga ; `filmsAffiches`). Appui long sur un non-vu
  * marque ou démarque « introuvable ».
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun RealisateurScreen(
     vm: RealisateurViewModel,
     resolveur: RealisateurResolveur,
     onBack: () -> Unit,
     onOuvrirFilm: (FilmDeFilmographie) -> Unit,
+    // L'affiche partagée (peaufinage du 23 septembre 2026, geste 8) : la grille est un des deux
+    // bouts de la paire vers `Screen.FicheFilm` (`Root.kt`).
+    sharedTransitionScope: SharedTransitionScope? = null,
+    animatedVisibilityScope: AnimatedVisibilityScope? = null,
 ) {
     val ui by vm.ui.collectAsState()
     val snackbar = remember { SnackbarHostState() }
@@ -159,6 +169,8 @@ fun RealisateurScreen(
                     onRetirer = vm::retirer,
                     onOuvrirFilm = onOuvrirFilm,
                     onLongClickNonVu = { film -> feuillePour = film },
+                    sharedTransitionScope = sharedTransitionScope,
+                    animatedVisibilityScope = animatedVisibilityScope,
                 )
             }
         }
@@ -171,6 +183,7 @@ fun RealisateurScreen(
  * affiches par ligne pour tous ses films, longs et courts mêlés dans l'ordre du back. Plus d'état
  * déplié/replié à mémoriser ; `masquerIntrouvables` survit lui à une rotation.
  */
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 private fun GrilleFilmographie(
     page: RealisateurPageResponse,
@@ -180,6 +193,8 @@ private fun GrilleFilmographie(
     onRetirer: () -> Unit,
     onOuvrirFilm: (FilmDeFilmographie) -> Unit,
     onLongClickNonVu: (FilmDeFilmographie) -> Unit,
+    sharedTransitionScope: SharedTransitionScope? = null,
+    animatedVisibilityScope: AnimatedVisibilityScope? = null,
 ) {
     var masquerIntrouvables by rememberSaveable { mutableStateOf(true) }
     val decennies = remember(page.films, masquerIntrouvables) {
@@ -233,6 +248,8 @@ private fun GrilleFilmographie(
                         // la grille se retasse au lieu de sauter quand l'interrupteur en retire des
                         // affiches.
                         modifier = Modifier.animateItem(),
+                        // L'affiche partagée (geste 8) : même clé que `Screen.FicheFilm`.
+                        volante = afficheVolante(sharedTransitionScope, animatedVisibilityScope, "affiche-realisateur-${film.tmdb_id}"),
                     )
                 }
             }
@@ -306,7 +323,7 @@ private val FiltreDesature = ColorFilter.colorMatrix(ColorMatrix().apply { setTo
  * Le coin « Court » (retouche du 22 septembre 2026, décision 2 : jumeau du coin « TV » qu'il
  * remplace — même place, même style — les séries ayant quitté la page) marque un court métrage.
  */
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalSharedTransitionApi::class)
 @Composable
 private fun AfficheFilmographie(
     film: FilmDeFilmographie,
@@ -315,6 +332,7 @@ private fun AfficheFilmographie(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier,
+    volante: AfficheVolante? = null,
 ) {
     val vu = film.vu != null
     val monde = mondeDe(film.year ?: 1895)
@@ -331,7 +349,14 @@ private fun AfficheFilmographie(
                 Modifier
             },
         ) {
-            Cover(film.cover_url, film.title, largeur, hauteur, colorFilter = if (vu) null else FiltreDesature)
+            Cover(
+                film.cover_url,
+                film.title,
+                largeur,
+                hauteur,
+                modifier = Modifier.voler(volante),
+                colorFilter = if (vu) null else FiltreDesature,
+            )
             if (!vu) {
                 Box(Modifier.size(largeur, hauteur).background(TeinteSepia.copy(alpha = 0.35f)))
             }

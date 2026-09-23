@@ -1,5 +1,8 @@
 package fr.mediatheque.journal.ui.films
 
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,13 +34,25 @@ import androidx.compose.ui.unit.dp
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.JournalRow
+import fr.mediatheque.journal.ui.afficheVolante
+import fr.mediatheque.journal.ui.voler
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 // Pas de snackbar ici : cet écran n'a jamais reçu `nav`, rien ne pousse de message vers
 // « Mes films ». Seul l'accueil collecte `nav.messages` (revue du tour de correction 1, et
 // Critique 1 de la vague finale pour le mécanisme lui-même).
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-fun FilmsScreen(vm: FilmsViewModel, onBack: () -> Unit, onOpen: (JournalItem) -> Unit, bottomBar: @Composable () -> Unit) {
+fun FilmsScreen(
+    vm: FilmsViewModel,
+    onBack: () -> Unit,
+    onOpen: (JournalItem) -> Unit,
+    bottomBar: @Composable () -> Unit,
+    // L'affiche partagée (peaufinage du 23 septembre 2026, geste 8) : « Mes films » est un des
+    // deux bouts de la paire vers « la fiche d'entrée » (`Screen.Edit`, `Root.kt`).
+    sharedTransitionScope: SharedTransitionScope? = null,
+    animatedVisibilityScope: AnimatedVisibilityScope? = null,
+) {
     val ui by vm.ui.collectAsState()
     val liste = rememberLazyListState()
 
@@ -68,7 +83,13 @@ fun FilmsScreen(vm: FilmsViewModel, onBack: () -> Unit, onOpen: (JournalItem) ->
                     items(ui.items, key = { it.entry.id }) { item ->
                         // La liste se retasse (geste 3 du peaufinage du 23 septembre 2026) au lieu
                         // de sauter quand un film change de place ou disparaît.
-                        JournalRow(item, onClick = { onOpen(item) }, modifier = Modifier.animateItem())
+                        val volante = afficheVolante(sharedTransitionScope, animatedVisibilityScope, "affiche-journal-${item.entry.id}")
+                        JournalRow(
+                            item,
+                            onClick = { onOpen(item) },
+                            modifier = Modifier.animateItem(),
+                            coverModifier = Modifier.voler(volante),
+                        )
                     }
                     if (ui.loading) {
                         item {

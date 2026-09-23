@@ -1,5 +1,8 @@
 package fr.mediatheque.journal.ui.home
 
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -43,6 +46,8 @@ import fr.mediatheque.journal.api.dto.PlexFilm
 import fr.mediatheque.journal.ui.Cover
 import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.Navigator
+import fr.mediatheque.journal.ui.afficheVolante
+import fr.mediatheque.journal.ui.voler
 import fr.mediatheque.journal.ui.films.FilmsViewModel
 import fr.mediatheque.journal.ui.form.CartonCard
 import fr.mediatheque.journal.ui.form.CartonViewModel
@@ -59,6 +64,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
  * du bouton « Ajouter un film » qui descend en bas. Le `vm` est le même `FilmsViewModel` que
  * « Mes films » (clé `"films"` dans `Root.kt`) : une seule source, deux présentations.
  */
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun HomeScreen(
     vm: FilmsViewModel,
@@ -81,6 +87,10 @@ fun HomeScreen(
     /** Le Voyage (brief du 16 septembre 2026) : la carte « Et pendant ce temps… » sous le bandeau, après une création. Nulle hors de cette fenêtre. */
     carton: CartonViewModel? = null,
     onCartonDismiss: () -> Unit = {},
+    // L'affiche partagée (peaufinage du 23 septembre 2026, geste 8) : l'accueil est un des deux
+    // bouts de la paire vers « la fiche d'entrée » (`Screen.Edit`, `Root.kt`).
+    sharedTransitionScope: SharedTransitionScope? = null,
+    animatedVisibilityScope: AnimatedVisibilityScope? = null,
 ) {
     val ui by vm.ui.collectAsState()
     val snackbar = remember { SnackbarHostState() }
@@ -216,7 +226,16 @@ fun HomeScreen(
                             // La grille se retasse (geste 3 du peaufinage du 23 septembre 2026) au
                             // lieu de sauter quand un film change de place ou disparaît.
                             Box(Modifier.animateItem().clickable { onOpen(item) }) {
-                                Cover(item.media.cover_url, item.media.title, largeurJaquette, hauteurJaquette)
+                                Cover(
+                                    item.media.cover_url,
+                                    item.media.title,
+                                    largeurJaquette,
+                                    hauteurJaquette,
+                                    // L'affiche partagée (geste 8) : même clé que la fiche d'entrée.
+                                    modifier = Modifier.voler(
+                                        afficheVolante(sharedTransitionScope, animatedVisibilityScope, "affiche-journal-${item.entry.id}"),
+                                    ),
+                                )
                                 item.entry.rating?.let { note ->
                                     Box(
                                         Modifier

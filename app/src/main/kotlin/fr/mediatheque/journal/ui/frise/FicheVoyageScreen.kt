@@ -3,6 +3,7 @@ package fr.mediatheque.journal.ui.frise
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -53,7 +54,9 @@ import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.SearchMetadata
 import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.reactions.Reactions
+import fr.mediatheque.journal.ui.AfficheVolante
 import fr.mediatheque.journal.ui.Cover
+import fr.mediatheque.journal.ui.voler
 import fr.mediatheque.journal.ui.realisateur.NomRealisateurTouchable
 import fr.mediatheque.journal.ui.realisateur.RealisateurResolveur
 import fr.mediatheque.journal.ui.form.CartonCard
@@ -79,6 +82,7 @@ import fr.mediatheque.journal.ui.theme.TextePapier
  * Lit `vm` (le même `AnneeViewModel` que l'année d'où elle s'est ouverte, `Root.kt`) plutôt que de
  * recharger quoi que ce soit : `salleId` et `filmId` désignent le film dans son état déjà connu.
  */
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun FicheVoyageScreen(
     annee: Int,
@@ -93,6 +97,12 @@ fun FicheVoyageScreen(
     onPodiumChange: () -> Unit,
     /** Le nom du réalisateur est touchable ici aussi (décision 3 du brief du 21 septembre 2026, « la page réalisateur »). */
     onOuvrirRealisateur: (Int) -> Unit,
+    /**
+     * L'affiche partagée (peaufinage du 23 septembre 2026, geste 8) : même clé que la salle d'où
+     * cette fiche s'est ouverte, nulle quand on y arrive directement depuis une filmographie
+     * (`Root.kt`, `DestinationFilm.Voyage`) — pas de grille dont partir dans ce cas.
+     */
+    volante: AfficheVolante? = null,
 ) {
     val ui by vm.ui.collectAsState()
     val salle = ui.salles.firstOrNull { it.id == salleId }
@@ -140,7 +150,7 @@ fun FicheVoyageScreen(
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Cover(film.coverUrl, film.title, 96.dp, 144.dp)
+                Cover(film.coverUrl, film.title, 96.dp, 144.dp, modifier = Modifier.voler(volante))
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(film.title, style = MaterialTheme.typography.titleLarge)
                     if (film.originalTitle != null && film.originalTitle != film.title) {

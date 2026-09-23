@@ -23,13 +23,22 @@ import fr.mediatheque.journal.reactions.Reactions
  * divergent jamais.
  */
 @Composable
-fun JournalRow(item: JournalItem, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun JournalRow(
+    item: JournalItem,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    // L'affiche partagée (peaufinage du 23 septembre 2026, geste 8) : un modificateur ordinaire,
+    // pas un `AfficheVolante` — jamais de type expérimental dans cette signature, sinon « Tes
+    // séances » (`AuCineScreen.kt`, qui n'a pas de paire déclarée) aurait dû s'y plier aussi. Nul
+    // ici ; `Modifier.voler(volante)` posé par « Mes films » (`FilmsScreen.kt`).
+    coverModifier: Modifier = Modifier,
+) {
     Row(
         modifier.fillMaxWidth().clickable(onClick = onClick),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Cover(item.media.cover_url, item.media.title, 56.dp, 84.dp)
+        Cover(item.media.cover_url, item.media.title, 56.dp, 84.dp, modifier = coverModifier)
         Column(Modifier.weight(1f)) {
             Text(item.media.title, style = MaterialTheme.typography.titleMedium)
             Text(

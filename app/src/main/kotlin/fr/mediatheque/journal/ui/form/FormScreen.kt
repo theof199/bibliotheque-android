@@ -1,5 +1,6 @@
 package fr.mediatheque.journal.ui.form
 
+import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -54,7 +55,9 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import fr.mediatheque.journal.reactions.Reactions
+import fr.mediatheque.journal.ui.AfficheVolante
 import fr.mediatheque.journal.ui.Cover
+import fr.mediatheque.journal.ui.voler
 import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.Navigator
 import fr.mediatheque.journal.ui.Screen
@@ -70,7 +73,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun FormScreen(
     vm: FormViewModel,
@@ -84,6 +87,12 @@ fun FormScreen(
      * cours ni ouverte (`eligibleChroniqueDepuisEdition`, `Root.kt`) — absente dans les deux cas.
      */
     chronique: ChroniqueViewModel? = null,
+    /**
+     * L'affiche partagée (peaufinage du 23 septembre 2026, geste 8) : nulle sur `Screen.Form`
+     * (la création, ouverte depuis la recherche, sans grille dont partir) ; posée sur `Screen.Edit`
+     * seulement, même clé que l'accueil ou « Mes films » (`Root.kt`).
+     */
+    volante: AfficheVolante? = null,
 ) {
     val ui by vm.ui.collectAsState()
     var showPicker by remember { mutableStateOf(false) }
@@ -125,7 +134,7 @@ fun FormScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Cover(coverUrl, title, 96.dp, 144.dp)
+                Cover(coverUrl, title, 96.dp, 144.dp, modifier = Modifier.voler(volante))
                 Column(Modifier.align(Alignment.CenterVertically)) {
                     Text(title, style = MaterialTheme.typography.titleLarge)
                     if (filmTmdbId != null && !realisateur.isNullOrBlank()) {
