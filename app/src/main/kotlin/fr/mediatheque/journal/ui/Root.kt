@@ -33,16 +33,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import fr.mediatheque.journal.AppContainer
 import fr.mediatheque.journal.reactions.Reactions
 import fr.mediatheque.journal.ui.cinema.routeCinema
-import fr.mediatheque.journal.ui.films.FilmsViewModel
 import fr.mediatheque.journal.ui.films.routeFilms
 import fr.mediatheque.journal.ui.form.CartonViewModel
 import fr.mediatheque.journal.ui.form.routeForm
 import fr.mediatheque.journal.ui.form.routeEdit
-import fr.mediatheque.journal.ui.frise.AnneeFrise
 import fr.mediatheque.journal.ui.frise.FriseViewModel
-import fr.mediatheque.journal.ui.frise.toSearchResult
-import fr.mediatheque.journal.ui.frise.versSearchResult
-import fr.mediatheque.journal.ui.home.HomeScreen
+import fr.mediatheque.journal.ui.home.routeHome
 import fr.mediatheque.journal.ui.login.LoginScreen
 import fr.mediatheque.journal.ui.login.LoginViewModel
 import fr.mediatheque.journal.ui.frise.TicketAMontrerUi
@@ -55,17 +51,13 @@ import fr.mediatheque.journal.ui.frise.routeDecennie
 import fr.mediatheque.journal.ui.frise.routeGenerique
 import fr.mediatheque.journal.ui.profile.LetterboxdImportViewModel
 import fr.mediatheque.journal.ui.profile.SensCritiqueViewModel
-import fr.mediatheque.journal.ui.profile.toSearchResult
 import fr.mediatheque.journal.ui.profile.routeProfile
 import fr.mediatheque.journal.ui.profile.routeSensCritique
 import fr.mediatheque.journal.ui.profile.routeRapportImport
 import fr.mediatheque.journal.ui.realisateur.RealisateurResolveur
 import fr.mediatheque.journal.ui.realisateur.routeRealisateur
 import fr.mediatheque.journal.ui.realisateur.routeFicheFilm
-import fr.mediatheque.journal.ui.suivis.SourceSuivi
 import fr.mediatheque.journal.ui.suivis.SuivisViewModel
-import fr.mediatheque.journal.ui.suivis.entiteEnCours
-import fr.mediatheque.journal.ui.suivis.formulaire
 import fr.mediatheque.journal.ui.suivis.routeSuivis
 import fr.mediatheque.journal.ui.suivis.routeChercherSuivi
 import fr.mediatheque.journal.ui.suivis.routeFicheSuivi
@@ -152,7 +144,8 @@ fun Root(container: AppContainer) {
                 }
             }
             // Le journal ne se rechargeait qu'à l'entrée sur la Frise ou l'accueil (`LaunchedEffect(Unit)`
-            // plus bas), jamais en y revenant depuis le formulaire (correctif du 22 septembre 2026,
+            // de `FriseRoutes.kt` et `HomeRoute.kt`), jamais en y revenant depuis le formulaire
+            // (correctif du 22 septembre 2026,
             // « la fiche du Voyage se relit après un enregistrement ») : `nav.enregistrements` porte
             // tout succès du formulaire, `refreshApresEnregistrement()` recharge le journal comme
             // `refresh()` et incrémente `frise.ui.enregistrements`, que `Screen.Annee` et
@@ -276,62 +269,7 @@ fun Root(container: AppContainer) {
                 val screen = pile.last()
                 stateHolder.SaveableStateProvider(saveableKey(pile.lastIndex, screen)) {
                 when (screen) {
-                    Screen.Home -> {
-                        // Même `FilmsViewModel` que `Screen.Films` plus bas (même clé `"films"`) :
-                        // l'accueil et « Mes films » sont deux présentations d'une seule source
-                        // (brief du 10 septembre 2026). Même piège, même remède que `Screen.Films`
-                        // juste en dessous : ce `ViewModel` est indexé sur l'Activité, donc sans ce
-                        // rechargement à chaque entrée, la grille resterait celle de la première
-                        // visite après l'ajout d'un film depuis `Screen.Search`.
-                        //
-                        // `Screen.Home` et `Screen.Films` ne sont jamais voisins dans la pile : on
-                        // n'empile `Screen.Films` que depuis `Screen.Profile`, et seul `FormScreen`
-                        // appelle `nav.home(...)`, qui vide la pile plutôt que de faire un `pop` vers
-                        // `Screen.Home`. Leurs deux `refresh()` sur la même instance ne se croisent
-                        // donc jamais dans un même `Crossfade` — mais rien dans la pile ne l'interdit
-                        // si un futur chemin de navigation les rapproche.
-                        val films: FilmsViewModel = viewModel(key = "films") { FilmsViewModel(container.api, session::expire) }
-                        LaunchedEffect(Unit) { films.refresh() }
-                        // Jumeau de `films.refresh()` ci-dessus, pour la ligne « Ensuite » (brief du
-                        // 15 septembre 2026) : pas de chargement bloquant, l'accueil s'affiche tout de
-                        // suite et la ligne apparaît quand `/reference/plex` a répondu.
-                        LaunchedEffect(Unit) { frise.refresh() }
-                        // Jumeau du précédent, pour les deux secondes lignes « Ensuite ». Il ne
-                        // charge que les listes et les filmographies des deux sources : le
-                        // journal complet (`entrees`) ne sert qu'aux fiches, et l'accueil n'a pas
-                        // à le payer.
-                        LaunchedEffect(Unit) { suivis.refresh(SourceSuivi.REALISATEURS) }
-                        LaunchedEffect(Unit) { suivis.refresh(SourceSuivi.SAGAS) }
-                        val friseUi by frise.ui.collectAsState()
-                        val suivisUi by suivis.ui.collectAsState()
-                        HomeScreen(
-                            vm = films,
-                            nav = nav,
-                            // L'affiche partagée (geste 8) : la grille de l'accueil est un des deux
-                            // bouts de la paire vers « la fiche d'entrée » (`Screen.Edit` ci-dessous).
-                            sharedTransitionScope = sharedTransitionScope,
-                            animatedVisibilityScope = animatedVisibilityScope,
-                            ensuite = friseUi.ensuite,
-                            ensuiteRealisateur = entiteEnCours(SourceSuivi.REALISATEURS, suivisUi.realisateurs.entites, suivisUi.realisateurs.filmographies),
-                            ensuiteSaga = entiteEnCours(SourceSuivi.SAGAS, suivisUi.sagas.entites, suivisUi.sagas.filmographies),
-                            // « Ce soir » (décision 4 du brief du 21 septembre 2026, « la séance ») :
-                            // la même année que `Screen.Decennie` retrouve, avec le même repli sans
-                            // vus ni à-voir si `FriseViewModel` ne l'a pas (encore) dans `annees`.
-                            ceSoir = friseUi.voyage.seancePrise,
-                            onOpenCeSoir = { seance ->
-                                val groupe = friseUi.annees.firstOrNull { it.annee == seance.annee }
-                                    ?: AnneeFrise(seance.annee, emptyList(), emptyList())
-                                nav.push(Screen.Annee(groupe, friseUi.voyage.parAnnee[seance.annee]))
-                            },
-                            onAdd = { nav.push(Screen.Search) },
-                            onFilms = { nav.push(Screen.Films) },
-                            onOpen = { nav.push(Screen.Edit(it)) },
-                            onOpenEnsuite = { nav.push(Screen.Form(it.toSearchResult())) },
-                            onOpenEnsuiteRealisateur = { nav.push(Screen.Form(it.formulaire())) },
-                            onOpenEnsuiteSaga = { nav.push(Screen.Form(it.formulaire())) },
-                            bottomBar = { portee.barreDuBas(screen) },
-                        )
-                    }
+                    Screen.Home -> portee.routeHome()
                     Screen.Search -> portee.routeSearch()
                     is Screen.Form -> portee.routeForm(screen)
                     Screen.Profile -> portee.routeProfile()
