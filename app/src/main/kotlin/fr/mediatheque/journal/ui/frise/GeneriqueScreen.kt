@@ -31,10 +31,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -43,6 +41,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import fr.mediatheque.journal.ui.Embleme
+import fr.mediatheque.journal.ui.EmblemeType
 import fr.mediatheque.journal.ui.formatDate
 import fr.mediatheque.journal.ui.theme.Corail
 import fr.mediatheque.journal.ui.theme.Limelight
@@ -215,7 +215,9 @@ private fun Defilement(tampon: TamponDecennie, pseudo: String, monde: Monde, onT
 /**
  * Le tampon du passeport qui s'abat (le brief) : cercle double corail, rotation −8°, échelle
  * 4 → 1 en 350 ms, haptique `Confirm` — le générique (toujours sur son fond sépia) s'assombrit sous
- * un voile noir animé de concert.
+ * un voile noir animé de concert. Le double cercle lui-même vient d'`Embleme` (`EmblemeType.PASSEPORT`,
+ * geste 3 du brief du 23 septembre 2026 soir) : le millésime reste posé par-dessus, ici, puisqu'il
+ * change d'une décennie à l'autre et qu'aucune image fixe ne peut le porter.
  */
 @Composable
 private fun TamponQuiTombe(tampon: TamponDecennie, haptique: HapticFeedback) {
@@ -231,22 +233,14 @@ private fun TamponQuiTombe(tampon: TamponDecennie, haptique: HapticFeedback) {
         Box(
             Modifier
                 .align(Alignment.Center)
-                .size(150.dp)
                 .graphicsLayer {
                     scaleX = echelle.value
                     scaleY = echelle.value
                     rotationZ = -8f
-                }
-                .drawBehind {
-                    drawCircle(Corail, radius = size.minDimension / 2f, style = Stroke(width = 6.dp.toPx()))
-                    drawCircle(
-                        Corail.copy(alpha = 0.55f),
-                        radius = size.minDimension / 2f - 16.dp.toPx(),
-                        style = Stroke(width = 2.dp.toPx()),
-                    )
                 },
             contentAlignment = Alignment.Center,
         ) {
+            Embleme(EmblemeType.PASSEPORT, taille = 150.dp)
             Text(
                 tampon.decennie.toString().takeLast(3),
                 style = MaterialTheme.typography.titleLarge.copy(fontFamily = Limelight, letterSpacing = 1.sp),
@@ -260,6 +254,8 @@ private fun TamponQuiTombe(tampon: TamponDecennie, haptique: HapticFeedback) {
 /**
  * Le tampon d'une décennie bouclée, dans le passeport du profil (brief, item 10) : un cercle
  * corail penché de −8°, la décennie, la date, le titre de voyageur. Toucher rejoue le générique.
+ * Même `Embleme(EmblemeType.PASSEPORT)` que `TamponQuiTombe`, en plus petit (geste 3 du brief du
+ * 23 septembre 2026 soir).
  */
 @Composable
 fun TamponPasseport(tampon: TamponDecennie, onOuvrir: () -> Unit) {
@@ -273,17 +269,12 @@ fun TamponPasseport(tampon: TamponDecennie, onOuvrir: () -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Box(
-            Modifier
-                .size(52.dp)
-                // Le tampon est penché de −8° (brief, item 10) : un tampon droit a l'air imprimé,
-                // un tampon penché a l'air posé à la main.
-                .rotate(-8f)
-                .drawBehind {
-                    drawCircle(Corail, radius = size.minDimension / 2f, style = Stroke(width = 4f))
-                    drawCircle(Corail.copy(alpha = 0.55f), radius = size.minDimension / 2f - 7f, style = Stroke(width = 1.5f))
-                },
+            // Le tampon est penché de −8° (brief, item 10) : un tampon droit a l'air imprimé,
+            // un tampon penché a l'air posé à la main.
+            Modifier.rotate(-8f),
             contentAlignment = Alignment.Center,
         ) {
+            Embleme(EmblemeType.PASSEPORT, taille = 52.dp)
             Text(
                 tampon.decennie.toString().takeLast(3),
                 style = MaterialTheme.typography.labelLarge.copy(letterSpacing = 0.5.sp),

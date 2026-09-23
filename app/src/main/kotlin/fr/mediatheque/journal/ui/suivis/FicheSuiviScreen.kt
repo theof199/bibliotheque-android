@@ -332,7 +332,7 @@ private fun LigneFilm(film: FilmSuivi, aVoir: Boolean, onClick: () -> Unit, onLo
         Box {
             Cover(film.cover_url, film.title, 30.dp, 45.dp)
             if (film.introuvable) {
-                TamponPerdu(modifier = Modifier.align(Alignment.Center).size(26.dp), echelle = echelleTampon.value)
+                TamponPerdu(taille = 26.dp, modifier = Modifier.align(Alignment.Center), echelle = echelleTampon.value)
             }
         }
         Text(film.title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))

@@ -43,9 +43,10 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import fr.mediatheque.journal.ui.Embleme
+import fr.mediatheque.journal.ui.Emblemes
 import fr.mediatheque.journal.ui.frise.FrontiereAvancee
 import fr.mediatheque.journal.ui.frise.Recompense
-import fr.mediatheque.journal.ui.frise.glypheRecompense
 import fr.mediatheque.journal.ui.theme.Limelight
 import fr.mediatheque.journal.ui.theme.Or
 import kotlinx.coroutines.delay
@@ -139,7 +140,7 @@ private fun ContenuRecompense(anneeBouclee: Int, recompense: Recompense?, revele
 
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
         recompense?.let {
-            Canvas(Modifier.size(72.dp).scale(echelle.value)) { glypheRecompense(it, Or, Color.Black) }
+            Embleme(Emblemes.typeDe(it), taille = 72.dp, modifier = Modifier.scale(echelle.value), encre = Or, fond = Color.Black)
         }
         Text(
             "$anneeBouclee\nDANS LA BOÎTE",

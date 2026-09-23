@@ -167,6 +167,39 @@ License : Manrope, Fraunces (`undercasetype/Fraunces`, statiques de `fonts/ttf/`
 seul style, réservée aux titres de célébration). Les trois licences, `OFL-Manrope.txt`,
 `OFL-Fraunces.txt` et `OFL-Limelight.txt`, vivent dans `app/src/main/assets/`.
 
+## Les icônes
+
+Toutes les icônes de l'appli viennent de [Tabler Icons](https://tabler.io/icons) (MIT), choisi le
+23 septembre 2026 (soir) par le propriétaire pour remplacer le fait main. `bin/icones` (script Node,
+sans Docker ni Android Studio) lit `icones/tabler.txt` (un nom Tabler par ligne), prend les SVG du
+paquet npm `@tabler/icons` (version figée dans `icones/package.json`), les convertit par
+`svg2vectordrawable` en `res/drawable/tabler_<nom>.xml` (trait 1,75, blanc, teinté à l'usage par
+`IconeTabler`), et réécrit `icones/LICENCE-tabler.md`. Les XML générés sont commités : le build ne
+dépend jamais du réseau, seul `bin/icones` en a besoin, à la main, après avoir touché à la liste.
+
+    node bin/icones
+
+## Les emblèmes
+
+Trois récompenses du Voyage (Ours, Lion, Palme) et deux tampons (passeport, « perdu ») sont, à
+terme, des images que le propriétaire dessine lui-même (décision du 23 septembre 2026, soir) —
+plutôt que les glyphes vectoriels et le fait main qui servaient jusque-là. `Embleme`
+(`ui/Emblemes.kt`) les sert à ses cinq appelants (le glyphe sur la carte du Voyage, la récompense
+de « l'année dans la boîte », le tampon du générique de décennie, le passeport du profil, le tampon
+« perdu ») en cherchant `R.drawable.embleme_<nom>` par son nom : tant que le fichier n'existe pas,
+il retombe sur le dessin vectoriel d'origine, sans rien casser.
+
+Format attendu, un par fichier, dans `res/drawable-nodpi/` :
+
+- WebP, fond transparent, 1024 × 1024 ;
+- nom exact : `embleme_ours.webp`, `embleme_lion.webp`, `embleme_palme.webp`,
+  `embleme_passeport.webp`, `embleme_perdu.webp` (`Emblemes.nomRessource` dans `ui/Emblemes.kt`
+  fait foi) ;
+- `res/drawable-nodpi/` plutôt que `res/drawable/` : une seule image, jamais mise à l'échelle par
+  densité d'écran (`-nodpi` le dit à Android), cohérent avec le WebP déjà à la résolution voulue.
+
+Déposer le fichier suffit : aucun code ne change, `Embleme` le sert dès la prochaine construction.
+
 ## SensCritique
 
 Décision du propriétaire du 14 septembre 2026 : quand il note un film dans l'appli, la note et la

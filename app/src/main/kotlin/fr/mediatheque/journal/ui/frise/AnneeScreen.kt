@@ -60,7 +60,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -88,6 +87,8 @@ import fr.mediatheque.journal.api.dto.SearchMetadata
 import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.ui.AfficheVolante
 import fr.mediatheque.journal.ui.Cover
+import fr.mediatheque.journal.ui.Embleme
+import fr.mediatheque.journal.ui.Emblemes
 import fr.mediatheque.journal.ui.EntreeEnCascade
 import fr.mediatheque.journal.ui.afficheVolante
 import fr.mediatheque.journal.ui.rememberPorteCascade
@@ -415,11 +416,12 @@ private fun Cartouche(millesime: Int, ui: AnneeUi, monde: Monde, onLireLaSuite: 
                 // Le glyphe à côté du millésime (décision 2 du brief du 21 septembre 2026, « les
                 // récompenses ») — nul sans aucun film vu.
                 ui.recompense?.let { recompense ->
-                    Box(
-                        Modifier
-                            .size(16.dp)
-                            .drawBehind { glypheRecompense(recompense, TextePapier, PapierJauni) }
-                            .clearAndSetSemantics { contentDescription = recompense.singulier },
+                    Embleme(
+                        Emblemes.typeDe(recompense),
+                        taille = 16.dp,
+                        modifier = Modifier.clearAndSetSemantics { contentDescription = recompense.singulier },
+                        encre = TextePapier,
+                        fond = PapierJauni,
                     )
                 }
             }

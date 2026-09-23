@@ -72,6 +72,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.CircleShape
 import fr.mediatheque.journal.ui.Cover
+import fr.mediatheque.journal.ui.Embleme
+import fr.mediatheque.journal.ui.Emblemes
 import fr.mediatheque.journal.ui.celebrations.AnneeDansLaBoiteCalque
 import fr.mediatheque.journal.ui.celebrations.CartonTitreMonde
 import fr.mediatheque.journal.ui.showBriefly
@@ -642,11 +644,7 @@ private fun Photogramme(cellule: Cellule.Annee, modifier: Modifier = Modifier, d
             horizontalArrangement = Arrangement.spacedBy(3.dp),
         ) {
             if (ouverte && recompense != null) {
-                Box(
-                    Modifier
-                        .size(12.dp)
-                        .drawBehind { glypheRecompense(recompense, or, monde.fond) },
-                )
+                Embleme(Emblemes.typeDe(recompense), taille = 12.dp, encre = or, fond = monde.fond)
             }
             Text(
                 sous,

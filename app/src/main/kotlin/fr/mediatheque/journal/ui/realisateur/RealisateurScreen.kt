@@ -423,7 +423,8 @@ private fun AfficheFilmographie(
             )
             if (film.introuvable) {
                 TamponPerdu(
-                    modifier = Modifier.align(Alignment.Center).size(minOf(largeur, hauteur) * 0.62f),
+                    taille = minOf(largeur, hauteur) * 0.62f,
+                    modifier = Modifier.align(Alignment.Center),
                     echelle = echelleTampon.value,
                 )
             } else if (!vu) {
