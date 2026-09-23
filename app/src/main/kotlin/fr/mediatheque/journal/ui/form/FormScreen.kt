@@ -2,6 +2,7 @@ package fr.mediatheque.journal.ui.form
 
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -45,11 +46,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.contentDescription
@@ -58,6 +61,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import fr.mediatheque.journal.reactions.Reactions
 import fr.mediatheque.journal.ui.AfficheVolante
+import kotlinx.coroutines.delay
 import fr.mediatheque.journal.ui.Cover
 import fr.mediatheque.journal.ui.voler
 import fr.mediatheque.journal.ui.ErrorBlock
@@ -104,6 +108,37 @@ fun FormScreen(
     // Retour haptique (peaufinage du 23 septembre 2026, geste 10) : partagé par le bouton
     // d'enregistrement ci-dessous et par `RatingDot` plus bas dans ce fichier.
     val haptique = LocalHapticFeedback.current
+
+    // La note qui s'allume (geste 16 du complément du 23 septembre 2026 à l'habillage) : quand la
+    // note arrive autrement que par un tap direct (une correction déjà notée, un préremplissage
+    // SensCritique), les pastilles se remplissent une à une jusqu'à elle — 40 ms d'écart, haptique
+    // `SegmentTick` par pastille, la dernière rebondissant (échelle 1 → 1,25 → 1) une fois posée.
+    // `directement`, armé juste avant l'appel à `vm.toggleRating`, court-circuite le remplissage
+    // pour un tap : la saisie directe n'est jamais retardée, elle suit le doigt tout de suite.
+    var noteBalayee by remember { mutableIntStateOf(ui.rating ?: 0) }
+    val rebondNote = remember { Animatable(1f) }
+    var directement by remember { mutableStateOf(false) }
+    var ratingPrecedent by remember { mutableStateOf(ui.rating) }
+    LaunchedEffect(ui.rating) {
+        if (directement) {
+            noteBalayee = ui.rating ?: 0
+            directement = false
+        } else if (ui.rating != ratingPrecedent) {
+            val cible = ui.rating ?: 0
+            noteBalayee = 0
+            for (n in 1..cible) {
+                delay(40)
+                noteBalayee = n
+                haptique.performHapticFeedback(HapticFeedbackType.SegmentTick)
+            }
+            if (cible > 0) {
+                rebondNote.snapTo(1f)
+                rebondNote.animateTo(1.25f, tween(110))
+                rebondNote.animateTo(1f, tween(140))
+            }
+        }
+        ratingPrecedent = ui.rating
+    }
 
     val (title, coverUrl, sub) = when (val m = vm.mode) {
         is FormMode.Create -> Triple(m.result.title, m.result.cover_url, subtitle(m.result.metadata.director, m.result.year))
@@ -176,7 +211,13 @@ fun FormScreen(
             Text("Note", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             for (rangee in listOf(1..5, 6..10)) {
                 Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                    for (n in rangee) RatingDot(n, selected = ui.rating == n) { vm.toggleRating(n) }
+                    for (n in rangee) {
+                        RatingDot(
+                            n,
+                            selected = n == noteBalayee,
+                            echelle = if (n == noteBalayee) rebondNote.value else 1f,
+                        ) { directement = true; vm.toggleRating(n) }
+                    }
                 }
             }
 
@@ -323,9 +364,13 @@ private fun ChroniqueBoutonEdition(ui: ChroniqueUi, onClick: () -> Unit) {
     }
 }
 
-/** Une pastille de note : un cercle de 48 dp, corail quand elle est choisie — design §4, §7. */
+/**
+ * Une pastille de note : un cercle de 48 dp, corail quand elle est choisie — design §4, §7.
+ * `echelle` (geste 16 du complément du 23 septembre 2026) porte le rebond de la pastille qui vient
+ * de recevoir le remplissage en cascade — 1 hors rebond, sans effet sur les neuf autres.
+ */
 @Composable
-private fun RatingDot(n: Int, selected: Boolean, onClick: () -> Unit) {
+private fun RatingDot(n: Int, selected: Boolean, echelle: Float = 1f, onClick: () -> Unit) {
     val fond by animateColorAsState(
         if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
         animationSpec = tween(150), label = "note",
@@ -337,6 +382,7 @@ private fun RatingDot(n: Int, selected: Boolean, onClick: () -> Unit) {
     Box(
         Modifier
             .size(48.dp)
+            .scale(echelle)
             .background(fond, CircleShape)
             .clickable(onClick = { haptique.performHapticFeedback(HapticFeedbackType.SegmentTick); onClick() })
             .semantics { contentDescription = "Note $n sur 10"; this.selected = selected },
