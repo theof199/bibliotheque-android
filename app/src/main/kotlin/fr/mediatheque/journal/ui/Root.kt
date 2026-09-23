@@ -67,12 +67,9 @@ import fr.mediatheque.journal.ui.profile.RapportImportScreen
 import fr.mediatheque.journal.ui.profile.SensCritiqueScreen
 import fr.mediatheque.journal.ui.profile.SensCritiqueViewModel
 import fr.mediatheque.journal.ui.profile.toSearchResult
-import fr.mediatheque.journal.ui.realisateur.DestinationFilm
-import fr.mediatheque.journal.ui.realisateur.FicheFilmScreen
 import fr.mediatheque.journal.ui.realisateur.RealisateurResolveur
-import fr.mediatheque.journal.ui.realisateur.RealisateurScreen
-import fr.mediatheque.journal.ui.realisateur.RealisateurViewModel
-import fr.mediatheque.journal.ui.realisateur.destinationFilm
+import fr.mediatheque.journal.ui.realisateur.routeRealisateur
+import fr.mediatheque.journal.ui.realisateur.routeFicheFilm
 import fr.mediatheque.journal.ui.suivis.SourceSuivi
 import fr.mediatheque.journal.ui.suivis.SuivisViewModel
 import fr.mediatheque.journal.ui.suivis.entiteEnCours
@@ -618,56 +615,8 @@ fun Root(container: AppContainer) {
                     Screen.Suivis -> portee.routeSuivis()
                     Screen.ChercherSuivi -> portee.routeChercherSuivi()
                     is Screen.FicheSuivi -> portee.routeFicheSuivi(screen)
-                    is Screen.Realisateur -> {
-                        val realisateurVm: RealisateurViewModel = viewModel(key = "realisateur-${screen.tmdbId}") {
-                            RealisateurViewModel(screen.tmdbId, container.api, session::expire)
-                        }
-                        LaunchedEffect(Unit) { realisateurVm.charger() }
-                        RealisateurScreen(
-                            realisateurVm,
-                            realisateurResolveur,
-                            onBack = nav::pop,
-                            // L'affiche partagée (geste 8) : la grille de la filmographie est un des
-                            // deux bouts de la paire vers `Screen.FicheFilm` plus bas — même clé.
-                            sharedTransitionScope = sharedTransitionScope,
-                            animatedVisibilityScope = animatedVisibilityScope,
-                            // Le tap sur une affiche (décision 2 du brief du 21 septembre 2026, «
-                            // la page réalisateur ») : la fiche du Voyage si le film y a une ligne,
-                            // sinon la fiche simple de ce même écran.
-                            onOuvrirFilm = { film ->
-                                when (val destination = destinationFilm(film)) {
-                                    is DestinationFilm.Voyage ->
-                                        nav.push(Screen.FicheVoyage(destination.annee, destination.salleId, destination.filmId))
-                                    is DestinationFilm.Simple ->
-                                        nav.push(Screen.FicheFilm(screen.tmdbId, destination.film.tmdb_id))
-                                }
-                            },
-                        )
-                    }
-                    is Screen.FicheFilm -> {
-                        // Même clé que `Screen.Realisateur` juste au-dessus : cette instance existe
-                        // déjà (la fiche ne s'ouvre que depuis une affiche de cet écran-là), le
-                        // constructeur ci-dessous ne sert donc qu'à la signature de `viewModel`.
-                        val realisateurVm: RealisateurViewModel = viewModel(key = "realisateur-${screen.realisateurTmdbId}") {
-                            RealisateurViewModel(screen.realisateurTmdbId, container.api, session::expire)
-                        }
-                        // « Le film » (décision 4 du brief du 24 septembre 2026, « le voyage revu ») :
-                        // le carton en pop-in, `poll = false` — jumeau de `Screen.Edit` ci-dessus.
-                        val cartonFicheFilm: CartonViewModel = viewModel(key = "carton-fichefilm-${screen.filmTmdbId}") {
-                            CartonViewModel(container.api, screen.filmTmdbId, poll = false, session::expire)
-                        }
-                        FicheFilmScreen(
-                            realisateurVm,
-                            realisateurResolveur,
-                            filmTmdbId = screen.filmTmdbId,
-                            onBack = nav::pop,
-                            // L'affiche partagée (geste 8) : même clé que la grille d'où on vient.
-                            volante = AfficheVolante(sharedTransitionScope, animatedVisibilityScope, "affiche-realisateur-${screen.filmTmdbId}"),
-                            onOuvrirForm = { nav.push(Screen.Form(it)) },
-                            onOuvrirRealisateur = { id -> nav.push(Screen.Realisateur(id)) },
-                            carton = cartonFicheFilm,
-                        )
-                    }
+                    is Screen.Realisateur -> portee.routeRealisateur(screen)
+                    is Screen.FicheFilm -> portee.routeFicheFilm(screen)
                     is Screen.ChoisirFilmDeSaga -> portee.routeChoisirFilmDeSaga(screen)
                     Screen.RapportImport -> {
                         val letterboxdUi by letterboxd.ui.collectAsState()
