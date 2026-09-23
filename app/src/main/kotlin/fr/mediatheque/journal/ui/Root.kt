@@ -276,6 +276,13 @@ fun Root(container: AppContainer) {
                 },
             ) { pile ->
                 val animatedVisibilityScope = this
+                // Le contexte que chaque route reçoit (`PorteeEcrans.kt`), construit ici et pas
+                // au-dessus : `this` est la portée de visibilité de *cette* branche, différente
+                // pour celle qui sort et celle qui entre pendant une transition.
+                val portee = PorteeEcrans(
+                    container, nav, session, s.user, search, senscritique, frise, suivis,
+                    realisateurResolveur, letterboxd, reactionsFavorites, sharedTransitionScope, this,
+                )
                 val screen = pile.last()
                 stateHolder.SaveableStateProvider(saveableKey(pile.lastIndex, screen)) {
                 when (screen) {
@@ -332,16 +339,7 @@ fun Root(container: AppContainer) {
                             onOpenEnsuite = { nav.push(Screen.Form(it.toSearchResult())) },
                             onOpenEnsuiteRealisateur = { nav.push(Screen.Form(it.formulaire())) },
                             onOpenEnsuiteSaga = { nav.push(Screen.Form(it.formulaire())) },
-                            bottomBar = {
-                                JournalBottomBar(
-                                    screen,
-                                    onHome = { nav.home() },
-                                    onFrise = { nav.push(Screen.Frise) },
-                                    onSuivis = { nav.push(Screen.Suivis) },
-                                    onCinema = { nav.push(Screen.Cinema) },
-                                    onProfile = { nav.push(Screen.Profile) },
-                                )
-                            },
+                            bottomBar = { portee.barreDuBas(screen) },
                         )
                     }
                     Screen.Search -> {
@@ -478,16 +476,7 @@ fun Root(container: AppContainer) {
                             // que le calque, puis `frise.refresh()` met la carte à jour — la même
                             // mécanique que `onPodiumChange`/`onTicketChange` d'`AnneeScreen`.
                             onUtiliserTicket = { annee -> portefeuille.utiliser(annee) { frise.refresh() } },
-                            bottomBar = {
-                                JournalBottomBar(
-                                    screen,
-                                    onHome = { nav.home() },
-                                    onFrise = { nav.push(Screen.Frise) },
-                                    onSuivis = { nav.push(Screen.Suivis) },
-                                    onCinema = { nav.push(Screen.Cinema) },
-                                    onProfile = { nav.push(Screen.Profile) },
-                                )
-                            },
+                            bottomBar = { portee.barreDuBas(screen) },
                         )
                     }
                     Screen.Films -> {
@@ -510,16 +499,7 @@ fun Root(container: AppContainer) {
                             animatedVisibilityScope = animatedVisibilityScope,
                             // « Profil » est surlignée ici mais ramène au profil par un `pop`, pas
                             // un `push` : cet écran ne s'empile que depuis lui.
-                            bottomBar = {
-                                JournalBottomBar(
-                                    screen,
-                                    onHome = { nav.home() },
-                                    onFrise = { nav.push(Screen.Frise) },
-                                    onSuivis = { nav.push(Screen.Suivis) },
-                                    onCinema = { nav.push(Screen.Cinema) },
-                                    onProfile = nav::pop,
-                                )
-                            },
+                            bottomBar = { portee.barreDuBas(screen, onProfile = nav::pop) },
                         )
                     }
                     is Screen.Edit -> {
@@ -576,16 +556,7 @@ fun Root(container: AppContainer) {
                             cinema,
                             onOpenSortie = { nav.push(Screen.Form(it)) },
                             onOpenSeance = { nav.push(Screen.Edit(it)) },
-                            bottomBar = {
-                                JournalBottomBar(
-                                    screen,
-                                    onHome = { nav.home() },
-                                    onFrise = { nav.push(Screen.Frise) },
-                                    onSuivis = { nav.push(Screen.Suivis) },
-                                    onCinema = { nav.push(Screen.Cinema) },
-                                    onProfile = { nav.push(Screen.Profile) },
-                                )
-                            },
+                            bottomBar = { portee.barreDuBas(screen) },
                         )
                     }
                     Screen.Frise -> {
@@ -600,16 +571,7 @@ fun Root(container: AppContainer) {
                             },
                             onOpenDecennie = { nav.push(Screen.Decennie(it)) },
                             onOpenGenerique = { nav.push(Screen.Generique(it)) },
-                            bottomBar = {
-                                JournalBottomBar(
-                                    screen,
-                                    onHome = { nav.home() },
-                                    onFrise = { nav.push(Screen.Frise) },
-                                    onSuivis = { nav.push(Screen.Suivis) },
-                                    onCinema = { nav.push(Screen.Cinema) },
-                                    onProfile = { nav.push(Screen.Profile) },
-                                )
-                            },
+                            bottomBar = { portee.barreDuBas(screen) },
                         )
                     }
                     is Screen.Annee -> {
@@ -766,16 +728,7 @@ fun Root(container: AppContainer) {
                                     nav.push(Screen.FicheSuivi(source, tmdbId))
                                 }
                             },
-                            bottomBar = {
-                                JournalBottomBar(
-                                    screen,
-                                    onHome = { nav.home() },
-                                    onFrise = { nav.push(Screen.Frise) },
-                                    onSuivis = { nav.push(Screen.Suivis) },
-                                    onCinema = { nav.push(Screen.Cinema) },
-                                    onProfile = { nav.push(Screen.Profile) },
-                                )
-                            },
+                            bottomBar = { portee.barreDuBas(screen) },
                         )
                     }
                     Screen.ChercherSuivi -> {
