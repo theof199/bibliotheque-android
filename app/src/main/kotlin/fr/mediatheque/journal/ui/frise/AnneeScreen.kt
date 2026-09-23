@@ -7,6 +7,7 @@ import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -167,6 +168,29 @@ fun AnneeScreen(
             haptique.performHapticFeedback(HapticFeedbackType.Confirm)
         }
     }
+    // Le podium qui bouge (geste 18 du complément du 23 septembre 2026 à l'habillage) : l'affiche
+    // entrante glisse jusqu'à sa marche (500 ms) et son numéro d'or rebondit — jamais au premier
+    // chargement de l'écran (`podiumPrecedent` nul), seulement observé en train de changer.
+    var podiumPrecedent by remember { mutableStateOf<List<PodiumMarcheUi?>?>(null) }
+    var placeEntrante by remember { mutableStateOf<Int?>(null) }
+    val glissementPodium = remember { Animatable(0f) }
+    val rebondNumeroPodium = remember { Animatable(1f) }
+    LaunchedEffect(ui.podium) {
+        val avant = podiumPrecedent
+        if (avant != null) {
+            entreePodium(avant, ui.podium)?.let { entree ->
+                placeEntrante = entree.place
+                glissementPodium.snapTo(1f)
+                rebondNumeroPodium.snapTo(0f)
+                val glissementJob = launch { glissementPodium.animateTo(0f, tween(500, easing = FastOutSlowInEasing)) }
+                rebondNumeroPodium.animateTo(1.3f, tween(180))
+                rebondNumeroPodium.animateTo(1f, tween(200))
+                glissementJob.join()
+                placeEntrante = null
+            }
+        }
+        podiumPrecedent = ui.podium
+    }
 
     marcheOuverte?.let { place ->
         MarcheSheet(
@@ -232,6 +256,9 @@ fun AnneeScreen(
                         podium = ui.podium,
                         monde = monde,
                         porteCascade = porteCascade,
+                        placeEntrante = placeEntrante,
+                        glissementEntrant = glissementPodium.value,
+                        rebondNumeroEntrant = rebondNumeroPodium.value,
                         onTap = { place -> marcheOuverte = place },
                         onLongPress = { place -> vm.retirerPodium(place, onPodiumChange) },
                     )
@@ -510,7 +537,17 @@ private val LARGEUR_PODIUM_PETIT = 64.dp
  * appui long sur une marche occupée la vide directement, sans feuille (décision 2).
  */
 @Composable
-private fun BlocPodium(podium: List<PodiumMarcheUi?>, monde: Monde, porteCascade: Boolean, onTap: (Int) -> Unit, onLongPress: (Int) -> Unit) {
+private fun BlocPodium(
+    podium: List<PodiumMarcheUi?>,
+    monde: Monde,
+    porteCascade: Boolean,
+    onTap: (Int) -> Unit,
+    onLongPress: (Int) -> Unit,
+    /** L'entrant du podium (geste 18) : nulle hors entrée, sinon la marche dont l'affiche glisse et le numéro rebondit. */
+    placeEntrante: Int? = null,
+    glissementEntrant: Float = 0f,
+    rebondNumeroEntrant: Float = 1f,
+) {
     // Une bande sombre entre deux perforations (habillage du 23 septembre 2026, geste 5), à la
     // place du seul bout de pellicule sous les marches — la maquette : `.film-strip`.
     Column(
@@ -524,9 +561,27 @@ private fun BlocPodium(podium: List<PodiumMarcheUi?>, monde: Monde, porteCascade
         ) {
             // La cascade d'entrée (habillage du 23 septembre 2026, geste 8), dans l'ordre visuel
             // des marches (2, 1, 3), comme le `Row` les pose.
-            EntreeEnCascade(0, porteCascade) { m -> PhotogrammePodium(2, podium.getOrNull(1), monde, LARGEUR_PODIUM_PETIT, onClick = { onTap(2) }, onLongClick = { onLongPress(2) }, modifier = m) }
-            EntreeEnCascade(1, porteCascade) { m -> PhotogrammePodium(1, podium.getOrNull(0), monde, LARGEUR_PODIUM_GRAND, onClick = { onTap(1) }, onLongClick = { onLongPress(1) }, modifier = m) }
-            EntreeEnCascade(2, porteCascade) { m -> PhotogrammePodium(3, podium.getOrNull(2), monde, LARGEUR_PODIUM_PETIT, onClick = { onTap(3) }, onLongClick = { onLongPress(3) }, modifier = m) }
+            EntreeEnCascade(0, porteCascade) { m ->
+                PhotogrammePodium(
+                    2, podium.getOrNull(1), monde, LARGEUR_PODIUM_PETIT, onClick = { onTap(2) }, onLongClick = { onLongPress(2) }, modifier = m,
+                    glissement = if (placeEntrante == 2) glissementEntrant else 0f,
+                    rebondNumero = if (placeEntrante == 2) rebondNumeroEntrant else 1f,
+                )
+            }
+            EntreeEnCascade(1, porteCascade) { m ->
+                PhotogrammePodium(
+                    1, podium.getOrNull(0), monde, LARGEUR_PODIUM_GRAND, onClick = { onTap(1) }, onLongClick = { onLongPress(1) }, modifier = m,
+                    glissement = if (placeEntrante == 1) glissementEntrant else 0f,
+                    rebondNumero = if (placeEntrante == 1) rebondNumeroEntrant else 1f,
+                )
+            }
+            EntreeEnCascade(2, porteCascade) { m ->
+                PhotogrammePodium(
+                    3, podium.getOrNull(2), monde, LARGEUR_PODIUM_PETIT, onClick = { onTap(3) }, onLongClick = { onLongPress(3) }, modifier = m,
+                    glissement = if (placeEntrante == 3) glissementEntrant else 0f,
+                    rebondNumero = if (placeEntrante == 3) rebondNumeroEntrant else 1f,
+                )
+            }
         }
         Perforations()
     }
@@ -539,6 +594,10 @@ private val FondPellicule = Color(0xFF0F0B06)
  * Un photogramme du podium : un cadre nu, sans texte d'invitation, quand la marche est vide ; sinon
  * l'affiche et le titre sur une ligne (décision 1). Le cadre prend la couleur du chapitre selon la
  * marche (`Monde.couleurPodium`) ; le numéro, en petit, se lit sous le cadre dans tous les cas.
+ *
+ * `glissement` et `rebondNumero` (geste 18 du complément du 23 septembre 2026) : 0 et 1 hors
+ * entrée — l'affiche glisse alors depuis le bas (`glissement` 1 → 0, l'appelant l'anime sur 500 ms)
+ * et le numéro passe en or, à l'échelle `rebondNumero`.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -550,9 +609,12 @@ private fun PhotogrammePodium(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier,
+    glissement: Float = 0f,
+    rebondNumero: Float = 1f,
 ) {
     val shape = RoundedCornerShape(3.dp)
     val hauteur = largeur * 1.5f
+    val entrant = glissement != 0f || rebondNumero != 1f
     Column(
         modifier
             .combinedClickable(onClick = onClick, onLongClick = if (marche != null) onLongClick else null)
@@ -564,6 +626,7 @@ private fun PhotogrammePodium(
         Box(
             Modifier
                 .size(largeur, hauteur)
+                .graphicsLayer { translationY = glissement * (largeur.toPx() * 0.6f) }
                 .background(Color.Black, shape)
                 .border(1.5.dp, monde.couleurPodium(place), shape),
         ) {
@@ -572,8 +635,10 @@ private fun PhotogrammePodium(
         Text(
             "$place",
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 2.dp),
+            color = if (entrant) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .padding(top = 2.dp)
+                .graphicsLayer { scaleX = rebondNumero; scaleY = rebondNumero },
         )
         if (marche != null) {
             Text(

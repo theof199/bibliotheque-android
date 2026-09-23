@@ -140,4 +140,52 @@ class PodiumEtatsTest {
         assertTrue(pourLeProgramme[2].estCeFilm)
         assertTrue(!pourLeProgramme[0].estCeFilm)
     }
+
+    // Le trio de tête qui bouge (geste 18 du complément du 23 septembre 2026 à l'habillage) : une
+    // marche vide qui se remplit entre. Mutation : comparer les objets entiers plutôt que
+    // l'identité ferait rejouer l'entrée sur un simple changement de jaquette du même film.
+    @Test
+    fun `entreePodium rend la marche qui vient de recevoir un nouvel occupant`() {
+        val kane = PodiumMarcheUi(1, 500, null, "Citizen Kane", null)
+        val ancien = listOf<PodiumMarcheUi?>(null, null, null)
+        val nouveau = listOf(kane, null, null)
+
+        val entree = entreePodium(ancien, nouveau)
+
+        assertEquals(EntreePodium(1, kane), entree)
+    }
+
+    // Un occupant qui en remplace un autre à la même marche est aussi un entrant — c'est le
+    // nouveau qui glisse jusqu'à la marche, pas l'ancien qui la quitte.
+    @Test
+    fun `entreePodium rend le nouvel occupant quand il en remplace un autre`() {
+        val ancien = listOf(PodiumMarcheUi(1, 500, null, "Citizen Kane", null), null, null)
+        val vertigo = PodiumMarcheUi(1, 700, null, "Vertigo", null)
+        val nouveau = listOf(vertigo, null, null)
+
+        val entree = entreePodium(ancien, nouveau)
+
+        assertEquals(EntreePodium(1, vertigo), entree)
+    }
+
+    // Une marche qui se vide n'a pas d'entrant, et deux podiums identiques n'en ont pas non plus.
+    // Mutation : rendre l'entrant même quand `apres` est nul ferait glisser une affiche vide sur sa
+    // marche.
+    @Test
+    fun `entreePodium ne rend rien quand une marche se vide ou que rien ne change`() {
+        val kane = PodiumMarcheUi(1, 500, null, "Citizen Kane", null)
+        assertNull(entreePodium(listOf(kane, null, null), listOf(null, null, null)))
+        assertNull(entreePodium(listOf(kane, null, null), listOf(kane, null, null)))
+    }
+
+    // Un même film republié avec un titre ou une jaquette corrigés n'est pas un nouvel entrant :
+    // seule l'identité (`tmdbId`/`programmeId`) compte. Mutation : comparer par titre rejouerait
+    // l'entrée à chaque correction de nom.
+    @Test
+    fun `entreePodium ignore un changement de titre ou de jaquette a identite egale`() {
+        val avant = PodiumMarcheUi(1, 500, null, "Citizen Kane", null)
+        val apres = PodiumMarcheUi(1, 500, null, "Citizen Kane (1941)", "https://nouvelle-affiche")
+
+        assertNull(entreePodium(listOf(avant, null, null), listOf(apres, null, null)))
+    }
 }

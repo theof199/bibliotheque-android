@@ -47,6 +47,30 @@ fun corpsPodium(candidat: CandidatPodium): PodiumBody = when (candidat) {
     is CandidatPodium.Programme -> PodiumBody(programme_id = candidat.programmeId)
 }
 
+/** L'entrant du podium (geste 18 du complément du 23 septembre 2026 à l'habillage) : la marche dont l'occupant vient de changer, et son nouvel occupant. */
+data class EntreePodium(val place: Int, val marche: PodiumMarcheUi)
+
+/**
+ * Le trio de tête qui bouge (geste 18) : compare l'ancien podium au nouveau, place par place (1,
+ * 2, 3, l'ordre des marches, jamais l'ordre visuel 2-1-3 du `Row`), et rend la première marche dont
+ * l'occupant a changé — jamais une marche qui vient de se vider (`apres` nul n'entre pas en jeu,
+ * seul un nouvel occupant est un « entrant »). L'identité compare `tmdbId`/`programmeId`, pas le
+ * titre : un même film republié avec un titre corrigé ne rejoue pas l'entrée. Fonction pure, testée
+ * en JVM.
+ */
+fun entreePodium(ancien: List<PodiumMarcheUi?>, nouveau: List<PodiumMarcheUi?>): EntreePodium? {
+    for (place in 1..3) {
+        val avant = ancien.getOrNull(place - 1)
+        val apres = nouveau.getOrNull(place - 1)
+        if (apres != null && identitePodium(avant) != identitePodium(apres)) {
+            return EntreePodium(place, apres)
+        }
+    }
+    return null
+}
+
+private fun identitePodium(marche: PodiumMarcheUi?): Any? = marche?.let { it.tmdbId ?: it.programmeId }
+
 /** Une ligne de la feuille « Marche *N* » (`AnneeScreen`, appui sur une marche) : retirer, ou choisir un candidat. */
 sealed interface LignePodiumFeuille {
     data class Retirer(val place: Int) : LignePodiumFeuille
