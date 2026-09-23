@@ -1,11 +1,19 @@
 package fr.mediatheque.journal.ui.frise
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -49,6 +57,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -98,6 +107,7 @@ fun VoyageScreen(
     val ui by vm.ui.collectAsState()
     val anneeActuelle = remember { LocalDate.now().year }
     val liste = rememberLazyListState()
+    val density = LocalDensity.current
     val snackbar = remember { SnackbarHostState() }
     var claques by remember { mutableIntStateOf(0) }
     var decennieAllumee by remember { mutableIntStateOf(0) }
@@ -107,18 +117,38 @@ fun VoyageScreen(
     // La proposition de carnet (décision 1 du brief du 22 septembre 2026, « le carnet ») : nulle
     // hors dialogue, sinon l'année à proposer.
     var carnetPropose by remember { mutableStateOf<Int?>(null) }
+    // Le clap qui marche le long de la pellicule après un enregistrement (complément du 23
+    // septembre 2026 à l'habillage, geste 14) : vrai le temps du défilement animé de 800 ms, faux
+    // au premier chargement de l'écran (l'ouverture se positionne d'un coup, sans marche à voir).
+    var enMarche by remember { mutableStateOf(false) }
 
     val cellules = remember(ui.voyage, ui.annees, ui.decennies, ui.passeport, anneeActuelle) {
         construireCarte(ui, anneeActuelle)
     }
     val anneeEnCours = ui.voyage.anneeEnCours
 
-    // À l'ouverture, la liste défile jusqu'à l'année en cours. `anneeEnCours` en clé plutôt que
-    // `Unit` : si elle avance pendant qu'on est sur l'écran (le bouton provisoire d'`AnneeScreen`),
-    // la carte suit le clap au prochain chargement.
+    // À l'ouverture, la liste défile jusqu'à l'année en cours, d'un coup. `anneeEnCours` en clé
+    // plutôt que `Unit` : si elle avance pendant qu'on est sur l'écran (le bouton provisoire
+    // d'`AnneeScreen`), la carte suit le clap au prochain chargement, elle aussi d'un coup — seul un
+    // enregistrement passé par `vm.avancees` (ci-dessous) anime la marche.
+    var anneePrecedente by remember { mutableStateOf<Int?>(null) }
     LaunchedEffect(anneeEnCours, cellules.size) {
         val index = cellules.indexOfFirst { it is Cellule.Annee && it.annee == anneeEnCours }
-        if (index >= 0) liste.scrollToItem(index)
+        if (index < 0) return@LaunchedEffect
+        if (anneePrecedente != null && anneePrecedente != anneeEnCours) {
+            // Le clap marche le long de la pellicule jusqu'au nouveau photogramme (geste 14) : la
+            // liste se positionne un cran plus loin que sa place finale, puis glisse jusqu'à elle
+            // en 800 ms — une distance fixe plutôt que la distance réelle jusqu'à l'index, pour que
+            // la durée du geste ne dépende pas de combien d'années le Voyage vient de franchir.
+            enMarche = true
+            val distance = with(density) { HAUTEUR_CELLULE.toPx() }
+            liste.scrollToItem(index, scrollOffset = distance.toInt())
+            liste.animateScrollBy(distance, tween(800, easing = FastOutSlowInEasing))
+            enMarche = false
+        } else {
+            liste.scrollToItem(index)
+        }
+        anneePrecedente = anneeEnCours
     }
 
     // L'année en cours qui avance : le clap claque, le calque « *1898* dans la boîte » joue sa
@@ -200,6 +230,7 @@ fun VoyageScreen(
                             is Cellule.Annee -> CelluleAnnee(
                                 cellule = cellule,
                                 claques = claques,
+                                enMarche = enMarche,
                                 onClick = { onOpenAnnee(cellule.groupe) },
                             )
                             is Cellule.Marquise -> Marquise(
@@ -307,6 +338,10 @@ private fun construireCarte(ui: FriseUi, anneeActuelle: Int): List<Cellule> {
 @Composable
 private fun Hud(voyage: VoyageUi) {
     val visitees = voyage.parAnnee.values.count { it.visitee }
+    // Le compteur du HUD s'incrémente chiffre par chiffre plutôt que de sauter d'un coup (geste
+    // 14) : la même valeur cible, juste animée — un enregistrement qui fait franchir plusieurs
+    // années d'un coup (rattrapage) le compte tout aussi bien, seul le trajet visuel change.
+    val visiteesAnimees by animateIntAsState(targetValue = visitees, label = "visitees")
     // Vide tant qu'aucune année n'a de récompense : c'est `phraseRecompenses` elle-même qui rend
     // "" alors, sans qu'il faille un `if` de plus ici (étape 5, « les récompenses »).
     val recompenses = phraseRecompenses(voyage.parAnnee.values.mapNotNull { recompenseDe(it.recompense) })
@@ -317,7 +352,7 @@ private fun Hud(voyage: VoyageUi) {
             color = mondeDe(voyage.anneeEnCours).accent,
         )
         Text(
-            "$visitees ${if (visitees <= 1) "année visitée" else "années visitées"} · ${voyage.anneeEnCours} en cours",
+            "$visiteesAnimees ${if (visitees <= 1) "année visitée" else "années visitées"} · ${voyage.anneeEnCours} en cours",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -367,11 +402,14 @@ private val LARGEUR_PHOTOGRAMME = 54.dp
 private val HAUTEUR_PHOTOGRAMME = 40.dp
 
 @Composable
-private fun CelluleAnnee(cellule: Cellule.Annee, claques: Int, onClick: () -> Unit) {
+private fun CelluleAnnee(cellule: Cellule.Annee, claques: Int, enMarche: Boolean, onClick: () -> Unit) {
     val monde = cellule.monde
     val enCours = cellule.statut == StatutAnneeVoyage.EN_COURS
     val bandeFond = monde.accent.copy(alpha = 0.16f)
-    val perforation = monde.fond
+    // Les tirets dorés qui suivent le clap (geste 14) : le temps de sa marche vers ce photogramme,
+    // les perforations de son segment de pellicule s'allument en or plutôt que de rester au ton du
+    // fond — un « chemin » plutôt qu'un `Canvas` de plus à faire courir image par image.
+    val perforation = if (enCours && enMarche) monde.accent else monde.fond
     // Les couleurs se lisent ici, dans la composition : un `DrawScope` n'est pas composable et ne
     // sait pas atteindre `MaterialTheme` (le même piège que `eteinte` dans `Marquise`).
     val corail = MaterialTheme.colorScheme.primary
@@ -396,14 +434,22 @@ private fun CelluleAnnee(cellule: Cellule.Annee, claques: Int, onClick: () -> Un
         }
 
         // Le cône de lumière corail de l'année en cours : un dégradé radial posé sous le
-        // photogramme, jamais une couleur de plus dans le thème.
+        // photogramme, jamais une couleur de plus dans le thème. Il respire lentement (geste 14) :
+        // une pulsation infinie de son opacité, comme le défilement lent des perforations
+        // (`Perforations`, `Ornements.kt`).
         if (enCours) {
+            val respiration = rememberInfiniteTransition(label = "cone-lumiere").animateFloat(
+                initialValue = 0.24f,
+                targetValue = 0.42f,
+                animationSpec = infiniteRepeatable(tween(2_400, easing = LinearEasing), repeatMode = RepeatMode.Reverse),
+                label = "respiration",
+            )
             Canvas(Modifier.fillMaxSize()) {
                 val centre = Offset(size.width * cellule.xAncre, size.height / 2f)
                 val rayon = size.height * 0.75f
                 drawCircle(
                     brush = Brush.radialGradient(
-                        colors = listOf(corail.copy(alpha = 0.35f), Color.Transparent),
+                        colors = listOf(corail.copy(alpha = respiration.value), Color.Transparent),
                         center = centre,
                         radius = rayon,
                     ),
