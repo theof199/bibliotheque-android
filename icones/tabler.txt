@@ -1,0 +1,22 @@
+# Un nom Tabler par ligne, lu par bin/icones. Chaque nom est cherche dans
+# icons/outline/<nom>.svg ; un nom qui finit par -filled est cherche, sans ce
+# suffixe, dans icons/filled/<nom>.svg (Tabler ne publie pas de variante
+# "-filled" dans outline/, seulement des dossiers outline/filled distincts).
+#
+# Les douze premiers remplacent Icons.* (Material) dans l'appli. Les trois
+# derniers remplacent les Text("✦") (geste 2 du brief du 23 septembre 2026).
+arrow-left
+check
+x
+plus
+chevron-right
+timeline
+user
+movie
+home
+trash
+ticket
+cloud
+star-filled
+sparkles
+award

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Genere par bin/icones depuis @tabler/icons (star-filled). Ne pas editer a la main. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M0 0h24v24H0z"/>
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M8.24 7.34L1.86 8.27 1.75 8.29a1 1 0 0 0-0.44 1.68l4.62 4.5-1.09 6.36-0.01 0.1a1 1 0 0 0 1.46 0.95l5.7-3 5.7 3 0.1 0.05a1 1 0 0 0 1.35-1.1l-1.09-6.36 4.63-4.5 0.07-0.08a1 1 0 0 0-0.63-1.62l-6.38-0.93-2.85-5.78a1 1 0 0 0-1.8 0L8.25 7.34z"/>
+</vector>

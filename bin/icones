@@ -1,0 +1,179 @@
+#!/usr/bin/env node
+'use strict';
+
+// Construit res/drawable/tabler_<nom>.xml depuis les SVG du paquet npm
+// @tabler/icons (icones/package.json fixe sa version), converti par
+// svg2vectordrawable. Sans Android Studio ni Docker : un `node bin/icones`
+// suffit sur le poste. Les XML generes sont commites : le build ne depend
+// jamais du reseau, seul ce script en a besoin, une fois.
+//
+// Trait 1.75 (au lieu du 2 par defaut de Tabler), couleur #FFFFFFFF opaque :
+// une icone Compose la teinte a l'usage par `Icon(..., tint = ...)`, comme
+// `?attr/colorControlNormal` le ferait dans une vue classique.
+//
+// Tabler expose son trait (`stroke`, `stroke-width`, ...) sur la balise
+// <svg> racine, pour un heritage CSS que les parseurs XML ordinaires
+// n'appliquent pas : on le recopie donc sur chaque <path> avant conversion.
+
+const { execFileSync } = require('node:child_process');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const RACINE = path.join(__dirname, '..');
+const DOSSIER_ICONES = path.join(RACINE, 'icones');
+const FICHIER_LISTE = path.join(DOSSIER_ICONES, 'tabler.txt');
+const DOSSIER_DRAWABLE = path.join(RACINE, 'app', 'src', 'main', 'res', 'drawable');
+const FICHIER_LICENCE = path.join(DOSSIER_ICONES, 'LICENCE-tabler.md');
+const COULEUR = '#FFFFFFFF';
+const TRAIT = '1.75';
+
+function npmInstall() {
+  try {
+    execFileSync('npm', ['install', '--no-audit', '--no-fund'], {
+      cwd: DOSSIER_ICONES,
+      stdio: 'inherit',
+    });
+  } catch (erreur) {
+    console.error(
+      "\nbin/icones : `npm install` a echoue dans icones/ (pas de reseau ?)." +
+        ' Arret sans rien generer : aucune icone ne se dessine a la main ici.',
+    );
+    process.exit(1);
+  }
+}
+
+function lireListe() {
+  return fs
+    .readFileSync(FICHIER_LISTE, 'utf8')
+    .split('\n')
+    .map((ligne) => ligne.trim())
+    .filter((ligne) => ligne.length > 0 && !ligne.startsWith('#'));
+}
+
+function localiserSource(nomTabler) {
+  const base = path.join(DOSSIER_ICONES, 'node_modules', '@tabler', 'icons', 'icons');
+  const outline = path.join(base, 'outline', `${nomTabler}.svg`);
+  if (fs.existsSync(outline)) {
+    return { chemin: outline, remplie: false };
+  }
+  if (nomTabler.endsWith('-filled')) {
+    const nomRempli = nomTabler.slice(0, -'-filled'.length);
+    const remplie = path.join(base, 'filled', `${nomRempli}.svg`);
+    if (fs.existsSync(remplie)) {
+      return { chemin: remplie, remplie: true };
+    }
+  }
+  return null;
+}
+
+// Ajoute le trait (icones "outline") ou le remplissage (icones "filled") a
+// chaque <path> qui n'en porte pas deja un explicitement — c'est le cas du
+// rectangle invisible que Tabler pose en premier <path> de chaque icone
+// (`stroke="none" fill="none"`), qui doit rester transparent.
+function preparerSvg(svg, remplie) {
+  if (remplie) {
+    return svg.replace(/<path(?![^>]*\bfill=)/g, `<path fill="${COULEUR}"`);
+  }
+  return svg.replace(
+    /<path(?![^>]*\bstroke=)/g,
+    `<path stroke="${COULEUR}" stroke-width="${TRAIT}" stroke-linecap="round" stroke-linejoin="round" fill="none"`,
+  );
+}
+
+// svg2vectordrawable ne reporte pas toujours android:strokeLineCap /
+// strokeLineJoin sur le XML produit ; on les rajoute a la main, a cote de
+// chaque strokeWidth "1.75" pose ci-dessus, pour garder les bouts ronds du
+// trait Tabler.
+function ajouterCapsRonds(xml) {
+  return xml.replace(
+    new RegExp(`(android:strokeColor="${COULEUR}"\\n\\s*android:strokeWidth="${TRAIT}")`, 'g'),
+    '$1\n        android:strokeLineCap="round"\n        android:strokeLineJoin="round"',
+  );
+}
+
+function nomRessource(nomTabler) {
+  return `tabler_${nomTabler.replace(/-/g, '_')}`;
+}
+
+function ecrireLicence(entrees) {
+  const lignes = entrees
+    .map(({ nom, remplie }) => `- \`${nomRessource(nom)}\` — \`${nom}\` (${remplie ? 'filled' : 'outline'})`)
+    .join('\n');
+  const version = JSON.parse(
+    fs.readFileSync(path.join(DOSSIER_ICONES, 'node_modules', '@tabler', 'icons', 'package.json'), 'utf8'),
+  ).version;
+  const licenceMit = fs.readFileSync(
+    path.join(DOSSIER_ICONES, 'node_modules', '@tabler', 'icons', 'LICENSE'),
+    'utf8',
+  );
+  const contenu = `# Licence des icones Tabler
+
+*Fichier reecrit par \`bin/icones\` a chaque execution : ne pas l'editer a la main, editer
+\`icones/tabler.txt\` puis relancer le script.*
+
+Les icones de l'application sous \`res/drawable/tabler_*.xml\` viennent du paquet npm
+[\`@tabler/icons\`](https://www.npmjs.com/package/@tabler/icons) version **${version}**
+(\`icones/package.json\`), licence MIT, convertis par
+[\`svg2vectordrawable\`](https://www.npmjs.com/package/svg2vectordrawable).
+
+## Icones converties
+
+${lignes}
+
+## Licence MIT (\`@tabler/icons\`)
+
+\`\`\`
+${licenceMit.trim()}
+\`\`\`
+`;
+  fs.writeFileSync(FICHIER_LICENCE, contenu);
+}
+
+async function main() {
+  npmInstall();
+
+  // Chargee apres npm install : le paquet n'existe pas avant.
+  const s2v = require(path.join(DOSSIER_ICONES, 'node_modules', 'svg2vectordrawable'));
+
+  const noms = lireListe();
+  const manquantes = [];
+  const entrees = [];
+
+  fs.mkdirSync(DOSSIER_DRAWABLE, { recursive: true });
+
+  for (const nom of noms) {
+    const source = localiserSource(nom);
+    if (source === null) {
+      manquantes.push(nom);
+      continue;
+    }
+    const svgBrut = fs.readFileSync(source.chemin, 'utf8');
+    const svgPrepare = preparerSvg(svgBrut, source.remplie);
+    let xml = await s2v(svgPrepare, { xmlTag: true, floatPrecision: 2 });
+    if (!source.remplie) {
+      xml = ajouterCapsRonds(xml);
+    }
+    const entete = `<!-- Genere par bin/icones depuis @tabler/icons (${nom}). Ne pas editer a la main. -->\n`;
+    const xmlFinal = xml.replace(/^<\?xml[^>]*\?>\n/, (declaration) => declaration + entete);
+    const cible = path.join(DOSSIER_DRAWABLE, `${nomRessource(nom)}.xml`);
+    fs.writeFileSync(cible, xmlFinal);
+    entrees.push({ nom, remplie: source.remplie });
+    console.log(`ecrit : res/drawable/${nomRessource(nom)}.xml (depuis ${nom})`);
+  }
+
+  if (manquantes.length > 0) {
+    console.error(
+      `\nbin/icones : ${manquantes.length} icone(s) de icones/tabler.txt introuvable(s) chez Tabler : ` +
+        manquantes.join(', '),
+    );
+    process.exit(1);
+  }
+
+  ecrireLicence(entrees);
+  console.log(`\nicones/LICENCE-tabler.md a jour (${entrees.length} icones).`);
+}
+
+main().catch((erreur) => {
+  console.error(erreur);
+  process.exit(1);
+});

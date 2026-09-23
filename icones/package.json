@@ -1,0 +1,9 @@
+{
+  "name": "icones",
+  "private": true,
+  "description": "Outillage de bin/icones : convertit les SVG de @tabler/icons en res/drawable/tabler_*.xml. Ne fait partie d'aucun workspace npm de l'application.",
+  "devDependencies": {
+    "@tabler/icons": "3.48.0",
+    "svg2vectordrawable": "2.9.1"
+  }
+}
