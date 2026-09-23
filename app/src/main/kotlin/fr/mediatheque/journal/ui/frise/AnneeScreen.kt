@@ -1,5 +1,6 @@
 package fr.mediatheque.journal.ui.frise
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -352,7 +353,10 @@ private fun Cartouche(millesime: Int, ui: AnneeUi, monde: Monde, onLireLaSuite: 
  */
 @Composable
 private fun CartoucheOuverture(ouverture: String, ui: AnneeUi, monde: Monde, onLireLaSuite: () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    // `animateContentSize()` (peaufinage du 23 septembre 2026, geste 2) : « Lire la suite » fait
+    // passer ce bloc de trois lignes aux faits puis aux paragraphes de la chronique, ce qui
+    // décalait d'un coup le podium et les salles en dessous — la hauteur s'anime désormais.
+    Column(Modifier.animateContentSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             ouverture,
             style = MaterialTheme.typography.bodyLarge,
