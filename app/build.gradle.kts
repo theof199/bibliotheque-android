@@ -154,6 +154,9 @@ dependencies {
     implementation(libs.coroutines.android)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
+    // Les animations Lottie des célébrations (brief du 23 septembre 2026, soir) : les JSON vivent
+    // dans `app/src/main/assets/lottie/`, jamais téléchargés (README, « Les animations »).
+    implementation(libs.lottie.compose)
 
     testImplementation(libs.junit)
     testImplementation(libs.coroutines.test)
