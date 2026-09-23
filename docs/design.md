@@ -275,8 +275,8 @@ jamais d'excuse ; c'est déjà le ton des messages du back, on le garde.
 
 *Le §1 et ce paragraphe imposaient la sobriété (un fondu de 200 ms entre écrans, rien d'autre). Le
 propriétaire lève cette règle le 23 septembre 2026, « pour voir » (« peaufine au max, je verrai ce
-que j'enlève ensuite ») : ce qui suit décrit ce qui existe depuis ce peaufinage, à élaguer après
-essais sur le téléphone, pas avant.*
+que j'enlève ensuite ») : ce qui suit décrit ce qui existe depuis ce peaufinage, gardé en entier
+après ses essais sur le téléphone le jour même (« j'aime beaucoup tout ce qu'il y a »).*
 
 - **Le défilement d'une liste survit à un retour en arrière** (`rememberSaveableStateHolder()`,
   `Root.kt`) : chaque écran de la pile se rend dans son propre `SaveableStateProvider`, sous une
@@ -752,8 +752,8 @@ d'API hors de `Endpoints.kt` », pour la même raison.
 - **Des illustrations d'états vides, des animations décoratives.** Contraires
   à « sobre » — l'animation du clap (§10) est l'icône elle-même, pas une
   décoration d'écran. Le retour haptique, lui, a quitté cette liste : posé
-  par le peaufinage du 23 septembre 2026 (§7), à élaguer après essais sur le
-  téléphone si le propriétaire le juge de trop.
+  par le peaufinage du 23 septembre 2026 (§7) et gardé après essais sur le
+  téléphone.
 - **Une police pour les titres différente de celle du corps.** Manrope en
   600 et 700 fait le travail ; deux familles pour six écrans, c'est une de
   trop.
