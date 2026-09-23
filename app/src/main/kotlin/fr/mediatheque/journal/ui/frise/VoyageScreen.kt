@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -160,8 +161,17 @@ fun VoyageScreen(
         Column(Modifier.fillMaxSize().padding(padding)) {
             Hud(ui.voyage)
             LazyColumn(state = liste, modifier = Modifier.weight(1f)) {
-                items(cellules.size) { index ->
-                    when (val cellule = cellules[index]) {
+                items(
+                    cellules,
+                    key = { cellule ->
+                        when (cellule) {
+                            is Cellule.Titre -> "titre-${cellule.monde.decennie}"
+                            is Cellule.Annee -> "annee-${cellule.annee}"
+                            is Cellule.Marquise -> "marquise-${cellule.monde.decennie}"
+                        }
+                    },
+                ) { cellule ->
+                    when (cellule) {
                         is Cellule.Titre -> TitreDeMonde(cellule.monde)
                         is Cellule.Annee -> CelluleAnnee(
                             cellule = cellule,

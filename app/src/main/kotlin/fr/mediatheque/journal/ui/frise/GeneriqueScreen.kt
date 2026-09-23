@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -101,8 +102,7 @@ fun GeneriqueScreen(tampon: TamponDecennie, pseudo: String, onFermer: () -> Unit
                         )
                     }
                 } else {
-                    items(tampon.films.size) { index ->
-                        val film = tampon.films[index]
+                    items(tampon.films, key = { "${it.annee}-${it.titre}" }) { film ->
                         Row(
                             Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.Center,

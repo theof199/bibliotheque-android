@@ -208,6 +208,10 @@ fun FicheSuiviScreen(
                             LigneFilm(
                                 film = film,
                                 aVoir = film.tmdb_id == prochain?.tmdb_id,
+                                // « Masquer les introuvables » (geste 3 du peaufinage du 23 septembre
+                                // 2026) : les lignes qui restent glissent vers leur nouvelle place au
+                                // lieu de sauter, la clé ci-dessus leur donnant leur identité.
+                                modifier = Modifier.animateItem(),
                                 onClick = {
                                     val entree = film.vu?.let { ui.entrees[it.entry_id] }
                                     // Un film vu ouvre *son* entrée de journal, jamais un
@@ -281,9 +285,9 @@ private fun IntrouvableSheet(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun LigneFilm(film: FilmSuivi, aVoir: Boolean, onClick: () -> Unit, onLongClick: () -> Unit) {
+private fun LigneFilm(film: FilmSuivi, aVoir: Boolean, onClick: () -> Unit, onLongClick: () -> Unit, modifier: Modifier = Modifier) {
     Row(
-        Modifier
+        modifier
             .fillMaxWidth()
             // Grisée plutôt que cachée : c'est l'interrupteur « Masquer les introuvables », pas
             // cette ligne, qui décide si un film introuvable apparaît. Un appui long reste

@@ -88,7 +88,15 @@ fun DecennieScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(horizontal = 16.dp),
             ) {
-                items(decennie.films) { film ->
+                items(
+                    decennie.films,
+                    key = { film ->
+                        when (film) {
+                            is FilmDecennie.Vu -> "vu-${film.item.entry.id}"
+                            is FilmDecennie.AVoir -> "avoir-${film.film.tmdb_id}"
+                        }
+                    },
+                ) { film ->
                     when (film) {
                         is FilmDecennie.Vu -> TuileVue(film.item, onClick = { onOuvrirVu(film.item) })
                         is FilmDecennie.AVoir -> TuileAVoir(film.film, film.annee, onClick = { onOuvrirAVoir(film.film) })

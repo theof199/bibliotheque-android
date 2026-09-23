@@ -213,7 +213,9 @@ fun HomeScreen(
                         verticalArrangement = Arrangement.spacedBy(ecart),
                     ) {
                         items(ui.items, key = { it.entry.id }) { item ->
-                            Box(Modifier.clickable { onOpen(item) }) {
+                            // La grille se retasse (geste 3 du peaufinage du 23 septembre 2026) au
+                            // lieu de sauter quand un film change de place ou disparaît.
+                            Box(Modifier.animateItem().clickable { onOpen(item) }) {
                                 Cover(item.media.cover_url, item.media.title, largeurJaquette, hauteurJaquette)
                                 item.entry.rating?.let { note ->
                                     Box(

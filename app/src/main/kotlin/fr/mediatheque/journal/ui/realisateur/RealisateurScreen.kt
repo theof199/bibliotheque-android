@@ -225,6 +225,10 @@ private fun GrilleFilmographie(
                         hauteur = hauteurAffiche,
                         onClick = { onOuvrirFilm(film) },
                         onLongClick = { onLongClickNonVu(film) },
+                        // « Masquer les introuvables » (geste 3 du peaufinage du 23 septembre 2026) :
+                        // la grille se retasse au lieu de sauter quand l'interrupteur en retire des
+                        // affiches.
+                        modifier = Modifier.animateItem(),
                     )
                 }
             }
@@ -300,11 +304,18 @@ private val FiltreDesature = ColorFilter.colorMatrix(ColorMatrix().apply { setTo
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun AfficheFilmographie(film: FilmDeFilmographie, largeur: Dp, hauteur: Dp, onClick: () -> Unit, onLongClick: () -> Unit) {
+private fun AfficheFilmographie(
+    film: FilmDeFilmographie,
+    largeur: Dp,
+    hauteur: Dp,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val vu = film.vu != null
     val monde = mondeDe(film.year ?: 1895)
     Column(
-        Modifier
+        modifier
             .combinedClickable(onClick = onClick, onLongClick = if (film.vu == null) onLongClick else null)
             .width(largeur),
         horizontalAlignment = Alignment.CenterHorizontally,

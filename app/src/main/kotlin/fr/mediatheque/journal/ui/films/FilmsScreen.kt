@@ -66,7 +66,9 @@ fun FilmsScreen(vm: FilmsViewModel, onBack: () -> Unit, onOpen: (JournalItem) ->
             } else {
                 LazyColumn(state = liste, contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     items(ui.items, key = { it.entry.id }) { item ->
-                        JournalRow(item, onClick = { onOpen(item) })
+                        // La liste se retasse (geste 3 du peaufinage du 23 septembre 2026) au lieu
+                        // de sauter quand un film change de place ou disparaît.
+                        JournalRow(item, onClick = { onOpen(item) }, modifier = Modifier.animateItem())
                     }
                     if (ui.loading) {
                         item {

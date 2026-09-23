@@ -543,7 +543,18 @@ private fun MarcheSheet(
                 )
             }
             LazyColumn(Modifier.weight(1f, fill = false)) {
-                items(lignes) { ligne ->
+                items(
+                    lignes,
+                    key = { ligne ->
+                        when (ligne) {
+                            is LignePodiumFeuille.Retirer -> "retirer"
+                            is LignePodiumFeuille.Candidat -> when (val c = ligne.candidat) {
+                                is CandidatPodium.Film -> "film-${c.tmdbId}"
+                                is CandidatPodium.Programme -> "programme-${c.programmeId}"
+                            }
+                        }
+                    },
+                ) { ligne ->
                     when (ligne) {
                         is LignePodiumFeuille.Retirer -> Row(
                             Modifier.fillMaxWidth().clickable(onClick = onRetirer).padding(vertical = 10.dp),
@@ -866,7 +877,7 @@ private fun RemplacementSeanceSheet(
                             modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
                         )
                     }
-                    items(groupe.candidats) { candidat ->
+                    items(groupe.candidats, key = { it.filmId }) { candidat ->
                         val retrait = candidat is CandidatSeance.Bobine
                         Row(
                             Modifier
