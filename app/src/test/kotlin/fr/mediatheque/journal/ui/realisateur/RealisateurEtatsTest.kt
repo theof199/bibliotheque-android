@@ -4,6 +4,7 @@ import fr.mediatheque.journal.FakeJournalApi
 import fr.mediatheque.journal.api.dto.VoyageDeFilmographie
 import fr.mediatheque.journal.ui.frise.mondeDe
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -302,5 +303,31 @@ class RealisateurEtatsTest {
     fun `mondeDeLaPage retombe sur 1895 sans aucun film date`() {
         val films = listOf(FakeJournalApi.filmDeFilmographie(1, "Sans annee", null))
         assertEquals(mondeDe(1895), mondeDeLaPage(films))
+    }
+
+    // La rétrospective complète (geste 20 du complément du 23 septembre 2026 à l'habillage) : un
+    // introuvable compte, comme pour le Bilan. Mutation : exiger `vu != null` pour tous ferait
+    // manquer la rétrospective d'un réalisateur dont un film est introuvable.
+    @Test
+    fun `retrospectiveComplete est vraie quand tout est vu ou introuvable, un introuvable comptant`() {
+        val vu = FakeJournalApi.filmDeFilmographie(1, "Vu", 1980, entryId = "e1", rating = 7)
+        val perdu = FakeJournalApi.filmDeFilmographie(2, "Perdu", 1981, introuvable = true)
+        assertTrue(retrospectiveComplete(listOf(vu, perdu)))
+    }
+
+    // Un seul film ni vu ni introuvable suffit à la rendre fausse. Mutation : `any` au lieu d'`all`
+    // la rendrait vraie dès le premier film vu, quel que soit le reste.
+    @Test
+    fun `retrospectiveComplete est fausse des qu un film n est ni vu ni introuvable`() {
+        val vu = FakeJournalApi.filmDeFilmographie(1, "Vu", 1980, entryId = "e1", rating = 7)
+        val aVoir = FakeJournalApi.filmDeFilmographie(2, "A voir", 1981)
+        assertTrue(!retrospectiveComplete(listOf(vu, aVoir)))
+    }
+
+    // Une filmographie vide (par exemple après avoir retiré les séries) est complète aussi : rien
+    // n'y reste à voir. Mutation : rendre faux sur une liste vide casse cette assertion.
+    @Test
+    fun `retrospectiveComplete est vraie sur une filmographie vide`() {
+        assertTrue(retrospectiveComplete(emptyList()))
     }
 }

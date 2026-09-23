@@ -176,3 +176,14 @@ fun ligneResume(films: List<FilmDeFilmographie>): String {
  */
 fun mondeDeLaPage(films: List<FilmDeFilmographie>): Monde =
     mondeDe(films.firstOrNull { it.year != null }?.year ?: 1895)
+
+/**
+ * La rétrospective complète d'un réalisateur (geste 20 du complément du 23 septembre 2026 à
+ * l'habillage) : vraie quand tous ses films sont vus ou introuvables — un introuvable compte, comme
+ * `filmographieTerminee` (`ui/profile/Bilan.kt`) pour le Bilan, mais ici sur `FilmDeFilmographie`
+ * (courts compris) plutôt que `FilmSuivi`. `films` doit déjà être filtré par `filmsSansSeries` : les
+ * séries n'y entrent jamais, la même convention que `ligneResume`/`mondeDeLaPage` ci-dessus. Vide
+ * (aucun film, ou uniquement des séries), elle est complète aussi : rien n'y reste à voir.
+ */
+fun retrospectiveComplete(films: List<FilmDeFilmographie>): Boolean =
+    films.all { it.introuvable || it.vu != null }

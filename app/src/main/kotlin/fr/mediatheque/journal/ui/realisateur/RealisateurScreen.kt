@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -62,10 +63,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -84,6 +87,7 @@ import fr.mediatheque.journal.ui.voler
 import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.frise.Monde
 import fr.mediatheque.journal.ui.frise.TeinteSepia
+import fr.mediatheque.journal.ui.theme.Fraunces
 import fr.mediatheque.journal.ui.frise.mondeDe
 import fr.mediatheque.journal.ui.frise.mondeDeLaDecennie
 import fr.mediatheque.journal.ui.showBriefly
@@ -286,7 +290,16 @@ private fun EnTeteRealisateur(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Portrait(page.photo_url, page.name, 96.dp)
+        Box {
+            Portrait(page.photo_url, page.name, 96.dp)
+            // Le sceau de la rétrospective complète (geste 20 du complément du 23 septembre 2026
+            // à l'habillage) : posé sur le portrait, seulement quand `retrospectiveComplete` le dit
+            // — `page.films` est déjà sans ses séries (décision 3 de la retouche du 22 septembre
+            // 2026, appliquée avant `EnTeteRealisateur`).
+            if (retrospectiveComplete(page.films)) {
+                SceauRetrospective(monde, modifier = Modifier.align(Alignment.BottomEnd).size(30.dp))
+            }
+        }
         Text(
             page.name,
             style = MaterialTheme.typography.titleLarge.copy(letterSpacing = 4.sp, fontWeight = FontWeight.Bold),
@@ -329,6 +342,35 @@ private fun EnTeteRealisateur(
 }
 
 private val FiltreDesature = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
+
+/**
+ * Le sceau or « rétrospective complète » (geste 20 du complément du 23 septembre 2026 à
+ * l'habillage) : un cercle plein avec `✦` en Fraunces, posé sur le portrait. À l'échelle avec
+ * dépassement à la première composition (`LaunchedEffect(Unit)`, jamais rejouée à une simple
+ * recomposition de l'en-tête — l'interrupteur des introuvables juste en dessous, par exemple) ;
+ * statique ensuite, comme le sceau (plus petit) d'une année ouverte (`Photogramme`, `AnneeScreen.kt`).
+ */
+@Composable
+private fun SceauRetrospective(monde: Monde, modifier: Modifier = Modifier) {
+    val echelle = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        echelle.animateTo(1f, tween(400, easing = CubicBezierEasing(0.3f, 1.6f, 0.4f, 1f)))
+    }
+    Box(
+        modifier
+            .graphicsLayer { scaleX = echelle.value; scaleY = echelle.value }
+            .background(MaterialTheme.colorScheme.secondary, CircleShape)
+            .border(1.dp, monde.fond, CircleShape)
+            .semantics { contentDescription = "Rétrospective complète" },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            "✦",
+            style = MaterialTheme.typography.titleMedium.copy(fontFamily = Fraunces),
+            color = monde.fond,
+        )
+    }
+}
 
 /**
  * Une affiche de la filmographie (inchangé : vu en couleur avec pastille de note, sépia sinon,
