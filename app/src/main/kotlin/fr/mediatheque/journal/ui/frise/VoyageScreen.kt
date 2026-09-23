@@ -53,8 +53,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.shape.CircleShape
 import fr.mediatheque.journal.ui.Cover
 import fr.mediatheque.journal.ui.showBriefly
+import fr.mediatheque.journal.ui.theme.Fraunces
 import kotlin.math.PI
 import kotlin.math.sin
 import java.time.LocalDate
@@ -432,6 +434,7 @@ private fun Photogramme(cellule: Cellule.Annee, modifier: Modifier = Modifier) {
     val ouverte = cellule.statut == StatutAnneeVoyage.OUVERTE
     val enCours = cellule.statut == StatutAnneeVoyage.EN_COURS
     val recompense = cellule.recompense
+    val or = MaterialTheme.colorScheme.secondary
     val description = when {
         ouverte -> "${cellule.annee}, ${etiquetteProfondeur(cellule.profondeur)}" + (recompense?.let { ", ${it.singulier}" } ?: "")
         enCours -> "${cellule.annee}, tu es ici"
@@ -446,7 +449,7 @@ private fun Photogramme(cellule: Cellule.Annee, modifier: Modifier = Modifier) {
                 .background(Color.Black, shape)
                 .let {
                     when {
-                        ouverte -> it.border(1.5.dp, LiserreDore, shape)
+                        ouverte -> it.border(1.5.dp, or, shape)
                         enCours -> it.border(2.dp, MaterialTheme.colorScheme.primary, shape)
                         else -> it.dashedBorder(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), cornerRadius = 3.dp, strokeWidth = 1.dp)
                     }
@@ -456,11 +459,22 @@ private fun Photogramme(cellule: Cellule.Annee, modifier: Modifier = Modifier) {
             if (cellule.affiche != null && (ouverte || enCours)) {
                 Cover(cellule.affiche, "${cellule.annee}", LARGEUR_PHOTOGRAMME, HAUTEUR_PHOTOGRAMME)
             } else {
+                // Le chiffre d'année en serif (habillage du 23 septembre 2026, geste 7).
                 Text(
                     cellule.annee.toString(),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = Fraunces),
                     color = if (ouverte || enCours) monde.accent else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+            // Le sceau or d'une année ouverte, déjà visitée — un petit cercle plein avec ✦
+            // (habillage du 23 septembre 2026, geste 7), au coin du photogramme.
+            if (ouverte) {
+                Box(
+                    Modifier.align(Alignment.TopEnd).padding(2.dp).size(11.dp).background(or, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("✦", fontSize = 7.sp, color = monde.fond, lineHeight = 7.sp)
+                }
             }
         }
         val sous = when {
@@ -478,7 +492,7 @@ private fun Photogramme(cellule: Cellule.Annee, modifier: Modifier = Modifier) {
                 Box(
                     Modifier
                         .size(12.dp)
-                        .drawBehind { glypheRecompense(recompense, LiserreDore, monde.fond) },
+                        .drawBehind { glypheRecompense(recompense, or, monde.fond) },
                 )
             }
             Text(
@@ -535,12 +549,9 @@ private fun Marquise(monde: Monde, bouclee: Boolean, anime: Boolean, onClick: ()
             Text(
                 if (bouclee) monde.titreVoyageur.uppercase() else "en cours de tournage",
                 style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.5.sp),
-                color = if (bouclee) LiserreDore.copy(alpha = allumage.value) else MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (bouclee) MaterialTheme.colorScheme.secondary.copy(alpha = allumage.value) else MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
             )
         }
     }
 }
-
-/** Le liseré doré d'un photogramme ouvert — une décoration ponctuelle, comme `PapierJauni`. */
-private val LiserreDore = Color(0xFFE6B94A)

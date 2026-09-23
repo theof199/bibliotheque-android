@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.PlexFilm
 import fr.mediatheque.journal.ui.Cover
+import fr.mediatheque.journal.ui.theme.Fraunces
 import kotlin.math.roundToInt
 
 /**
@@ -116,9 +117,10 @@ fun DecennieScreen(
                     // l'écran correspondant.
                     val rien = annee.vus == 0 && annee.aVoir == 0
                     val verrouillee = statutVoyage(annee.annee, voyage) == StatutAnneeVoyage.VERROUILLEE
+                    // Le chiffre d'année en serif (habillage du 23 septembre 2026, geste 7).
                     Text(
                         annee.annee.toString(),
-                        style = MaterialTheme.typography.labelSmall,
+                        style = MaterialTheme.typography.labelSmall.copy(fontFamily = Fraunces),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier
                             .weight(1f)
