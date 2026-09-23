@@ -33,8 +33,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import fr.mediatheque.journal.AppContainer
 import fr.mediatheque.journal.reactions.Reactions
 import fr.mediatheque.journal.ui.cinema.routeCinema
-import fr.mediatheque.journal.ui.films.FilmsScreen
 import fr.mediatheque.journal.ui.films.FilmsViewModel
+import fr.mediatheque.journal.ui.films.routeFilms
 import fr.mediatheque.journal.ui.form.CartonViewModel
 import fr.mediatheque.journal.ui.form.FormMode
 import fr.mediatheque.journal.ui.form.FormScreen
@@ -122,7 +122,7 @@ fun Root(container: AppContainer) {
             // retour, donc un `LaunchedEffect` posé dans cette branche serait une instance neuve à
             // chaque entrée et se rejouerait quelle que soit sa clé — y compris au retour du
             // formulaire par `pop`, ce qu'on veut justement éviter (mineur 8 de la vague finale).
-            // Le jumeau `Screen.Films` plus bas exploite l'inverse volontairement : son
+            // Le jumeau `Screen.Films` (`FilmsRoute.kt`) exploite l'inverse volontairement : son
             // `LaunchedEffect(Unit)` reste dans le `Crossfade` pour recharger à chaque entrée.
             val search: SearchViewModel = viewModel(key = "search") {
                 SearchViewModel(container.api, session::expire, container.recentSearches)
@@ -426,29 +426,7 @@ fun Root(container: AppContainer) {
                             bottomBar = { portee.barreDuBas(screen) },
                         )
                     }
-                    Screen.Films -> {
-                        val films: FilmsViewModel = viewModel(key = "films") { FilmsViewModel(container.api, session::expire) }
-                        // Même piège que `LoginViewModel`/`SearchViewModel` ci-dessus (revues des
-                        // tâches 4 et 5) : ce `ViewModel` est indexé sur l'Activité, la clé fixe ne
-                        // lui donne pas de portée. Sans ce rechargement à chaque entrée, la liste
-                        // resterait celle de la première visite après une correction ou une
-                        // suppression faites depuis `Screen.Edit` (décision 1 de la tâche 7).
-                        LaunchedEffect(Unit) { films.refresh() }
-                        FilmsScreen(
-                            films,
-                            onBack = nav::pop,
-                            onOpen = { nav.push(Screen.Edit(it)) },
-                            // L'action de l'état vide (point 16 de la revue du 24 septembre 2026) :
-                            // même recherche que le bouton rond de l'accueil.
-                            onAdd = { nav.push(Screen.Search) },
-                            // L'affiche partagée (geste 8) : jumeau de l'accueil, même paire.
-                            sharedTransitionScope = sharedTransitionScope,
-                            animatedVisibilityScope = animatedVisibilityScope,
-                            // « Profil » est surlignée ici mais ramène au profil par un `pop`, pas
-                            // un `push` : cet écran ne s'empile que depuis lui.
-                            bottomBar = { portee.barreDuBas(screen, onProfile = nav::pop) },
-                        )
-                    }
+                    Screen.Films -> portee.routeFilms()
                     is Screen.Edit -> {
                         // Indexé sur l'entrée corrigée (jumeau de `Screen.Form` ci-dessus) : une
                         // clé fixe rendrait le `FormViewModel` du premier visionnage corrigé à
