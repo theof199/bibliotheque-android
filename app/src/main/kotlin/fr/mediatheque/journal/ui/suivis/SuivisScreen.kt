@@ -36,11 +36,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.SubcomposeAsyncImage
+import coil3.request.ImageRequest
+import coil3.request.crossfade
 import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.showBriefly
 
@@ -149,8 +152,11 @@ fun SuivisScreen(
  * La photo d'une personne, ou l'affiche d'une saga : ronde, ou l'initiale sur
  * la même pastille quand TMDB n'en a pas. Jumeau de `Cover` (`ui/Cover.kt`)
  * pour les affiches rectangulaires — un `contentDescription` toujours posé,
- * photo ou non (design §8), et rien pendant le chargement, pour que
- * l'initiale reste le geste de l'absence d'image et pas celui d'une attente.
+ * photo ou non (design §8) ; rien *pendant* le chargement (aucun indicateur,
+ * aucun repli tant que la requête est en vol — le commentaire d'ici disait
+ * « rien pendant le chargement » sans plus de précision, corrigé par le geste
+ * 9 du peaufinage du 23 septembre 2026, qui ajoute le fondu ci-dessous),
+ * l'initiale restant le geste de l'absence d'image, pas celui d'une attente.
  */
 @Composable
 fun Portrait(url: String?, name: String, taille: Dp, modifier: Modifier = Modifier) {
@@ -170,8 +176,10 @@ fun Portrait(url: String?, name: String, taille: Dp, modifier: Modifier = Modifi
     if (url == null) {
         Box(modifier.clearAndSetSemantics { contentDescription = description }) { initiale() }
     } else {
+        val contexte = LocalContext.current
         SubcomposeAsyncImage(
-            model = url,
+            // `crossfade(200)` (geste 9) : jumeau de `Cover`, la photo apparaît en fondu.
+            model = ImageRequest.Builder(contexte).data(url).crossfade(200).build(),
             contentDescription = description,
             contentScale = ContentScale.Crop,
             loading = {},

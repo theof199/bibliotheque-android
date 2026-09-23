@@ -16,8 +16,11 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import coil3.compose.SubcomposeAsyncImage
+import coil3.request.ImageRequest
+import coil3.request.crossfade
 
 /**
  * L'affiche partagée (peaufinage du 23 septembre 2026, geste 8) : le trio que `Modifier.voler`
@@ -81,14 +84,19 @@ fun Cover(url: String?, title: String, width: Dp, height: Dp, modifier: Modifier
     if (url == null) {
         Box(modifier.clearAndSetSemantics { contentDescription = description }) { initiale() }
     } else {
+        val contexte = LocalContext.current
         SubcomposeAsyncImage(
-            model = url,
+            // `crossfade(200)` (peaufinage du 23 septembre 2026, geste 9) : l'affiche apparaît en
+            // fondu plutôt que d'un coup une fois chargée.
+            model = ImageRequest.Builder(contexte).data(url).crossfade(200).build(),
             contentDescription = description,
             contentScale = ContentScale.Crop,
             colorFilter = colorFilter,
-            // Rien au chargement d'une affiche (design §7) : le repli à l'initiale reste le geste
-            // de l'absence de jaquette, pas celui d'une attente (revue de la vague finale, mineur
-            // 9) — sinon chaque ligne d'une liste montre l'initiale une frame avant l'affiche.
+            // Rien *pendant* le chargement (design §7, geste 9 du peaufinage du 23 septembre 2026
+            // corrige ce commentaire qui disait le contraire de ce que fait `crossfade` ci-dessus) :
+            // le repli à l'initiale reste le geste de l'absence de jaquette, pas celui d'une attente
+            // (revue de la vague finale, mineur 9) — aucun indicateur, aucun repli n'apparaît tant
+            // que la requête est en vol, seule l'affiche qui arrive se fond dedans.
             loading = {},
             error = { initiale() },
             modifier = modifier.size(width, height).clip(shape),
