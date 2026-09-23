@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -60,6 +61,7 @@ import fr.mediatheque.journal.ui.frise.texteCeSoir
 import fr.mediatheque.journal.ui.suivis.EnCours
 import fr.mediatheque.journal.ui.suivis.titreEtAnnee
 import fr.mediatheque.journal.ui.showBriefly
+import fr.mediatheque.journal.ui.theme.Perforations
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 /**
@@ -140,6 +142,10 @@ fun HomeScreen(
             val hauteurJaquette = largeurJaquette * 1.5f
 
             Column(Modifier.fillMaxSize()) {
+                // Habillage « papier et pellicule » (23 septembre 2026, geste 4) : une bande de
+                // perforations sous l'en-tête de l'écran, fixe (une décennie bouclée s'anime, pas
+                // l'accueil à chaque frame).
+                Perforations(modifier = Modifier.padding(bottom = 12.dp))
                 // Le Voyage (brief du 16 septembre 2026) : « sous le bandeau » — juste après le
                 // « Enregistré » de la snackbar — la carte du film qu'on vient de journaliser, tant
                 // qu'elle existe (`carton` nul en dehors de cette fenêtre, `CartonCard` muette tant
@@ -250,26 +256,33 @@ fun HomeScreen(
                                     largeurJaquette,
                                     hauteurJaquette,
                                     // L'affiche partagée (geste 8) : même clé que la fiche d'entrée.
-                                    modifier = Modifier.voler(
-                                        afficheVolante(sharedTransitionScope, animatedVisibilityScope, "affiche-journal-${item.entry.id}"),
-                                    ),
+                                    // Le cadre or 35 % (habillage du 23 septembre 2026, geste 4) se
+                                    // pose sur ce même modificateur, avant la taille et la découpe
+                                    // posées par `Cover` lui-même.
+                                    modifier = Modifier
+                                        .voler(
+                                            afficheVolante(sharedTransitionScope, animatedVisibilityScope, "affiche-journal-${item.entry.id}"),
+                                        )
+                                        .border(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.35f), MaterialTheme.shapes.small),
                                 )
                                 item.entry.rating?.let { note ->
                                     Box(
                                         Modifier
                                             .align(Alignment.BottomEnd)
                                             .padding(4.dp)
-                                            .background(MaterialTheme.colorScheme.surfaceContainerHigh, CircleShape)
-                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                            .size(22.dp)
+                                            .background(MaterialTheme.colorScheme.background.copy(alpha = 0.85f), CircleShape)
+                                            .border(1.dp, MaterialTheme.colorScheme.secondary, CircleShape)
                                             // Design §8 : une pastille dit « Note {n} sur 10 », pas
                                             // le chiffre nu que `Text` donnerait seul à TalkBack
                                             // (relecture, correction 3).
                                             .clearAndSetSemantics { contentDescription = "Note $note sur 10" },
+                                        contentAlignment = Alignment.Center,
                                     ) {
                                         Text(
                                             "$note",
-                                            style = MaterialTheme.typography.labelMedium,
-                                            color = MaterialTheme.colorScheme.onSurface,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.secondary,
                                         )
                                     }
                                 }
@@ -320,7 +333,12 @@ private fun LigneEnsuite(
         Modifier
             .fillMaxWidth()
             .padding(bottom = 12.dp)
-            .clickable(onClick = onClick),
+            .clickable(onClick = onClick)
+            // Une carte à cadre fin (habillage du 23 septembre 2026, geste 4) : un simple filet or,
+            // pas le double filet de `CadreOrne` — réservé aux cartouches.
+            .border(1.dp, MaterialTheme.colorScheme.secondary, MaterialTheme.shapes.small)
+            .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.04f), MaterialTheme.shapes.small)
+            .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Cover(coverUrl, titreAffiche, 56.dp, 84.dp)

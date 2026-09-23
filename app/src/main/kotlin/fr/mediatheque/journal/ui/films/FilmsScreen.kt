@@ -36,6 +36,7 @@ import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.JournalRow
 import fr.mediatheque.journal.ui.afficheVolante
 import fr.mediatheque.journal.ui.voler
+import fr.mediatheque.journal.ui.theme.Perforations
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 // Pas de snackbar ici : cet écran n'a jamais reçu `nav`, rien ne pousse de message vers
@@ -73,6 +74,9 @@ fun FilmsScreen(
                 IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour") }
                 Text("Mes films", style = MaterialTheme.typography.titleLarge)
             }
+            // Habillage « papier et pellicule » (23 septembre 2026, geste 4) : la bande de
+            // perforations sous l'en-tête, comme sur l'accueil.
+            Perforations(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
             ui.error?.let { ErrorBlock(it.message ?: "", retryable = it.retryable, onRetry = vm::loadMore, modifier = Modifier.padding(16.dp)) }
             if (ui.items.isEmpty() && ui.endReached) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

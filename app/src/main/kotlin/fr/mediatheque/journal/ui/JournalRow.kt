@@ -1,10 +1,14 @@
 package fr.mediatheque.journal.ui
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,6 +54,17 @@ fun JournalRow(
                 Text(item.carnet.reactions.joinToString(" ") { Reactions.emoji(it) }, style = MaterialTheme.typography.bodyMedium)
             }
         }
-        item.entry.rating?.let { Text("$it", style = MaterialTheme.typography.titleMedium) }
+        // La note en petit cercle or (habillage du 23 septembre 2026, geste 4), plutôt qu'un
+        // chiffre nu — jumeau du cercle de la grille de l'accueil et de la fiche d'un film.
+        item.entry.rating?.let { note ->
+            Box(
+                Modifier
+                    .size(26.dp)
+                    .border(1.dp, MaterialTheme.colorScheme.secondary, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("$note", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.secondary)
+            }
+        }
     }
 }
