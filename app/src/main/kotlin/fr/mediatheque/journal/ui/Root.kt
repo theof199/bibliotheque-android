@@ -2,14 +2,11 @@ package fr.mediatheque.journal.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -41,14 +38,13 @@ import fr.mediatheque.journal.ui.frise.FriseViewModel
 import fr.mediatheque.journal.ui.home.routeHome
 import fr.mediatheque.journal.ui.login.LoginScreen
 import fr.mediatheque.journal.ui.login.LoginViewModel
-import fr.mediatheque.journal.ui.frise.TicketAMontrerUi
 import fr.mediatheque.journal.ui.celebrations.FilmEnregistreCalque
-import fr.mediatheque.journal.ui.frise.TicketCalque
 import fr.mediatheque.journal.ui.frise.routeFrise
 import fr.mediatheque.journal.ui.frise.routeAnnee
 import fr.mediatheque.journal.ui.frise.routeFicheVoyage
 import fr.mediatheque.journal.ui.frise.routeDecennie
 import fr.mediatheque.journal.ui.frise.routeGenerique
+import fr.mediatheque.journal.ui.frise.TicketHote
 import fr.mediatheque.journal.ui.profile.LetterboxdImportViewModel
 import fr.mediatheque.journal.ui.profile.SensCritiqueViewModel
 import fr.mediatheque.journal.ui.profile.routeProfile
@@ -205,11 +201,6 @@ fun Root(container: AppContainer) {
             val reactionsFavorites = remember(friseUiPourReactions.annees) {
                 Reactions.reactionsFavorites(friseUiPourReactions.annees.flatMap { it.vus }.flatMap { it.carnet.reactions })
             }
-            // Le calque du ticket (décision 2 du brief du 21 septembre 2026, « le ticket ») se pose
-            // au-dessus de l'`AnimatedContent`, dans ce `Box` : il doit pouvoir s'afficher par-
-            // dessus n'importe quel écran (la Frise à son ouverture, ou l'accueil juste après un
-            // enregistrement), pas seulement l'un d'eux.
-            //
             // Le défilement survit au retour (peaufinage du 23 septembre 2026) : `stateHolder`,
             // hoisté ici comme `nav` plus haut, garde l'état sauvegardable (`rememberLazyListState`
             // et consorts) de chaque entrée de la pile pendant qu'elle est disposée par
@@ -293,33 +284,11 @@ fun Root(container: AppContainer) {
                 }
                 }
             }
-            // Nourri par `FriseViewModel` (décision 2) : dès que `ticketAMontrer` est non nul, le
-            // calque s'affiche par-dessus l'écran courant, quel qu'il soit. « Garder » et
-            // « Utiliser maintenant » ferment tous deux le calque (`ticketAMontrer` retombe à
-            // `null` côté `FriseViewModel`, jamais ici) — le back ne le renvoie plus ensuite.
-            val friseUiPourTicket by frise.ui.collectAsState()
-            // Le calque est un dialogue maison, pas un `AlertDialog` (peaufinage du 23 septembre
-            // 2026, geste 11) : `AnimatedVisibility` (fondu + échelle) lui donne une entrée et une
-            // sortie, plutôt que d'apparaître net. `dernierTicket` garde le dernier ticket connu
-            // pendant que `ticketAMontrer` est déjà retombé à `null` : sans lui, le contenu
-            // disparaîtrait d'un coup au milieu de la sortie animée.
-            var dernierTicket by remember { mutableStateOf<TicketAMontrerUi?>(null) }
-            LaunchedEffect(friseUiPourTicket.voyage.ticketAMontrer) {
-                friseUiPourTicket.voyage.ticketAMontrer?.let { dernierTicket = it }
-            }
-            AnimatedVisibility(
-                visible = friseUiPourTicket.voyage.ticketAMontrer != null,
-                enter = fadeIn(tween(200)) + scaleIn(initialScale = 0.92f, animationSpec = tween(200)),
-                exit = fadeOut(tween(200)) + scaleOut(targetScale = 0.92f, animationSpec = tween(200)),
-            ) {
-                dernierTicket?.let { ticket ->
-                    TicketCalque(
-                        ticket = ticket,
-                        onUtiliser = { frise.utiliserTicketAMontrer(ticket.annee) },
-                        onGarder = { frise.garderTicket(ticket.annee) },
-                    )
-                }
-            }
+            // Le calque du ticket (décision 2 du brief du 21 septembre 2026, « le ticket ») se pose
+            // au-dessus de l'`AnimatedContent`, dans ce `Box` : il doit pouvoir s'afficher par-
+            // dessus n'importe quel écran (la Frise à son ouverture, ou l'accueil juste après un
+            // enregistrement), pas seulement l'un d'eux.
+            TicketHote(frise)
             // La célébration d'un enregistrement (habillage du 23 septembre 2026, geste 9) : le
             // même genre de calque maison, au-dessus de tout — `nav.home(...)` a déjà vidé la pile
             // sur `Screen.Home` au moment où l'événement arrive, donc `cartonHome` (hoisté plus
