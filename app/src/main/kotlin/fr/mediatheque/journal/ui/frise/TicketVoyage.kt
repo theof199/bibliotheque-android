@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import fr.mediatheque.journal.ui.formatDate
+import fr.mediatheque.journal.ui.theme.Animation
 import fr.mediatheque.journal.ui.theme.CadrePapier
 import fr.mediatheque.journal.ui.theme.PapierJauni
 import fr.mediatheque.journal.ui.theme.TextePapier
@@ -151,8 +152,10 @@ private fun Modifier.drawWithContentTrouPoinconne(echelle: Float): Modifier = dr
  * ticket dessiné au centre, deux boutons. « Garder dans le portefeuille » referme tout de suite
  * (`onGarder`). « Utiliser maintenant » poinçonne d'abord le ticket (geste 15 du complément du
  * 23 septembre 2026 à l'habillage) — le trou perce à l'échelle avec dépassement, le ticket recule
- * légèrement, une haptique confirme — puis seulement `onUtiliser` referme le calque ; c'est
- * `FriseViewModel` qui pose `POST .../montre` dans les deux cas.
+ * légèrement, une haptique confirme, et l'animation Lottie `ticket-1.json` joue une fois par-dessus
+ * (brief des animations des célébrations du 23 septembre 2026, soir, en plus du trou et non à sa
+ * place) — puis seulement `onUtiliser` referme le calque ; c'est `FriseViewModel` qui pose
+ * `POST .../montre` dans les deux cas.
  */
 @Composable
 fun TicketCalque(ticket: TicketAMontrerUi, onUtiliser: () -> Unit, onGarder: () -> Unit) {
@@ -185,15 +188,26 @@ fun TicketCalque(ticket: TicketAMontrerUi, onUtiliser: () -> Unit, onGarder: () 
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(24.dp)) {
-            TicketPapier(
-                ticket.annee,
-                ticket.motif,
-                LARGEUR_TICKET_CALQUE,
-                HAUTEUR_TICKET_CALQUE,
-                compact = false,
-                poinconEchelle = echellePoincon.value,
-                modifier = Modifier.graphicsLayer { translationY = recul.value * 6.dp.toPx() },
-            )
+            Box(contentAlignment = Alignment.Center) {
+                TicketPapier(
+                    ticket.annee,
+                    ticket.motif,
+                    LARGEUR_TICKET_CALQUE,
+                    HAUTEUR_TICKET_CALQUE,
+                    compact = false,
+                    poinconEchelle = echellePoincon.value,
+                    modifier = Modifier.graphicsLayer { translationY = recul.value * 6.dp.toPx() },
+                )
+                // `ticket-1.json` par-dessus, en plus du trou perforé dans le papier — pas à sa
+                // place : le trou reste le vrai poinçon, l'animation en est le geste.
+                if (poinconne) {
+                    Animation(
+                        nom = "ticket-1",
+                        iterations = 1,
+                        modifier = Modifier.size(LARGEUR_TICKET_CALQUE, HAUTEUR_TICKET_CALQUE),
+                    )
+                }
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 TextButton(onClick = onGarder, enabled = !poinconne) {
                     Text("Garder dans le portefeuille", color = MaterialTheme.colorScheme.onSurfaceVariant)
