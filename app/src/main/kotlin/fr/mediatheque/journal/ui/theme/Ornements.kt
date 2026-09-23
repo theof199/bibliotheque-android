@@ -15,7 +15,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.pulltorefresh.PullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
@@ -23,16 +22,21 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.rotate
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.LottieConstants
+import com.airbnb.lottie.compose.animateLottieCompositionAsState
+import com.airbnb.lottie.compose.rememberLottieComposition
 
 /**
  * Les ornements de l'habillage « papier et pellicule » (23 septembre 2026) : une bande de trous de
  * pellicule (`Perforations`), un cadre à double filet or (`CadreOrne`) — repris du cartouche du
  * Voyage, généralisé à toute l'appli — et une bobine qui tourne (`BobineIndicateur`, complément du
- * 23 septembre 2026, geste 21), l'indicateur de tirer-pour-rafraîchir de la Frise et de l'accueil.
+ * 23 septembre 2026, geste 21 ; portée par l'animation Lottie `bobine-1.json` depuis le brief des
+ * animations des célébrations, le même jour en soirée), l'indicateur de tirer-pour-rafraîchir de la
+ * Frise et de l'accueil.
  */
 
 /** L'espacement d'une perforation à l'autre — la maquette : `background-size:16px 10px`. */
@@ -122,66 +126,30 @@ fun CadreOrne(
 private val TAILLE_BOBINE: Dp = 32.dp
 
 /**
- * L'indicateur de tirer-pour-rafraîchir, une bobine de pellicule (geste 21 du complément du
- * 23 septembre 2026 à l'habillage) — deux cercles, des rayons, des perforations — dessinée une
- * fois au `Canvas`, jamais une image : `Modifier.graphicsLayer` la fait tourner et grandir plutôt
- * que de redessiner des points pivotés à chaque frame.
+ * L'indicateur de tirer-pour-rafraîchir (geste 21 du complément du 23 septembre 2026 à
+ * l'habillage ; porté par l'animation Lottie `bobine-1.json` depuis le brief des animations des
+ * célébrations, le même jour en soirée, en remplacement du dessin `Canvas` d'origine — une caméra
+ * de cinéma vintage sur pied, `assets/lottie/LICENCES.md`).
  *
- * Avant le déclenchement (`isRefreshing` faux), la rotation suit `state.distanceFraction` (0 → 1,
- * la distance tirée) : la bobine tourne du tirage, elle ne file pas toute seule. Une fois
- * `isRefreshing` vrai, elle tourne en boucle (900 ms par tour, linéaire) jusqu'à la fin du
- * chargement — `PullToRefreshBox` retire alors l'indicateur lui-même, rien à arrêter ici.
+ * Avant le déclenchement (`isRefreshing` faux), la progression de l'animation suit
+ * `state.distanceFraction` (0 → 1, la distance tirée) directement, par le `progress` explicite de
+ * `LottieAnimation` : elle avance du tirage, elle ne joue pas toute seule. Une fois `isRefreshing`
+ * vrai, elle boucle à sa cadence propre (`animateLottieCompositionAsState`,
+ * `LottieConstants.IterateForever`) jusqu'à la fin du chargement — `PullToRefreshBox` retire alors
+ * l'indicateur lui-même, rien à arrêter ici.
  */
 @Composable
 fun BobineIndicateur(state: PullToRefreshState, isRefreshing: Boolean, modifier: Modifier = Modifier) {
+    val composition by rememberLottieComposition(LottieCompositionSpec.Asset("lottie/bobine-1.json"))
     val distance = state.distanceFraction.coerceIn(0f, 1f)
-    val rotation = if (isRefreshing) {
-        val transition = rememberInfiniteTransition(label = "bobine-chargement")
-        transition.animateFloat(
-            initialValue = 0f,
-            targetValue = 360f,
-            animationSpec = infiniteRepeatable(tween(900, easing = LinearEasing)),
-            label = "rotation",
-        ).value
-    } else {
-        distance * 360f
-    }
-    val or = MaterialTheme.colorScheme.secondary
-    Box(
-        modifier
-            .size(TAILLE_BOBINE)
-            .graphicsLayer {
-                rotationZ = rotation
-                val echelle = if (isRefreshing) 1f else distance
-                scaleX = echelle
-                scaleY = echelle
-                alpha = echelle
-            },
-        contentAlignment = Alignment.Center,
-    ) {
-        Canvas(Modifier.fillMaxWidth().height(TAILLE_BOBINE)) {
-            val rayonExterieur = size.minDimension / 2f
-            val rayonMoyeu = rayonExterieur * 0.26f
-            val epaisseurJante = rayonExterieur * 0.12f
-            drawCircle(or, radius = rayonExterieur - epaisseurJante / 2f, style = Stroke(width = epaisseurJante))
-            drawCircle(or, radius = rayonMoyeu)
-            // Six rayons du moyeu à la jante, et une perforation ronde entre chaque paire.
-            repeat(6) { i ->
-                val angle = i * 60f
-                rotate(angle, pivot = center) {
-                    drawLine(
-                        or,
-                        start = Offset(center.x, center.y - rayonMoyeu),
-                        end = Offset(center.x, center.y - rayonExterieur + epaisseurJante),
-                        strokeWidth = epaisseurJante * 0.6f,
-                    )
-                    drawCircle(
-                        or,
-                        radius = rayonExterieur * 0.1f,
-                        center = Offset(center.x, center.y - rayonExterieur * 0.62f),
-                    )
-                }
-            }
-        }
-    }
+    val progressionBoucle by animateLottieCompositionAsState(
+        composition,
+        isPlaying = isRefreshing,
+        iterations = LottieConstants.IterateForever,
+    )
+    LottieAnimation(
+        composition = composition,
+        progress = { if (isRefreshing) progressionBoucle else distance },
+        modifier = modifier.size(TAILLE_BOBINE),
+    )
 }
