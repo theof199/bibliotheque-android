@@ -30,9 +30,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -54,14 +51,18 @@ import fr.mediatheque.journal.ui.theme.Limelight
 import fr.mediatheque.journal.ui.theme.Or
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.random.Random
+
+/** Les trois ors de la pluie de confettis (brief des animations Lottie du 23 septembre 2026, soir). */
+private val TroisOrsDeLaPluie = listOf(Or, Color(0xFFC9A227), Color(0xFFF2D98A))
 
 /**
  * « Année dans la boîte » (complément du 23 septembre 2026 à l'habillage « papier et pellicule »,
- * geste 11) : remplace l'ancienne snackbar « *1898* dans la boîte ! ». Une amorce de pellicule
- * (compte à rebours 5-4-3, balayage conique) puis la récompense de l'année, dorée et lustrée, sous
- * une pluie de perforations, « *1898* DANS LA BOÎTE » en Limelight, un bilan simplifié, et le
- * photogramme de l'année suivante qui se dévoile.
+ * geste 11 ; récompense et pluie passées aux animations Lottie le même jour, en soirée, brief des
+ * animations des célébrations) : remplace l'ancienne snackbar « *1898* dans la boîte ! ». Une
+ * amorce de pellicule (compte à rebours 5-4-3, balayage conique) puis la récompense de l'année
+ * (`trophee-1.json`, recoloré or), sous une pluie de confettis (`confetti-1.json`, recolorée en
+ * trois ors), « *1898* DANS LA BOÎTE » en Limelight, un bilan simplifié, et le photogramme de
+ * l'année suivante qui se dévoile.
  *
  * Le bilan complet du brief (récompense · essentiels *x* sur *y* · le mot du chroniqueur) est
  * réduit à la seule récompense : les deux autres lignes supposent une progression et un paragraphe
@@ -82,7 +83,6 @@ fun AnneeDansLaBoiteCalque(avancee: FrontiereAvancee, recompense: Recompense?, o
     var phase by remember(avancee) { mutableStateOf(PhaseBoite.COMPTE) }
     var chiffre by remember(avancee) { mutableIntStateOf(5) }
     val balayage = remember(avancee) { Animatable(0f) }
-    val pluie = remember(avancee) { Animatable(0f) }
 
     LaunchedEffect(avancee) {
         listOf(5, 4, 3).forEach { n ->
@@ -93,7 +93,9 @@ fun AnneeDansLaBoiteCalque(avancee: FrontiereAvancee, recompense: Recompense?, o
         }
         phase = PhaseBoite.RECOMPENSE
         haptique.performHapticFeedback(HapticFeedbackType.Confirm)
-        launch { pluie.animateTo(1f, tween(2_200, easing = LinearEasing)) }
+        // La pluie (ci-dessous, `confetti-1.json`) joue sur ce même intervalle, indépendamment de
+        // cette temporisation — la même durée que gardait la pluie dessinée à la main qu'elle
+        // remplace.
         delay(2_200)
         phase = PhaseBoite.REVELATION
         delay(1_600)
@@ -115,7 +117,26 @@ fun AnneeDansLaBoiteCalque(avancee: FrontiereAvancee, recompense: Recompense?, o
                     ContenuRecompense(avancee.anneeBouclee, recompense, etat == PhaseBoite.REVELATION)
             }
         }
-        if (phase != PhaseBoite.COMPTE) PluieDePerforations(pluie.value)
+        if (phase != PhaseBoite.COMPTE) {
+            // La pluie de confettis (brief des animations Lottie du 23 septembre 2026, soir) :
+            // `confetti-1.json` remplace `PluieDePerforations`, recoloré en trois ors — le fichier
+            // porte dix teintes distinctes (`assets/lottie/LICENCES.md`), chacune assignée à l'un
+            // des trois ors par un hachage stable de sa couleur d'origine.
+            Animation(
+                nom = "confetti-1",
+                iterations = 1,
+                proprietes = rememberLottieDynamicProperties(
+                    rememberLottieDynamicProperty(
+                        property = LottieProperty.COLOR,
+                        keyPath = arrayOf("**"),
+                    ) { frameInfo ->
+                        val index = (frameInfo.startValue.hashCode() and 0x7fffffff) % TroisOrsDeLaPluie.size
+                        TroisOrsDeLaPluie[index].toArgb()
+                    },
+                ),
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
     }
 }
 
@@ -192,29 +213,3 @@ private fun ContenuRecompense(anneeBouclee: Int, recompense: Recompense?, revele
         }
     }
 }
-
-/** Une pluie de perforations or, 30 particules, canvas, rotation — jusqu'à `progression` (0..1). */
-@Composable
-private fun PluieDePerforations(progression: Float) {
-    val particules = remember {
-        List(30) { Particule(x = Random.nextFloat(), retard = Random.nextFloat() * 0.3f, vitesse = 0.8f + Random.nextFloat() * 0.4f, rotationDepart = Random.nextFloat() * 360f) }
-    }
-    Canvas(Modifier.fillMaxSize()) {
-        particules.forEach { particule ->
-            val t = ((progression - particule.retard) / particule.vitesse).coerceIn(0f, 1f)
-            if (t <= 0f) return@forEach
-            val y = size.height * t
-            val x = size.width * particule.x
-            rotate(particule.rotationDepart + t * 540f, pivot = Offset(x, y)) {
-                drawRoundRect(
-                    color = Or.copy(alpha = (1f - t * 0.7f)),
-                    topLeft = Offset(x - 4.dp.toPx(), y - 5.5.dp.toPx()),
-                    size = Size(8.dp.toPx(), 11.dp.toPx()),
-                    cornerRadius = CornerRadius(2.dp.toPx()),
-                )
-            }
-        }
-    }
-}
-
-private data class Particule(val x: Float, val retard: Float, val vitesse: Float, val rotationDepart: Float)
