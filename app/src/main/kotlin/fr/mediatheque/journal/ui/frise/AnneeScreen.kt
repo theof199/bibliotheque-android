@@ -5,6 +5,8 @@ import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -69,6 +71,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.graphics.PathEffect
@@ -359,8 +363,24 @@ private fun Cartouche(millesime: Int, ui: AnneeUi, monde: Monde, onLireLaSuite: 
         return
     }
 
+    // Le cartouche se déplie comme un papier à sa première apparition (habillage du 23 septembre
+    // 2026, geste 12) : échelle Y 0,12 → 1, 600 ms, la courbe du brief (0.2, 0.8, 0.2, 1). Une
+    // fois par écran — `LaunchedEffect(Unit)` ne rejoue pas à une simple recomposition (la
+    // relecture de la progression, par exemple), et `Cartouche` n'est recomposée depuis zéro que
+    // si `AnneeScreen` l'est, ce que la pile préserve à un retour (design §7).
+    val deploiement = remember { Animatable(0.12f) }
+    LaunchedEffect(Unit) {
+        deploiement.animateTo(1f, tween(600, easing = CubicBezierEasing(0.2f, 0.8f, 0.2f, 1f)))
+    }
     CadreOrne(
-        modifier = Modifier.fillMaxWidth().background(PapierJauni, shape),
+        modifier = Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleY = deploiement.value
+                alpha = deploiement.value
+                transformOrigin = TransformOrigin(0.5f, 0f)
+            }
+            .background(PapierJauni, shape),
         couleur = CadrePapier,
         coin = 16.dp,
     ) {
