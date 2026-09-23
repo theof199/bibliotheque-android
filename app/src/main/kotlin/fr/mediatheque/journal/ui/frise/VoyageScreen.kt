@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.CircleShape
 import fr.mediatheque.journal.ui.Cover
+import fr.mediatheque.journal.ui.celebrations.AnneeDansLaBoiteCalque
 import fr.mediatheque.journal.ui.showBriefly
 import fr.mediatheque.journal.ui.theme.Fraunces
 import kotlin.math.PI
@@ -100,6 +101,9 @@ fun VoyageScreen(
     val snackbar = remember { SnackbarHostState() }
     var claques by remember { mutableIntStateOf(0) }
     var decennieAllumee by remember { mutableIntStateOf(0) }
+    // « Année dans la boîte » (habillage du 23 septembre 2026, geste 11) : le calque qui remplace
+    // l'ancienne snackbar — nul hors célébration.
+    var celebrationAnnee by remember { mutableStateOf<FrontiereAvancee?>(null) }
     // La proposition de carnet (décision 1 du brief du 22 septembre 2026, « le carnet ») : nulle
     // hors dialogue, sinon l'année à proposer.
     var carnetPropose by remember { mutableStateOf<Int?>(null) }
@@ -117,14 +121,15 @@ fun VoyageScreen(
         if (index >= 0) liste.scrollToItem(index)
     }
 
-    // L'année en cours qui avance : le clap claque, la snackbar dit l'année dans la boîte, et la
+    // L'année en cours qui avance : le clap claque, le calque « *1898* dans la boîte » joue sa
+    // séquence (habillage du 23 septembre 2026, geste 11 — remplace l'ancienne snackbar), et la
     // proposition de carnet s'ouvre pour l'année qu'on quitte (décision 1 du brief du 22 septembre
     // 2026, « le carnet ») — même site quelle que soit la façon dont le ticket a été encaissé (la
     // fiche d'une année, le calque ou le portefeuille), tous relisent `GET /me/voyage` en retour.
     LaunchedEffect(Unit) {
         vm.avancees.collect { avancee ->
             claques += 1
-            snackbar.showBriefly("${avancee.anneeBouclee} dans la boîte !")
+            celebrationAnnee = avancee
             carnetPropose = anneeProposeeCarnet(avancee)
         }
     }
@@ -158,6 +163,7 @@ fun VoyageScreen(
         )
     }
 
+    Box(Modifier.fillMaxSize()) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = bottomBar,
@@ -207,6 +213,14 @@ fun VoyageScreen(
                 }
             }
         }
+    }
+    celebrationAnnee?.let { avancee ->
+        AnneeDansLaBoiteCalque(
+            avancee = avancee,
+            recompense = recompenseDe(ui.voyage.parAnnee[avancee.anneeBouclee]?.recompense),
+            onTermine = { celebrationAnnee = null },
+        )
+    }
     }
 }
 
