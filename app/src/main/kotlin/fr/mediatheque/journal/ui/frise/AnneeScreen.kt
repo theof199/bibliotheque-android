@@ -153,6 +153,16 @@ fun AnneeScreen(
     // La cascade d'entrée (habillage du 23 septembre 2026, geste 8) : posée une fois ici, pour le
     // podium et les salles ci-dessous.
     val porteCascade = rememberPorteCascade()
+    // Le ruban « Salle bouclée » (habillage du 23 septembre 2026, geste 10) : un événement à un
+    // coup (`Channel`), jamais rejoué à une recomposition ni à un retour sur l'écran.
+    val haptique = LocalHapticFeedback.current
+    var salleVenantDeBoucler by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        vm.sallesBouclees.collect { id ->
+            salleVenantDeBoucler = id
+            haptique.performHapticFeedback(HapticFeedbackType.Confirm)
+        }
+    }
 
     marcheOuverte?.let { place ->
         MarcheSheet(
@@ -243,6 +253,10 @@ fun AnneeScreen(
                         salle,
                         monde,
                         porteCascade = porteCascade,
+                        // Un seul ruban à la fois, et une seule lecture (geste 10) : passé, jamais
+                        // remis à `null` ici — la salle qui vient de se boucler le reste affichée,
+                        // le ruban ne se rejoue simplement pas une seconde fois pour la même salle.
+                        vientDeSeBoucler = salle.id == salleVenantDeBoucler,
                         onVoirPlus = { vm.voirPlus(salle.id) },
                         onOuvrirFilm = { filmId -> onOpenFilm(salle.id, filmId) },
                         sharedTransitionScope = sharedTransitionScope,
@@ -988,13 +1002,40 @@ private fun BlocSalle(
     salle: SalleUi,
     monde: Monde,
     porteCascade: Boolean,
+    vientDeSeBoucler: Boolean,
     onVoirPlus: () -> Unit,
     onOuvrirFilm: (String) -> Unit,
     sharedTransitionScope: SharedTransitionScope? = null,
     animatedVisibilityScope: AnimatedVisibilityScope? = null,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(salle.nom, style = MaterialTheme.typography.titleMedium)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(salle.nom, style = MaterialTheme.typography.titleMedium)
+            // Le ruban « Salle bouclée » (habillage du 23 septembre 2026, geste 10), glissé depuis
+            // la gauche — une fois par salle, jamais rejoué (`vientDeSeBoucler` vient d'un `Channel`
+            // à un coup, `AnneeScreen`).
+            androidx.compose.animation.AnimatedVisibility(
+                visible = vientDeSeBoucler,
+                enter = androidx.compose.animation.slideInHorizontally(androidx.compose.animation.core.tween(300)) { largeur -> -largeur } +
+                    androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(300)),
+            ) {
+                Box(
+                    Modifier
+                        .background(MaterialTheme.colorScheme.secondary, RoundedCornerShape(50))
+                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                ) {
+                    Text("Salle bouclée", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondary)
+                }
+            }
+        }
+        if (vientDeSeBoucler) {
+            // Les perforations s'allument en or l'une après l'autre, 300 ms (geste 10).
+            var allumees by remember { mutableStateOf(0) }
+            LaunchedEffect(salle.id) {
+                repeat(8) { i -> allumees = i + 1; kotlinx.coroutines.delay(300L / 8) }
+            }
+            Perforations(allumees = allumees)
+        }
         Text(salle.raisonDEtre, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         // Les salles en lignes « billets » (habillage du 23 septembre 2026, geste 5), séparées par
         // un filet pointillé or — remplace l'étagère horizontale d'affiches. La cascade d'entrée

@@ -273,6 +273,15 @@ class AnneeViewModel(
     private val _messages = Channel<String>(Channel.BUFFERED)
     val messages: Flow<String> = _messages.receiveAsFlow()
 
+    /**
+     * Une salle qui vient de se boucler (habillage du 23 septembre 2026, geste 10) : l'identifiant
+     * de la salle, un événement à un coup — `AnneeScreen` y réagit par le ruban « Salle bouclée »
+     * et son haptique, jamais rejoué à une simple recomposition ou à un retour sur l'écran, un
+     * `Channel` ne redonnant pas ce qu'il a déjà rendu.
+     */
+    private val _sallesBouclees = Channel<String>(Channel.BUFFERED)
+    val sallesBouclees: Flow<String> = _sallesBouclees.receiveAsFlow()
+
     private var pollJob: Job? = null
     private val salleJobs = mutableMapOf<String, Job>()
     private val chroniqueJobs = mutableMapOf<Pair<Int?, String?>, Job>()
@@ -593,7 +602,16 @@ class AnneeViewModel(
                 return@launch
             }
             if (reponse.configure && reponse.statut == "prete") {
-                _ui.update { it.copy(salles = reponse.salles.sortedBy { s -> s.rang }.map { s -> s.versUi() }) }
+                val nouvellesSalles = reponse.salles.sortedBy { s -> s.rang }.map { s -> s.versUi() }
+                // Le ruban « Salle bouclée » (geste 10) : comparé avant la mise à jour, salle par
+                // salle — `salleVientDeSeBoucler` est pure, testée dans `FicheVoyageEtatsTest`.
+                val anciennes = _ui.value.salles
+                nouvellesSalles.forEach { salle ->
+                    if (salleVientDeSeBoucler(anciennes.firstOrNull { it.id == salle.id }, salle)) {
+                        _sallesBouclees.trySend(salle.id)
+                    }
+                }
+                _ui.update { it.copy(salles = nouvellesSalles) }
             }
         }
     }

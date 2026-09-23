@@ -126,4 +126,77 @@ class FicheVoyageEtatsTest {
         assertEquals(EtatBoutonChronique.DANS_LA_CHRONIQUE, etatBoutonChronique("vu", dejaEcrit = true, enCours = false))
         assertEquals(EtatBoutonChronique.DANS_LA_CHRONIQUE, etatBoutonChronique("vu", dejaEcrit = true, enCours = true))
     }
+
+    // --- salleVientDeSeBoucler (habillage du 23 septembre 2026, geste 10) --------------------
+
+    private fun film(id: String, etat: String) = FilmSalleUi(
+        id = id,
+        rang = 0,
+        tmdbId = id.hashCode(),
+        title = "Film $id",
+        originalTitle = null,
+        year = null,
+        realisateur = "",
+        raison = null,
+        coverUrl = null,
+        plexUrl = null,
+        etat = etat,
+        note = null,
+        programme = null,
+    )
+
+    private fun salle(vararg etats: String) = SalleUi(
+        id = "salle",
+        rang = 0,
+        nom = "Salle",
+        raisonDEtre = "",
+        cle = null,
+        epuisee = false,
+        fourneeEnCours = false,
+        films = etats.mapIndexed { i, etat -> film("f$i", etat) },
+    )
+
+    // Le dernier film restant passe à vu : la salle se boucle. Mutation : comparer seulement
+    // `apres` sans `avant` célébrerait à chaque relecture d'une salle déjà bouclée.
+    @Test
+    fun `salleVientDeSeBoucler quand le dernier film passe a vu`() {
+        val avant = salle("vu", "a_demander")
+        val apres = salle("vu", "vu")
+        assertEquals(true, salleVientDeSeBoucler(avant, apres))
+    }
+
+    // Un introuvable compte comme acquis, au même titre qu'un vu. Mutation : compter un
+    // introuvable comme non acquis (`etat == "vu"` seul, sans `|| etat == "introuvable"`) ferait
+    // rougir ce test — la salle ne serait jamais dite bouclée ici.
+    @Test
+    fun `salleVientDeSeBoucler compte un introuvable comme acquis`() {
+        val avant = salle("vu", "a_demander")
+        val apres = salle("vu", "introuvable")
+        assertEquals(true, salleVientDeSeBoucler(avant, apres))
+    }
+
+    // Une salle déjà bouclée avant le geste ne célèbre pas une seconde fois. Mutation : retirer
+    // la garde `!etaitBouclee` la ferait fêter à chaque relecture d'une salle déjà complète.
+    @Test
+    fun `salleVientDeSeBoucler ne celebre pas une salle deja bouclee avant`() {
+        val avant = salle("vu", "introuvable")
+        val apres = salle("vu", "introuvable")
+        assertEquals(false, salleVientDeSeBoucler(avant, apres))
+    }
+
+    // Une salle qui reste incomplète ne célèbre pas.
+    @Test
+    fun `salleVientDeSeBoucler ne celebre pas une salle qui reste incomplete`() {
+        val avant = salle("a_demander", "a_demander")
+        val apres = salle("vu", "a_demander")
+        assertEquals(false, salleVientDeSeBoucler(avant, apres))
+    }
+
+    // Une salle tout juste apparue (`avant` nul, par exemple une fournée fraîchement ouverte) ne
+    // célèbre jamais, même déjà complète (un seul film, déjà vu).
+    @Test
+    fun `salleVientDeSeBoucler ignore une salle sans etat anterieur connu`() {
+        val apres = salle("vu")
+        assertEquals(false, salleVientDeSeBoucler(null, apres))
+    }
 }

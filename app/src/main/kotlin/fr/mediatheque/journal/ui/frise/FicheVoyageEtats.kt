@@ -96,3 +96,26 @@ fun etatBoutonChronique(etatFilm: String, dejaEcrit: Boolean, enCours: Boolean):
     enCours -> EtatBoutonChronique.ECRIT_EN_COURS
     else -> EtatBoutonChronique.AJOUTER
 }
+
+/**
+ * Un film compte pour la complétion d'une salle (habillage du 23 septembre 2026, geste 10) : vu ou
+ * introuvable, les deux états terminaux — jamais « sur le Plex », « demandé » ou « à demander »,
+ * qui restent tous les trois à acquérir. Même dérivation programme-aware qu'`etatFilmVoyage`.
+ */
+private fun FilmSalleUi.acquisPourLaSalle(): Boolean {
+    val etat = etatFilmVoyage(etat, programme?.bobines ?: emptyList())
+    return etat == "vu" || etat == "introuvable"
+}
+
+/**
+ * Une salle vient de se boucler (geste 10, célébration « Salle bouclée ») : tous ses films acquis
+ * après le geste, alors qu'elle ne l'était pas avant — jamais sur une salle déjà bouclée (pas de
+ * nouvelle célébration à chaque relecture), jamais sur une salle sans film (`avant` nul, tout juste
+ * apparue par une fournée, ou `apres` vide).
+ */
+fun salleVientDeSeBoucler(avant: SalleUi?, apres: SalleUi): Boolean {
+    if (avant == null || avant.films.isEmpty() || apres.films.isEmpty()) return false
+    val etaitBouclee = avant.films.all { it.acquisPourLaSalle() }
+    val estBouclee = apres.films.all { it.acquisPourLaSalle() }
+    return estBouclee && !etaitBouclee
+}
