@@ -1,8 +1,15 @@
 package fr.mediatheque.journal.ui.home
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -179,14 +186,31 @@ fun HomeScreen(
                 // Pas de chargement bloquant (brief du 15 septembre 2026) : la ligne n'existe
                 // simplement pas tant que `ensuite` est nul, que ce soit parce que
                 // `/reference/plex` n'a pas encore répondu ou parce qu'il n'y a rien à voir.
-                ensuite?.let { film ->
-                    LigneEnsuite(
-                        coverUrl = film.cover_url,
-                        titreAffiche = film.title,
-                        libelle = "Ensuite",
-                        titre = film.year?.let { annee -> "${film.title} ($annee)" } ?: film.title,
-                        onClick = { onOpenEnsuite(film) },
-                    )
+                //
+                // « Ensuite » qui passe le relais (geste 19 du complément du 23 septembre 2026 à
+                // l'habillage) : quand le film « Ensuite » vient d'être enregistré, `ensuite`
+                // change de film sous nos yeux (rechargé après l'enregistrement) — sa carte sort
+                // par la gauche, la suivante entre par la droite. `contentKey` sur `tmdb_id` plutôt
+                // que l'égalité de tout `PlexFilm` : seul un autre film rejoue la transition, pas
+                // une jaquette dont l'URL aurait changé sans que le film change.
+                AnimatedContent(
+                    targetState = ensuite,
+                    contentKey = { it?.tmdb_id },
+                    transitionSpec = {
+                        (slideInHorizontally(tween(300)) { largeur -> largeur } + fadeIn(tween(300)))
+                            .togetherWith(slideOutHorizontally(tween(300)) { largeur -> -largeur } + fadeOut(tween(300)))
+                    },
+                    label = "ensuite",
+                ) { filmEnsuite ->
+                    filmEnsuite?.let { film ->
+                        LigneEnsuite(
+                            coverUrl = film.cover_url,
+                            titreAffiche = film.title,
+                            libelle = "Ensuite",
+                            titre = film.year?.let { annee -> "${film.title} ($annee)" } ?: film.title,
+                            onClick = { onOpenEnsuite(film) },
+                        )
+                    }
                 }
                 // La seconde ligne « Ensuite », celle du réalisateur en cours (brief du
                 // 15 septembre 2026) : même composant que celle du Plex juste au-dessus, jamais
