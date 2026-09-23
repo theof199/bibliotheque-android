@@ -6,16 +6,35 @@ leurs gestes sans dire de quoi ils ont l'air. Il vit dans `biblio-android`,
 sous `docs/design.md`. Il précède toute ligne d'interface : `ui/theme/` se
 construit à partir de lui, pas l'inverse.*
 
-L'idée tient en une phrase : **l'application s'efface derrière les films.**
-Fond noir, texte gris, une seule couleur pour ce qu'on touche, et les
-affiches sont la seule chose colorée à l'écran. La référence d'ambiance
-donnée par le propriétaire est Keekup, pour son fond quasi noir d'où les
-affiches ressortent ; on s'en inspire pour l'ambiance, on ne le copie pas.
+L'idée tenait en une phrase, jusqu'au 23 septembre 2026 : **l'application
+s'efface derrière les films.** Fond noir, texte gris, une seule couleur pour
+ce qu'on touche, et les affiches sont la seule chose colorée à l'écran. La
+référence d'ambiance donnée par le propriétaire était Keekup, pour son fond
+quasi noir d'où les affiches ressortent ; on s'en inspirait pour l'ambiance,
+on ne le copiait pas.
 
-Trois couleurs à l'écran : le noir, le gris du texte, le corail. La quatrième
-est l'affiche. **Le corail a un seul sens : ce que le propriétaire choisit ou
-déclenche.** Un bouton, une note sélectionnée, une réaction cochée. Jamais un
-titre, jamais une décoration, jamais une erreur.
+*Le 23 septembre 2026, le propriétaire choisit la direction « papier et
+pellicule » d'une maquette qu'il a fait établir pour comparer plusieurs
+partis : un fond chaud plutôt que le noir pur, du papier jauni, une
+pellicule argentique — habillage de toute l'application, pas seulement du
+Voyage — avec trois nuances qui écartent la maquette au pied de la lettre :
+les bords s'arrondissent (coins 12/16/20 dp, contre les 2 à 4 px nets de la
+maquette), l'appli se modernise un peu (pastilles de réaction rondes et
+pleines plutôt que pointillées carrées ; la grille d'affiches de l'accueil
+reste une grille à trois, jamais une liste ; les cadres restent fins), et
+l'animation s'autorise largement plutôt que de rester sobre — « quand on
+finit un film, quand on finit une année, rendre l'appli plus smooth ». La
+ligne « sobre » de la décision ci-dessous et les gestes qu'elle excluait ne
+tiennent donc plus : §2 en donne la nouvelle palette, §3 les deux polices de
+titre qui s'y ajoutent, §7 le mouvement que la maquette appelait, §12 ce qui
+en reste vraiment exclu.*
+
+Trois couleurs organisaient l'écran : le noir, le gris du texte, le corail.
+La quatrième était l'affiche. **Le corail garde son seul sens : ce que le
+propriétaire choisit ou déclenche.** Un bouton, une note sélectionnée, une
+réaction cochée. Jamais un titre, jamais une décoration, jamais une erreur —
+inchangé par l'habillage du 23 septembre 2026, qui ajoute l'or à côté de lui
+(cadres, notes, filets, célébrations) sans lui retirer ce rôle.
 
 ---
 
@@ -25,15 +44,21 @@ titre, jamais une décoration, jamais une erreur.
 |---|---|
 | **Sombre uniquement.** Pas de thème clair, pas de suivi du réglage système. | Le choix du propriétaire. Un seul thème, c'est moitié moins de valeurs à tenir et à vérifier sur le téléphone, et aucun écran qu'on n'aurait jamais regardé. |
 | **Palette fixe.** Pas de couleur dynamique Android. | La couleur dynamique prendrait les teintes du fond d'écran et se battrait avec les affiches. Ici, rien ne doit se battre avec les affiches. |
-| **Sobre.** L'interface s'efface derrière les films. | Demande explicite. Conséquence : pas d'ornement, pas d'illustration, pas de dégradé, pas d'ombre portée. |
-| **Un accent : rouge corail, esprit cinéma.** | Le choix du propriétaire parmi quatre. |
-| **Manrope, embarquée.** | Le propriétaire voulait une sans-serif avec un peu plus de caractère que Roboto. Manrope est géométrique, douce, très lisible aux petites tailles, et libre (licence OFL). |
-| **Affiches à coins arrondis discrets**, comme des vignettes. | Le choix du propriétaire. |
+| **Sobre**, jusqu'au 23 septembre 2026 : l'interface s'effaçait derrière les films. | Demande explicite, levée par le propriétaire le 23 septembre 2026 avec l'habillage « papier et pellicule » (ci-dessus, §2, §7) : des ornements, du mouvement, des célébrations. Ce qui en reste exclu : §12. |
+| **Un accent : rouge corail, esprit cinéma.** Conservé en `primary` par l'habillage du 23 septembre 2026, l'or s'y ajoutant plutôt que de le remplacer (§2). | Le choix du propriétaire parmi quatre. |
+| **Manrope, embarquée.** Rejointe le 23 septembre 2026 par Fraunces (les titres d'écran) et Limelight (les célébrations), §3. | Le propriétaire voulait une sans-serif avec un peu plus de caractère que Roboto. Manrope est géométrique, douce, très lisible aux petites tailles, et libre (licence OFL). |
+| **Affiches à coins arrondis discrets**, comme des vignettes — les coins de toute l'application s'arrondissent avec elles le 23 septembre 2026 (12/16/20 dp). | Le choix du propriétaire. |
 | **L'icône : un clap, volet qui claque à l'ouverture.** | Choisie par le propriétaire le 10 septembre 2026 parmi quatre pistes. Le clap s'ouvre puis claque sur l'écran de démarrage Android 12+ (§10). |
 
 ---
 
 ## 2. La palette
+
+*Réécrite le 23 septembre 2026 : l'habillage « papier et pellicule » remplace le noir pur et le
+gris neutre par un fond chaud, papier jauni et pellicule argentique — pour toute l'application,
+pas seulement le Voyage, qui gardait déjà sa propre palette de mondes (ci-dessous, inchangée). Les
+valeurs de couleur pure elles-mêmes (`ui/theme/Color.kt`) sont donc ici, et nulle part ailleurs
+dans ce document — en particulier pas au §10, qui ne fait que lister les fichiers.*
 
 Les valeurs, avec le token Material 3 qu'elles remplissent dans
 `darkColorScheme(...)`. Tout ce qui n'est pas listé garde la valeur que
@@ -41,25 +66,44 @@ Material dérive, et n'est utilisé nulle part.
 
 | Token | Valeur | Rôle |
 |---|---|---|
-| `background`, `surface` | `#000000` | Le fond de tous les écrans. |
-| `surfaceContainer` | `#141414` | Les champs de saisie, le bloc d'un message d'erreur. |
-| `surfaceContainerHigh` | `#1F1F1F` | Une pastille de note non sélectionnée, l'affiche de remplacement, le snackbar. |
-| `onSurface` | `#F2F2F2` | Le texte principal : titres, corps, messages. |
-| `onSurfaceVariant` | `#9A9A9A` | Le texte secondaire : année, réalisateur, date, phrase sous le commentaire. |
-| `outline` | `#2E2E2E` | La bordure d'un champ au repos, d'une réaction décochée. |
-| `primary` | `#FF6B57` | Le corail. Boutons pleins, note sélectionnée, bordure d'un champ qui a le focus, indicateurs de chargement. |
-| `onPrimary` | `#000000` | Le texte sur un bouton corail. |
-| `secondaryContainer` | `#3A1812` | Le fond d'une réaction cochée. |
-| `onSecondaryContainer` | `#FFB4A6` | Le texte d'une réaction cochée. |
-| `error` | `#FFC067` | Uniquement la bordure d'un champ dont la saisie est refusée. |
+| `background`, `surface` | `#151009` | Le fond de tous les écrans (« papier et pellicule », 23 septembre 2026 ; était `#000000`). |
+| `surfaceContainer` | `#1E1710` | Les champs de saisie, le bloc d'un message d'erreur (était `#141414`). |
+| `surfaceContainerHigh` | `#261D14` | Une pastille de note non sélectionnée, l'affiche de remplacement, le snackbar (était `#1F1F1F`). |
+| `onSurface`, `onBackground` | `#ECE2CC` | Le texte principal : titres, corps, messages (était `#F2F2F2`). |
+| `onSurfaceVariant` | `#B3A688` | Le texte secondaire : année, réalisateur, date, phrase sous le commentaire (était `#9A9A9A`). |
+| `outline`, `outlineVariant` | `#493A19` | La bordure d'un champ au repos, d'une réaction décochée — l'équivalent opaque de `rgba(230,185,74,0.25)` de la maquette posé sur `#151009` (R 230×0,25+21×0,75=73, V 185×0,25+16×0,75=58, B 74×0,25+9×0,75=25), Compose ne posant pas une couleur translucide sur un fond arbitraire aussi simplement qu'un `rgba()` CSS (était `#2E2E2E`). |
+| `primary` | `#FF6B57` | Le corail, inchangé : boutons pleins, note sélectionnée, bordure d'un champ qui a le focus, indicateurs de chargement — c'est toujours et seulement ce que le propriétaire choisit ou déclenche (§1). |
+| `onPrimary` | `#151009` | Le texte sur un bouton corail — suit le nouveau fond (était `#000000`). |
+| `secondary`, `tertiary` | `#E6B94A` | L'or de la pellicule (nouveau, 23 septembre 2026) : cadres (`CadreOrne`), notes, filets, les célébrations. Un seul jeton posé deux fois plutôt qu'un choix arbitraire entre les deux — rien dans l'application ne distingue encore un accent secondaire d'un tertiaire. |
+| `onSecondary`, `onTertiary` | `#2A2016` | Le texte sur un fond or — `TextePapier`, déjà pensé pour un texte sombre sur un fond clair (ci-dessous), réemployé plutôt qu'une couleur de plus. |
+| `secondaryContainer` | `#3A1812` | Le fond d'une réaction cochée (inchangé). |
+| `onSecondaryContainer` | `#FFB4A6` | Le texte d'une réaction cochée (inchangé). |
+| `error` | `#FFC067` | Uniquement la bordure d'un champ dont la saisie est refusée (inchangé). |
+| `surfaceContainerHighest`, `inverseSurface` | `#261D14` | Un `TextField` rempli, un `Snackbar` — posés depuis la palette déjà retenue plutôt que le défaut Material (violet ou gris clair, qui jurerait sur ce fond). |
+| `inverseOnSurface` | `#ECE2CC` | Jumeau du point au-dessus. |
+| `inversePrimary` | `#FF6B57` | Jumeau du point au-dessus. |
+
+Trois couleurs de plus, jamais dans `colorScheme` — une décoration ponctuelle plutôt qu'une
+couleur sémantique de l'interface, le même statut que l'or ci-dessus avant le 23 septembre 2026 :
+le cartouche papier jauni du Voyage, et depuis l'habillage toute pastille de note, réaction ou
+remarque « papier » à travers l'application.
+
+| Nom (`Color.kt`) | Valeur | Rôle |
+|---|---|---|
+| `PapierJauni` | `#F2E8D5` | Le fond d'un cartouche, d'un ticket, d'une remarque « papier ». |
+| `TextePapier` | `#2A2016` | Le texte sur ce papier — trop sombre pour `onSurface`/`onSurfaceVariant`, pensés pour le fond sombre de l'application. |
+| `CadrePapier` | `#8A7A57` | Le cadre ornementé du cartouche, un ton plus soutenu que le papier lui-même. |
 
 ### Les mondes du Voyage (brief du 16 septembre 2026, phase 2)
 
 Hors de `colorScheme`, comme le papier jauni du cartouche : une décennie, un
 monde, et le fond que prennent la carte du Voyage, sa page d'année et son rayon
-de décennie — jamais le reste de l'application. Liste fixe (`ui/frise/Mondes.kt`),
-décision de design, kitsch assumé. Les trois fonds marqués d'une étoile viennent
-du brief mot pour mot ; les onze autres sont choisis dans le même registre.
+de décennie. Liste fixe (`ui/frise/Mondes.kt`), décision de design, kitsch
+assumé. Les trois fonds marqués d'une étoile viennent du brief mot pour mot ;
+les onze autres sont choisis dans le même registre — **posée par-dessus le
+fond chaud de l'habillage du 23 septembre 2026, elle-même inchangée par lui** :
+avant comme après, c'est la seule décoration qui déborde du reste de
+l'application, qui garde ses propres couleurs de monde en monde.
 
 | Décennie | Nom · sous-titre | Fond | Accent | Titre de voyageur |
 |---|---|---|---|---|
@@ -78,31 +122,34 @@ du brief mot pour mot ; les onze autres sont choisis dans le même registre.
 | 2010 | Le streaming · tout, tout de suite | `#101014` | `#E5534B` | Streameur |
 | 2020 | Aujourd'hui · le voyage continue | `#0A0A0A` | `#FF6B57` | Contemporain |
 
-Deux couleurs de plus, hors `colorScheme` elles aussi : l'or `#E6B94A` (le liseré
-d'un photogramme fait, les lettres lumineuses d'une marquise et le titre de
-voyageur d'un générique) et le corail existant, réemployé pour le cône de lumière
-de l'année en cours et le cercle d'un tampon de passeport.
+L'or du monde (`secondary`/`tertiary` depuis le 23 septembre 2026, ci-dessus) sert aussi ici : le
+liseré d'un photogramme fait, les lettres lumineuses d'une marquise, le titre de voyageur d'un
+générique. Le corail, lui, reste réservé au cône de lumière de l'année en cours et au cercle d'un
+tampon de passeport — jamais les deux confondus.
 
 **Le motif d'un monde est simplifié, et c'est assumé** : six motifs génériques
 (cercle, étoiles, diagonales, rayures, grain, bandes) dessinés au `Canvas` à très
 faible opacité, réutilisés d'un monde à l'autre, plutôt que quatorze motifs sur
 mesure. Un décor, jamais un élément qu'on lit.
 
-**Manrope reste la seule police** (§3) : l'accent d'un monde se fait par la
-couleur, la graisse, la casse, l'espacement des lettres et une lettrine — jamais
-par une famille de plus.
+**Manrope reste la seule police de l'accent d'un monde** (§3) : la couleur, la
+graisse, la casse, l'espacement des lettres et une lettrine le distinguent,
+jamais une famille de plus — Fraunces et Limelight, apparues le 23 septembre
+2026, servent ailleurs (§3), jamais ici.
 
 Trois choix qu'on ne devine pas :
 
-- **Noir pur, pas quasi noir.** Sur l'écran OLED du téléphone, `#000000`
-  éteint les pixels : les affiches deviennent les seuls rectangles allumés, ce
-  qui est exactement l'effet cherché. Les deux gris de surface, `#141414` et
-  `#1F1F1F`, donnent les deux marches de relief dont l'interface a besoin, et
-  pas une de plus.
-- **Le texte sur corail est noir, pas blanc.** Le blanc sur `#FF6B57` ne
-  passe pas le contraste minimal pour du texte (2,8 : 1) ; le noir passe
-  (7,5 : 1). C'est aussi ce qui fait qu'un bouton corail lit comme un objet
-  plein posé sur le noir, plutôt qu'un rectangle avec du texte dedans.
+- **Un fond chaud, pas un noir quasi neutre** (retouché le 23 septembre 2026, « papier et
+  pellicule ») : `#151009` reste assez sombre pour que les affiches restent les rectangles les plus
+  lumineux de l'écran, sans l'éteindre au noir OLED pur que gardait la version précédente — un
+  compromis assumé, l'ambiance chaude l'emportant sur le dernier quart de point de contraste. Les
+  deux surfaces, `#1E1710` et `#261D14`, donnent les deux marches de relief dont l'interface a
+  besoin, et pas une de plus.
+- **Le texte sur corail comme sur or est sombre, pas clair.** Le texte principal (`#ECE2CC`) sur
+  corail ne passe pas le contraste minimal (2,2 : 1), pas plus sur or (1,4 : 1) ; le fond sombre du
+  thème passe sur les deux (6,8 : 1 sur le corail, 8,7 : 1 sur l'or via `TextePapier`, plus sombre
+  encore). C'est aussi ce qui fait qu'un bouton corail ou un cadre or lit comme un objet plein posé
+  sur le fond, plutôt qu'un rectangle avec du texte dedans.
 - **Les erreurs ne sont pas rouges.** L'accent est déjà rouge ; un message
   d'erreur rouge dirait « touche-moi ». Le message du back s'affiche donc en
   `onSurface` dans un bloc `surfaceContainer`, avec « Réessayer » en corail
@@ -110,16 +157,18 @@ Trois choix qu'on ne devine pas :
   un champ refusé, ce qui arrive deux fois dans l'application : un mot de
   passe vide, une date dans le futur.
 
-Contrastes vérifiés une fois, consignés ici pour ne pas les recalculer :
-`onSurface` sur fond 18,8 : 1 ; `onSurfaceVariant` sur fond 7,5 : 1 ;
-`primary` sur fond 7,5 : 1 ; `onPrimary` sur `primary` 7,5 : 1 ;
-`onSecondaryContainer` sur `secondaryContainer` 9,4 : 1 ; `error` sur fond
-13 : 1. Tous au-dessus de 4,5 : 1.
+Contrastes recalculés le 23 septembre 2026 pour le nouveau fond, consignés ici pour ne pas les
+recalculer à nouveau : `onSurface` sur fond 14,7 : 1 ; `onSurfaceVariant` sur fond 7,9 : 1 ;
+`primary` sur fond 6,8 : 1 ; `onPrimary` sur `primary` 6,8 : 1 ; `secondary`/`tertiary` (l'or) sur
+fond 10,3 : 1 ; `onSecondary`/`onTertiary` sur l'or 8,7 : 1 ; `onSecondaryContainer` sur
+`secondaryContainer` 9,3 : 1 ; `error` sur fond 11,7 : 1 ; `TextePapier` sur `PapierJauni` 13,1 : 1.
+Tous au-dessus de 4,5 : 1.
 
 Les barres système (statut et navigation) sont transparentes, l'application
 dessine bord à bord (`enableEdgeToEdge()`), et leurs icônes sont claires.
-Le fond de la fenêtre et de l'écran de démarrage est `#000000` aussi : au
-lancement, rien de clair ne doit apparaître, pas même une image.
+Le fond de la fenêtre et de l'écran de démarrage reste `#000000`, lui, inchangé par l'habillage du
+23 septembre 2026 : au lancement, rien de clair ne doit apparaître, pas même une image, et le clap
+de l'icône (§1, §10) claque sur un noir qui lui est propre, pas le fond chaud de l'application.
 
 ---
 
@@ -132,19 +181,44 @@ Google pour afficher un titre.
 
 Six styles, et l'application n'en utilise aucun autre. Tout en `sp`, pour
 que la taille de police du téléphone soit respectée ; aucune hauteur fixe
-autour d'un texte, pour qu'il puisse grandir.
+autour d'un texte, pour qu'il puisse grandir. **Trois d'entre eux passent en
+Fraunces depuis le 23 septembre 2026** (ci-dessous) : la taille, l'interligne
+et la graisse de chaque style restent celles de toujours, seule la famille
+change.
 
-| Style Material | Taille / interligne / graisse | Où |
-|---|---|---|
-| `displaySmall` | 40 / 44 / 700 | Les deux chiffres du profil : « 87 » et « 12 ». |
-| `titleLarge` | 22 / 28 / 600 | Le titre de l'écran, le titre du film en tête du formulaire. |
-| `titleMedium` | 16 / 22 / 600 | Le titre d'un film dans une liste, le pseudo sur le profil. |
-| `bodyLarge` | 16 / 24 / 400 | Les champs de saisie, le commentaire, les messages. |
-| `bodyMedium` | 14 / 20 / 400 | Le réalisateur et l'année, la date, la phrase d'une réaction, « Rien qu'à toi », la mention TMDB. |
-| `labelLarge` | 15 / 20 / 600 | Les boutons, le chiffre d'une pastille de note. |
+| Style Material | Taille / interligne / graisse | Famille | Où |
+|---|---|---|---|
+| `displaySmall` | 40 / 44 / 700 | Fraunces | Les deux chiffres du profil : « 87 » et « 12 » ; le chiffre d'une année (Voyage), le titre du générique de décennie. |
+| `titleLarge` | 22 / 28 / 600 | Fraunces | Le titre de l'écran, le titre du film en tête du formulaire. |
+| `titleMedium` | 16 / 22 / 600 | Fraunces | Le titre d'un film dans une liste, le pseudo sur le profil. |
+| `bodyLarge` | 16 / 24 / 400 | Manrope | Les champs de saisie, le commentaire, les messages. |
+| `bodyMedium` | 14 / 20 / 400 | Manrope | Le réalisateur et l'année, la date, la phrase d'une réaction, « Rien qu'à toi », la mention TMDB. |
+| `labelLarge` | 15 / 20 / 600 | Manrope | Les boutons, le chiffre d'une pastille de note. |
 
-Interlettrage nul partout. Pas de capitales pour les étiquettes, pas de
-graisse ou de couleur sur un mot isolé dans une phrase.
+Interlettrage nul dans les six styles eux-mêmes. Pas de capitales pour les
+étiquettes, pas de graisse ou de couleur sur un mot isolé dans une phrase —
+un titre en majuscules espacées (une marquise, un sous-titre de monde) le
+fait par un `letterSpacing` posé sur place, jamais dans le style partagé.
+
+### Fraunces et Limelight (habillage « papier et pellicule », 23 septembre 2026)
+
+Deux polices de plus, toutes deux en fichiers statiques dans `res/font/`, avec leur `OFL.txt` à
+côté — jamais une police téléchargeable, la même règle qu'au-dessus (§12 le redit).
+
+- **Fraunces** (SIL OFL, dépôt GitHub `undercasetype/Fraunces`, dossier des statiques),
+  `fraunces_regular`/`_semibold`/`_bold` : les trois styles du tableau ci-dessus, c'est-à-dire les
+  titres d'écran et les chiffres d'affiche — le corps de texte reste Manrope, jamais les deux
+  mélangés dans un même style.
+- **Limelight** (SIL OFL, `google/fonts` → `ofl/limelight`), un seul style statique, réservée aux
+  titres des célébrations (`ui/celebrations/`, plus le carton-titre d'un monde et le tampon
+  « PERDU » d'un film introuvable, posés ailleurs dans `ui/frise/` et `ui/`) : l'année en lettres
+  de marquise, « … DANS LA BOÎTE », le titre du générique d'une décennie et sa marquise
+  « ANNÉES … · complet », le nom du monde sur son carton-titre, « PERDU ». Ni Manrope ni Fraunces
+  n'y servent — un troisième monde typographique, jamais mélangé aux deux autres dans un même
+  style.
+
+Trois polices en tout, chacune à un rôle fixe : Manrope le corps, Fraunces les titres d'écran,
+Limelight les célébrations. Jamais deux sur le même texte.
 
 Dans une liste, un film s'écrit sur deux lignes : le titre en `titleMedium`,
 puis le réalisateur et l'année en `bodyMedium onSurfaceVariant`, séparés
@@ -317,7 +391,8 @@ après ses essais sur le téléphone le jour même (« j'aime beaucoup tout ce q
   `AnimatedVisibility` (fondu + échelle) plutôt que d'apparaître net.
 - **Tirer pour rafraîchir** (`PullToRefreshBox`, Material 3) sur la Frise et l'accueil, branché sur
   le `refresh()` déjà appelé à l'entrée sur l'écran — gardé (`if (!ui.loading)`) pour ne pas le
-  redoubler si un chargement est déjà en vol.
+  redoubler si un chargement est déjà en vol. Son indicateur, lui, n'est plus le rond Material par
+  défaut depuis le 23 septembre 2026 : ci-dessous, « la bobine qui tourne ».
 - Le snackbar entre et sort comme Material le fait.
 - Rien au lancement, rien à l'arrivée d'une liste elle-même : les lignes et les tuiles apparaissent
   quand elles sont là — seule la jaquette qu'elles portent se fond désormais dedans (ligne
@@ -325,6 +400,108 @@ après ses essais sur le téléphone le jour même (« j'aime beaucoup tout ce q
 
 Le réglage système « Supprimer les animations » est respecté ; Compose le
 fait seul.
+
+### Papier et pellicule (23 septembre 2026, habillage et complément)
+
+*Le peaufinage ci-dessus levait déjà la sobriété « pour voir ». Le même jour, une fois la maquette
+choisie (§1), le propriétaire va plus loin : « quand on finit un film, quand on finit une année,
+rendre l'appli plus smooth ». Ce qui suit couvre les deux chantiers qui en résultent — l'habillage
+(gestes 1 à 12) puis son complément (gestes 13 à 23, celui-ci compris) — une ligne par geste,
+célébrations comprises. Les célébrations elles-mêmes vivent dans `ui/celebrations/` (le calque d'un
+film enregistré, celui d'une année dans la boîte, le carton-titre d'un monde) ou à même l'écran
+qu'elles habillent quand elles y tiennent en quelques lignes (le podium, le ticket, la note).*
+
+1. **Le thème** (`ui/theme/Color.kt`, `Theme.kt`, `Shape.kt`) : la palette du §2, les coins arrondis
+   (§1), et `Grain`, un pointillé de fond dessiné une fois (`drawWithCache`) puis répété par un
+   `ShaderBrush` — statique, jamais redessiné à la frame.
+2. **Fraunces et Limelight** (§3) : deux polices de plus, aucun mouvement propre.
+3. **Les ornements** (`Ornements.kt`) : `CadreOrne` est statique ; `Perforations` peut défiler
+   lentement en option (`defilement = true`, 3,5 s par pas, linéaire, sans fin) — utilisé tel quel
+   nulle part encore, l'option existant pour la bande qui suit le clap (geste 14, ci-dessous).
+4. **L'accueil et « Mes films »** : pas de mouvement propre, l'habillage se posant sur des éléments
+   déjà animés par ailleurs (cascade, geste 8 ; jaquettes en fondu, peaufinage ci-dessus).
+5. **La fiche d'année du Voyage** : de même, sans mouvement propre — le podium et le ticket, plus
+   loin dans cette liste, portent le leur.
+6. **La fiche d'un film** : sans mouvement propre.
+7. **La Frise et la décennie** : sans mouvement propre à l'habillage lui-même — le clap qui marche
+   (geste 14) et le carton-titre d'un monde (geste 22) en ajoutent depuis le complément.
+8. **Cascade d'entrée** (`EntreeEnCascade`, `Cascade.kt`) : fondu et montée de 12 dp, 40 ms d'écart
+   entre deux éléments, à la première composition de l'écran seulement (`rememberPorteCascade`,
+   jamais au défilement ni au retour) — accueil, salles, podium, filmographie.
+9. **Fin d'un film** (`FilmEnregistreCalque`, `ui/celebrations/`) : le clap de l'icône, redessiné en
+   Compose, claque (−35° → 0°, 550 ms, courbe `(0.7,0,0.9,0.4)`), un éclair blanc et une secousse
+   suivent, puis l'année en Limelight or et le carton du chroniqueur qui monte depuis le bas
+   (600 ms, `(0.2,0.8,0.2,1)`), haptique `Confirm`, fondu, fermeture après 4 s ou sur un tap. *Écart
+   assumé (revue de fin de chantier) : la jauge des essentiels de l'année ouverte que le brief
+   demandait aussi en est absente — elle suppose de comparer une progression avant/après la
+   sauvegarde, ce qu'aucun `AnneeViewModel` n'est garanti d'avoir déjà chargé à cet instant précis
+   du parcours (le film peut tout aussi bien venir de la recherche que du Voyage).*
+10. **Fin d'une salle** : un ruban « Salle bouclée » glisse depuis la gauche, ses perforations
+    s'allument en or l'une après l'autre (300 ms), haptique `Confirm`.
+11. **Fin d'une année**, en deux calques qui s'enchaînent. D'abord `AnneeDansLaBoiteCalque`
+    (`ui/celebrations/`, ajouté après le geste 12 du premier implémenteur, en remplacement de la
+    snackbar « *1898* dans la boîte ! » que ce même geste posait) : un compte à rebours 5-4-3 sur un
+    cercle à balayage conique (haptique `SegmentTick` par chiffre), la récompense de l'année dorée
+    sous une pluie de 30 perforations (`Canvas`, rotation, 2,2 s, haptique `Confirm`), le titre en
+    Limelight, le cadre de l'année suivante qui se dessine en corail. Puis `TicketCalque` (même
+    déclenchement qu'avant l'habillage, poinçonné en plus par le geste 15 du complément) : le
+    ticket monte depuis le bas avec une légère rotation et un dépassement, une
+    pluie de perforations or tombe derrière lui (30 particules, `Canvas`, 1,5 s), haptique
+    `Confirm`. *Écart assumé (même revue) : le bilan complet que le brief demandait pour
+    le premier calque (récompense · essentiels *x* sur *y* · mot du chroniqueur) est réduit à la
+    seule récompense, pour la même raison que la jauge du geste 9 — aucune progression par année
+    n'est disponible à ce niveau sans un `AnneeViewModel` déjà chargé pour cette année précise.*
+12. **Le cartouche se déplie** comme un papier à sa première apparition (échelle Y 0,12 → 1, 600 ms,
+    courbe `(0.2,0.8,0.2,1)`), une fois par écran.
+13. **Décennie bouclée** (`GeneriqueScreen.kt`) : une marquise dont les ampoules s'allument une à
+    une (120 ms d'écart) autour de « ANNÉES … · complet », puis un générique qui déroule sur fond
+    sépia (5,5 s, linéaire) — réalisateurs rencontrés, Palmes et Lions par année, films au journal,
+    la fourchette de dates, le titre du voyageur en Limelight or, « FIN » — puis le tampon du
+    passeport (cercle double corail, rotation −8°, échelle 4 → 1 en 350 ms, haptique `Confirm`) qui
+    s'abat, le générique s'assombrissant sous un voile noir animé de concert. Un tap, à toute phase,
+    ferme l'écran.
+14. **La Frise après un enregistrement** (`VoyageScreen.kt`) : la liste glisse jusqu'au nouveau
+    photogramme en 800 ms plutôt que d'y sauter (distance fixe, `animateScrollBy`) ; le temps de la
+    marche, les tirets dorés (les perforations du segment en cours) s'allument en or ; le cône de
+    lumière de l'année en cours respire (pulsation infinie, 2,4 s) au lieu d'une opacité fixe ; le
+    compteur d'années visitées du HUD s'incrémente chiffre par chiffre (`animateIntAsState`).
+15. **Le ticket poinçonné** (`TicketVoyage.kt`) : « Utiliser maintenant » perce d'abord un trou dans
+    le papier (échelle 0 → 1 avec dépassement, un vrai trou par `BlendMode.Clear`), un léger recul
+    du ticket, haptique `Confirm`, avant de refermer le calque. De retour sur la Frise, le
+    photogramme de la nouvelle année se dévoile sur 1 s : le cadre pointillé cède au cadre corail en
+    fondu, un voile sombre se lève, une légère échelle se résorbe — substituts assumés au flou que
+    demandait le brief (`Modifier.blur` exige l'API 31, ce dépôt promet 26).
+16. **La note qui s'allume** (`FormScreen.kt`) : quand la note arrive autrement que par un tap
+    direct (une correction déjà notée, un préremplissage SensCritique), les dix pastilles se
+    balaient une à une jusqu'à la valeur posée (40 ms d'écart, haptique `SegmentTick` par pastille),
+    la dernière rebondissant (échelle 1 → 1,25 → 1). Un tap direct n'est jamais retardé : la
+    sélection suit le doigt tout de suite, sans balayage.
+17. **Le tampon « perdu »** (`TamponPerdu`, `ui/TamponPerdu.kt`) : un film qui vient d'être marqué
+    introuvable — observé en train de le devenir, jamais simplement parce qu'il l'est déjà — reçoit
+    sur son affiche un tampon sépia en biais (cercle double, rotation −12°, opacité 0,85, « PERDU »
+    en Limelight) qui s'abat à l'échelle (3 → 1, 300 ms), haptique `Confirm`, puis reste dessiné,
+    statique, partout où l'affiche s'affiche — à la place du grisage qui servait jusque-là.
+18. **Le podium qui bouge** (`AnneeScreen.kt`) : quand le trio de tête change après un enregistrement
+    (`entreePodium`, `PodiumEtats.kt`, fonction pure testée), l'affiche entrante glisse jusqu'à sa
+    marche (500 ms) et son numéro passe à l'or avec un rebond (échelle 1 → 1,3 → 1).
+19. **« Ensuite » qui passe le relais** (`HomeScreen.kt`) : quand le film « Ensuite » vient d'être
+    enregistré, sa carte sort par la gauche (translation + fondu, 300 ms) et la suivante entre par
+    la droite (`AnimatedContent`, clé = `tmdb_id`).
+20. **La rétrospective complète** (`RealisateurScreen.kt`) : quand tous les films d'un réalisateur
+    sont vus ou introuvables (`retrospectiveComplete`, `RealisateurEtats.kt`, fonction pure testée ;
+    un introuvable compte), un sceau or plein avec un `✦` en Fraunces se pose sur son portrait à
+    l'échelle avec dépassement, à la première composition de l'en-tête ; statique aux recompositions
+    suivantes.
+21. **La bobine qui tourne** (`BobineIndicateur`, `Ornements.kt`) : l'indicateur de tirer-pour-
+    rafraîchir de la Frise et de l'accueil devient une bobine de pellicule dessinée au `Canvas`
+    (deux cercles, six rayons, des perforations) — sa rotation suit la distance tirée avant le
+    déclenchement, puis tourne en boucle (900 ms par tour) pendant le chargement.
+22. **Le carton-titre d'un monde** (`CartonTitreMonde`, `ui/celebrations/`) : à la première entrée
+    dans un monde de la Frise en défilant (`mondeEntre`, `VoyageCarte.kt`, fonction pure testée, et
+    la mémoire des mondes déjà présentés cette session, `rememberSaveable`), un carton plein écran
+    façon cinéma muet — fond noir, `CadreOrne` or, le nom du monde en Limelight — s'affiche 1,8 s,
+    fondu d'entrée et de sortie (300 ms, `AnimatedVisibility`, même montage que le calque du
+    ticket). Un tap, à tout instant, passe.
 
 ---
 
@@ -749,17 +926,28 @@ d'API hors de `Endpoints.kt` », pour la même raison.
 ## 12. Ce qui est laissé de côté, et pourquoi
 
 - **Un thème clair, la couleur dynamique.** Décidés contre, §1.
-- **Des illustrations d'états vides, des animations décoratives.** Contraires
-  à « sobre » — l'animation du clap (§10) est l'icône elle-même, pas une
-  décoration d'écran. Le retour haptique, lui, a quitté cette liste : posé
-  par le peaufinage du 23 septembre 2026 (§7) et gardé après essais sur le
-  téléphone.
-- **Une police pour les titres différente de celle du corps.** Manrope en
-  600 et 700 fait le travail ; deux familles pour six écrans, c'est une de
-  trop.
+- **Des illustrations figuratives.** Écarté par le propriétaire au choix de la maquette « papier et
+  pellicule » (§1) : des ornements oui (§2, §3, §7), un dessin de personnage ou de scène non — tout
+  reste vectoriel (`Canvas`) ou typographique, jamais une image qui représente quelque chose.
+  *Jusqu'au 23 septembre 2026, cette ligne disait « des illustrations d'états vides, des animations
+  décoratives », contraires à « sobre » : la sobriété elle-même est retombée ce jour-là (§1, §7), et
+  l'application porte maintenant des dizaines de gestes qui n'existent que pour eux-mêmes — le
+  calque d'un film enregistré, le générique d'une décennie, le carton-titre d'un monde. Le retour
+  haptique, resté seul rescapé de cette ligne au peaufinage, l'a alors déjà quittée.*
+- **Une police téléchargeable.** Manrope, Fraunces et Limelight (§3) vivent toutes trois en fichiers
+  statiques dans `res/font/` : le téléphone n'a pas à dépendre des services Google pour afficher un
+  titre. *Jusqu'au 23 septembre 2026, cette ligne disait « une police pour les titres différente de
+  celle du corps », Manrope seule y suffisant : ce n'est plus vrai depuis l'habillage — Fraunces
+  (les titres d'écran) et Limelight (les célébrations) s'y ajoutent, chacune à un rôle fixe (§3),
+  sans que la règle contre une police téléchargeable n'ait jamais changé, elle.*
+- **La jauge des essentiels au calque d'un film enregistré, le bilan complet au calque d'une année
+  bouclée.** Les deux demandait le brief de l'habillage du 23 septembre 2026, absents de ce qui a
+  été construit — §7, gestes 9 et 11, en disent la raison technique (une progression que ces
+  calques n'ont pas de quoi calculer à cet instant du parcours), constatée à la relecture de fin de
+  chantier plutôt que décidée à l'avance.
 - **Les tests de captures d'écran** (Roborazzi tourne sans émulateur, sur la
   JVM). Possibles, utiles le jour où quelqu'un d'autre touchera au thème ;
   pas maintenant.
-- **Un système de tokens au-delà de Material.** Les onze couleurs, les six
-  styles et les trois rayons sont tout le système. Nommer davantage serait
-  décrire ce qui n'existe pas.
+- **Un système de tokens au-delà de Material.** Les couleurs, les styles et
+  les rayons de §2 à §4 sont tout le système. Nommer davantage serait décrire
+  ce qui n'existe pas.
