@@ -77,8 +77,8 @@ fun detecterFrontiereAvancee(avant: Int?, apres: Int?): FrontiereAvancee? {
     )
 }
 
-/** Un film du générique de fin : son titre et son année de sortie. */
-data class FilmGenerique(val titre: String, val annee: Int)
+/** Un film du générique de fin : son titre, son année de sortie, et son réalisateur s'il est connu. */
+data class FilmGenerique(val titre: String, val annee: Int, val realisateur: String? = null)
 
 /**
  * Un tampon du passeport, qui porte aussi tout ce que son générique affiche : l'écran
@@ -86,7 +86,9 @@ data class FilmGenerique(val titre: String, val annee: Int)
  *
  * `recompenses` (étape 5) porte celle de chacune des dix années de la décennie qui en a une — le
  * générique en tire son compte de festivals (décision 4 du brief du 21 septembre 2026, « les
- * récompenses »), dans le même ordre que le HUD de la carte.
+ * récompenses »), dans le même ordre que le HUD de la carte. `recompensesParAnnee` (habillage du
+ * 23 septembre 2026, geste 13) garde l'année de chacune : le générique en tire les rôles « Palmes »
+ * et « Lions », qui veulent les millésimes et pas seulement le compte.
  */
 data class TamponDecennie(
     val decennie: Int,
@@ -95,6 +97,7 @@ data class TamponDecennie(
     val derniereEntree: String?,
     val films: List<FilmGenerique>,
     val recompenses: List<Recompense> = emptyList(),
+    val recompensesParAnnee: List<Pair<Int, Recompense>> = emptyList(),
 )
 
 /**
@@ -110,17 +113,44 @@ data class TamponDecennie(
 fun construireTamponDecennie(decennie: Int, voyage: VoyageUi, journal: List<JournalItem>): TamponDecennie {
     val duMonde = journal.filter { it.media.year != null && mondeDe(it.media.year!!).decennie == decennie }
     val dates = duMonde.map { it.entry.finished_at }.sorted()
-    val recompenses = (decennie until decennie + 10).mapNotNull { annee -> recompenseDe(voyage.parAnnee[annee]?.recompense) }
+    val recompensesParAnnee = (decennie until decennie + 10)
+        .mapNotNull { annee -> recompenseDe(voyage.parAnnee[annee]?.recompense)?.let { annee to it } }
     return TamponDecennie(
         decennie = decennie,
         titreVoyageur = mondeDeLaDecennie(decennie).titreVoyageur,
         premiereEntree = dates.firstOrNull(),
         derniereEntree = dates.lastOrNull(),
         films = duMonde
-            .map { FilmGenerique(it.media.title, it.media.year!!) }
+            .map { FilmGenerique(it.media.title, it.media.year!!, it.media.director) }
             .sortedWith(compareBy({ it.annee }, { it.titre })),
-        recompenses = recompenses,
+        recompenses = recompensesParAnnee.map { it.second },
+        recompensesParAnnee = recompensesParAnnee,
     )
+}
+
+/**
+ * Un rôle du générique (habillage du 23 septembre 2026, geste 13) : une étiquette et sa valeur,
+ * dans l'ordre où le générique les déroule — réalisateurs rencontrés, Palmes, Lions, films au
+ * journal. Fonction pure, testée en JVM.
+ *
+ * Une ligne omise plutôt que vide : sans film à réalisateur connu, la ligne « Réalisateurs
+ * rencontrés » disparaît entièrement (le brief le demande), de même pour « Palmes »/« Lions » sans
+ * année primée — jamais « Réalisateurs rencontrés : » suivi de rien.
+ */
+data class RoleGenerique(val etiquette: String, val valeur: String)
+
+fun rolesDuGenerique(tampon: TamponDecennie): List<RoleGenerique> {
+    val roles = mutableListOf<RoleGenerique>()
+    val realisateurs = tampon.films.mapNotNull { it.realisateur }.distinct().sorted()
+    if (realisateurs.isNotEmpty()) {
+        roles += RoleGenerique("Réalisateurs rencontrés", realisateurs.joinToString(" · "))
+    }
+    val palmes = tampon.recompensesParAnnee.filter { it.second == Recompense.PALME }.map { it.first }.sorted()
+    if (palmes.isNotEmpty()) roles += RoleGenerique("Palmes", palmes.joinToString(", "))
+    val lions = tampon.recompensesParAnnee.filter { it.second == Recompense.LION }.map { it.first }.sorted()
+    if (lions.isNotEmpty()) roles += RoleGenerique("Lions", lions.joinToString(", "))
+    roles += RoleGenerique("Films au journal", tampon.films.size.toString())
+    return roles
 }
 
 /**

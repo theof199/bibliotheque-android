@@ -15,8 +15,8 @@ import org.junit.Test
  */
 class VoyageCarteTest {
 
-    private fun vu(annee: Int?, id: String, date: String, titre: String = "Un film") =
-        FakeJournalApi.item("m-$id", date, null, emptyList(), null, id = "e-$id", title = titre, year = annee)
+    private fun vu(annee: Int?, id: String, date: String, titre: String = "Un film", realisateur: String? = null) =
+        FakeJournalApi.item("m-$id", date, null, emptyList(), null, id = "e-$id", title = titre, year = annee, director = realisateur)
 
     // La lecture du back, telle quelle — mutation : confondre deux chaînes (`"lion"` -> OURS, par
     // exemple), ou rendre autre chose que `null` pour un texte inconnu, casserait une des branches.
@@ -102,8 +102,8 @@ class VoyageCarteTest {
             ).associateBy { it.annee },
         )
         val journal = listOf(
-            vu(1896, "b", "2026-03-20", "Le Voyage dans la lune"),
-            vu(1895, "a", "2026-02-11", "L'Arrivée d'un train"),
+            vu(1896, "b", "2026-03-20", "Le Voyage dans la lune", realisateur = "Georges Méliès"),
+            vu(1895, "a", "2026-02-11", "L'Arrivée d'un train", realisateur = "Louis Lumière"),
             vu(1920, "c", "2026-05-01", "Hors décennie"),
         )
 
@@ -117,7 +117,9 @@ class VoyageCarteTest {
             listOf("L'Arrivée d'un train" to 1895, "Le Voyage dans la lune" to 1896),
             tampon.films.map { it.titre to it.annee },
         )
+        assertEquals(listOf("Louis Lumière", "Georges Méliès"), tampon.films.map { it.realisateur })
         assertEquals(listOf(Recompense.OURS, Recompense.PALME), tampon.recompenses)
+        assertEquals(listOf(1895 to Recompense.OURS, 1896 to Recompense.PALME), tampon.recompensesParAnnee)
     }
 
     // Journal vide (la carte légère du passeport, avant tout tap) : ni film ni date, mais les
@@ -132,6 +134,58 @@ class VoyageCarteTest {
         assertNull(tampon.premiereEntree)
         assertNull(tampon.derniereEntree)
         assertEquals(listOf(Recompense.LION), tampon.recompenses)
+    }
+
+    // Les rôles du générique (habillage du 23 septembre 2026, geste 13) : réalisateurs rencontrés
+    // (dédupliqués, triés), Palmes puis Lions par année, films au journal en dernier. Mutation :
+    // ne pas dédupliquer ferait apparaître Méliès deux fois ; ne pas filtrer les nulls ferait
+    // planter `sorted()` sur un film sans réalisateur.
+    @Test
+    fun `rolesDuGenerique liste les realisateurs distincts, les palmes, les lions et le compte de films`() {
+        val tampon = TamponDecennie(
+            decennie = 1890,
+            titreVoyageur = "Spectateur des origines",
+            premiereEntree = "2026-02-11",
+            derniereEntree = "2026-03-20",
+            films = listOf(
+                FilmGenerique("Le Voyage dans la lune", 1896, "Georges Méliès"),
+                FilmGenerique("L'Arrivée d'un train", 1895, "Louis Lumière"),
+                FilmGenerique("Cendrillon", 1899, "Georges Méliès"),
+                FilmGenerique("Sans réalisateur connu", 1897, null),
+            ),
+            recompensesParAnnee = listOf(1895 to Recompense.OURS, 1896 to Recompense.PALME, 1899 to Recompense.LION),
+        )
+
+        val roles = rolesDuGenerique(tampon)
+
+        assertEquals(
+            listOf(
+                RoleGenerique("Réalisateurs rencontrés", "Georges Méliès · Louis Lumière"),
+                RoleGenerique("Palmes", "1896"),
+                RoleGenerique("Lions", "1899"),
+                RoleGenerique("Films au journal", "4"),
+            ),
+            roles,
+        )
+    }
+
+    // Sans réalisateur connu ni récompense de ces deux festivals, les lignes correspondantes
+    // disparaissent entièrement — jamais une ligne vide. Mutation : rendre la ligne quand même,
+    // avec une valeur vide, ferait apparaître « Réalisateurs rencontrés : » sans personne.
+    @Test
+    fun `rolesDuGenerique omet les lignes sans matiere`() {
+        val tampon = TamponDecennie(
+            decennie = 1890,
+            titreVoyageur = "Spectateur des origines",
+            premiereEntree = null,
+            derniereEntree = null,
+            films = listOf(FilmGenerique("Sans réalisateur connu", 1897, null)),
+            recompensesParAnnee = listOf(1895 to Recompense.OURS),
+        )
+
+        val roles = rolesDuGenerique(tampon)
+
+        assertEquals(listOf(RoleGenerique("Films au journal", "1")), roles)
     }
 
     // `tamponsPasseport` ne tamponne que les décennies que `tampons` (`GET /me/voyage`) dit
