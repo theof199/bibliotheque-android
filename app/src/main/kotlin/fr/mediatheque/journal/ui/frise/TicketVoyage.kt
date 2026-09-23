@@ -1,5 +1,8 @@
 package fr.mediatheque.journal.ui.frise
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,12 +19,24 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -32,6 +47,8 @@ import fr.mediatheque.journal.ui.formatDate
 import fr.mediatheque.journal.ui.theme.CadrePapier
 import fr.mediatheque.journal.ui.theme.PapierJauni
 import fr.mediatheque.journal.ui.theme.TextePapier
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * Le ticket (décision 2 du brief du 21 septembre 2026, « le ticket ») : le calque qui l'annonce par-
@@ -49,18 +66,40 @@ private val HAUTEUR_TICKET_PORTEFEUILLE = 60.dp
  * Le papier du ticket : rectangle `#F2E8D5` à bords perforés, penché de −3°, « ADMIS UNE PERSONNE »
  * en petit espacé, l'année dans l'accent du monde de cette année-là, le motif en dessous.
  * `compact` réduit la typographie pour la ligne du portefeuille — même dessin, en petit.
+ *
+ * `poinconEchelle` (geste 15 de l'habillage du 23 septembre 2026, complément du 23 septembre) : nul
+ * hors poinçon, sinon l'échelle 0 → 1 avec dépassement du trou qui perce le papier — un vrai trou
+ * (`BlendMode.Clear` sur une composition hors écran), pas une pastille de la couleur du fond, pour
+ * qu'il reste un trou quel que soit ce qu'il y a derrière le ticket.
  */
 @Composable
-private fun TicketPapier(annee: Int, motif: String, largeur: Dp, hauteur: Dp, compact: Boolean, barre: Boolean = false) {
+private fun TicketPapier(
+    annee: Int,
+    motif: String,
+    largeur: Dp,
+    hauteur: Dp,
+    compact: Boolean,
+    barre: Boolean = false,
+    poinconEchelle: Float = 0f,
+    modifier: Modifier = Modifier,
+) {
     val monde = mondeDe(annee)
     Box(
-        Modifier
+        modifier
             .size(largeur, hauteur)
             .rotate(-3f)
+            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
             .background(PapierJauni, RoundedCornerShape(6.dp))
             .drawBehind {
                 bordsPerfores(CadrePapier)
                 if (barre) barrerTicket(CadrePapier)
+            }
+            .let {
+                if (poinconEchelle <= 0f) {
+                    it
+                } else {
+                    it.drawWithContentTrouPoinconne(poinconEchelle)
+                }
             }
             .padding(if (compact) 6.dp else 16.dp),
         contentAlignment = Alignment.Center,
@@ -91,13 +130,51 @@ private fun TicketPapier(annee: Int, motif: String, largeur: Dp, hauteur: Dp, co
 }
 
 /**
+ * Le trou du poinçon (geste 15) : un vrai trou dans le papier — `BlendMode.Clear` efface plutôt que
+ * peindre, ce que `compositingStrategy = CompositingStrategy.Offscreen` (posé sur le `Box` du
+ * ticket) rend possible : sans lui, `Clear` effacerait jusqu'au fond de l'écran plutôt que jusqu'au
+ * papier seul. `echelle` peut dépasser 1 (le dépassement de l'animation), le trou grandissant alors
+ * un instant plus que sa taille finale avant de s'y stabiliser.
+ */
+private fun Modifier.drawWithContentTrouPoinconne(echelle: Float): Modifier = drawWithContent {
+    drawContent()
+    drawCircle(
+        color = Color.Black,
+        radius = size.minDimension * 0.11f * echelle,
+        center = Offset(size.width * 0.22f, size.height * 0.5f),
+        blendMode = BlendMode.Clear,
+    )
+}
+
+/**
  * Le calque du ticket (décision 2) : un fond noir translucide qui bloque l'écran courant, le
- * ticket dessiné au centre, deux boutons. « Garder dans le portefeuille » et « Utiliser maintenant »
- * appellent chacun `onGarder`/`onUtiliser` — c'est `FriseViewModel` qui pose `POST .../montre` dans
- * les deux cas et referme le calque (`ticketAMontrer` retombe à `null`).
+ * ticket dessiné au centre, deux boutons. « Garder dans le portefeuille » referme tout de suite
+ * (`onGarder`). « Utiliser maintenant » poinçonne d'abord le ticket (geste 15 du complément du
+ * 23 septembre 2026 à l'habillage) — le trou perce à l'échelle avec dépassement, le ticket recule
+ * légèrement, une haptique confirme — puis seulement `onUtiliser` referme le calque ; c'est
+ * `FriseViewModel` qui pose `POST .../montre` dans les deux cas.
  */
 @Composable
 fun TicketCalque(ticket: TicketAMontrerUi, onUtiliser: () -> Unit, onGarder: () -> Unit) {
+    val haptique = LocalHapticFeedback.current
+    var poinconne by remember(ticket.annee) { mutableStateOf(false) }
+    val echellePoincon = remember(ticket.annee) { Animatable(0f) }
+    val recul = remember(ticket.annee) { Animatable(0f) }
+
+    LaunchedEffect(poinconne) {
+        if (!poinconne) return@LaunchedEffect
+        launch {
+            recul.animateTo(1f, tween(120))
+            recul.animateTo(0f, tween(200))
+        }
+        // L'échelle 0 → 1 avec dépassement (le brief) : une courbe qui grimpe au-delà de 1 avant
+        // de s'y stabiliser, le trou paraissant percer d'un coup sec plutôt que grandir sagement.
+        echellePoincon.animateTo(1f, tween(350, easing = CubicBezierEasing(0.3f, 1.7f, 0.4f, 1f)))
+        haptique.performHapticFeedback(HapticFeedbackType.Confirm)
+        delay(300)
+        onUtiliser()
+    }
+
     Box(
         Modifier
             .fillMaxSize()
@@ -108,12 +185,20 @@ fun TicketCalque(ticket: TicketAMontrerUi, onUtiliser: () -> Unit, onGarder: () 
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(24.dp)) {
-            TicketPapier(ticket.annee, ticket.motif, LARGEUR_TICKET_CALQUE, HAUTEUR_TICKET_CALQUE, compact = false)
+            TicketPapier(
+                ticket.annee,
+                ticket.motif,
+                LARGEUR_TICKET_CALQUE,
+                HAUTEUR_TICKET_CALQUE,
+                compact = false,
+                poinconEchelle = echellePoincon.value,
+                modifier = Modifier.graphicsLayer { translationY = recul.value * 6.dp.toPx() },
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                TextButton(onClick = onGarder) {
+                TextButton(onClick = onGarder, enabled = !poinconne) {
                     Text("Garder dans le portefeuille", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Button(onClick = onUtiliser) { Text("Utiliser maintenant") }
+                Button(onClick = { poinconne = true }, enabled = !poinconne) { Text("Utiliser maintenant") }
             }
         }
     }

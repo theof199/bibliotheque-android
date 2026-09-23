@@ -51,9 +51,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -406,6 +408,20 @@ private fun CelluleAnnee(cellule: Cellule.Annee, claques: Int, enMarche: Boolean
     val monde = cellule.monde
     val enCours = cellule.statut == StatutAnneeVoyage.EN_COURS
     val bandeFond = monde.accent.copy(alpha = 0.16f)
+
+    // Le photogramme d'une année qui vient de s'ouvrir par un ticket poinçonné (geste 15) : cette
+    // cellule vient de passer de verrouillée à en cours, sous nos yeux — jamais simplement parce
+    // qu'elle se compose déjà ainsi (premier chargement, ou retour de loin dans la liste, où
+    // `statutPrecedent` initialise directement sur le statut courant, sans transition à observer).
+    var statutPrecedent by remember(cellule.annee) { mutableStateOf(cellule.statut) }
+    val devoilement = remember(cellule.annee) { Animatable(1f) }
+    LaunchedEffect(cellule.statut) {
+        if (statutPrecedent == StatutAnneeVoyage.VERROUILLEE && cellule.statut == StatutAnneeVoyage.EN_COURS) {
+            devoilement.snapTo(0f)
+            devoilement.animateTo(1f, tween(1_000, easing = LinearEasing))
+        }
+        statutPrecedent = cellule.statut
+    }
     // Les tirets dorés qui suivent le clap (geste 14) : le temps de sa marche vers ce photogramme,
     // les perforations de son segment de pellicule s'allument en or plutôt que de rester au ton du
     // fond — un « chemin » plutôt qu'un `Canvas` de plus à faire courir image par image.
@@ -461,6 +477,7 @@ private fun CelluleAnnee(cellule: Cellule.Annee, claques: Int, enMarche: Boolean
 
         Photogramme(
             cellule = cellule,
+            devoilement = devoilement.value,
             modifier = Modifier
                 .offset(
                     x = largeur * cellule.xAncre - LARGEUR_PHOTOGRAMME / 2,
@@ -485,7 +502,7 @@ private fun CelluleAnnee(cellule: Cellule.Annee, claques: Int, enMarche: Boolean
 }
 
 @Composable
-private fun Photogramme(cellule: Cellule.Annee, modifier: Modifier = Modifier) {
+private fun Photogramme(cellule: Cellule.Annee, modifier: Modifier = Modifier, devoilement: Float = 1f) {
     val monde = cellule.monde
     val shape = RoundedCornerShape(3.dp)
     // Une année ouverte reste creusable pour toujours (brief du 21 septembre 2026) : elle n'est
@@ -500,6 +517,11 @@ private fun Photogramme(cellule: Cellule.Annee, modifier: Modifier = Modifier) {
         enCours -> "${cellule.annee}, tu es ici"
         else -> "${cellule.annee}, à tourner"
     }
+    // Le cadre pointillé du photogramme verrouillé (`dashedBorder`, tel quel plus bas), et le
+    // cadre corail de l'année en cours dont l'alpha suit `devoilement` — plutôt qu'un flou
+    // (`Modifier.blur` exige l'API 31, ce dépôt promet 26) : les deux cadres se croisent en fondu.
+    val corail = MaterialTheme.colorScheme.primary
+    val eteinte = MaterialTheme.colorScheme.onSurfaceVariant
 
     Column(modifier.semantics { contentDescription = description }, horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
@@ -510,8 +532,21 @@ private fun Photogramme(cellule: Cellule.Annee, modifier: Modifier = Modifier) {
                 .let {
                     when {
                         ouverte -> it.border(1.5.dp, or, shape)
-                        enCours -> it.border(2.dp, MaterialTheme.colorScheme.primary, shape)
-                        else -> it.dashedBorder(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), cornerRadius = 3.dp, strokeWidth = 1.dp)
+                        enCours && devoilement < 1f ->
+                            it.dashedBorder(eteinte.copy(alpha = 0.5f * (1f - devoilement)), cornerRadius = 3.dp, strokeWidth = 1.dp)
+                                .border(2.dp, corail.copy(alpha = devoilement), shape)
+                        enCours -> it.border(2.dp, corail, shape)
+                        else -> it.dashedBorder(eteinte.copy(alpha = 0.5f), cornerRadius = 3.dp, strokeWidth = 1.dp)
+                    }
+                }
+                // Le voile qui se lève (geste 15) : opaque au tout début du dévoilement, transparent
+                // une fois net — la même substitution au flou que le cadre, ci-dessus.
+                .let { if (enCours && devoilement < 1f) it.drawWithContent { drawContent(); drawRect(Color.Black.copy(alpha = 0.6f * (1f - devoilement))) } else it }
+                .graphicsLayer {
+                    if (enCours && devoilement < 1f) {
+                        val echelle = 1f + (1f - devoilement) * 0.15f
+                        scaleX = echelle
+                        scaleY = echelle
                     }
                 },
             contentAlignment = Alignment.Center,
