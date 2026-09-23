@@ -273,15 +273,55 @@ jamais d'excuse ; c'est déjà le ton des messages du back, on le garde.
 
 ## 7. Mouvement
 
-Le minimum, et tout ce qui bouge répond à un geste :
+*Le §1 et ce paragraphe imposaient la sobriété (un fondu de 200 ms entre écrans, rien d'autre). Le
+propriétaire lève cette règle le 23 septembre 2026, « pour voir » (« peaufine au max, je verrai ce
+que j'enlève ensuite ») : ce qui suit décrit ce qui existe depuis ce peaufinage, à élaguer après
+essais sur le téléphone, pas avant.*
 
-- Entre deux écrans, un fondu de 200 ms, sans glissement. Le retour arrière,
-  le même à l'envers.
-- Une pastille ou une réaction qui change d'état : sa couleur en 150 ms
-  (`animateColorAsState`). Rien ne grossit, rien ne rebondit.
+- **Le défilement d'une liste survit à un retour en arrière** (`rememberSaveableStateHolder()`,
+  `Root.kt`) : chaque écran de la pile se rend dans son propre `SaveableStateProvider`, sous une
+  clé qui dépend de sa position et de lui-même (`saveableKey`, `Navigation.kt`, testée en JVM).
+  L'état d'une entrée dépilée est libéré (`clesLibereesParChangementDePile`) — un écran rouvert
+  repart donc en haut, sans qu'aucun état n'ait jamais fui.
+- **Entre deux écrans, une transition qui dépend du sens** (`AnimatedContent` sur `nav.stack`,
+  `Root.kt`, en remplacement du `Crossfade`) : un `push` fait entrer le nouvel écran par la droite
+  (glissement, fondu, ~250 ms), l'ancien reculant légèrement ; un `pop` fait l'inverse ; `home()`
+  (pile vidée) garde un simple fondu de 200 ms. Le sens se déduit de la taille de la pile avant et
+  après (`sensDeTransition`, `Navigation.kt`, testée en JVM).
+- **Une hauteur qui change s'anime plutôt que de sauter** : `animateContentSize()` sur le cartouche
+  d'une année (« Lire la suite » ne fait plus sauter le podium et les salles) ; les blocs à spinner
+  de l'accueil et d'« Au ciné » réservent une hauteur proche de leur contenu final, pour que son
+  arrivée ne décale pas ce qui est dessous.
+- **Une pastille ou une réaction qui change d'état : sa couleur en 150 ms**
+  (`animateColorAsState`, `RatingDot`) — généralisé aux coches du podium et de la séance et à
+  l'icône Plex de la filmographie, qui apparaissent et disparaissent désormais par
+  `AnimatedVisibility` (fondu + échelle courte, 150 ms) plutôt que d'un coup.
+- **Les listes et grilles se retassent** : une `key` sur chaque `items()` qui n'en avait pas
+  encore, `Modifier.animateItem()` sur celles qu'un interrupteur ou une correction peut réordonner
+  ou vider (« Masquer les introuvables », les grilles de l'accueil et de « Mes films »).
+- **L'affiche vole d'une grille vers sa fiche** (`SharedTransitionLayout` autour de
+  l'`AnimatedContent`, `Root.kt` ; `Modifier.voler`, `Cover.kt`) sur trois des quatre paires
+  envisagées : accueil/« Mes films » → la fiche d'une entrée, la filmographie d'un réalisateur →
+  sa fiche simple, une salle du Voyage → sa fiche. La quatrième (la liste des suivis → leur fiche)
+  n'a pas d'image du côté de la fiche : sautée, comme le brief du peaufinage l'autorisait.
+- **Les jaquettes et les photos apparaissent en fondu** : `crossfade(200)` sur les requêtes Coil de
+  `Cover` et `Portrait` — rien *pendant* le chargement lui-même (`loading = {}` inchangé, aucun
+  indicateur, aucun repli tant que la requête est en vol), seule l'image qui arrive s'y fond.
+- **Retour haptique** (`LocalHapticFeedback`, types de la palette Compose, jamais l'API Android
+  directe) sur quatre gestes qui valident quelque chose : poser une note (`SegmentTick`,
+  `RatingDot`), cocher ou décocher « introuvable » (`ToggleOn`/`ToggleOff`, les feuilles
+  « Marquer introuvable »), valider un enregistrement (`Confirm`, `FormScreen`) ou une nouvelle
+  salle (`Confirm`, `NouvelleSalleSheet`).
+- **Les feuilles sont toutes des `ModalBottomSheet` Material 3** (mouvement natif) ; le seul
+  dialogue maison de l'application, le calque du ticket (`TicketCalque`), entre et sort par
+  `AnimatedVisibility` (fondu + échelle) plutôt que d'apparaître net.
+- **Tirer pour rafraîchir** (`PullToRefreshBox`, Material 3) sur la Frise et l'accueil, branché sur
+  le `refresh()` déjà appelé à l'entrée sur l'écran — gardé (`if (!ui.loading)`) pour ne pas le
+  redoubler si un chargement est déjà en vol.
 - Le snackbar entre et sort comme Material le fait.
-- Rien au lancement, rien à l'arrivée d'une liste, rien au chargement d'une
-  affiche : elles apparaissent quand elles sont là.
+- Rien au lancement, rien à l'arrivée d'une liste elle-même : les lignes et les tuiles apparaissent
+  quand elles sont là — seule la jaquette qu'elles portent se fond désormais dedans (ligne
+  ci-dessus), pas le reste de la ligne ou de la tuile.
 
 Le réglage système « Supprimer les animations » est respecté ; Compose le
 fait seul.
@@ -709,9 +749,11 @@ d'API hors de `Endpoints.kt` », pour la même raison.
 ## 12. Ce qui est laissé de côté, et pourquoi
 
 - **Un thème clair, la couleur dynamique.** Décidés contre, §1.
-- **Des illustrations d'états vides, des animations décoratives, un retour
-  haptique.** Contraires à « sobre » — l'animation du clap (§10) est l'icône
-  elle-même, pas une décoration d'écran.
+- **Des illustrations d'états vides, des animations décoratives.** Contraires
+  à « sobre » — l'animation du clap (§10) est l'icône elle-même, pas une
+  décoration d'écran. Le retour haptique, lui, a quitté cette liste : posé
+  par le peaufinage du 23 septembre 2026 (§7), à élaguer après essais sur le
+  téléphone si le propriétaire le juge de trop.
 - **Une police pour les titres différente de celle du corps.** Manrope en
   600 et 700 fait le travail ; deux familles pour six écrans, c'est une de
   trop.
