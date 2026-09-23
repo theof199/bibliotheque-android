@@ -32,8 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import fr.mediatheque.journal.AppContainer
 import fr.mediatheque.journal.reactions.Reactions
-import fr.mediatheque.journal.ui.cinema.AuCineScreen
-import fr.mediatheque.journal.ui.cinema.AuCineViewModel
+import fr.mediatheque.journal.ui.cinema.routeCinema
 import fr.mediatheque.journal.ui.films.FilmsScreen
 import fr.mediatheque.journal.ui.films.FilmsViewModel
 import fr.mediatheque.journal.ui.form.CartonViewModel
@@ -493,20 +492,7 @@ fun Root(container: AppContainer) {
                         )
                     }
                     Screen.SensCritique -> SensCritiqueScreen(senscritique, onBack = nav::pop)
-                    Screen.Cinema -> {
-                        // Nouveau `ViewModel`, indexé sur l'Activité comme les autres (jumeau de
-                        // `films`/`search` ci-dessus) : sans ce rechargement à chaque entrée, « Tes
-                        // séances » et les grilles de sorties resteraient celles de la première
-                        // visite après l'ajout d'une séance depuis ce même écran.
-                        val cinema: AuCineViewModel = viewModel(key = "cinema") { AuCineViewModel(container.api, session::expire) }
-                        LaunchedEffect(Unit) { cinema.refresh() }
-                        AuCineScreen(
-                            cinema,
-                            onOpenSortie = { nav.push(Screen.Form(it)) },
-                            onOpenSeance = { nav.push(Screen.Edit(it)) },
-                            bottomBar = { portee.barreDuBas(screen) },
-                        )
-                    }
+                    Screen.Cinema -> portee.routeCinema()
                     Screen.Frise -> {
                         // Nouveau `ViewModel` partagé avec l'accueil (même clé `"frise"` ci-dessus) :
                         // sans ce rechargement à chaque entrée, la Frise resterait celle de la
