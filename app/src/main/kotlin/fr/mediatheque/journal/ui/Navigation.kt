@@ -65,7 +65,7 @@ sealed interface Screen {
     /**
      * La fiche d'un film du Voyage (brief du 21 septembre 2026, « l'année en étages »), ouverte
      * depuis une affiche d'`AnneeScreen`. Porte des identifiants, pas les données : elle lit le
-     * même `AnneeViewModel` que l'année d'où elle s'est ouverte (`Root.kt`, indexé sur `annee`),
+     * même `AnneeViewModel` que l'année d'où elle s'est ouverte (`FriseRoutes.kt`, indexé sur `annee`),
      * `salleId` et `filmId` (l'identifiant de la ligne, pas le `tmdb_id`, pour rester exact même si
      * un film revenait dans deux salles) désignant le film dans son état déjà chargé.
      */
@@ -116,7 +116,7 @@ sealed interface Screen {
      * La page d'un réalisateur (brief du 21 septembre 2026, « la page réalisateur ») : sa fiche et
      * sa filmographie complète — la même, suivi ou non. Ouverte depuis la liste de Suivis (un
      * réalisateur), ou depuis un nom de réalisateur touchable ailleurs (`RealisateurResolveur`).
-     * Porte l'identifiant, pas les données : `Root.kt` indexe le `RealisateurViewModel` dessus.
+     * Porte l'identifiant, pas les données : `RealisateurRoutes.kt` indexe le `RealisateurViewModel` dessus.
      */
     data class Realisateur(val tmdbId: Int) : Screen
 
@@ -124,7 +124,7 @@ sealed interface Screen {
      * La fiche simple d'un film (décision 2 du brief du 21 septembre 2026), ouverte au tap sur une
      * affiche de la filmographie dont `voyage` est nul — sinon c'est `Screen.FicheVoyage` qui
      * s'ouvre. `realisateurTmdbId` désigne la page dont elle vient : elle relit son
-     * `RealisateurViewModel` (`Root.kt`, même clé) plutôt que de porter le film lui-même.
+     * `RealisateurViewModel` (`RealisateurRoutes.kt`, même clé) plutôt que de porter le film lui-même.
      */
     data class FicheFilm(val realisateurTmdbId: Int, val filmTmdbId: Int) : Screen
 
@@ -155,7 +155,7 @@ enum class BottomTab { Home, Frise, Suivis, Cinema, Profile }
  * (`NavigationTest.kt`) — c'est elle, et elle seule, qui fixe la matrice des dix-sept écrans, plutôt
  * que de la reposer à chaque site d'appel.
  *
- * « Mes films » affiche « Profil » sélectionnée, pas « Accueil » : dans `Root.kt`, cet écran ne
+ * « Mes films » affiche « Profil » sélectionnée, pas « Accueil » : dans `ProfileRoutes.kt`, cet écran ne
  * s'empile que depuis `Screen.Profile` (`onFilms`), jamais depuis l'accueil. `Screen.Annee`,
  * comme le formulaire et la recherche, est un détail empilé sans barre : on y arrive toujours
  * depuis `Screen.Frise`, jamais directement. Même règle pour la fiche d'un réalisateur ou d'une
@@ -183,7 +183,7 @@ fun Screen.bottomBarTab(): BottomTab? = when (this) {
  * cinquième entrée « Réalisateurs » le même jour, entre « Frise » et « Au ciné », renommée
  * « Suivis » le même jour encore quand les sagas l'ont rejointe — icône inchangée).
  * Toucher l’écran où l’on est déjà ne fait rien ; depuis « Mes films », « Profil » est surlignée
- * mais reste touchable et ramène au profil (`Root.kt` lui passe un `pop`).
+ * mais reste touchable et ramène au profil (`FilmsRoute.kt` lui passe un `pop`).
  * Hauteur 64 dp, avec un libellé sous chaque icône (revue du 24 septembre 2026 : la barre sans
  * libellés, choisie le 14 septembre 2026 pour tenir sous 56 dp, laissait deviner l'icône du
  * Voyage) — encore en dessous des 80 dp par défaut d'un `NavigationBar` Material. Un `Row` sous
