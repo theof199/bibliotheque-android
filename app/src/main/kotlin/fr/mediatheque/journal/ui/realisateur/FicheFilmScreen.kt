@@ -10,11 +10,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -41,6 +38,7 @@ import fr.mediatheque.journal.ui.Cover
 import fr.mediatheque.journal.ui.voler
 import fr.mediatheque.journal.ui.frise.ouvrirPlex
 import fr.mediatheque.journal.ui.showBriefly
+import fr.mediatheque.journal.ui.theme.IconeTabler
 
 /**
  * La fiche simple d'un film (décision 2 du brief du 21 septembre 2026, « la page réalisateur ») :
@@ -100,7 +98,7 @@ fun FicheFilmScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour") }
+                IconButton(onClick = onBack) { IconeTabler("arrow-left", "Retour") }
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {

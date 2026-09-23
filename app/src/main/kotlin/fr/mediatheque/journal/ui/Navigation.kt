@@ -1,12 +1,6 @@
 package fr.mediatheque.journal.ui
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ConfirmationNumber
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Movie
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Timeline
-import androidx.compose.material3.Icon
+import fr.mediatheque.journal.ui.theme.IconeTabler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -212,27 +206,27 @@ fun JournalBottomBar(
             NavigationBarItem(
                 selected = selected == BottomTab.Home,
                 onClick = { if (current != Screen.Home) onHome() },
-                icon = { Icon(Icons.Filled.Home, contentDescription = "Accueil") },
+                icon = { IconeTabler("home", "Accueil") },
             )
             NavigationBarItem(
                 selected = selected == BottomTab.Frise,
                 onClick = { if (current != Screen.Frise) onFrise() },
-                icon = { Icon(Icons.Filled.Timeline, contentDescription = "Frise") },
+                icon = { IconeTabler("timeline", "Frise") },
             )
             NavigationBarItem(
                 selected = selected == BottomTab.Suivis,
                 onClick = { if (current != Screen.Suivis) onSuivis() },
-                icon = { Icon(Icons.Filled.Movie, contentDescription = "Suivis") },
+                icon = { IconeTabler("movie", "Suivis") },
             )
             NavigationBarItem(
                 selected = selected == BottomTab.Cinema,
                 onClick = { if (current != Screen.Cinema) onCinema() },
-                icon = { Icon(Icons.Filled.ConfirmationNumber, contentDescription = "Au ciné") },
+                icon = { IconeTabler("ticket", "Au ciné") },
             )
             NavigationBarItem(
                 selected = selected == BottomTab.Profile,
                 onClick = { if (current != Screen.Profile) onProfile() },
-                icon = { Icon(Icons.Filled.Person, contentDescription = "Profil") },
+                icon = { IconeTabler("user", "Profil") },
             )
         }
     }

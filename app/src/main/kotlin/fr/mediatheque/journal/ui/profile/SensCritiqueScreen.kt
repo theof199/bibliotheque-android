@@ -9,10 +9,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -32,6 +29,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import fr.mediatheque.journal.ui.ErrorBlock
+import fr.mediatheque.journal.ui.theme.IconeTabler
 
 /** L'écran « SensCritique » du profil (brief du 14 septembre 2026) — jumeau de `LoginScreen`. */
 @Composable
@@ -41,7 +39,7 @@ fun SensCritiqueScreen(vm: SensCritiqueViewModel, onBack: () -> Unit) {
 
     Column(Modifier.fillMaxSize().safeDrawingPadding()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour") }
+            IconButton(onClick = onBack) { IconeTabler("arrow-left", "Retour") }
         }
         Column(
             Modifier.fillMaxWidth().padding(16.dp),

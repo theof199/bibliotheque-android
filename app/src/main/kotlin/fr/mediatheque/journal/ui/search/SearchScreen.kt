@@ -12,10 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -37,6 +33,7 @@ import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.ui.Cover
 import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.subtitle
+import fr.mediatheque.journal.ui.theme.IconeTabler
 
 @Composable
 fun SearchScreen(vm: SearchViewModel, onBack: () -> Unit, onPick: (SearchResult) -> Unit) {
@@ -46,7 +43,7 @@ fun SearchScreen(vm: SearchViewModel, onBack: () -> Unit, onPick: (SearchResult)
 
     Column(Modifier.fillMaxSize().safeDrawingPadding()) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 8.dp)) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour") }
+            IconButton(onClick = onBack) { IconeTabler("arrow-left", "Retour") }
             TextField(
                 value = ui.query,
                 onValueChange = vm::onQueryChange,
@@ -61,7 +58,7 @@ fun SearchScreen(vm: SearchViewModel, onBack: () -> Unit, onPick: (SearchResult)
                 ),
                 trailingIcon = {
                     if (ui.query.isNotEmpty()) {
-                        IconButton(onClick = { vm.onQueryChange("") }) { Icon(Icons.Filled.Close, contentDescription = "Effacer") }
+                        IconButton(onClick = { vm.onQueryChange("") }) { IconeTabler("x", "Effacer") }
                     }
                 },
                 modifier = Modifier.weight(1f).focusRequester(focus),

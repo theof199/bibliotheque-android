@@ -26,13 +26,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -68,6 +64,7 @@ import fr.mediatheque.journal.ui.form.CartonCard
 import fr.mediatheque.journal.ui.form.CartonViewModel
 import fr.mediatheque.journal.ui.showBriefly
 import fr.mediatheque.journal.ui.theme.CadrePapier
+import fr.mediatheque.journal.ui.theme.IconeTabler
 import fr.mediatheque.journal.ui.theme.PapierJauni
 import fr.mediatheque.journal.ui.theme.TextePapier
 
@@ -150,7 +147,7 @@ fun FicheVoyageScreen(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                    IconeTabler("arrow-left", "Retour")
                 }
             }
 
@@ -358,7 +355,7 @@ private fun ChoisirMarcheSheet(lignes: List<LigneChoixMarche>, onChoisir: (place
                         enter = fadeIn(tween(150)) + scaleIn(initialScale = 0.6f, animationSpec = tween(150)),
                         exit = fadeOut(tween(150)) + scaleOut(targetScale = 0.6f, animationSpec = tween(150)),
                     ) {
-                        Icon(Icons.Filled.Check, contentDescription = "Marche actuelle", tint = MaterialTheme.colorScheme.primary)
+                        IconeTabler("check", "Marche actuelle", tint = MaterialTheme.colorScheme.primary)
                     }
                 }
             }

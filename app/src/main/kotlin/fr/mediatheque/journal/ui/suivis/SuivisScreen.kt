@@ -14,9 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -46,6 +43,7 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.showBriefly
+import fr.mediatheque.journal.ui.theme.IconeTabler
 
 /**
  * Ce que je suis — réalisateurs ou sagas (brief du 15 septembre 2026,
@@ -98,7 +96,7 @@ fun SuivisScreen(
                     }
                 }
                 IconButton(onClick = onAjouter) {
-                    Icon(Icons.Filled.Add, contentDescription = ui.source.libelleAjouter)
+                    IconeTabler("plus", ui.source.libelleAjouter)
                 }
             }
 

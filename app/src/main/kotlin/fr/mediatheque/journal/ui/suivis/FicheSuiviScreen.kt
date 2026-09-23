@@ -19,14 +19,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -60,6 +55,7 @@ import fr.mediatheque.journal.ui.Cover
 import fr.mediatheque.journal.ui.TamponPerdu
 import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.showBriefly
+import fr.mediatheque.journal.ui.theme.IconeTabler
 
 /**
  * La fiche d'un réalisateur ou d'une saga suivis (brief du 15 septembre
@@ -149,7 +145,7 @@ fun FicheSuiviScreen(
         Column(Modifier.fillMaxSize().padding(padding)) {
             Row(Modifier.fillMaxWidth().padding(end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                    IconeTabler("arrow-left", "Retour")
                 }
                 Text(
                     entite?.nom ?: "",
@@ -157,7 +153,7 @@ fun FicheSuiviScreen(
                     modifier = Modifier.weight(1f),
                 )
                 IconButton(onClick = { confirmation = true }) {
-                    Icon(Icons.Filled.Delete, contentDescription = "Ne plus suivre")
+                    IconeTabler("trash", "Ne plus suivre")
                 }
             }
 
@@ -166,7 +162,7 @@ fun FicheSuiviScreen(
             // rien de tout cela sur la filmographie d'un réalisateur.
             if (source == SourceSuivi.SAGAS) {
                 TextButton(onClick = onAjouterFilm, modifier = Modifier.padding(start = 8.dp)) {
-                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
+                    IconeTabler("plus", null, modifier = Modifier.padding(end = 4.dp))
                     Text("Ajouter un film")
                 }
             }

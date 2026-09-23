@@ -17,10 +17,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -46,6 +43,7 @@ import fr.mediatheque.journal.api.dto.SortiesEnCours
 import fr.mediatheque.journal.ui.Cover
 import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.JournalRow
+import fr.mediatheque.journal.ui.theme.IconeTabler
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 /**
@@ -203,9 +201,9 @@ private fun SortiesSection(
                                         .padding(4.dp)
                                         .clearAndSetSemantics { contentDescription = "Déjà dans ton journal" },
                                 ) {
-                                    Icon(
-                                        Icons.Filled.Check,
-                                        contentDescription = null,
+                                    IconeTabler(
+                                        "check",
+                                        null,
                                         tint = MaterialTheme.colorScheme.onPrimary,
                                         modifier = Modifier.size(16.dp),
                                     )
@@ -274,9 +272,9 @@ private fun SortiesEnCoursSection(
                                             .padding(4.dp)
                                             .clearAndSetSemantics { contentDescription = "Déjà dans ton journal" },
                                     ) {
-                                        Icon(
-                                            Icons.Filled.Check,
-                                            contentDescription = null,
+                                        IconeTabler(
+                                            "check",
+                                            null,
                                             tint = MaterialTheme.colorScheme.onPrimary,
                                             modifier = Modifier.size(16.dp),
                                         )

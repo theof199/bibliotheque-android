@@ -13,11 +13,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -31,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import fr.mediatheque.journal.api.dto.ImportLetterboxdCandidate
 import fr.mediatheque.journal.api.dto.ImportLetterboxdResponse
 import fr.mediatheque.journal.ui.ErrorBlock
+import fr.mediatheque.journal.ui.theme.IconeTabler
 
 /**
  * L'import Letterboxd (brief du 16 septembre 2026) : un seul écran pour les deux états du
@@ -55,7 +53,7 @@ fun RapportImportScreen(
         Column(Modifier.fillMaxSize().padding(padding)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                    IconeTabler("arrow-left", "Retour")
                 }
                 Text("Import Letterboxd", style = MaterialTheme.typography.titleLarge)
             }

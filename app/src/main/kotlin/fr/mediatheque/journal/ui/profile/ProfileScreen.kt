@@ -17,10 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -59,6 +55,7 @@ import fr.mediatheque.journal.ui.frise.lignesCarnetsProfil
 import fr.mediatheque.journal.ui.frise.ouvrirCarnet
 import fr.mediatheque.journal.ui.frise.texteLigneCarnetProfil
 import fr.mediatheque.journal.ui.showBriefly
+import fr.mediatheque.journal.ui.theme.IconeTabler
 import fr.mediatheque.journal.ui.suivis.SuiviState
 import fr.mediatheque.journal.ui.suivis.SuivisViewModel
 import fr.mediatheque.journal.ui.suivis.pret
@@ -136,7 +133,7 @@ fun ProfileScreen(
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour") }
+                IconButton(onClick = onBack) { IconeTabler("arrow-left", "Retour") }
             }
             // Le reste défile en un seul bloc (jumeau de `FormScreen`) : à la taille de police
             // maximale, les deux chiffres et la liste s'étirent, et sans ce `verticalScroll` le
@@ -171,7 +168,7 @@ fun ProfileScreen(
                     )
                     ListItem(
                         headlineContent = { Text("Mes films", style = MaterialTheme.typography.titleMedium) },
-                        trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null) },
+                        trailingContent = { IconeTabler("chevron-right", null) },
                         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
                         modifier = Modifier.clickable(onClick = onFilms),
                     )
@@ -181,7 +178,7 @@ fun ProfileScreen(
                             val pseudo = senscritiqueUi.connectedPseudo
                             Text(if (pseudo != null) "Connecté : $pseudo" else "Non connecté")
                         },
-                        trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null) },
+                        trailingContent = { IconeTabler("chevron-right", null) },
                         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
                         modifier = Modifier.clickable(onClick = onSensCritique),
                     )

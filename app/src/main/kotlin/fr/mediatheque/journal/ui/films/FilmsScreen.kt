@@ -15,10 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -36,6 +33,7 @@ import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.JournalRow
 import fr.mediatheque.journal.ui.afficheVolante
 import fr.mediatheque.journal.ui.voler
+import fr.mediatheque.journal.ui.theme.IconeTabler
 import fr.mediatheque.journal.ui.theme.Perforations
 import kotlinx.coroutines.flow.distinctUntilChanged
 
@@ -71,7 +69,7 @@ fun FilmsScreen(
     Scaffold(containerColor = MaterialTheme.colorScheme.background, bottomBar = bottomBar) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour") }
+                IconButton(onClick = onBack) { IconeTabler("arrow-left", "Retour") }
                 Text("Mes films", style = MaterialTheme.typography.titleLarge)
             }
             // Habillage « papier et pellicule » (23 septembre 2026, geste 4) : la bande de

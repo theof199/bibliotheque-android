@@ -31,13 +31,9 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -87,7 +83,7 @@ import fr.mediatheque.journal.ui.voler
 import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.frise.Monde
 import fr.mediatheque.journal.ui.frise.TeinteSepia
-import fr.mediatheque.journal.ui.theme.Fraunces
+import fr.mediatheque.journal.ui.theme.IconeTabler
 import fr.mediatheque.journal.ui.frise.mondeDe
 import fr.mediatheque.journal.ui.frise.mondeDeLaDecennie
 import fr.mediatheque.journal.ui.showBriefly
@@ -153,7 +149,7 @@ fun RealisateurScreen(
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour") }
+                IconButton(onClick = onBack) { IconeTabler("arrow-left", "Retour") }
             }
 
             when (val etat = ui.etat) {
@@ -345,10 +341,11 @@ private val FiltreDesature = ColorFilter.colorMatrix(ColorMatrix().apply { setTo
 
 /**
  * Le sceau or « rétrospective complète » (geste 20 du complément du 23 septembre 2026 à
- * l'habillage) : un cercle plein avec `✦` en Fraunces, posé sur le portrait. À l'échelle avec
- * dépassement à la première composition (`LaunchedEffect(Unit)`, jamais rejouée à une simple
- * recomposition de l'en-tête — l'interrupteur des introuvables juste en dessous, par exemple) ;
- * statique ensuite, comme le sceau (plus petit) d'une année ouverte (`Photogramme`, `AnneeScreen.kt`).
+ * l'habillage) : un cercle plein avec `tabler:award` (geste 2 du brief du 23 septembre 2026 soir,
+ * qui remplace le `✦` en Fraunces d'origine), posé sur le portrait. À l'échelle avec dépassement à
+ * la première composition (`LaunchedEffect(Unit)`, jamais rejouée à une simple recomposition de
+ * l'en-tête — l'interrupteur des introuvables juste en dessous, par exemple) ; statique ensuite,
+ * comme le sceau (plus petit) d'une année ouverte (`Photogramme`, `AnneeScreen.kt`).
  */
 @Composable
 private fun SceauRetrospective(monde: Monde, modifier: Modifier = Modifier) {
@@ -364,11 +361,7 @@ private fun SceauRetrospective(monde: Monde, modifier: Modifier = Modifier) {
             .semantics { contentDescription = "Rétrospective complète" },
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            "✦",
-            style = MaterialTheme.typography.titleMedium.copy(fontFamily = Fraunces),
-            color = monde.fond,
-        )
+        IconeTabler("award", null, tint = monde.fond, modifier = Modifier.size(16.dp))
     }
 }
 
@@ -458,9 +451,9 @@ private fun AfficheFilmographie(
                 enter = fadeIn(tween(150)) + scaleIn(initialScale = 0.6f, animationSpec = tween(150)),
                 exit = fadeOut(tween(150)) + scaleOut(targetScale = 0.6f, animationSpec = tween(150)),
             ) {
-                Icon(
-                    Icons.Filled.Cloud,
-                    contentDescription = "Sur le Plex",
+                IconeTabler(
+                    "cloud",
+                    "Sur le Plex",
                     // `Color.White` ignorait le thème (peaufinage du 23 septembre 2026, geste 5) ;
                     // `4.dp` rejoint la grille 4/8/12/16 (design §4), au lieu du `3.dp` isolé.
                     tint = MaterialTheme.colorScheme.onSurface,

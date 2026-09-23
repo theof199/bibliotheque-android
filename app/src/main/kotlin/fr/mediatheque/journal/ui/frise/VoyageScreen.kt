@@ -77,6 +77,7 @@ import fr.mediatheque.journal.ui.celebrations.CartonTitreMonde
 import fr.mediatheque.journal.ui.showBriefly
 import fr.mediatheque.journal.ui.theme.BobineIndicateur
 import fr.mediatheque.journal.ui.theme.Fraunces
+import fr.mediatheque.journal.ui.theme.IconeTabler
 import kotlin.math.PI
 import kotlin.math.sin
 import java.time.LocalDate
@@ -617,14 +618,15 @@ private fun Photogramme(cellule: Cellule.Annee, modifier: Modifier = Modifier, d
                     color = if (ouverte || enCours) monde.accent else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            // Le sceau or d'une année ouverte, déjà visitée — un petit cercle plein avec ✦
-            // (habillage du 23 septembre 2026, geste 7), au coin du photogramme.
+            // Le sceau or d'une année ouverte, déjà visitée — un petit cercle plein avec une étoile
+            // (habillage du 23 septembre 2026, geste 7 ; tabler:star-filled depuis le geste 2 du
+            // brief du 23 septembre 2026 soir), au coin du photogramme.
             if (ouverte) {
                 Box(
                     Modifier.align(Alignment.TopEnd).padding(2.dp).size(11.dp).background(or, CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("✦", fontSize = 7.sp, color = monde.fond, lineHeight = 7.sp)
+                    IconeTabler("star-filled", null, tint = monde.fond, modifier = Modifier.size(7.dp))
                 }
             }
         }

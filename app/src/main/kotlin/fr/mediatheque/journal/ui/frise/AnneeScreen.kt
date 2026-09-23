@@ -33,15 +33,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -102,6 +98,7 @@ import fr.mediatheque.journal.ui.realisateur.RealisateurResolveur
 import fr.mediatheque.journal.ui.showBriefly
 import fr.mediatheque.journal.ui.theme.CadreOrne
 import fr.mediatheque.journal.ui.theme.CadrePapier
+import fr.mediatheque.journal.ui.theme.IconeTabler
 import fr.mediatheque.journal.ui.theme.PapierJauni
 import fr.mediatheque.journal.ui.theme.Perforations
 import fr.mediatheque.journal.ui.theme.TextePapier
@@ -214,18 +211,19 @@ fun AnneeScreen(
             item {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                        IconeTabler("arrow-left", "Retour")
                     }
                     Column {
                         // Le chiffre de l'année, habillé « papier et pellicule » (23 septembre
-                        // 2026, geste 5) : Fraunces 56 sp entre deux ✦ or.
+                        // 2026, geste 5) : Fraunces 56 sp entre deux éclats or (geste 2 du brief du
+                        // 23 septembre 2026 soir : tabler:sparkles remplace le Text("✦")).
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("✦", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary)
+                            IconeTabler("sparkles", null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(16.dp))
                             Text(
                                 millesime.toString(),
                                 style = MaterialTheme.typography.displaySmall.copy(fontSize = 56.sp, lineHeight = 60.sp),
                             )
-                            Text("✦", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary)
+                            IconeTabler("sparkles", null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(16.dp))
                         }
                         Text(
                             "${ui.profondeur} ${if (ui.profondeur <= 1) "film" else "films"}",
@@ -739,9 +737,9 @@ private fun LigneCandidatPodium(candidat: CandidatPodium, occupant: Boolean, onC
             exit = fadeOut(tween(150)) + scaleOut(targetScale = 0.6f, animationSpec = tween(150)),
         ) {
             Box(Modifier.background(MaterialTheme.colorScheme.primary, CircleShape).padding(4.dp)) {
-                Icon(
-                    Icons.Filled.Check,
-                    contentDescription = "Occupant actuel",
+                IconeTabler(
+                    "check",
+                    "Occupant actuel",
                     tint = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier.size(16.dp),
                 )
@@ -1039,9 +1037,9 @@ private fun RemplacementSeanceSheet(
                                 enter = fadeIn(tween(150)) + scaleIn(initialScale = 0.6f, animationSpec = tween(150)),
                                 exit = fadeOut(tween(150)) + scaleOut(targetScale = 0.6f, animationSpec = tween(150)),
                             ) {
-                                Icon(
-                                    Icons.Filled.Check,
-                                    contentDescription = "Occupant actuel",
+                                IconeTabler(
+                                    "check",
+                                    "Occupant actuel",
                                     tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(20.dp),
                                 )

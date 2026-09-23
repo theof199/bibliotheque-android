@@ -11,10 +11,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -24,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import fr.mediatheque.journal.ui.frise.EtatChronique
 import fr.mediatheque.journal.ui.theme.CadrePapier
+import fr.mediatheque.journal.ui.theme.IconeTabler
 import fr.mediatheque.journal.ui.theme.PapierJauni
 import fr.mediatheque.journal.ui.theme.TextePapier
 
@@ -59,7 +57,7 @@ fun CartonCard(ui: CartonUi, attente: Boolean, onDismiss: () -> Unit, modifier: 
                     modifier = Modifier.weight(1f),
                 )
                 IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Filled.Close, contentDescription = "Fermer", tint = TextePapier)
+                    IconeTabler("x", "Fermer", tint = TextePapier)
                 }
             }
             when (ui.etat) {

@@ -13,10 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -33,6 +30,7 @@ import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.PlexFilm
 import fr.mediatheque.journal.ui.Cover
 import fr.mediatheque.journal.ui.theme.Fraunces
+import fr.mediatheque.journal.ui.theme.IconeTabler
 import kotlin.math.roundToInt
 
 /**
@@ -60,7 +58,7 @@ fun DecennieScreen(
         Column(Modifier.fillMaxWidth().padding(padding).padding(vertical = 16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 8.dp)) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                    IconeTabler("arrow-left", "Retour")
                 }
                 Column {
                     Text("Années ${decennie.decennie}", style = MaterialTheme.typography.titleLarge)
