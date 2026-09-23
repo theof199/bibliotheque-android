@@ -10,7 +10,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -19,7 +18,6 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -29,7 +27,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -67,6 +64,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
@@ -95,8 +93,10 @@ import fr.mediatheque.journal.ui.formatDateTime
 import fr.mediatheque.journal.ui.realisateur.NomRealisateurTouchable
 import fr.mediatheque.journal.ui.realisateur.RealisateurResolveur
 import fr.mediatheque.journal.ui.showBriefly
+import fr.mediatheque.journal.ui.theme.CadreOrne
 import fr.mediatheque.journal.ui.theme.CadrePapier
 import fr.mediatheque.journal.ui.theme.PapierJauni
+import fr.mediatheque.journal.ui.theme.Perforations
 import fr.mediatheque.journal.ui.theme.TextePapier
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -174,7 +174,16 @@ fun AnneeScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
                     }
                     Column {
-                        Text(millesime.toString(), style = MaterialTheme.typography.titleLarge)
+                        // Le chiffre de l'année, habillé « papier et pellicule » (23 septembre
+                        // 2026, geste 5) : Fraunces 56 sp entre deux ✦ or.
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("✦", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary)
+                            Text(
+                                millesime.toString(),
+                                style = MaterialTheme.typography.displaySmall.copy(fontSize = 56.sp, lineHeight = 60.sp),
+                            )
+                            Text("✦", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary)
+                        }
                         Text(
                             "${ui.profondeur} ${if (ui.profondeur <= 1) "film" else "films"}",
                             style = MaterialTheme.typography.bodyMedium,
@@ -186,9 +195,10 @@ fun AnneeScreen(
                         ligneProgression(ui.progression)?.let { ligne ->
                             Text(ligne, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
+                        // Le sous-titre en capitales espacées (geste 5) : « LA FÉERIE, MÉLIÈS… ».
                         Text(
-                            "${monde.nom} · ${monde.sousTitre}",
-                            style = MaterialTheme.typography.bodyMedium,
+                            "${monde.nom} · ${monde.sousTitre}".uppercase(),
+                            style = MaterialTheme.typography.bodyMedium.copy(letterSpacing = 1.5.sp),
                             color = monde.accent,
                         )
                     }
@@ -319,21 +329,21 @@ private fun LigneBasAnneeEnCours(ligne: LigneBasAnnee, onUtiliserTicket: () -> U
  */
 @Composable
 private fun Cartouche(millesime: Int, ui: AnneeUi, monde: Monde, onLireLaSuite: () -> Unit) {
-    val shape = RoundedCornerShape(8.dp)
+    // Coins 16 (habillage du 23 septembre 2026, geste 5) : le shape du cartouche suit désormais
+    // `CadreOrne`, dont le double filet remplace le `Modifier.ornemente()` qui le dessinait à la
+    // main — jumeau généralisé du même dessin (geste 3).
+    val shape = RoundedCornerShape(16.dp)
     if (ui.statutVoyage == StatutAnneeVoyage.VERROUILLEE) {
         CartonProchainement(ui, monde, shape)
         return
     }
 
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .background(PapierJauni, shape)
-            .border(1.dp, CadrePapier, shape)
-            .ornemente()
-            .padding(16.dp),
+    CadreOrne(
+        modifier = Modifier.fillMaxWidth().background(PapierJauni, shape),
+        couleur = CadrePapier,
+        coin = 16.dp,
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(millesime.toString(), style = MaterialTheme.typography.titleLarge, color = TextePapier)
                 // Le glyphe à côté du millésime (décision 2 du brief du 21 septembre 2026, « les
@@ -448,18 +458,6 @@ private fun CartonProchainement(ui: AnneeUi, monde: Monde, shape: Shape) {
     }
 }
 
-/** Le cadre ornementé simple du cartouche : un second liseré, en retrait, dans le même ton que le premier. */
-private fun Modifier.ornemente(): Modifier = drawWithContent {
-    drawContent()
-    drawRoundRect(
-        color = CadrePapier,
-        topLeft = androidx.compose.ui.geometry.Offset(4.dp.toPx(), 4.dp.toPx()),
-        size = androidx.compose.ui.geometry.Size(size.width - 8.dp.toPx(), size.height - 8.dp.toPx()),
-        cornerRadius = CornerRadius(6.dp.toPx()),
-        style = Stroke(width = 1.dp.toPx()),
-    )
-}
-
 // --- Le podium (brief du 21 septembre 2026, « le podium ») ---------------------------------------
 
 private val LARGEUR_PODIUM_GRAND = 84.dp
@@ -472,12 +470,14 @@ private val LARGEUR_PODIUM_PETIT = 64.dp
  */
 @Composable
 private fun BlocPodium(podium: List<PodiumMarcheUi?>, monde: Monde, onTap: (Int) -> Unit, onLongPress: (Int) -> Unit) {
-    Box(Modifier.fillMaxWidth()) {
-        Canvas(Modifier.fillMaxWidth().height(LARGEUR_PELLICULE).align(Alignment.BottomCenter)) {
-            bandeDePellicule(couleurBande = monde.accent.copy(alpha = 0.16f), couleurPerforation = monde.fond)
-        }
+    // Une bande sombre entre deux perforations (habillage du 23 septembre 2026, geste 5), à la
+    // place du seul bout de pellicule sous les marches — la maquette : `.film-strip`.
+    Column(
+        Modifier.fillMaxWidth().background(FondPellicule, RoundedCornerShape(4.dp)).padding(vertical = 10.dp),
+    ) {
+        Perforations()
         Row(
-            Modifier.fillMaxWidth().padding(bottom = 12.dp),
+            Modifier.fillMaxWidth().padding(vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.Bottom,
         ) {
@@ -485,8 +485,12 @@ private fun BlocPodium(podium: List<PodiumMarcheUi?>, monde: Monde, onTap: (Int)
             PhotogrammePodium(1, podium.getOrNull(0), monde, LARGEUR_PODIUM_GRAND, onClick = { onTap(1) }, onLongClick = { onLongPress(1) })
             PhotogrammePodium(3, podium.getOrNull(2), monde, LARGEUR_PODIUM_PETIT, onClick = { onTap(3) }, onLongClick = { onLongPress(3) })
         }
+        Perforations()
     }
 }
+
+/** Le fond du bandeau du podium — la maquette : `#papier .film-strip{background:#0f0b06}`. */
+private val FondPellicule = Color(0xFF0F0B06)
 
 /**
  * Un photogramme du podium : un cadre nu, sans texte d'invitation, quand la marche est vide ; sinon
@@ -958,6 +962,10 @@ private fun SeanceFilmUi.versSearchResult(annee: Int): SearchResult = SearchResu
 private val LARGEUR_AFFICHE = 72.dp
 private val HAUTEUR_AFFICHE = 108.dp
 
+/** L'affiche d'un billet de salle (habillage du 23 septembre 2026, geste 5) : 40 dp, ratio 2:3. */
+private val LARGEUR_BILLET = 40.dp
+private val HAUTEUR_BILLET = 60.dp
+
 /** La teinte sépia d'un film pas encore vu (spec §3) : un voile posé sur une affiche désaturée. */
 private val FiltreDesature = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
 
@@ -977,119 +985,121 @@ private fun BlocSalle(
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(salle.nom, style = MaterialTheme.typography.titleMedium)
         Text(salle.raisonDEtre, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            contentPadding = PaddingValues(vertical = 4.dp),
-        ) {
-            items(salle.films, key = { it.id }) { film ->
-                AfficheFilm(
+        // Les salles en lignes « billets » (habillage du 23 septembre 2026, geste 5), séparées par
+        // un filet pointillé or — remplace l'étagère horizontale d'affiches.
+        Column {
+            salle.films.forEachIndexed { index, film ->
+                if (index > 0) FiletPointilleOr()
+                LigneBillet(
                     film,
                     onClick = { onOuvrirFilm(film.id) },
                     // L'affiche partagée (geste 8) : même clé que `Screen.FicheVoyage`.
                     volante = afficheVolante(sharedTransitionScope, animatedVisibilityScope, "affiche-voyage-${salle.id}-${film.id}"),
                 )
             }
-            item {
-                TuileEtagere(
-                    epuisee = salle.epuisee,
-                    fourneeEnCours = salle.fourneeEnCours,
-                    onClick = onVoirPlus,
-                )
-            }
+            if (salle.films.isNotEmpty()) FiletPointilleOr()
+            LigneEtagereBillet(epuisee = salle.epuisee, fourneeEnCours = salle.fourneeEnCours, onClick = onVoirPlus)
         }
     }
 }
 
+/**
+ * Une ligne « billet » (habillage du 23 septembre 2026, geste 5) : affiche 40 dp, titre, état — la
+ * maquette : `#papier .ticket-row`. Cadre or plus fort sur les vus, plus léger sur le reste — jumeau
+ * de la distinction couleur/sépia qu'elle remplace.
+ */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-private fun AfficheFilm(film: FilmSalleUi, onClick: () -> Unit, volante: AfficheVolante? = null) {
+private fun LigneBillet(film: FilmSalleUi, onClick: () -> Unit, volante: AfficheVolante? = null) {
     val etat = etatFilmVoyage(film.etat, film.programme?.bobines ?: emptyList())
     val vu = etat == "vu"
     val etiquette = etiquetteEtatFilm(etat)
+    val or = MaterialTheme.colorScheme.secondary
 
-    Column(
-        Modifier.clickable(onClick = onClick).width(LARGEUR_AFFICHE),
-        horizontalAlignment = Alignment.CenterHorizontally,
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Box {
             Cover(
                 film.coverUrl,
                 film.title,
-                LARGEUR_AFFICHE,
-                HAUTEUR_AFFICHE,
-                modifier = Modifier.voler(volante),
+                LARGEUR_BILLET,
+                HAUTEUR_BILLET,
+                modifier = Modifier
+                    .voler(volante)
+                    .border(if (vu) 1.5.dp else 0.75.dp, if (vu) or else or.copy(alpha = 0.4f), MaterialTheme.shapes.small),
                 colorFilter = if (vu) null else FiltreDesature,
             )
             if (!vu) {
-                Box(Modifier.size(LARGEUR_AFFICHE, HAUTEUR_AFFICHE).background(TeinteSepia.copy(alpha = 0.35f)))
+                Box(Modifier.size(LARGEUR_BILLET, HAUTEUR_BILLET).background(TeinteSepia.copy(alpha = 0.35f)))
             }
-            if (vu && film.note != null) {
-                Box(
-                    Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(4.dp)
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh, CircleShape)
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                        .clearAndSetSemantics { contentDescription = "Note ${film.note} sur 10" },
-                ) {
-                    Text("${film.note}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
-                }
+        }
+        Column(Modifier.weight(1f)) {
+            Text(film.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (etiquette != null) {
+                Text(etiquette, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             film.programme?.let { programme ->
                 Text(
                     "${programme.bobines.size} bobines · ${programme.dureeMin} min",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.85f))
-                        .padding(horizontal = 4.dp, vertical = 2.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
-        if (etiquette != null) {
-            Text(
-                etiquette,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 2.dp),
-            )
+        if (vu && film.note != null) {
+            Box(
+                Modifier
+                    .size(26.dp)
+                    .border(1.dp, or, CircleShape)
+                    .clearAndSetSemantics { contentDescription = "Note ${film.note} sur 10" },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("${film.note}", style = MaterialTheme.typography.titleSmall, color = or)
+            }
         }
     }
 }
 
-/** La tuile en bout d'étagère : « En voir plus » (cadre pointillé corail), « Salle épuisée » (grisée, inerte), ou « La salle se remplit… » (indicateur). */
+/** La ligne en bout de salle : « En voir plus » (or), « Salle épuisée » (grisée, inerte), ou « La salle se remplit… » (indicateur) — jumeau de l'ancienne tuile en bout d'étagère, en ligne plutôt qu'en tuile. */
 @Composable
-private fun TuileEtagere(epuisee: Boolean, fourneeEnCours: Boolean, onClick: () -> Unit) {
+private fun LigneEtagereBillet(epuisee: Boolean, fourneeEnCours: Boolean, onClick: () -> Unit) {
     val etiquette = etiquetteEtagere(epuisee, fourneeEnCours)
-    val remplit = fourneeEnCours
-    Box(
+    Row(
         Modifier
-            .size(LARGEUR_AFFICHE, HAUTEUR_AFFICHE)
-            .let {
-                if (epuisee || remplit) {
-                    it.background(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.shapes.small)
-                } else {
-                    it.dashedBorder(MaterialTheme.colorScheme.primary, cornerRadius = 8.dp).clickable(onClick = onClick)
-                }
-            }
-            .padding(8.dp),
-        contentAlignment = Alignment.Center,
+            .fillMaxWidth()
+            .let { if (epuisee || fourneeEnCours) it else it.clickable(onClick = onClick) }
+            .padding(vertical = 10.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (remplit) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.primary)
-                Text(etiquette, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-            }
-        } else {
-            Text(
-                etiquette,
-                style = MaterialTheme.typography.labelSmall,
-                color = if (epuisee) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
-                textAlign = TextAlign.Center,
-            )
+        if (fourneeEnCours) {
+            CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.secondary)
+            Box(Modifier.width(8.dp))
         }
+        Text(
+            etiquette,
+            style = MaterialTheme.typography.labelMedium,
+            color = if (epuisee) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.secondary,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+/** Le filet pointillé or entre deux billets — la maquette : `#papier .row{border-top:1px dashed rgba(230,185,74,.35)}`. */
+@Composable
+private fun FiletPointilleOr() {
+    val couleur = MaterialTheme.colorScheme.secondary.copy(alpha = 0.35f)
+    androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(1.dp)) {
+        drawLine(
+            couleur,
+            start = Offset(0f, 0f),
+            end = Offset(size.width, 0f),
+            strokeWidth = 1.dp.toPx(),
+            pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 5f), 0f),
+        )
     }
 }
 
