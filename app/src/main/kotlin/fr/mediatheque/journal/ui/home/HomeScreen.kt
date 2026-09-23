@@ -20,7 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
@@ -49,8 +49,10 @@ import androidx.compose.ui.unit.dp
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.PlexFilm
 import fr.mediatheque.journal.ui.Cover
+import fr.mediatheque.journal.ui.EntreeEnCascade
 import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.Navigator
+import fr.mediatheque.journal.ui.rememberPorteCascade
 import fr.mediatheque.journal.ui.afficheVolante
 import fr.mediatheque.journal.ui.voler
 import fr.mediatheque.journal.ui.films.FilmsViewModel
@@ -110,6 +112,9 @@ fun HomeScreen(
             snackbar.showBriefly(message)
         }
     }
+    // La cascade d'entrée (habillage du 23 septembre 2026, geste 8) : posée une fois ici, au
+    // sommet de l'écran — jamais au défilement ni à un retour sur cet écran resté dans la pile.
+    val porteCascade = rememberPorteCascade()
     val grille = rememberLazyGridState()
     // Jumeau de `FilmsScreen` : charger la suite quand la dernière ligne visible approche de la fin.
     LaunchedEffect(grille) {
@@ -246,10 +251,13 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.spacedBy(ecart),
                         verticalArrangement = Arrangement.spacedBy(ecart),
                     ) {
-                        items(ui.items, key = { it.entry.id }) { item ->
+                        itemsIndexed(ui.items, key = { _, item -> item.entry.id }) { index, item ->
                             // La grille se retasse (geste 3 du peaufinage du 23 septembre 2026) au
-                            // lieu de sauter quand un film change de place ou disparaît.
-                            Box(Modifier.animateItem().clickable { onOpen(item) }) {
+                            // lieu de sauter quand un film change de place ou disparaît. La cascade
+                            // d'entrée (geste 8 de l'habillage du 23 septembre 2026) l'habille en
+                            // plus, à la première composition de l'écran seulement.
+                            EntreeEnCascade(index, porteCascade, Modifier.animateItem().clickable { onOpen(item) }) { modifier ->
+                            Box(modifier) {
                                 Cover(
                                     item.media.cover_url,
                                     item.media.title,
@@ -286,6 +294,7 @@ fun HomeScreen(
                                         )
                                     }
                                 }
+                            }
                             }
                         }
                         if (ui.loading) {

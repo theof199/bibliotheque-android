@@ -26,7 +26,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -74,7 +74,9 @@ import fr.mediatheque.journal.api.dto.FilmDeFilmographie
 import fr.mediatheque.journal.api.dto.RealisateurPageResponse
 import fr.mediatheque.journal.ui.AfficheVolante
 import fr.mediatheque.journal.ui.Cover
+import fr.mediatheque.journal.ui.EntreeEnCascade
 import fr.mediatheque.journal.ui.afficheVolante
+import fr.mediatheque.journal.ui.rememberPorteCascade
 import fr.mediatheque.journal.ui.voler
 import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.frise.Monde
@@ -202,6 +204,9 @@ private fun GrilleFilmographie(
     val decennies = remember(page.films, masquerIntrouvables) {
         regrouperParDecennie(filmsAffiches(page.films, masquerIntrouvables))
     }
+    // La cascade d'entrée (habillage du 23 septembre 2026, geste 8) : posée une fois ici, pour
+    // toute la filmographie.
+    val porteCascade = rememberPorteCascade()
 
     BoxWithConstraints(modifier) {
         val margeHorizontale = 16.dp
@@ -239,20 +244,24 @@ private fun GrilleFilmographie(
                     )
                 }
 
-                items(decennie.films, key = { "film-${it.tmdb_id}" }) { film ->
-                    AfficheFilmographie(
-                        film = film,
-                        largeur = largeurAffiche,
-                        hauteur = hauteurAffiche,
-                        onClick = { onOuvrirFilm(film) },
-                        onLongClick = { onLongClickNonVu(film) },
-                        // « Masquer les introuvables » (geste 3 du peaufinage du 23 septembre 2026) :
-                        // la grille se retasse au lieu de sauter quand l'interrupteur en retire des
-                        // affiches.
-                        modifier = Modifier.animateItem(),
-                        // L'affiche partagée (geste 8) : même clé que `Screen.FicheFilm`.
-                        volante = afficheVolante(sharedTransitionScope, animatedVisibilityScope, "affiche-realisateur-${film.tmdb_id}"),
-                    )
+                itemsIndexed(decennie.films, key = { _, film -> "film-${film.tmdb_id}" }) { index, film ->
+                    // La cascade d'entrée (habillage du 23 septembre 2026, geste 8), un index par
+                    // décennie plutôt qu'un compte continu sur toute la page.
+                    EntreeEnCascade(index, porteCascade, Modifier.animateItem()) { m ->
+                        AfficheFilmographie(
+                            film = film,
+                            largeur = largeurAffiche,
+                            hauteur = hauteurAffiche,
+                            onClick = { onOuvrirFilm(film) },
+                            onLongClick = { onLongClickNonVu(film) },
+                            // « Masquer les introuvables » (geste 3 du peaufinage du 23 septembre
+                            // 2026) : la grille se retasse au lieu de sauter quand l'interrupteur en
+                            // retire des affiches.
+                            modifier = m,
+                            // L'affiche partagée (geste 8) : même clé que `Screen.FicheFilm`.
+                            volante = afficheVolante(sharedTransitionScope, animatedVisibilityScope, "affiche-realisateur-${film.tmdb_id}"),
+                        )
+                    }
                 }
             }
         }

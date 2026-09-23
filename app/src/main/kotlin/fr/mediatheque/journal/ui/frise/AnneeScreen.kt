@@ -87,7 +87,9 @@ import fr.mediatheque.journal.api.dto.SearchMetadata
 import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.ui.AfficheVolante
 import fr.mediatheque.journal.ui.Cover
+import fr.mediatheque.journal.ui.EntreeEnCascade
 import fr.mediatheque.journal.ui.afficheVolante
+import fr.mediatheque.journal.ui.rememberPorteCascade
 import fr.mediatheque.journal.ui.voler
 import fr.mediatheque.journal.ui.formatDateTime
 import fr.mediatheque.journal.ui.realisateur.NomRealisateurTouchable
@@ -148,6 +150,9 @@ fun AnneeScreen(
     val millesime = annee.annee ?: LocalDate.now().year
     val monde = mondeDe(millesime)
     var marcheOuverte by remember { mutableStateOf<Int?>(null) }
+    // La cascade d'entrée (habillage du 23 septembre 2026, geste 8) : posée une fois ici, pour le
+    // podium et les salles ci-dessous.
+    val porteCascade = rememberPorteCascade()
 
     marcheOuverte?.let { place ->
         MarcheSheet(
@@ -212,6 +217,7 @@ fun AnneeScreen(
                     BlocPodium(
                         podium = ui.podium,
                         monde = monde,
+                        porteCascade = porteCascade,
                         onTap = { place -> marcheOuverte = place },
                         onLongPress = { place -> vm.retirerPodium(place, onPodiumChange) },
                     )
@@ -236,6 +242,7 @@ fun AnneeScreen(
                     BlocSalle(
                         salle,
                         monde,
+                        porteCascade = porteCascade,
                         onVoirPlus = { vm.voirPlus(salle.id) },
                         onOuvrirFilm = { filmId -> onOpenFilm(salle.id, filmId) },
                         sharedTransitionScope = sharedTransitionScope,
@@ -469,7 +476,7 @@ private val LARGEUR_PODIUM_PETIT = 64.dp
  * appui long sur une marche occupée la vide directement, sans feuille (décision 2).
  */
 @Composable
-private fun BlocPodium(podium: List<PodiumMarcheUi?>, monde: Monde, onTap: (Int) -> Unit, onLongPress: (Int) -> Unit) {
+private fun BlocPodium(podium: List<PodiumMarcheUi?>, monde: Monde, porteCascade: Boolean, onTap: (Int) -> Unit, onLongPress: (Int) -> Unit) {
     // Une bande sombre entre deux perforations (habillage du 23 septembre 2026, geste 5), à la
     // place du seul bout de pellicule sous les marches — la maquette : `.film-strip`.
     Column(
@@ -481,9 +488,11 @@ private fun BlocPodium(podium: List<PodiumMarcheUi?>, monde: Monde, onTap: (Int)
             horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.Bottom,
         ) {
-            PhotogrammePodium(2, podium.getOrNull(1), monde, LARGEUR_PODIUM_PETIT, onClick = { onTap(2) }, onLongClick = { onLongPress(2) })
-            PhotogrammePodium(1, podium.getOrNull(0), monde, LARGEUR_PODIUM_GRAND, onClick = { onTap(1) }, onLongClick = { onLongPress(1) })
-            PhotogrammePodium(3, podium.getOrNull(2), monde, LARGEUR_PODIUM_PETIT, onClick = { onTap(3) }, onLongClick = { onLongPress(3) })
+            // La cascade d'entrée (habillage du 23 septembre 2026, geste 8), dans l'ordre visuel
+            // des marches (2, 1, 3), comme le `Row` les pose.
+            EntreeEnCascade(0, porteCascade) { m -> PhotogrammePodium(2, podium.getOrNull(1), monde, LARGEUR_PODIUM_PETIT, onClick = { onTap(2) }, onLongClick = { onLongPress(2) }, modifier = m) }
+            EntreeEnCascade(1, porteCascade) { m -> PhotogrammePodium(1, podium.getOrNull(0), monde, LARGEUR_PODIUM_GRAND, onClick = { onTap(1) }, onLongClick = { onLongPress(1) }, modifier = m) }
+            EntreeEnCascade(2, porteCascade) { m -> PhotogrammePodium(3, podium.getOrNull(2), monde, LARGEUR_PODIUM_PETIT, onClick = { onTap(3) }, onLongClick = { onLongPress(3) }, modifier = m) }
         }
         Perforations()
     }
@@ -506,11 +515,12 @@ private fun PhotogrammePodium(
     largeur: Dp,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val shape = RoundedCornerShape(3.dp)
     val hauteur = largeur * 1.5f
     Column(
-        Modifier
+        modifier
             .combinedClickable(onClick = onClick, onLongClick = if (marche != null) onLongClick else null)
             .clearAndSetSemantics {
                 contentDescription = if (marche != null) "Marche $place, ${marche.title}" else "Marche $place, vide"
@@ -977,6 +987,7 @@ internal val TeinteSepia = Color(0xFF3A2C1E)
 private fun BlocSalle(
     salle: SalleUi,
     monde: Monde,
+    porteCascade: Boolean,
     onVoirPlus: () -> Unit,
     onOuvrirFilm: (String) -> Unit,
     sharedTransitionScope: SharedTransitionScope? = null,
@@ -986,16 +997,20 @@ private fun BlocSalle(
         Text(salle.nom, style = MaterialTheme.typography.titleMedium)
         Text(salle.raisonDEtre, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         // Les salles en lignes « billets » (habillage du 23 septembre 2026, geste 5), séparées par
-        // un filet pointillé or — remplace l'étagère horizontale d'affiches.
+        // un filet pointillé or — remplace l'étagère horizontale d'affiches. La cascade d'entrée
+        // (geste 8) rejoue son index propre à chaque salle, comme une petite liste à elle seule.
         Column {
             salle.films.forEachIndexed { index, film ->
                 if (index > 0) FiletPointilleOr()
-                LigneBillet(
-                    film,
-                    onClick = { onOuvrirFilm(film.id) },
-                    // L'affiche partagée (geste 8) : même clé que `Screen.FicheVoyage`.
-                    volante = afficheVolante(sharedTransitionScope, animatedVisibilityScope, "affiche-voyage-${salle.id}-${film.id}"),
-                )
+                EntreeEnCascade(index, porteCascade) { m ->
+                    LigneBillet(
+                        film,
+                        onClick = { onOuvrirFilm(film.id) },
+                        // L'affiche partagée (geste 8) : même clé que `Screen.FicheVoyage`.
+                        volante = afficheVolante(sharedTransitionScope, animatedVisibilityScope, "affiche-voyage-${salle.id}-${film.id}"),
+                        modifier = m,
+                    )
+                }
             }
             if (salle.films.isNotEmpty()) FiletPointilleOr()
             LigneEtagereBillet(epuisee = salle.epuisee, fourneeEnCours = salle.fourneeEnCours, onClick = onVoirPlus)
@@ -1010,14 +1025,14 @@ private fun BlocSalle(
  */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-private fun LigneBillet(film: FilmSalleUi, onClick: () -> Unit, volante: AfficheVolante? = null) {
+private fun LigneBillet(film: FilmSalleUi, onClick: () -> Unit, volante: AfficheVolante? = null, modifier: Modifier = Modifier) {
     val etat = etatFilmVoyage(film.etat, film.programme?.bobines ?: emptyList())
     val vu = etat == "vu"
     val etiquette = etiquetteEtatFilm(etat)
     val or = MaterialTheme.colorScheme.secondary
 
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 8.dp),
+        modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
