@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -90,6 +91,7 @@ import fr.mediatheque.journal.ui.Cover
 import fr.mediatheque.journal.ui.Embleme
 import fr.mediatheque.journal.ui.Emblemes
 import fr.mediatheque.journal.ui.EntreeEnCascade
+import fr.mediatheque.journal.ui.FondHeros
 import fr.mediatheque.journal.ui.afficheVolante
 import fr.mediatheque.journal.ui.rememberPorteCascade
 import fr.mediatheque.journal.ui.voler
@@ -205,122 +207,127 @@ fun AnneeScreen(
         containerColor = monde.fond,
         snackbarHost = { SnackbarHost(snackbar) { data -> Snackbar(snackbarData = data) } },
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier.fillMaxWidth().padding(padding).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
-        ) {
-            item {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onBack) {
-                        IconeTabler("arrow-left", "Retour")
-                    }
-                    Column {
-                        // Le chiffre de l'année, habillé « papier et pellicule » (23 septembre
-                        // 2026, geste 5) : Fraunces 56 sp entre deux éclats or (geste 2 du brief du
-                        // 23 septembre 2026 soir : tabler:sparkles remplace le Text("✦")).
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            IconeTabler("sparkles", null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(16.dp))
+        // Le fond héros (geste 4 du brief du 23 septembre 2026 soir) : l'affiche du n°1 du
+        // podium, derrière l'en-tête — nul tant que la marche 1 est vide, sans rien réserver.
+        Box(Modifier.fillMaxSize().padding(padding)) {
+            FondHeros(ui.podium.getOrNull(0)?.coverUrl, hauteur = 260.dp, fond = monde.fond)
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp),
+            ) {
+                item {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = onBack) {
+                            IconeTabler("arrow-left", "Retour")
+                        }
+                        Column {
+                            // Le chiffre de l'année, habillé « papier et pellicule » (23 septembre
+                            // 2026, geste 5) : Fraunces 56 sp entre deux éclats or (geste 2 du brief du
+                            // 23 septembre 2026 soir : tabler:sparkles remplace le Text("✦")).
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                IconeTabler("sparkles", null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(16.dp))
+                                Text(
+                                    millesime.toString(),
+                                    style = MaterialTheme.typography.displaySmall.copy(fontSize = 56.sp, lineHeight = 60.sp),
+                                )
+                                IconeTabler("sparkles", null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(16.dp))
+                            }
                             Text(
-                                millesime.toString(),
-                                style = MaterialTheme.typography.displaySmall.copy(fontSize = 56.sp, lineHeight = 60.sp),
+                                "${ui.profondeur} ${if (ui.profondeur <= 1) "film" else "films"}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            IconeTabler("sparkles", null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(16.dp))
+                            // Sous la profondeur (décision 2 du brief du 21 septembre 2026, « les
+                            // récompenses ») : nulle (pas de ligne) tant que la progression n'est pas
+                            // encore chargée — `ligneProgression` seule décide de son texte.
+                            ligneProgression(ui.progression)?.let { ligne ->
+                                Text(ligne, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            // Le sous-titre en capitales espacées (geste 5) : « LA FÉERIE, MÉLIÈS… ».
+                            Text(
+                                "${monde.nom} · ${monde.sousTitre}".uppercase(),
+                                style = MaterialTheme.typography.bodyMedium.copy(letterSpacing = 1.5.sp),
+                                color = monde.accent,
+                            )
                         }
-                        Text(
-                            "${ui.profondeur} ${if (ui.profondeur <= 1) "film" else "films"}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        // Sous la profondeur (décision 2 du brief du 21 septembre 2026, « les
-                        // récompenses ») : nulle (pas de ligne) tant que la progression n'est pas
-                        // encore chargée — `ligneProgression` seule décide de son texte.
-                        ligneProgression(ui.progression)?.let { ligne ->
-                            Text(ligne, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        // Le sous-titre en capitales espacées (geste 5) : « LA FÉERIE, MÉLIÈS… ».
-                        Text(
-                            "${monde.nom} · ${monde.sousTitre}".uppercase(),
-                            style = MaterialTheme.typography.bodyMedium.copy(letterSpacing = 1.5.sp),
-                            color = monde.accent,
-                        )
                     }
                 }
-            }
 
-            item { Cartouche(millesime, ui, monde, onLireLaSuite = vm::deplierOuverture) }
+                item { Cartouche(millesime, ui, monde, onLireLaSuite = vm::deplierOuverture) }
 
-            if (ui.etat == EtatAnnee.PRETE) {
-                item {
-                    BlocPodium(
-                        podium = ui.podium,
-                        monde = monde,
-                        porteCascade = porteCascade,
-                        placeEntrante = placeEntrante,
-                        glissementEntrant = glissementPodium.value,
-                        rebondNumeroEntrant = rebondNumeroPodium.value,
-                        onTap = { place -> marcheOuverte = place },
-                        onLongPress = { place -> vm.retirerPodium(place, onPodiumChange) },
-                    )
-                }
-                // La séance (décision 1 du brief du 21 septembre 2026, « la séance ») : seulement
-                // dans la fiche de l'année en cours, entre le podium et les salles.
-                if (ui.statutVoyage == StatutAnneeVoyage.EN_COURS) {
+                if (ui.etat == EtatAnnee.PRETE) {
                     item {
-                        BlocSeance(
-                            ui = ui,
+                        BlocPodium(
+                            podium = ui.podium,
                             monde = monde,
-                            annee = millesime,
-                            vm = vm,
-                            realisateurResolveur = realisateurResolveur,
-                            onOpenForm = onOpenForm,
-                            onSeanceChange = onSeanceChange,
-                            onOuvrirRealisateur = onOuvrirRealisateur,
+                            porteCascade = porteCascade,
+                            placeEntrante = placeEntrante,
+                            glissementEntrant = glissementPodium.value,
+                            rebondNumeroEntrant = rebondNumeroPodium.value,
+                            onTap = { place -> marcheOuverte = place },
+                            onLongPress = { place -> vm.retirerPodium(place, onPodiumChange) },
+                        )
+                    }
+                    // La séance (décision 1 du brief du 21 septembre 2026, « la séance ») : seulement
+                    // dans la fiche de l'année en cours, entre le podium et les salles.
+                    if (ui.statutVoyage == StatutAnneeVoyage.EN_COURS) {
+                        item {
+                            BlocSeance(
+                                ui = ui,
+                                monde = monde,
+                                annee = millesime,
+                                vm = vm,
+                                realisateurResolveur = realisateurResolveur,
+                                onOpenForm = onOpenForm,
+                                onSeanceChange = onSeanceChange,
+                                onOuvrirRealisateur = onOuvrirRealisateur,
+                            )
+                        }
+                    }
+                    items(ui.salles, key = { it.id }) { salle ->
+                        BlocSalle(
+                            salle,
+                            monde,
+                            porteCascade = porteCascade,
+                            // Un seul ruban à la fois, et une seule lecture (geste 10) : passé, jamais
+                            // remis à `null` ici — la salle qui vient de se boucler le reste affichée,
+                            // le ruban ne se rejoue simplement pas une seconde fois pour la même salle.
+                            vientDeSeBoucler = salle.id == salleVenantDeBoucler,
+                            onVoirPlus = { vm.voirPlus(salle.id) },
+                            onOuvrirFilm = { filmId -> onOpenFilm(salle.id, filmId) },
+                            sharedTransitionScope = sharedTransitionScope,
+                            animatedVisibilityScope = animatedVisibilityScope,
+                        )
+                    }
+                    item {
+                        BlocNouvelleSalle(
+                            demandeSalle = ui.demandeSalle,
+                            pistes = ui.pistes,
+                            pistesEnCours = ui.pistesEnCours,
+                            onDemander = { texte, piste -> vm.ouvrirNouvelleSalle(texte, piste) },
+                            onDemanderPistes = vm::demanderPistes,
                         )
                     }
                 }
-                items(ui.salles, key = { it.id }) { salle ->
-                    BlocSalle(
-                        salle,
-                        monde,
-                        porteCascade = porteCascade,
-                        // Un seul ruban à la fois, et une seule lecture (geste 10) : passé, jamais
-                        // remis à `null` ici — la salle qui vient de se boucler le reste affichée,
-                        // le ruban ne se rejoue simplement pas une seconde fois pour la même salle.
-                        vientDeSeBoucler = salle.id == salleVenantDeBoucler,
-                        onVoirPlus = { vm.voirPlus(salle.id) },
-                        onOuvrirFilm = { filmId -> onOpenFilm(salle.id, filmId) },
-                        sharedTransitionScope = sharedTransitionScope,
-                        animatedVisibilityScope = animatedVisibilityScope,
-                    )
-                }
-                item {
-                    BlocNouvelleSalle(
-                        demandeSalle = ui.demandeSalle,
-                        pistes = ui.pistes,
-                        pistesEnCours = ui.pistesEnCours,
-                        onDemander = { texte, piste -> vm.ouvrirNouvelleSalle(texte, piste) },
-                        onDemanderPistes = vm::demanderPistes,
-                    )
-                }
-            }
 
-            if (ui.statutVoyage == StatutAnneeVoyage.EN_COURS) {
-                item { LigneBasAnneeEnCours(ligneBasAnnee(ui.ticket, ui.maturite), onUtiliserTicket = { vm.utiliserTicket(onTicketChange) }) }
-            }
+                if (ui.statutVoyage == StatutAnneeVoyage.EN_COURS) {
+                    item { LigneBasAnneeEnCours(ligneBasAnnee(ui.ticket, ui.maturite), onUtiliserTicket = { vm.utiliserTicket(onTicketChange) }) }
+                }
 
-            // Le carnet (décision 2 du brief du 22 septembre 2026, « le carnet »), sous la ligne du
-            // ticket : toute année qui a une ouverture (etat PRETE, la seule condition qui gouverne
-            // déjà le podium et les salles ci-dessus), pas seulement l'année en cours.
-            if (ui.etat == EtatAnnee.PRETE) {
-                item {
-                    BlocCarnet(
-                        carnet = ui.carnet,
-                        carnetEnCours = ui.carnetEnCours,
-                        onFaireCarnet = vm::fabriquerCarnet,
-                        onOuvrirCarnet = {
-                            scope.launch { ouvrirCarnet(contexte, millesime, vm::telechargerCarnetPdf) { message -> snackbar.showBriefly(message) } }
-                        },
-                    )
+                // Le carnet (décision 2 du brief du 22 septembre 2026, « le carnet »), sous la ligne du
+                // ticket : toute année qui a une ouverture (etat PRETE, la seule condition qui gouverne
+                // déjà le podium et les salles ci-dessus), pas seulement l'année en cours.
+                if (ui.etat == EtatAnnee.PRETE) {
+                    item {
+                        BlocCarnet(
+                            carnet = ui.carnet,
+                            carnetEnCours = ui.carnetEnCours,
+                            onFaireCarnet = vm::fabriquerCarnet,
+                            onOuvrirCarnet = {
+                                scope.launch { ouvrirCarnet(contexte, millesime, vm::telechargerCarnetPdf) { message -> snackbar.showBriefly(message) } }
+                            },
+                        )
+                    }
                 }
             }
         }

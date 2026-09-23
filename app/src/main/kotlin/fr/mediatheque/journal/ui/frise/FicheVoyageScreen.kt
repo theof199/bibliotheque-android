@@ -20,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -57,6 +58,7 @@ import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.reactions.Reactions
 import fr.mediatheque.journal.ui.AfficheVolante
 import fr.mediatheque.journal.ui.Cover
+import fr.mediatheque.journal.ui.FondHeros
 import fr.mediatheque.journal.ui.voler
 import fr.mediatheque.journal.ui.realisateur.NomRealisateurTouchable
 import fr.mediatheque.journal.ui.realisateur.RealisateurResolveur
@@ -141,170 +143,175 @@ fun FicheVoyageScreen(
         val etat = etatFilmVoyage(film.etat, film.programme?.bobines ?: emptyList())
         val boutons = boutonsFicheVoyage(etat, film.plexUrl)
 
-        Column(
-            Modifier.fillMaxWidth().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) {
-                    IconeTabler("arrow-left", "Retour")
-                }
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                // L'affiche encadrée (habillage du 23 septembre 2026, geste 6).
-                Cover(
-                    film.coverUrl,
-                    film.title,
-                    96.dp,
-                    144.dp,
-                    modifier = Modifier.voler(volante).border(1.5.dp, MaterialTheme.colorScheme.secondary, MaterialTheme.shapes.small),
-                )
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(film.title, style = MaterialTheme.typography.titleLarge)
-                    if (film.originalTitle != null && film.originalTitle != film.title) {
-                        Text(film.originalTitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Box(Modifier.fillMaxSize()) {
+            // Le fond héros (geste 4 du brief du 23 septembre 2026 soir) : l'affiche déjà
+            // reçue, derrière l'en-tête — nulle tant qu'elle n'a pas chargé, sans rien réserver.
+            FondHeros(film.coverUrl, hauteur = 240.dp, fond = monde.fond)
+            Column(
+                Modifier.fillMaxWidth().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onBack) {
+                        IconeTabler("arrow-left", "Retour")
                     }
-                    NomRealisateurTouchable(
-                        filmTmdbId = film.tmdbId,
-                        nomConnu = film.realisateur,
-                        resolveur = realisateurResolveur,
-                        onOuvrirRealisateur = onOuvrirRealisateur,
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    // L'affiche encadrée (habillage du 23 septembre 2026, geste 6).
+                    Cover(
+                        film.coverUrl,
+                        film.title,
+                        96.dp,
+                        144.dp,
+                        modifier = Modifier.voler(volante).border(1.5.dp, MaterialTheme.colorScheme.secondary, MaterialTheme.shapes.small),
                     )
-                    film.programme?.let { programme ->
-                        Text(
-                            "${programme.dureeMin} min",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(film.title, style = MaterialTheme.typography.titleLarge)
+                        if (film.originalTitle != null && film.originalTitle != film.title) {
+                            Text(film.originalTitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        NomRealisateurTouchable(
+                            filmTmdbId = film.tmdbId,
+                            nomConnu = film.realisateur,
+                            resolveur = realisateurResolveur,
+                            onOuvrirRealisateur = onOuvrirRealisateur,
                         )
-                    }
-                }
-            }
-
-            CartoucheSalleEtRaison(salle.nom, film.raison)
-
-            if (etat == "vu" && journalItem != null) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    // La note dans un cercle or (habillage du 23 septembre 2026, geste 6).
-                    journalItem.entry.rating?.let { note ->
-                        Box(
-                            Modifier
-                                .size(30.dp)
-                                .border(1.dp, MaterialTheme.colorScheme.secondary, CircleShape),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text("$note", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.secondary)
+                        film.programme?.let { programme ->
+                            Text(
+                                "${programme.dureeMin} min",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     }
                 }
-                if (journalItem.carnet.reactions.isNotEmpty()) {
-                    // Les réactions en pastilles rondes pleines (fond papier 12 %, texte or) —
-                    // remplace l'unique ligne d'emojis groupés.
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        journalItem.carnet.reactions.forEach { cle ->
+
+                CartoucheSalleEtRaison(salle.nom, film.raison)
+
+                if (etat == "vu" && journalItem != null) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        // La note dans un cercle or (habillage du 23 septembre 2026, geste 6).
+                        journalItem.entry.rating?.let { note ->
                             Box(
                                 Modifier
-                                    .background(PapierJauni.copy(alpha = 0.12f), RoundedCornerShape(50))
-                                    .padding(horizontal = 10.dp, vertical = 5.dp),
+                                    .size(30.dp)
+                                    .border(1.dp, MaterialTheme.colorScheme.secondary, CircleShape),
+                                contentAlignment = Alignment.Center,
                             ) {
-                                Text(
-                                    Reactions.label(cle),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.secondary,
-                                )
+                                Text("$note", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.secondary)
                             }
                         }
                     }
-                }
-                // La remarque sur papier, filet gauche or (habillage du 23 septembre 2026, geste 6)
-                // — un filet sur un seul bord, pas un `border()` (qui les dessinerait sur les
-                // quatre), posé en `drawBehind` avant le padding du texte.
-                journalItem.carnet.comment?.takeIf { it.isNotBlank() }?.let { commentaire ->
-                    val or = MaterialTheme.colorScheme.secondary
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .background(PapierJauni, RoundedCornerShape(4.dp))
-                            .drawBehind { drawRect(or, size = size.copy(width = 3.dp.toPx())) }
-                            .padding(start = 14.dp, top = 10.dp, bottom = 10.dp, end = 12.dp),
-                    ) {
-                        Text(
-                            commentaire,
-                            style = MaterialTheme.typography.bodyMedium.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
-                            color = TextePapier,
-                        )
+                    if (journalItem.carnet.reactions.isNotEmpty()) {
+                        // Les réactions en pastilles rondes pleines (fond papier 12 %, texte or) —
+                        // remplace l'unique ligne d'emojis groupés.
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            journalItem.carnet.reactions.forEach { cle ->
+                                Box(
+                                    Modifier
+                                        .background(PapierJauni.copy(alpha = 0.12f), RoundedCornerShape(50))
+                                        .padding(horizontal = 10.dp, vertical = 5.dp),
+                                ) {
+                                    Text(
+                                        Reactions.label(cle),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.secondary,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    // La remarque sur papier, filet gauche or (habillage du 23 septembre 2026, geste 6)
+                    // — un filet sur un seul bord, pas un `border()` (qui les dessinerait sur les
+                    // quatre), posé en `drawBehind` avant le padding du texte.
+                    journalItem.carnet.comment?.takeIf { it.isNotBlank() }?.let { commentaire ->
+                        val or = MaterialTheme.colorScheme.secondary
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .background(PapierJauni, RoundedCornerShape(4.dp))
+                                .drawBehind { drawRect(or, size = size.copy(width = 3.dp.toPx())) }
+                                .padding(start = 14.dp, top = 10.dp, bottom = 10.dp, end = 12.dp),
+                        ) {
+                            Text(
+                                commentaire,
+                                style = MaterialTheme.typography.bodyMedium.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
+                                color = TextePapier,
+                            )
+                        }
                     }
                 }
-            }
 
-            val cartonUi by carton.ui.collectAsState()
-            CartonCard(cartonUi, attente = false, onDismiss = {})
+                val cartonUi by carton.ui.collectAsState()
+                CartonCard(cartonUi, attente = false, onDismiss = {})
 
-            film.programme?.let { programme ->
+                film.programme?.let { programme ->
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Les bobines", style = MaterialTheme.typography.titleMedium)
+                        programme.bobines.forEach { bobine ->
+                            LigneBobine(bobine, onClick = { onOpenForm(bobine.versSearchResult(annee)) })
+                        }
+                    }
+                }
+
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Les bobines", style = MaterialTheme.typography.titleMedium)
-                    programme.bobines.forEach { bobine ->
-                        LigneBobine(bobine, onClick = { onOpenForm(bobine.versSearchResult(annee)) })
+                    boutons.forEach { bouton ->
+                        when (bouton) {
+                            BoutonFicheVoyage.VOIR_SUR_LE_PLEX -> OutlinedButton(
+                                onClick = { ouvrirPlex(contexte, film.plexUrl) },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) { Text("Voir sur le Plex") }
+                            BoutonFicheVoyage.JE_L_AI_VU -> Button(
+                                onClick = { onOpenForm(film.versSearchResult(annee)) },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) { Text("Je l’ai vu") }
+                            BoutonFicheVoyage.DEMANDER -> OutlinedButton(
+                                onClick = { vm.demander(film.tmdbId) },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) { Text("Demander sur Sir") }
+                            BoutonFicheVoyage.MARQUER_INTROUVABLE -> TextButton(onClick = { vm.marquerIntrouvable(film.tmdbId) }) {
+                                Text("Introuvable")
+                            }
+                            BoutonFicheVoyage.RETIRER_INTROUVABLE -> TextButton(onClick = { vm.retirerIntrouvable(film.tmdbId) }) {
+                                Text("Le remettre à voir")
+                            }
+                            BoutonFicheVoyage.METTRE_SUR_LE_PODIUM -> OutlinedButton(
+                                onClick = { choisirMarche = true },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) { Text("Mettre sur le podium") }
+                        }
+                    }
+                    if (etat == "demande") {
+                        Text("demandé", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-            }
 
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                boutons.forEach { bouton ->
-                    when (bouton) {
-                        BoutonFicheVoyage.VOIR_SUR_LE_PLEX -> OutlinedButton(
-                            onClick = { ouvrirPlex(contexte, film.plexUrl) },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) { Text("Voir sur le Plex") }
-                        BoutonFicheVoyage.JE_L_AI_VU -> Button(
-                            onClick = { onOpenForm(film.versSearchResult(annee)) },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) { Text("Je l’ai vu") }
-                        BoutonFicheVoyage.DEMANDER -> OutlinedButton(
-                            onClick = { vm.demander(film.tmdbId) },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) { Text("Demander sur Sir") }
-                        BoutonFicheVoyage.MARQUER_INTROUVABLE -> TextButton(onClick = { vm.marquerIntrouvable(film.tmdbId) }) {
-                            Text("Introuvable")
+                // « Ajouter à la chronique » (décision 1 du brief du 21 septembre 2026, « la chronique
+                // et les salles ») : absente si le film n'est pas vu (`etatBoutonChronique`), sinon
+                // « Ajouter », « Le chroniqueur écrit… », ou « Dans la chronique » avec le paragraphe
+                // affiché dessous, dès que `ui.paragraphes` le porte.
+                val cleFilm: Pair<Int?, String?> = if (film.programme != null) null to film.id else film.tmdbId to null
+                val paragrapheDeCeFilm = ui.paragraphes.firstOrNull { (it.tmdbId to it.programmeId) == cleFilm }
+                val etatChronique = etatBoutonChronique(etat, paragrapheDeCeFilm != null, cleFilm in ui.paragraphesEnCours)
+                if (etatChronique != EtatBoutonChronique.ABSENT) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        when (etatChronique) {
+                            EtatBoutonChronique.AJOUTER -> OutlinedButton(
+                                onClick = { vm.ajouterChronique(cleFilm.first, cleFilm.second) },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) { Text("Ajouter à la chronique") }
+                            EtatBoutonChronique.ECRIT_EN_COURS -> OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) {
+                                Text("Le chroniqueur écrit…")
+                            }
+                            EtatBoutonChronique.DANS_LA_CHRONIQUE -> OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) {
+                                Text("Dans la chronique")
+                            }
+                            EtatBoutonChronique.ABSENT -> {}
                         }
-                        BoutonFicheVoyage.RETIRER_INTROUVABLE -> TextButton(onClick = { vm.retirerIntrouvable(film.tmdbId) }) {
-                            Text("Le remettre à voir")
+                        paragrapheDeCeFilm?.let { paragraphe ->
+                            Text(paragraphe.texte, style = MaterialTheme.typography.bodyMedium)
                         }
-                        BoutonFicheVoyage.METTRE_SUR_LE_PODIUM -> OutlinedButton(
-                            onClick = { choisirMarche = true },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) { Text("Mettre sur le podium") }
-                    }
-                }
-                if (etat == "demande") {
-                    Text("demandé", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-
-            // « Ajouter à la chronique » (décision 1 du brief du 21 septembre 2026, « la chronique
-            // et les salles ») : absente si le film n'est pas vu (`etatBoutonChronique`), sinon
-            // « Ajouter », « Le chroniqueur écrit… », ou « Dans la chronique » avec le paragraphe
-            // affiché dessous, dès que `ui.paragraphes` le porte.
-            val cleFilm: Pair<Int?, String?> = if (film.programme != null) null to film.id else film.tmdbId to null
-            val paragrapheDeCeFilm = ui.paragraphes.firstOrNull { (it.tmdbId to it.programmeId) == cleFilm }
-            val etatChronique = etatBoutonChronique(etat, paragrapheDeCeFilm != null, cleFilm in ui.paragraphesEnCours)
-            if (etatChronique != EtatBoutonChronique.ABSENT) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    when (etatChronique) {
-                        EtatBoutonChronique.AJOUTER -> OutlinedButton(
-                            onClick = { vm.ajouterChronique(cleFilm.first, cleFilm.second) },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) { Text("Ajouter à la chronique") }
-                        EtatBoutonChronique.ECRIT_EN_COURS -> OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) {
-                            Text("Le chroniqueur écrit…")
-                        }
-                        EtatBoutonChronique.DANS_LA_CHRONIQUE -> OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) {
-                            Text("Dans la chronique")
-                        }
-                        EtatBoutonChronique.ABSENT -> {}
-                    }
-                    paragrapheDeCeFilm?.let { paragraphe ->
-                        Text(paragraphe.texte, style = MaterialTheme.typography.bodyMedium)
                     }
                 }
             }

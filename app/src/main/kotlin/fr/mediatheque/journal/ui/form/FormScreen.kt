@@ -62,6 +62,7 @@ import kotlinx.coroutines.delay
 import fr.mediatheque.journal.ui.Cover
 import fr.mediatheque.journal.ui.voler
 import fr.mediatheque.journal.ui.ErrorBlock
+import fr.mediatheque.journal.ui.FondHeros
 import fr.mediatheque.journal.ui.Navigator
 import fr.mediatheque.journal.ui.Screen
 import fr.mediatheque.journal.ui.formatDate
@@ -165,140 +166,145 @@ fun FormScreen(
         is FormMode.Edit -> Triple(filmTmdbIdTouchable("tmdb", m.item.media.external_id), m.item.media.director, m.item.media.year)
     }
 
-    Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { IconeTabler("arrow-left", "Retour") }
-        }
-        Column(
-            Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Cover(coverUrl, title, 96.dp, 144.dp, modifier = Modifier.voler(volante))
-                Column(Modifier.align(Alignment.CenterVertically)) {
-                    Text(title, style = MaterialTheme.typography.titleLarge)
-                    if (filmTmdbId != null && !realisateur.isNullOrBlank()) {
-                        NomRealisateurTouchable(
-                            filmTmdbId = filmTmdbId,
-                            nomConnu = realisateur,
-                            resolveur = realisateurResolveur,
-                            onOuvrirRealisateur = { nav.push(Screen.Realisateur(it)) },
-                        )
-                        anneeAffichee?.let { annee ->
-                            Text(annee.toString(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Box(Modifier.fillMaxSize()) {
+        // Le fond héros (geste 4 du brief du 23 septembre 2026 soir) : l'affiche déjà reçue,
+        // derrière l'en-tête — nulle tant qu'elle n'a pas chargé, sans rien réserver.
+        FondHeros(coverUrl, hauteur = 240.dp)
+        Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) { IconeTabler("arrow-left", "Retour") }
+            }
+            Column(
+                Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Cover(coverUrl, title, 96.dp, 144.dp, modifier = Modifier.voler(volante))
+                    Column(Modifier.align(Alignment.CenterVertically)) {
+                        Text(title, style = MaterialTheme.typography.titleLarge)
+                        if (filmTmdbId != null && !realisateur.isNullOrBlank()) {
+                            NomRealisateurTouchable(
+                                filmTmdbId = filmTmdbId,
+                                nomConnu = realisateur,
+                                resolveur = realisateurResolveur,
+                                onOuvrirRealisateur = { nav.push(Screen.Realisateur(it)) },
+                            )
+                            anneeAffichee?.let { annee ->
+                                Text(annee.toString(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        } else {
+                            Text(sub, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                    } else {
-                        Text(sub, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-            }
 
-            // La date : un champ qui se lit, et s'ouvre au toucher.
-            Box {
+                // La date : un champ qui se lit, et s'ouvre au toucher.
+                Box {
+                    OutlinedTextField(
+                        value = formatDate(ui.date.toString()),
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Vu le") },
+                        shape = MaterialTheme.shapes.medium,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Box(Modifier.matchParentSize().clickable { showPicker = true })
+                }
+
+                Text("Note", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                for (rangee in listOf(1..5, 6..10)) {
+                    Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                        for (n in rangee) {
+                            RatingDot(
+                                n,
+                                selected = n == noteBalayee,
+                                echelle = if (n == noteBalayee) rebondNote.value else 1f,
+                            ) { directement = true; vm.toggleRating(n) }
+                        }
+                    }
+                }
+
+                Text("Réactions", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val cles = Reactions.all.map { it.key } + (ui.reactions - Reactions.all.map { it.key }.toSet())
+                    for (key in cles) {
+                        FilterChip(
+                            selected = key in ui.reactions,
+                            onClick = { vm.toggleReaction(key) },
+                            label = { Text(Reactions.label(key), style = MaterialTheme.typography.bodyMedium) },
+                            shape = CircleShape,
+                            // 40 dp de haut (design §4), et une cible tactile de 48 dp par-dessus
+                            // (décision 4 de la tâche 6) : les deux valeurs ne se confondent pas, la
+                            // seconde ne fait qu'agrandir la zone de toucher autour de la première.
+                            // L'idiome Material va dans ce sens : `minimumInteractiveComponentSize()`
+                            // d'abord, qui réserve la zone de toucher de 48 dp autour du composant,
+                            // `height(40.dp)` ensuite, qui fixe la taille visible à l'intérieur — dans
+                            // l'autre ordre, la hauteur fixe s'appliquait à la zone de toucher elle-même
+                            // et la ramenait à 40 dp (revue de la vague finale, mineur 5).
+                            modifier = Modifier
+                                .minimumInteractiveComponentSize()
+                                .height(40.dp)
+                                .semantics { contentDescription = Reactions.phrase(key) },
+                        )
+                    }
+                }
+
                 OutlinedTextField(
-                    value = formatDate(ui.date.toString()),
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Vu le") },
+                    value = ui.comment,
+                    onValueChange = vm::setComment,
+                    label = { Text("Commentaire") },
+                    supportingText = { Text("Rien qu’à toi") },
+                    minLines = 3,
                     shape = MaterialTheme.shapes.medium,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Box(Modifier.matchParentSize().clickable { showPicker = true })
-            }
 
-            Text("Note", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            for (rangee in listOf(1..5, 6..10)) {
-                Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                    for (n in rangee) {
-                        RatingDot(
-                            n,
-                            selected = n == noteBalayee,
-                            echelle = if (n == noteBalayee) rebondNote.value else 1f,
-                        ) { directement = true; vm.toggleRating(n) }
+                ui.error?.let { error ->
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        // Décision 3 : le message du back reste le sien ; cette ligne dit seulement
+                        // que le film, lui, est bien ajouté — jamais l'inverse.
+                        ui.errorContext?.let {
+                            Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        ErrorBlock(error.message ?: "", retryable = error.retryable, onRetry = vm::retry)
                     }
                 }
-            }
-
-            Text("Réactions", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                val cles = Reactions.all.map { it.key } + (ui.reactions - Reactions.all.map { it.key }.toSet())
-                for (key in cles) {
-                    FilterChip(
-                        selected = key in ui.reactions,
-                        onClick = { vm.toggleReaction(key) },
-                        label = { Text(Reactions.label(key), style = MaterialTheme.typography.bodyMedium) },
-                        shape = CircleShape,
-                        // 40 dp de haut (design §4), et une cible tactile de 48 dp par-dessus
-                        // (décision 4 de la tâche 6) : les deux valeurs ne se confondent pas, la
-                        // seconde ne fait qu'agrandir la zone de toucher autour de la première.
-                        // L'idiome Material va dans ce sens : `minimumInteractiveComponentSize()`
-                        // d'abord, qui réserve la zone de toucher de 48 dp autour du composant,
-                        // `height(40.dp)` ensuite, qui fixe la taille visible à l'intérieur — dans
-                        // l'autre ordre, la hauteur fixe s'appliquait à la zone de toucher elle-même
-                        // et la ramenait à 40 dp (revue de la vague finale, mineur 5).
-                        modifier = Modifier
-                            .minimumInteractiveComponentSize()
-                            .height(40.dp)
-                            .semantics { contentDescription = Reactions.phrase(key) },
-                    )
+                // Le Voyage (brief du 16 septembre 2026) : en bas de la correction, silencieuse tant
+                // que le carton n'existe pas encore (`CartonCard` lui-même ne rend rien dans ce cas).
+                if (carton != null && cartonVisible) {
+                    val cartonUi by carton.ui.collectAsState()
+                    CartonCard(cartonUi, attente = false, onDismiss = { cartonVisible = false })
                 }
-            }
-
-            OutlinedTextField(
-                value = ui.comment,
-                onValueChange = vm::setComment,
-                label = { Text("Commentaire") },
-                supportingText = { Text("Rien qu’à toi") },
-                minLines = 3,
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            ui.error?.let { error ->
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    // Décision 3 : le message du back reste le sien ; cette ligne dit seulement
-                    // que le film, lui, est bien ajouté — jamais l'inverse.
-                    ui.errorContext?.let {
-                        Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    ErrorBlock(error.message ?: "", retryable = error.retryable, onRetry = vm::retry)
+                // « Ajouter à la chronique » (décision 1 du brief du 21 septembre 2026, « la chronique
+                // et les salles ») : nul (donc absent) quand `Root.kt` a jugé le film inéligible.
+                if (chronique != null) {
+                    val chroniqueUi by chronique.ui.collectAsState()
+                    ChroniqueBoutonEdition(chroniqueUi, onClick = chronique::ajouter)
                 }
+                Spacer(Modifier.height(8.dp))
             }
-            // Le Voyage (brief du 16 septembre 2026) : en bas de la correction, silencieuse tant
-            // que le carton n'existe pas encore (`CartonCard` lui-même ne rend rien dans ce cas).
-            if (carton != null && cartonVisible) {
-                val cartonUi by carton.ui.collectAsState()
-                CartonCard(cartonUi, attente = false, onDismiss = { cartonVisible = false })
-            }
-            // « Ajouter à la chronique » (décision 1 du brief du 21 septembre 2026, « la chronique
-            // et les salles ») : nul (donc absent) quand `Root.kt` a jugé le film inéligible.
-            if (chronique != null) {
-                val chroniqueUi by chronique.ui.collectAsState()
-                ChroniqueBoutonEdition(chroniqueUi, onClick = chronique::ajouter)
-            }
-            Spacer(Modifier.height(8.dp))
-        }
 
-        Column(Modifier.padding(16.dp)) {
-            Button(
-                // Retour haptique (geste 10) : valider un enregistrement est un `Confirm`.
-                onClick = { haptique.performHapticFeedback(HapticFeedbackType.Confirm); vm.save() },
-                enabled = !ui.busy,
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-            ) {
-                if (ui.busy) {
-                    CircularProgressIndicator(Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
-                    Spacer(Modifier.size(8.dp))
-                }
-                Text(if (editing) "Corriger" else "Enregistrer")
-            }
-            if (editing) {
-                TextButton(
-                    onClick = { confirmDelete = true },
+            Column(Modifier.padding(16.dp)) {
+                Button(
+                    // Retour haptique (geste 10) : valider un enregistrement est un `Confirm`.
+                    onClick = { haptique.performHapticFeedback(HapticFeedbackType.Confirm); vm.save() },
                     enabled = !ui.busy,
-                    modifier = Modifier.align(Alignment.CenterHorizontally),
-                ) { Text("Supprimer", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    shape = MaterialTheme.shapes.medium,
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                ) {
+                    if (ui.busy) {
+                        CircularProgressIndicator(Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
+                        Spacer(Modifier.size(8.dp))
+                    }
+                    Text(if (editing) "Corriger" else "Enregistrer")
+                }
+                if (editing) {
+                    TextButton(
+                        onClick = { confirmDelete = true },
+                        enabled = !ui.busy,
+                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                    ) { Text("Supprimer", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                }
             }
         }
     }
