@@ -175,6 +175,19 @@ fun detecterNouveauTampon(dejaVus: Set<Int>?, tampons: List<TamponVoyage>): Int?
 }
 
 /**
+ * Le monde qu'on vient d'entrer en défilant la Frise (geste 22 du complément du 23 septembre 2026
+ * à l'habillage) : l'ancien monde visible, le nouveau — nul si l'un des deux est encore inconnu
+ * (tout premier défilement, chargement) ou si rien n'a changé. Ne dit rien de si ce monde a déjà
+ * été présenté cette session : c'est `dejaPresentes` (`rememberSaveable`, `VoyageScreen`) qui le
+ * garde, comparé séparément par l'appelant — jumeau de `detecterNouveauTampon` ci-dessus, qui fait
+ * la même chose pour le générique de décennie plutôt que le carton-titre d'un monde.
+ */
+fun mondeEntre(ancien: Int?, nouveau: Int?): Int? {
+    if (ancien == null || nouveau == null || ancien == nouveau) return null
+    return nouveau
+}
+
+/**
  * Un ticket du portefeuille (décision 3 du brief du 21 septembre 2026, « le ticket »), tel que
  * `PortefeuilleViewModel` (`ui/profile/`) le range depuis `GET /me/voyage/tickets` — `utiliseLe`
  * nul tant qu'il dort.

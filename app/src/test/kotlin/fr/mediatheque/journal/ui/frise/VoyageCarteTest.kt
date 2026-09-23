@@ -215,6 +215,24 @@ class VoyageCarteTest {
         assertNull(detecterNouveauTampon(null, tampons))
     }
 
+    // Le carton-titre d'un monde (geste 22 du complément du 23 septembre 2026 à l'habillage) : un
+    // vrai changement de monde en défilant, entre deux valeurs connues. Mutation : rendre `ancien`
+    // au lieu de `nouveau` présenterait le monde qu'on quitte plutôt que celui qu'on vient d'entrer.
+    @Test
+    fun `mondeEntre rend le nouveau monde quand il differe de l'ancien`() {
+        assertEquals(1900, mondeEntre(ancien = 1890, nouveau = 1900))
+    }
+
+    // Rien au tout premier défilement (l'un des deux encore inconnu), et rien si le monde visible
+    // n'a pas changé. Mutation : ignorer l'un des deux gardes rejouerait le carton-titre au premier
+    // défilement, ou en boucle tant qu'on reste dans le même monde.
+    @Test
+    fun `mondeEntre ne rend rien sans monde connu des deux cotes ou sans changement`() {
+        assertNull(mondeEntre(ancien = null, nouveau = 1900))
+        assertNull(mondeEntre(ancien = 1890, nouveau = null))
+        assertNull(mondeEntre(ancien = 1890, nouveau = 1890))
+    }
+
     // Le tri du portefeuille (décision 3 du brief du 21 septembre 2026, « le ticket ») : les non
     // utilisés d'abord (par année), les compostés ensuite (par date d'utilisation). Mutation :
     // inverser les deux groupes, ou trier les compostés par année plutôt que par date, ferait

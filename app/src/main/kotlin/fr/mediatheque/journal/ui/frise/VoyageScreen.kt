@@ -1,6 +1,9 @@
 package fr.mediatheque.journal.ui.frise
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -43,10 +46,12 @@ import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -68,6 +73,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.CircleShape
 import fr.mediatheque.journal.ui.Cover
 import fr.mediatheque.journal.ui.celebrations.AnneeDansLaBoiteCalque
+import fr.mediatheque.journal.ui.celebrations.CartonTitreMonde
 import fr.mediatheque.journal.ui.showBriefly
 import fr.mediatheque.journal.ui.theme.BobineIndicateur
 import fr.mediatheque.journal.ui.theme.Fraunces
@@ -130,6 +136,29 @@ fun VoyageScreen(
         construireCarte(ui, anneeActuelle)
     }
     val anneeEnCours = ui.voyage.anneeEnCours
+
+    // Le carton-titre d'un monde (complément du 23 septembre 2026 à l'habillage, geste 22) : à la
+    // première entrée dans un monde en défilant, une fois par session — `dejaPresentesMondes`
+    // (`rememberSaveable`) survit à une rotation d'écran, jamais à un nouveau lancement de l'appli.
+    // `decennieVisible` lit la première cellule visible de la liste ; `derivedStateOf`, reconstruit
+    // à chaque nouvelle `cellules`, ne recompose la suite qu'au changement de décennie, pas à
+    // chaque pixel défilé.
+    var dejaPresentesMondes by rememberSaveable { mutableStateOf(setOf<Int>()) }
+    var decenniePrecedenteVisible by remember { mutableStateOf<Int?>(null) }
+    var cartonMonde by remember { mutableStateOf<Monde?>(null) }
+    var dernierCartonMonde by remember { mutableStateOf<Monde?>(null) }
+    LaunchedEffect(cartonMonde) { cartonMonde?.let { dernierCartonMonde = it } }
+    val decennieVisible by remember(cellules) {
+        derivedStateOf { cellules.getOrNull(liste.firstVisibleItemIndex)?.monde?.decennie }
+    }
+    LaunchedEffect(decennieVisible) {
+        val entree = mondeEntre(decenniePrecedenteVisible, decennieVisible)
+        if (entree != null && entree !in dejaPresentesMondes) {
+            cartonMonde = mondeDeLaDecennie(entree)
+            dejaPresentesMondes = dejaPresentesMondes + entree
+        }
+        decenniePrecedenteVisible = decennieVisible
+    }
 
     // À l'ouverture, la liste défile jusqu'à l'année en cours, d'un coup. `anneeEnCours` en clé
     // plutôt que `Unit` : si elle avance pendant qu'on est sur l'écran (le bouton provisoire
@@ -267,6 +296,17 @@ fun VoyageScreen(
             onTermine = { celebrationAnnee = null },
         )
     }
+    // Le carton-titre d'un monde (geste 22) : fondu d'entrée et de sortie porté ici, comme le
+    // calque du ticket un peu plus haut dans `Root.kt` — `dernierCartonMonde` garde le contenu
+    // affiché pendant que `cartonMonde` est déjà retombé à `null`, sans quoi il disparaîtrait d'un
+    // coup au milieu du fondu de sortie.
+    AnimatedVisibility(
+        visible = cartonMonde != null,
+        enter = fadeIn(tween(300)),
+        exit = fadeOut(tween(300)),
+    ) {
+        dernierCartonMonde?.let { monde -> CartonTitreMonde(monde, onTermine = { cartonMonde = null }) }
+    }
     }
 }
 
@@ -277,10 +317,13 @@ fun VoyageScreen(
  * est à l'écran, et le défilement jusqu'à l'année en cours a besoin d'un index, pas d'un arbre.
  */
 private sealed interface Cellule {
-    data class Titre(val monde: Monde) : Cellule
+    /** Le monde de la cellule — les trois variantes le portent toutes, lu par le carton-titre (geste 22) au défilement. */
+    val monde: Monde
+
+    data class Titre(override val monde: Monde) : Cellule
     data class Annee(
         val annee: Int,
-        val monde: Monde,
+        override val monde: Monde,
         val statut: StatutAnneeVoyage?,
         val affiche: String?,
         /** Nulle sans aucun film vu (`AnneeVoyage.recompense`, étape 5, « les récompenses »). */
@@ -292,7 +335,7 @@ private sealed interface Cellule {
         val xAncre: Float,
         val xSortie: Float,
     ) : Cellule
-    data class Marquise(val monde: Monde, val bouclee: Boolean, val rayon: DecennieFrise) : Cellule
+    data class Marquise(override val monde: Monde, val bouclee: Boolean, val rayon: DecennieFrise) : Cellule
 }
 
 /** L'abscisse d'une année, en fraction de largeur : un serpentin de période quatre, centré. */
