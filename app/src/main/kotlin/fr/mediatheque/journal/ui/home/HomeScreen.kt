@@ -40,6 +40,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -70,6 +71,7 @@ import fr.mediatheque.journal.ui.frise.texteCeSoir
 import fr.mediatheque.journal.ui.suivis.EnCours
 import fr.mediatheque.journal.ui.suivis.titreEtAnnee
 import fr.mediatheque.journal.ui.showBriefly
+import fr.mediatheque.journal.ui.theme.BobineIndicateur
 import fr.mediatheque.journal.ui.theme.Perforations
 import kotlinx.coroutines.flow.distinctUntilChanged
 
@@ -254,9 +256,20 @@ fun HomeScreen(
                 // que `ui.loading` redescend, quelle qu'en soit la cause.
                 var tire by remember { mutableStateOf(false) }
                 LaunchedEffect(ui.loading) { if (!ui.loading) tire = false }
+                // La bobine qui tourne (geste 21 du complément du 23 septembre 2026 à l'habillage) :
+                // à la place du rond Material par défaut, `BobineIndicateur` suit le même `state`.
+                val etatTirage = rememberPullToRefreshState()
                 PullToRefreshBox(
                     isRefreshing = tire && ui.loading,
                     onRefresh = { if (!ui.loading) { tire = true; vm.refresh() } },
+                    state = etatTirage,
+                    indicator = {
+                        BobineIndicateur(
+                            etatTirage,
+                            isRefreshing = tire && ui.loading,
+                            modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp),
+                        )
+                    },
                     modifier = Modifier.weight(1f),
                 ) {
                 if (ui.items.isEmpty() && ui.endReached) {
