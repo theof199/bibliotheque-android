@@ -24,17 +24,21 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -64,7 +68,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
  * du bouton « Ajouter un film » qui descend en bas. Le `vm` est le même `FilmsViewModel` que
  * « Mes films » (clé `"films"` dans `Root.kt`) : une seule source, deux présentations.
  */
-@OptIn(ExperimentalSharedTransitionApi::class)
+@OptIn(ExperimentalSharedTransitionApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     vm: FilmsViewModel,
@@ -206,8 +210,22 @@ fun HomeScreen(
                         modifier = Modifier.padding(bottom = 12.dp),
                     )
                 }
+                // Tirer pour rafraîchir (peaufinage du 23 septembre 2026, geste 12) : branché sur
+                // le `refresh()` du même `FilmsViewModel` que « Mes films ». `ui.loading` porte
+                // aussi bien ce rafraîchissement que la pagination et le premier chargement à
+                // l'entrée sur l'écran (relecture du 23 septembre 2026) : l'indicateur de tirage
+                // ne doit s'afficher que sur un tirage vraiment fait, pas à chaque fois que
+                // `ui.loading` passe à vrai. `tire` ne monte que dans `onRefresh` et retombe dès
+                // que `ui.loading` redescend, quelle qu'en soit la cause.
+                var tire by remember { mutableStateOf(false) }
+                LaunchedEffect(ui.loading) { if (!ui.loading) tire = false }
+                PullToRefreshBox(
+                    isRefreshing = tire && ui.loading,
+                    onRefresh = { if (!ui.loading) { tire = true; vm.refresh() } },
+                    modifier = Modifier.weight(1f),
+                ) {
                 if (ui.items.isEmpty() && ui.endReached) {
-                    Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
                             "Aucun film pour l’instant.",
                             style = MaterialTheme.typography.bodyLarge,
@@ -218,7 +236,7 @@ fun HomeScreen(
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(3),
                         state = grille,
-                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                        modifier = Modifier.fillMaxSize(),
                         horizontalArrangement = Arrangement.spacedBy(ecart),
                         verticalArrangement = Arrangement.spacedBy(ecart),
                     ) {
@@ -265,6 +283,7 @@ fun HomeScreen(
                             }
                         }
                     }
+                }
                 }
                 Spacer(Modifier.height(16.dp))
                 // Le bouton est ici un enfant du `Column`, après la grille, plutôt qu'un enfant du

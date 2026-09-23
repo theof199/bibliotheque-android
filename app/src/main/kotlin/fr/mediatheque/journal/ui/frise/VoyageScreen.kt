@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
@@ -29,6 +30,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -81,6 +83,7 @@ import java.time.LocalDate
  * L'écran ne charge rien lui-même : `FriseViewModel` tient déjà le journal, le Plex et
  * `GET /me/voyage` pour l'accueil comme pour ici (`Root.kt`, clé « frise »).
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VoyageScreen(
     vm: FriseViewModel,
@@ -160,30 +163,44 @@ fun VoyageScreen(
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             Hud(ui.voyage)
-            LazyColumn(state = liste, modifier = Modifier.weight(1f)) {
-                items(
-                    cellules,
-                    key = { cellule ->
+            // Tirer pour rafraîchir (peaufinage du 23 septembre 2026, geste 12) : branché sur le
+            // `refresh()` déjà appelé à l'entrée sur cet écran (`Root.kt`). `ui.loading` porte ce
+            // premier chargement aussi (relecture du 23 septembre 2026) : sans `tire`,
+            // l'indicateur de tirage s'afficherait à chaque entrée sur la Frise, pas seulement
+            // quand on tire vraiment — il ne monte que dans `onRefresh` et retombe dès que
+            // `ui.loading` redescend, quelle qu'en soit la cause.
+            var tire by remember { mutableStateOf(false) }
+            LaunchedEffect(ui.loading) { if (!ui.loading) tire = false }
+            PullToRefreshBox(
+                isRefreshing = tire && ui.loading,
+                onRefresh = { if (!ui.loading) { tire = true; vm.refresh() } },
+                modifier = Modifier.weight(1f),
+            ) {
+                LazyColumn(state = liste, modifier = Modifier.fillMaxSize()) {
+                    items(
+                        cellules,
+                        key = { cellule ->
+                            when (cellule) {
+                                is Cellule.Titre -> "titre-${cellule.monde.decennie}"
+                                is Cellule.Annee -> "annee-${cellule.annee}"
+                                is Cellule.Marquise -> "marquise-${cellule.monde.decennie}"
+                            }
+                        },
+                    ) { cellule ->
                         when (cellule) {
-                            is Cellule.Titre -> "titre-${cellule.monde.decennie}"
-                            is Cellule.Annee -> "annee-${cellule.annee}"
-                            is Cellule.Marquise -> "marquise-${cellule.monde.decennie}"
+                            is Cellule.Titre -> TitreDeMonde(cellule.monde)
+                            is Cellule.Annee -> CelluleAnnee(
+                                cellule = cellule,
+                                claques = claques,
+                                onClick = { onOpenAnnee(cellule.groupe) },
+                            )
+                            is Cellule.Marquise -> Marquise(
+                                monde = cellule.monde,
+                                bouclee = cellule.bouclee,
+                                anime = cellule.monde.decennie == decennieAllumee,
+                                onClick = { onOpenDecennie(cellule.rayon) },
+                            )
                         }
-                    },
-                ) { cellule ->
-                    when (cellule) {
-                        is Cellule.Titre -> TitreDeMonde(cellule.monde)
-                        is Cellule.Annee -> CelluleAnnee(
-                            cellule = cellule,
-                            claques = claques,
-                            onClick = { onOpenAnnee(cellule.groupe) },
-                        )
-                        is Cellule.Marquise -> Marquise(
-                            monde = cellule.monde,
-                            bouclee = cellule.bouclee,
-                            anime = cellule.monde.decennie == decennieAllumee,
-                            onClick = { onOpenDecennie(cellule.rayon) },
-                        )
                     }
                 }
             }
