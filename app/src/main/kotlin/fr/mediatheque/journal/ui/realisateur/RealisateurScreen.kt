@@ -55,7 +55,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -361,9 +360,11 @@ private fun AfficheFilmographie(
                 Icon(
                     Icons.Filled.Cloud,
                     contentDescription = "Sur le Plex",
-                    tint = Color.White,
+                    // `Color.White` ignorait le thème (peaufinage du 23 septembre 2026, geste 5) ;
+                    // `4.dp` rejoint la grille 4/8/12/16 (design §4), au lieu du `3.dp` isolé.
+                    tint = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier
-                        .padding(3.dp)
+                        .padding(4.dp)
                         .size(12.dp)
                         .alpha(0.9f),
                 )
