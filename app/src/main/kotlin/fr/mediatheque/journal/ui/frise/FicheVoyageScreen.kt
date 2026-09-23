@@ -2,6 +2,12 @@ package fr.mediatheque.journal.ui.frise
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -285,7 +291,11 @@ private fun ChoisirMarcheSheet(lignes: List<LigneChoixMarche>, onChoisir: (place
                         style = MaterialTheme.typography.bodyLarge,
                         modifier = Modifier.weight(1f),
                     )
-                    if (ligne.estCeFilm) {
+                    AnimatedVisibility(
+                        visible = ligne.estCeFilm,
+                        enter = fadeIn(tween(150)) + scaleIn(initialScale = 0.6f, animationSpec = tween(150)),
+                        exit = fadeOut(tween(150)) + scaleOut(targetScale = 0.6f, animationSpec = tween(150)),
+                    ) {
                         Icon(Icons.Filled.Check, contentDescription = "Marche actuelle", tint = MaterialTheme.colorScheme.primary)
                     }
                 }

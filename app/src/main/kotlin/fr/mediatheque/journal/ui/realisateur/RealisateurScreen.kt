@@ -1,5 +1,10 @@
 package fr.mediatheque.journal.ui.realisateur
 
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -345,13 +350,19 @@ private fun AfficheFilmographie(
             }
             // Coin discret « Plex » (décision 1 du brief) : une icône seule, sans fond, jamais
             // aussi appuyée que la pastille de note.
-            if (film.sur_le_plex) {
+            // Nom qualifié en entier : à l'intersection d'un `Column` et d'un `Box` implicites,
+            // le compilateur hésite sinon entre les surcharges `ColumnScope`/`BoxScope`.
+            androidx.compose.animation.AnimatedVisibility(
+                visible = film.sur_le_plex,
+                modifier = Modifier.align(Alignment.TopEnd),
+                enter = fadeIn(tween(150)) + scaleIn(initialScale = 0.6f, animationSpec = tween(150)),
+                exit = fadeOut(tween(150)) + scaleOut(targetScale = 0.6f, animationSpec = tween(150)),
+            ) {
                 Icon(
                     Icons.Filled.Cloud,
                     contentDescription = "Sur le Plex",
                     tint = Color.White,
                     modifier = Modifier
-                        .align(Alignment.TopEnd)
                         .padding(3.dp)
                         .size(12.dp)
                         .alpha(0.9f),

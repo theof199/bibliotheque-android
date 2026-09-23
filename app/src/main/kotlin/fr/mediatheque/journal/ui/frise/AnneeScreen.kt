@@ -1,6 +1,12 @@
 package fr.mediatheque.journal.ui.frise
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -592,7 +598,13 @@ private fun LigneCandidatPodium(candidat: CandidatPodium, occupant: Boolean, onC
             }
         }
         Text(candidat.title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-        if (occupant) {
+        // La coche apparaît et disparaît en fondu + échelle courte (peaufinage du 23 septembre
+        // 2026, geste 4), plutôt que de sauter d'un coup avec le reste de la ligne.
+        AnimatedVisibility(
+            visible = occupant,
+            enter = fadeIn(tween(150)) + scaleIn(initialScale = 0.6f, animationSpec = tween(150)),
+            exit = fadeOut(tween(150)) + scaleOut(targetScale = 0.6f, animationSpec = tween(150)),
+        ) {
             Box(Modifier.background(MaterialTheme.colorScheme.primary, CircleShape).padding(4.dp)) {
                 Icon(
                     Icons.Filled.Check,
@@ -889,7 +901,11 @@ private fun RemplacementSeanceSheet(
                         ) {
                             Cover(candidat.coverUrl, candidat.title, 40.dp, 60.dp)
                             Text(candidat.title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-                            if (candidat.tmdbId == occupantTmdbId) {
+                            AnimatedVisibility(
+                                visible = candidat.tmdbId == occupantTmdbId,
+                                enter = fadeIn(tween(150)) + scaleIn(initialScale = 0.6f, animationSpec = tween(150)),
+                                exit = fadeOut(tween(150)) + scaleOut(targetScale = 0.6f, animationSpec = tween(150)),
+                            ) {
                                 Icon(
                                     Icons.Filled.Check,
                                     contentDescription = "Occupant actuel",
