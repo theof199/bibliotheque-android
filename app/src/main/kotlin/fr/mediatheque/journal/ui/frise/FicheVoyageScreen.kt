@@ -17,10 +17,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
@@ -82,7 +87,7 @@ import fr.mediatheque.journal.ui.theme.TextePapier
  * Lit `vm` (le même `AnneeViewModel` que l'année d'où elle s'est ouverte, `Root.kt`) plutôt que de
  * recharger quoi que ce soit : `salleId` et `filmId` désignent le film dans son état déjà connu.
  */
-@OptIn(ExperimentalSharedTransitionApi::class)
+@OptIn(ExperimentalSharedTransitionApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun FicheVoyageScreen(
     annee: Int,
@@ -150,7 +155,14 @@ fun FicheVoyageScreen(
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Cover(film.coverUrl, film.title, 96.dp, 144.dp, modifier = Modifier.voler(volante))
+                // L'affiche encadrée (habillage du 23 septembre 2026, geste 6).
+                Cover(
+                    film.coverUrl,
+                    film.title,
+                    96.dp,
+                    144.dp,
+                    modifier = Modifier.voler(volante).border(1.5.dp, MaterialTheme.colorScheme.secondary, MaterialTheme.shapes.small),
+                )
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(film.title, style = MaterialTheme.typography.titleLarge)
                     if (film.originalTitle != null && film.originalTitle != film.title) {
@@ -176,13 +188,53 @@ fun FicheVoyageScreen(
 
             if (etat == "vu" && journalItem != null) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    // La note dans un cercle or (habillage du 23 septembre 2026, geste 6).
                     journalItem.entry.rating?.let { note ->
-                        Text("$note", style = MaterialTheme.typography.titleMedium)
+                        Box(
+                            Modifier
+                                .size(30.dp)
+                                .border(1.dp, MaterialTheme.colorScheme.secondary, CircleShape),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text("$note", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.secondary)
+                        }
                     }
-                    if (journalItem.carnet.reactions.isNotEmpty()) {
+                }
+                if (journalItem.carnet.reactions.isNotEmpty()) {
+                    // Les réactions en pastilles rondes pleines (fond papier 12 %, texte or) —
+                    // remplace l'unique ligne d'emojis groupés.
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        journalItem.carnet.reactions.forEach { cle ->
+                            Box(
+                                Modifier
+                                    .background(PapierJauni.copy(alpha = 0.12f), RoundedCornerShape(50))
+                                    .padding(horizontal = 10.dp, vertical = 5.dp),
+                            ) {
+                                Text(
+                                    Reactions.label(cle),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.secondary,
+                                )
+                            }
+                        }
+                    }
+                }
+                // La remarque sur papier, filet gauche or (habillage du 23 septembre 2026, geste 6)
+                // — un filet sur un seul bord, pas un `border()` (qui les dessinerait sur les
+                // quatre), posé en `drawBehind` avant le padding du texte.
+                journalItem.carnet.comment?.takeIf { it.isNotBlank() }?.let { commentaire ->
+                    val or = MaterialTheme.colorScheme.secondary
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .background(PapierJauni, RoundedCornerShape(4.dp))
+                            .drawBehind { drawRect(or, size = size.copy(width = 3.dp.toPx())) }
+                            .padding(start = 14.dp, top = 10.dp, bottom = 10.dp, end = 12.dp),
+                    ) {
                         Text(
-                            journalItem.carnet.reactions.joinToString(" ") { Reactions.emoji(it) },
-                            style = MaterialTheme.typography.bodyMedium,
+                            commentaire,
+                            style = MaterialTheme.typography.bodyMedium.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
+                            color = TextePapier,
                         )
                     }
                 }
