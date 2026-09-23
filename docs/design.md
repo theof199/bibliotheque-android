@@ -512,6 +512,13 @@ qu'elles habillent quand elles y tiennent en quelques lignes (le podium, le tick
     fondu d'entrée et de sortie (300 ms, `AnimatedVisibility`, même montage que le calque du
     ticket). Un tap, à tout instant, passe.
 
+*Complément du 23 septembre 2026 (soir) : les célébrations sont des animations Lottie sous licence
+libre, `assets/lottie/` (README, « Les animations ») — le clap d'un film enregistré (geste 9), la
+récompense et la pluie d'« année dans la boîte » (geste 11), la bobine de tirer-pour-rafraîchir
+(geste 21) et le projecteur avant le carton-titre d'un monde (geste 22) en jouent une, ajoutée au
+poinçon du ticket (geste 15) sans le remplacer ; le dessin `Canvas`/`AndroidView` que ces gestes
+décrivaient au moment de leur écriture a cédé la place là où le tableau ci-dessus le disait.*
+
 ---
 
 ## 8. Accessibilité
@@ -936,19 +943,24 @@ d'API hors de `Endpoints.kt` », pour la même raison.
 
 - **Un thème clair, la couleur dynamique.** Décidés contre, §1.
 - **Des illustrations figuratives.** Écarté par le propriétaire au choix de la maquette « papier et
-  pellicule » (§1) : des ornements oui (§2, §3, §7), un dessin de personnage ou de scène non — tout
-  reste vectoriel (`Canvas`) ou typographique, jamais une image qui représente quelque chose.
+  pellicule » (§1) : des ornements oui (§2, §3, §7), un dessin de personnage ou de scène non, en
+  dehors des deux exceptions étroites et assumées ci-dessous — le reste de l'application demeure
+  vectoriel (`Canvas`) ou typographique.
   *Jusqu'au 23 septembre 2026, cette ligne disait « des illustrations d'états vides, des animations
   décoratives », contraires à « sobre » : la sobriété elle-même est retombée ce jour-là (§1, §7), et
   l'application porte maintenant des dizaines de gestes qui n'existent que pour eux-mêmes — le
   calque d'un film enregistré, le générique d'une décennie, le carton-titre d'un monde. Le retour
   haptique, resté seul rescapé de cette ligne au peaufinage, l'a alors déjà quittée.* *Le 23 septembre
-  2026 (soir), une exception étroite et assumée : les trois récompenses du Voyage (Ours, Lion,
-  Palme) et les deux tampons (passeport, « perdu ») seront, à terme, des images que le propriétaire
-  dessine lui-même — « les choses faites main ne sont pas si bien faites » — plutôt que les glyphes
-  vectoriels d'aujourd'hui, qui restent leur substitut tant que ces images n'existent pas
+  2026 (soir), une première exception étroite et assumée : les trois récompenses du Voyage (Ours,
+  Lion, Palme) et les deux tampons (passeport, « perdu ») seront, à terme, des images que le
+  propriétaire dessine lui-même — « les choses faites main ne sont pas si bien faites » — plutôt que
+  les glyphes vectoriels d'aujourd'hui, qui restent leur substitut tant que ces images n'existent pas
   (`Embleme`, README « Les emblèmes »). Cinq images, pas une politique : le reste de l'application
-  ne change rien à cette ligne.*
+  ne change rien à cette ligne.* *Le même soir, une seconde exception, plus large : les célébrations
+  (§7) jouent désormais des animations Lottie récoltées sous licence libre — un clap, un trophée, des
+  confettis, une bobine de caméra, un ticket, un projecteur — chacune une image qui représente
+  quelque chose, à la différence des ornements du reste de l'appli. Deux exceptions nommées, toujours
+  pas une politique.*
 - **Une police téléchargeable.** Manrope, Fraunces et Limelight (§3) vivent toutes trois en fichiers
   statiques dans `res/font/` : le téléphone n'a pas à dépendre des services Google pour afficher un
   titre. *Jusqu'au 23 septembre 2026, cette ligne disait « une police pour les titres différente de

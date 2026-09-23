@@ -184,10 +184,12 @@ dépend jamais du réseau, seul `bin/icones` en a besoin, à la main, après avo
 Trois récompenses du Voyage (Ours, Lion, Palme) et deux tampons (passeport, « perdu ») sont, à
 terme, des images que le propriétaire dessine lui-même (décision du 23 septembre 2026, soir) —
 plutôt que les glyphes vectoriels et le fait main qui servaient jusque-là. `Embleme`
-(`ui/Emblemes.kt`) les sert à ses cinq appelants (le glyphe sur la carte du Voyage, la récompense
-de « l'année dans la boîte », le tampon du générique de décennie, le passeport du profil, le tampon
-« perdu ») en cherchant `R.drawable.embleme_<nom>` par son nom : tant que le fichier n'existe pas,
-il retombe sur le dessin vectoriel d'origine, sans rien casser.
+(`ui/Emblemes.kt`) les sert à ses quatre appelants (le glyphe sur la carte du Voyage, le tampon du
+générique de décennie, le passeport du profil, le tampon « perdu ») en cherchant
+`R.drawable.embleme_<nom>` par son nom : tant que le fichier n'existe pas, il retombe sur le dessin
+vectoriel d'origine, sans rien casser. La récompense de « l'année dans la boîte » n'en fait plus
+partie depuis le brief des animations Lottie du 23 septembre 2026 (soir) : elle joue désormais
+`trophee-1.json` (« Les animations », ci-dessous).
 
 Format attendu, un par fichier, dans `res/drawable-nodpi/` :
 
@@ -199,6 +201,22 @@ Format attendu, un par fichier, dans `res/drawable-nodpi/` :
   densité d'écran (`-nodpi` le dit à Android), cohérent avec le WebP déjà à la résolution voulue.
 
 Déposer le fichier suffit : aucun code ne change, `Embleme` le sert dès la prochaine construction.
+
+## Les animations
+
+Les célébrations (l'enregistrement d'un film, une année dans la boîte, tirer pour rafraîchir, le
+ticket poinçonné, l'entrée d'un monde dans la Frise) jouent des animations Lottie récoltées sous
+licence libre (choisies par le propriétaire le 23 septembre 2026, soir, parmi onze essayées). Les
+six retenues vivent dans `app/src/main/assets/lottie/`, jamais téléchargées — la même règle que les
+polices (« Les versions », ci-dessus) — chargées par le composable `Animation`
+(`ui/theme/Animations.kt`, `LottieCompositionSpec.Asset`) ou, pour la bobine de
+tirer-pour-rafraîchir qui pilote sa propre progression, directement par `LottieAnimation`
+(`ui/theme/Ornements.kt`, `BobineIndicateur`). La source, l'auteur et la licence de chacune sont
+dans `app/src/main/assets/lottie/LICENCES.md`.
+
+En ajouter une : déposer le JSON dans `app/src/main/assets/lottie/`, ajouter sa ligne à
+`LICENCES.md`, l'appeler par `Animation("nom", ...)` — `AnimationsTest.kt` (JVM) refuse un nom sans
+fichier, et refuse un fichier sans les clés `v`, `fr`, `ip`, `op`, `layers` d'un Lottie valide.
 
 ## SensCritique
 
