@@ -56,17 +56,12 @@ import fr.mediatheque.journal.ui.login.LoginViewModel
 import fr.mediatheque.journal.ui.frise.TicketAMontrerUi
 import fr.mediatheque.journal.ui.celebrations.FilmEnregistreCalque
 import fr.mediatheque.journal.ui.frise.TicketCalque
-import fr.mediatheque.journal.ui.profile.BilanViewModel
-import fr.mediatheque.journal.ui.profile.DepensesViewModel
 import fr.mediatheque.journal.ui.profile.LetterboxdImportViewModel
-import fr.mediatheque.journal.ui.profile.PasseportViewModel
-import fr.mediatheque.journal.ui.profile.PortefeuilleViewModel
-import fr.mediatheque.journal.ui.profile.ProfileScreen
-import fr.mediatheque.journal.ui.profile.ProfileViewModel
-import fr.mediatheque.journal.ui.profile.RapportImportScreen
-import fr.mediatheque.journal.ui.profile.SensCritiqueScreen
 import fr.mediatheque.journal.ui.profile.SensCritiqueViewModel
 import fr.mediatheque.journal.ui.profile.toSearchResult
+import fr.mediatheque.journal.ui.profile.routeProfile
+import fr.mediatheque.journal.ui.profile.routeSensCritique
+import fr.mediatheque.journal.ui.profile.routeRapportImport
 import fr.mediatheque.journal.ui.realisateur.RealisateurResolveur
 import fr.mediatheque.journal.ui.realisateur.routeRealisateur
 import fr.mediatheque.journal.ui.realisateur.routeFicheFilm
@@ -361,67 +356,7 @@ fun Root(container: AppContainer) {
                             reactionsFavorites = reactionsFavorites,
                         )
                     }
-                    Screen.Profile -> {
-                        val profile: ProfileViewModel = viewModel(key = "profile") { ProfileViewModel(container.api, session::expire) }
-                        // Le Bilan (brief du 15 septembre 2026) : son propre journal complet, et
-                        // les deux sources suivies relues sur l'instance partagée — un
-                        // rafraîchissement de plus ne coûte qu'un appel réseau chacune, comme
-                        // `senscritique.refresh()` juste au-dessus.
-                        val bilan: BilanViewModel = viewModel(key = "bilan") { BilanViewModel(container.api, session::expire) }
-                        LaunchedEffect(Unit) { bilan.refresh() }
-                        LaunchedEffect(Unit) { suivis.refresh(SourceSuivi.REALISATEURS) }
-                        LaunchedEffect(Unit) { suivis.refresh(SourceSuivi.SAGAS) }
-                        // Le portefeuille (brief du 21 septembre 2026, « le ticket ») charge ses
-                        // données lui-même (`GET /me/voyage/tickets`), pas depuis `FriseViewModel`.
-                        val portefeuille: PortefeuilleViewModel = viewModel(key = "portefeuille") {
-                            PortefeuilleViewModel(container.api, session::expire)
-                        }
-                        LaunchedEffect(Unit) { portefeuille.refresh() }
-                        // Les dépenses (décision 2 du brief du 21 septembre 2026, « les dépenses »),
-                        // sous le portefeuille : même mécanique, son propre appel.
-                        val depenses: DepensesViewModel = viewModel(key = "depenses") {
-                            DepensesViewModel(container.api, session::expire)
-                        }
-                        LaunchedEffect(Unit) { depenses.refresh() }
-                        // Le passeport (décision 3 du brief du 21 septembre 2026, « les
-                        // récompenses ») charge ses données lui-même (`GET /me/voyage`), pas depuis
-                        // `FriseViewModel` : plus jamais vide quand Profil s'ouvre en premier.
-                        val passeport: PasseportViewModel = viewModel(key = "passeport") {
-                            PasseportViewModel(container.api, session::expire)
-                        }
-                        LaunchedEffect(Unit) { passeport.refresh() }
-                        val passeportUi by passeport.ui.collectAsState()
-                        ProfileScreen(
-                            s.user,
-                            profile,
-                            senscritique,
-                            bilan,
-                            suivis,
-                            passeport = passeportUi.tampons ?: emptyList(),
-                            portefeuille = portefeuille,
-                            depenses = depenses,
-                            onBack = nav::pop,
-                            onFilms = { nav.push(Screen.Films) },
-                            onSensCritique = { nav.push(Screen.SensCritique) },
-                            onSignOut = session::signOut,
-                            // Le tampon complet (films, dates) se construit depuis le journal déjà
-                            // chargé par la Frise, ou le charge lui-même s'il manque (décision 3).
-                            onOuvrirGenerique = { tampon ->
-                                passeport.ouvrirGenerique(tampon.decennie, frise.ui.value.annees.flatMap { it.vus }) {
-                                    nav.push(Screen.Generique(it))
-                                }
-                            },
-                            // L'action de l'état vide du passeport (point 16 de la revue du
-                            // 24 septembre 2026) : même geste que la barre du bas.
-                            onOuvrirVoyage = { nav.push(Screen.Frise) },
-                            onImportLetterboxd = { bytes -> letterboxd.start(bytes); nav.push(Screen.RapportImport) },
-                            // « Utiliser » sur un ticket du portefeuille (décision 3) : même appel
-                            // que le calque, puis `frise.refresh()` met la carte à jour — la même
-                            // mécanique que `onPodiumChange`/`onTicketChange` d'`AnneeScreen`.
-                            onUtiliserTicket = { annee -> portefeuille.utiliser(annee) { frise.refresh() } },
-                            bottomBar = { portee.barreDuBas(screen) },
-                        )
-                    }
+                    Screen.Profile -> portee.routeProfile()
                     Screen.Films -> portee.routeFilms()
                     is Screen.Edit -> {
                         // Indexé sur l'entrée corrigée (jumeau de `Screen.Form` ci-dessus) : une
@@ -465,7 +400,7 @@ fun Root(container: AppContainer) {
                             reactionsFavorites = reactionsFavorites,
                         )
                     }
-                    Screen.SensCritique -> SensCritiqueScreen(senscritique, onBack = nav::pop)
+                    Screen.SensCritique -> portee.routeSensCritique()
                     Screen.Cinema -> portee.routeCinema()
                     Screen.Frise -> {
                         // Nouveau `ViewModel` partagé avec l'accueil (même clé `"frise"` ci-dessus) :
@@ -618,18 +553,7 @@ fun Root(container: AppContainer) {
                     is Screen.Realisateur -> portee.routeRealisateur(screen)
                     is Screen.FicheFilm -> portee.routeFicheFilm(screen)
                     is Screen.ChoisirFilmDeSaga -> portee.routeChoisirFilmDeSaga(screen)
-                    Screen.RapportImport -> {
-                        val letterboxdUi by letterboxd.ui.collectAsState()
-                        RapportImportScreen(
-                            letterboxdUi,
-                            onBack = nav::pop,
-                            onCandidat = { candidat, ligne ->
-                                val (date, rating) = letterboxd.prefillFor(ligne)
-                                nav.push(Screen.Form(candidat.toSearchResult(), date, rating))
-                            },
-                            onTermine = nav::pop,
-                        )
-                    }
+                    Screen.RapportImport -> portee.routeRapportImport()
                 }
                 }
             }
