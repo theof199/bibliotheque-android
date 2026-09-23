@@ -4,6 +4,9 @@ import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import fr.mediatheque.journal.AppContainer
 import fr.mediatheque.journal.api.dto.User
 import fr.mediatheque.journal.ui.frise.FriseViewModel
@@ -48,9 +51,20 @@ class PorteeEcrans(
      * `FormRoutes.kt`) — jamais une requête réseau de plus, jamais recalculées à chaque écran.
      */
     val reactionsFavorites: List<String>,
+    anneeAVerifierVerdictState: MutableState<Int?>,
     val sharedTransitionScope: SharedTransitionScope,
     val animatedVisibilityScope: AnimatedVisibilityScope,
-)
+) {
+    /**
+     * Le verdict de maturité (brief du 25 septembre 2026, « le verdict de maturité se relit ») :
+     * l'année de sortie d'un film tout juste journalisé, posée par `nav.ticketRelectures`, pour la
+     * veille du verdict sur `Screen.Annee`. L'état lui-même est hoisté dans `Root.kt` (hors de
+     * l'`AnimatedContent`, sans quoi l'événement à un coup pourrait arriver avant que
+     * `Screen.Annee` ne soit recomposé pour le collecter) ; ici, une propriété déléguée dessus, lue
+     * et remise à `null` par `routeAnnee`.
+     */
+    var anneeAVerifierVerdict: Int? by anneeAVerifierVerdictState
+}
 
 /**
  * La barre du bas câblée sur la pile, un seul endroit pour les six écrans qui la portent (accueil,
