@@ -3,6 +3,8 @@ package fr.mediatheque.journal.ui.realisateur
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -74,6 +76,7 @@ import fr.mediatheque.journal.api.dto.FilmDeFilmographie
 import fr.mediatheque.journal.api.dto.RealisateurPageResponse
 import fr.mediatheque.journal.ui.AfficheVolante
 import fr.mediatheque.journal.ui.Cover
+import fr.mediatheque.journal.ui.TamponPerdu
 import fr.mediatheque.journal.ui.EntreeEnCascade
 import fr.mediatheque.journal.ui.afficheVolante
 import fr.mediatheque.journal.ui.rememberPorteCascade
@@ -347,6 +350,21 @@ private fun AfficheFilmographie(
 ) {
     val vu = film.vu != null
     val monde = mondeDe(film.year ?: 1895)
+    // Le tampon « PERDU » qui s'abat à la marque (geste 17 du complément du 23 septembre 2026) :
+    // observe la transition locale de `film.introuvable`, jamais simplement sa valeur au premier
+    // affichage — une filmographie ouverte sur un film déjà introuvable de longue date ne rejoue
+    // pas la chute, seule une marque posée sous nos yeux le fait.
+    val haptique = LocalHapticFeedback.current
+    var introuvablePrecedent by remember(film.tmdb_id) { mutableStateOf(film.introuvable) }
+    val echelleTampon = remember(film.tmdb_id) { Animatable(1f) }
+    LaunchedEffect(film.introuvable) {
+        if (!introuvablePrecedent && film.introuvable) {
+            echelleTampon.snapTo(3f)
+            echelleTampon.animateTo(1f, tween(300, easing = LinearOutSlowInEasing))
+            haptique.performHapticFeedback(HapticFeedbackType.Confirm)
+        }
+        introuvablePrecedent = film.introuvable
+    }
     Column(
         modifier
             .combinedClickable(onClick = onClick, onLongClick = if (film.vu == null) onLongClick else null)
@@ -368,7 +386,12 @@ private fun AfficheFilmographie(
                 modifier = Modifier.voler(volante),
                 colorFilter = if (vu) null else FiltreDesature,
             )
-            if (!vu) {
+            if (film.introuvable) {
+                TamponPerdu(
+                    modifier = Modifier.align(Alignment.Center).size(minOf(largeur, hauteur) * 0.62f),
+                    echelle = echelleTampon.value,
+                )
+            } else if (!vu) {
                 Box(Modifier.size(largeur, hauteur).background(TeinteSepia.copy(alpha = 0.35f)))
             }
             if (vu && film.vu?.rating != null) {

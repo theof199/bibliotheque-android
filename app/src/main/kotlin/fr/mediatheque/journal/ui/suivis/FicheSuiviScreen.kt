@@ -1,5 +1,8 @@
 package fr.mediatheque.journal.ui.suivis
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -11,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -43,7 +47,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -54,6 +57,7 @@ import fr.mediatheque.journal.api.dto.FilmSuivi
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.ui.Cover
+import fr.mediatheque.journal.ui.TamponPerdu
 import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.showBriefly
 
@@ -297,14 +301,27 @@ private fun IntrouvableSheet(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun LigneFilm(film: FilmSuivi, aVoir: Boolean, onClick: () -> Unit, onLongClick: () -> Unit, modifier: Modifier = Modifier) {
+    // Le tampon « PERDU » qui s'abat à la marque (geste 17 du complément du 23 septembre 2026) —
+    // à la place du grisage de toute la ligne : c'est l'affiche qui porte la marque, comme partout
+    // ailleurs où une jaquette d'introuvable s'affiche, la mention « introuvable » plus loin dans
+    // la ligne suffisant déjà à la lire. Transition locale observée, jamais la valeur au premier
+    // affichage : une liste ouverte sur un film déjà introuvable ne rejoue pas la chute.
+    val haptique = LocalHapticFeedback.current
+    var introuvablePrecedent by remember(film.tmdb_id) { mutableStateOf(film.introuvable) }
+    val echelleTampon = remember(film.tmdb_id) { Animatable(1f) }
+    LaunchedEffect(film.introuvable) {
+        if (!introuvablePrecedent && film.introuvable) {
+            echelleTampon.snapTo(3f)
+            echelleTampon.animateTo(1f, tween(300, easing = LinearOutSlowInEasing))
+            haptique.performHapticFeedback(HapticFeedbackType.Confirm)
+        }
+        introuvablePrecedent = film.introuvable
+    }
     Row(
         modifier
             .fillMaxWidth()
-            // Grisée plutôt que cachée : c'est l'interrupteur « Masquer les introuvables », pas
-            // cette ligne, qui décide si un film introuvable apparaît. Un appui long reste
-            // possible dessus, grisée ou non — « la remettre à voir » ne doit pas être plus dur à
-            // atteindre que « la marquer » ne l'a été.
-            .alpha(if (film.introuvable) 0.5f else 1f)
+            // Un appui long reste possible sur toute la ligne, tampon ou non — « la remettre à
+            // voir » ne doit pas être plus dur à atteindre que « la marquer » ne l'a été.
             .combinedClickable(onClick = onClick, onLongClick = onLongClick),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -316,7 +333,12 @@ private fun LigneFilm(film: FilmSuivi, aVoir: Boolean, onClick: () -> Unit, onLo
             textAlign = TextAlign.End,
             modifier = Modifier.width(36.dp),
         )
-        Cover(film.cover_url, film.title, 30.dp, 45.dp)
+        Box {
+            Cover(film.cover_url, film.title, 30.dp, 45.dp)
+            if (film.introuvable) {
+                TamponPerdu(modifier = Modifier.align(Alignment.Center).size(26.dp), echelle = echelleTampon.value)
+            }
+        }
         Text(film.title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
         // Petite mention à droite du titre (brief « les films de saga ajoutés à la
         // main », 15 septembre 2026), distincte du bloc note/introuvable/à voir plus
