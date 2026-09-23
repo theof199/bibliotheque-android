@@ -1,8 +1,13 @@
 package fr.mediatheque.journal.ui
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.Crossfade
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -178,15 +183,15 @@ fun Root(container: AppContainer) {
             var cartonTmdbId by remember { mutableStateOf<Int?>(null) }
             LaunchedEffect(Unit) { nav.cartonRequests.collect { cartonTmdbId = it } }
             // Le calque du ticket (décision 2 du brief du 21 septembre 2026, « le ticket ») se pose
-            // au-dessus du `Crossfade`, dans ce `Box` : il doit pouvoir s'afficher par-dessus
-            // n'importe quel écran (la Frise à son ouverture, ou l'accueil juste après un
+            // au-dessus de l'`AnimatedContent`, dans ce `Box` : il doit pouvoir s'afficher par-
+            // dessus n'importe quel écran (la Frise à son ouverture, ou l'accueil juste après un
             // enregistrement), pas seulement l'un d'eux.
             //
             // Le défilement survit au retour (peaufinage du 23 septembre 2026) : `stateHolder`,
             // hoisté ici comme `nav` plus haut, garde l'état sauvegardable (`rememberLazyListState`
-            // et consorts) de chaque entrée de la pile pendant qu'elle est disposée par le
-            // `Crossfade` — sans lui, revenir en arrière rouvrirait toujours en haut de la page.
-            // `pileConnue` retient l'ancienne pile pour libérer les clés des entrées qui l'ont
+            // et consorts) de chaque entrée de la pile pendant qu'elle est disposée par
+            // l'`AnimatedContent` — sans lui, revenir en arrière rouvrirait toujours en haut de la
+            // page. `pileConnue` retient l'ancienne pile pour libérer les clés des entrées qui l'ont
             // quittée (`clesLibereesParChangementDePile`, `Navigation.kt`) : un écran rouvert plus
             // tard repart donc en haut plutôt que de fuiter l'état d'une visite oubliée.
             val stateHolder = rememberSaveableStateHolder()
@@ -198,9 +203,32 @@ fun Root(container: AppContainer) {
             Box(Modifier.fillMaxSize()) {
             // `targetState` porte la pile entière, pas seulement `nav.current` : la lambda a ainsi
             // toujours la position exacte de l'écran qu'elle rend (`pile.lastIndex`), y compris
-            // pour la branche encore affichée pendant le fondu, plutôt que de relire `nav.stack`
-            // au moment de la composition, déjà avancé sur la pile suivante.
-            Crossfade(targetState = nav.stack, animationSpec = tween(200), label = "ecran") { pile ->
+            // pour la branche encore affichée pendant la transition, plutôt que de relire
+            // `nav.stack` au moment de la composition, déjà avancé sur la pile suivante. Le
+            // commentaire plus haut sur « `Crossfade` dispose la branche quittée » reste vrai ici :
+            // `AnimatedContent` en fait autant, une fois la transition finie — tout ce qui doit
+            // survivre à un `pop` reste hoisté hors de cette lambda, comme avant.
+            //
+            // Transitions avec profondeur (peaufinage du 23 septembre 2026, geste 7) : un `push`
+            // fait entrer le nouvel écran par la droite et l'ancien recule légèrement, un `pop`
+            // fait l'inverse, `home()` (pile vidée, `SensTransition.Remplace`) garde le fondu seul
+            // du réglage précédent. `sensDeTransition` (`Navigation.kt`) est une fonction pure,
+            // testée en JVM, qui ne regarde que la taille de la pile avant et après.
+            AnimatedContent(
+                targetState = nav.stack,
+                label = "ecran",
+                transitionSpec = {
+                    when (sensDeTransition(initialState, targetState)) {
+                        SensTransition.Push ->
+                            (slideInHorizontally(tween(250)) { largeur -> largeur / 4 } + fadeIn(tween(250)))
+                                .togetherWith(slideOutHorizontally(tween(250)) { largeur -> -largeur / 8 } + fadeOut(tween(250)))
+                        SensTransition.Pop ->
+                            (slideInHorizontally(tween(250)) { largeur -> -largeur / 4 } + fadeIn(tween(250)))
+                                .togetherWith(slideOutHorizontally(tween(250)) { largeur -> largeur / 8 } + fadeOut(tween(250)))
+                        SensTransition.Remplace -> fadeIn(tween(200)).togetherWith(fadeOut(tween(200)))
+                    }
+                },
+            ) { pile ->
                 val screen = pile.last()
                 stateHolder.SaveableStateProvider(saveableKey(pile.lastIndex, screen)) {
                 when (screen) {
