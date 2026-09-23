@@ -2849,6 +2849,18 @@
                   }
                 ]
               },
+              "backdrop_url": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Image de fond TMDB (w1280), servie telle quelle — jamais recopiée, comme les logos de plateformes. Nulle hors film, ou si TMDB n’en a pas."
+              },
               "release_date": {
                 "anyOf": [
                   {
@@ -3221,6 +3233,7 @@
               "title",
               "original_title",
               "cover_url",
+              "backdrop_url",
               "release_date",
               "year",
               "summary",
@@ -3281,6 +3294,18 @@
                     "type": "null"
                   }
                 ]
+              },
+              "backdrop_url": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Image de fond TMDB (w1280), servie telle quelle — jamais recopiée, comme les logos de plateformes. Nulle hors film, ou si TMDB n’en a pas."
               },
               "release_date": {
                 "anyOf": [
@@ -3726,6 +3751,7 @@
               "title",
               "original_title",
               "cover_url",
+              "backdrop_url",
               "release_date",
               "year",
               "summary",
@@ -3787,6 +3813,18 @@
                     "type": "null"
                   }
                 ]
+              },
+              "backdrop_url": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Image de fond TMDB (w1280), servie telle quelle — jamais recopiée, comme les logos de plateformes. Nulle hors film, ou si TMDB n’en a pas."
               },
               "release_date": {
                 "anyOf": [
@@ -4160,6 +4198,7 @@
               "title",
               "original_title",
               "cover_url",
+              "backdrop_url",
               "release_date",
               "year",
               "summary",
@@ -4220,6 +4259,18 @@
                     "type": "null"
                   }
                 ]
+              },
+              "backdrop_url": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Image de fond TMDB (w1280), servie telle quelle — jamais recopiée, comme les logos de plateformes. Nulle hors film, ou si TMDB n’en a pas."
               },
               "release_date": {
                 "anyOf": [
@@ -4850,6 +4901,7 @@
               "title",
               "original_title",
               "cover_url",
+              "backdrop_url",
               "release_date",
               "year",
               "summary",
@@ -4911,6 +4963,18 @@
                     "type": "null"
                   }
                 ]
+              },
+              "backdrop_url": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Image de fond TMDB (w1280), servie telle quelle — jamais recopiée, comme les logos de plateformes. Nulle hors film, ou si TMDB n’en a pas."
               },
               "release_date": {
                 "anyOf": [
@@ -5453,6 +5517,7 @@
               "title",
               "original_title",
               "cover_url",
+              "backdrop_url",
               "release_date",
               "year",
               "summary",
@@ -5513,6 +5578,18 @@
                     "type": "null"
                   }
                 ]
+              },
+              "backdrop_url": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Image de fond TMDB (w1280), servie telle quelle — jamais recopiée, comme les logos de plateformes. Nulle hors film, ou si TMDB n’en a pas."
               },
               "release_date": {
                 "anyOf": [
@@ -6218,6 +6295,7 @@
               "title",
               "original_title",
               "cover_url",
+              "backdrop_url",
               "release_date",
               "year",
               "summary",
@@ -11022,6 +11100,18 @@
                   }
                 ]
               },
+              "backdrop_url": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Image de fond TMDB (w1280), servie telle quelle — jamais recopiée, comme les logos de plateformes. Nulle hors film, ou si TMDB n’en a pas."
+              },
               "release_date": {
                 "anyOf": [
                   {
@@ -11403,6 +11493,7 @@
               "title",
               "original_title",
               "cover_url",
+              "backdrop_url",
               "release_date",
               "year",
               "summary",
@@ -11464,6 +11555,18 @@
                     "type": "null"
                   }
                 ]
+              },
+              "backdrop_url": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Image de fond TMDB (w1280), servie telle quelle — jamais recopiée, comme les logos de plateformes. Nulle hors film, ou si TMDB n’en a pas."
               },
               "release_date": {
                 "anyOf": [
@@ -11921,6 +12024,7 @@
               "title",
               "original_title",
               "cover_url",
+              "backdrop_url",
               "release_date",
               "year",
               "summary",
@@ -11983,6 +12087,18 @@
                     "type": "null"
                   }
                 ]
+              },
+              "backdrop_url": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Image de fond TMDB (w1280), servie telle quelle — jamais recopiée, comme les logos de plateformes. Nulle hors film, ou si TMDB n’en a pas."
               },
               "release_date": {
                 "anyOf": [
@@ -12365,6 +12481,7 @@
               "title",
               "original_title",
               "cover_url",
+              "backdrop_url",
               "release_date",
               "year",
               "summary",
@@ -12426,6 +12543,18 @@
                     "type": "null"
                   }
                 ]
+              },
+              "backdrop_url": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Image de fond TMDB (w1280), servie telle quelle — jamais recopiée, comme les logos de plateformes. Nulle hors film, ou si TMDB n’en a pas."
               },
               "release_date": {
                 "anyOf": [
@@ -13072,6 +13201,7 @@
               "title",
               "original_title",
               "cover_url",
+              "backdrop_url",
               "release_date",
               "year",
               "summary",
@@ -13134,6 +13264,18 @@
                     "type": "null"
                   }
                 ]
+              },
+              "backdrop_url": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Image de fond TMDB (w1280), servie telle quelle — jamais recopiée, comme les logos de plateformes. Nulle hors film, ou si TMDB n’en a pas."
               },
               "release_date": {
                 "anyOf": [
@@ -13706,6 +13848,7 @@
               "title",
               "original_title",
               "cover_url",
+              "backdrop_url",
               "release_date",
               "year",
               "summary",
@@ -13767,6 +13910,18 @@
                     "type": "null"
                   }
                 ]
+              },
+              "backdrop_url": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Image de fond TMDB (w1280), servie telle quelle — jamais recopiée, comme les logos de plateformes. Nulle hors film, ou si TMDB n’en a pas."
               },
               "release_date": {
                 "anyOf": [
@@ -14491,6 +14646,7 @@
               "title",
               "original_title",
               "cover_url",
+              "backdrop_url",
               "release_date",
               "year",
               "summary",
@@ -17747,6 +17903,196 @@
         }
       }
     },
+    "/reference/decennies": {
+      "get": {
+        "summary": "Films emblématiques par décennie",
+        "tags": [
+          "référence"
+        ],
+        "description": "Pour habiller les mondes de la carte du Voyage dans l’appli : cinq films emblématiques par décennie, de 1890 à 2020, avec leur affiche et leur image de fond.\n\nLa liste des films vit en clair côté back (`packages/shared/src/decennies.ts`), sous forme de titres et d’années — jamais un `tmdb_id` écrit à la main. Chaque entrée est résolue chez TMDB par recherche de titre, avec la même règle d’année exacte que le Voyage : un candidat dont l’année ne correspond pas **exactement** n’est pas retenu. **Un film non rapproché est omis de sa décennie**, jamais deviné.\n\nRésolue une fois, puis servie du cache — **y compris périmée** : au-delà de vingt-quatre heures, la valeur en cache (Redis, gardée sept jours) est rendue telle quelle tout de suite, et un rafraîchissement part derrière, sans que la réponse l’attende. Un seul rafraîchissement à la fois, verrouillé, quel que soit le nombre de lecteurs qui arrivent en même temps sur une valeur périmée. Une chauffe au démarrage (`plugins/decennies-warmup.ts`) calcule la première valeur si le cache est vide et `TMDB_API_KEY` configurée, pour qu’un lecteur ne tombe qu’exceptionnellement sur les quinze secondes d’une résolution à froid.\n\n`503` si `TMDB_API_KEY` n’est pas renseignée sur ce serveur.",
+        "responses": {
+          "200": {
+            "description": "Les films emblématiques de chaque décennie, pour habiller les mondes de la carte",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "decennies": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "decennie": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "1890, 1900… la décennie"
+                          },
+                          "films": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "tmdb_id": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "titre": {
+                                  "type": "string"
+                                },
+                                "annee": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "cover_url": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "uri"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "backdrop_url": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "uri"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "description": "Image de fond TMDB (w1280), servie telle quelle"
+                                }
+                              },
+                              "required": [
+                                "tmdb_id",
+                                "titre",
+                                "annee",
+                                "cover_url",
+                                "backdrop_url"
+                              ],
+                              "additionalProperties": false,
+                              "description": "Un film emblématique de la décennie, résolu chez TMDB"
+                            },
+                            "description": "Les films résolus — un film non rapproché sur TMDB est omis"
+                          }
+                        },
+                        "required": [
+                          "decennie",
+                          "films"
+                        ],
+                        "additionalProperties": false,
+                        "description": "Les films emblématiques d’une décennie"
+                      },
+                      "description": "De 1890 à 2020, croissant"
+                    }
+                  },
+                  "required": [
+                    "decennies"
+                  ],
+                  "additionalProperties": false,
+                  "description": "Les films emblématiques de chaque décennie, pour habiller les mondes de la carte"
+                },
+                "examples": {
+                  "Réponse type": {
+                    "value": {
+                      "decennies": [
+                        {
+                          "decennie": 1920,
+                          "films": [
+                            {
+                              "tmdb_id": 174,
+                              "titre": "Le Cabinet du docteur Caligari",
+                              "annee": 1920,
+                              "cover_url": "https://image.tmdb.org/t/p/w500/dbxOGjRt6y5ScvR1RdSAdENevOd.jpg",
+                              "backdrop_url": "https://image.tmdb.org/t/p/w1280/9RXn8Ml7bYPCBUAlxxMhIzhkAlF.jpg"
+                            },
+                            {
+                              "tmdb_id": 653,
+                              "titre": "Nosferatu le vampire",
+                              "annee": 1922,
+                              "cover_url": "https://image.tmdb.org/t/p/w500/rLIVsyeFsUYm4CxxjcvJVQmqDaz.jpg",
+                              "backdrop_url": "https://image.tmdb.org/t/p/w1280/9G8CBmw2NfW5x8vD1YnrRWvhcpG.jpg"
+                            },
+                            {
+                              "tmdb_id": 656,
+                              "titre": "Le Mécano de la Générale",
+                              "annee": 1926,
+                              "cover_url": "https://image.tmdb.org/t/p/w500/aOh7wqZFTd7XVYQZWCEUuf8Rvhg.jpg",
+                              "backdrop_url": "https://image.tmdb.org/t/p/w1280/eSChUCktZ1jhpU3EQBfNAqfj0EK.jpg"
+                            },
+                            {
+                              "tmdb_id": 19,
+                              "titre": "Metropolis",
+                              "annee": 1927,
+                              "cover_url": "https://image.tmdb.org/t/p/w500/pIcXcLwlmndT5wecmy0BC9BjkbW.jpg",
+                              "backdrop_url": "https://image.tmdb.org/t/p/w1280/wY0eR6ChK1nayPqUCFo0ycqJ7lI.jpg"
+                            },
+                            {
+                              "tmdb_id": 663,
+                              "titre": "La Passion de Jeanne d’Arc",
+                              "annee": 1928,
+                              "cover_url": "https://image.tmdb.org/t/p/w500/9lZGwZ4DiUXFTvxDzavPQu6IMWH.jpg",
+                              "backdrop_url": "https://image.tmdb.org/t/p/w1280/8U4NB1WuP5lPTfimVCPrKuOFqPI.jpg"
+                            }
+                          ]
+                        },
+                        {
+                          "decennie": 1930,
+                          "films": [
+                            {
+                              "tmdb_id": 780,
+                              "titre": "M le Maudit",
+                              "annee": 1931,
+                              "cover_url": "https://image.tmdb.org/t/p/w500/w8bx7BkPBQaSwGwrqJITOFsSXWK.jpg",
+                              "backdrop_url": "https://image.tmdb.org/t/p/w1280/7qXPVjE7ZDLNXwzbfhWjqDNn3sf.jpg"
+                            },
+                            {
+                              "tmdb_id": 254,
+                              "titre": "King Kong",
+                              "annee": 1933,
+                              "cover_url": "https://image.tmdb.org/t/p/w500/sIt2Ho2KcJ7oyaxSSKdw5vGWM2y.jpg",
+                              "backdrop_url": "https://image.tmdb.org/t/p/w1280/8HcAJUsVJv6EbXNIH3QhOm5rzEK.jpg"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/auth/login": {
       "post": {
         "summary": "Ouvrir une session",
@@ -19885,6 +20231,7 @@
                       "title": "Les Chroniques du Vent",
                       "original_title": "The Wind Chronicles",
                       "cover_url": "http://localhost:3000/covers/9f2c1ab4d7e08c3b6512-large.webp",
+                      "backdrop_url": null,
                       "release_date": "2021-03-01",
                       "year": 2021,
                       "summary": "Cinq saisons dans une cité de marchands de vent.",
@@ -27372,6 +27719,18 @@
                               "external_id": {
                                 "type": "string",
                                 "description": "Identifiant chez la source — le `tmdb_id` du film"
+                              },
+                              "backdrop_url": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "uri"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "Image de fond TMDB (w1280), servie telle quelle — nulle si TMDB n’en a pas"
                               }
                             },
                             "required": [
@@ -27382,7 +27741,8 @@
                               "cover_url",
                               "year",
                               "director",
-                              "external_id"
+                              "external_id",
+                              "backdrop_url"
                             ],
                             "additionalProperties": false,
                             "description": "L’œuvre, réduite à ce que le journal affiche"
@@ -27468,6 +27828,7 @@
                             "external_id": "27205",
                             "title": "Inception",
                             "cover_url": "https://image.tmdb.org/t/p/w500/9gk7adZmeSSuQfZBtWWLIcVcSY.jpg",
+                            "backdrop_url": "https://image.tmdb.org/t/p/w1280/s3TBrRGB1iav7gFOCNx3H31MoES.jpg",
                             "year": 2010,
                             "director": "Christopher Nolan"
                           },
@@ -27740,6 +28101,18 @@
                         "external_id": {
                           "type": "string",
                           "description": "Identifiant chez la source — le `tmdb_id` du film"
+                        },
+                        "backdrop_url": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uri"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Image de fond TMDB (w1280), servie telle quelle — nulle si TMDB n’en a pas"
                         }
                       },
                       "required": [
@@ -27750,7 +28123,8 @@
                         "cover_url",
                         "year",
                         "director",
-                        "external_id"
+                        "external_id",
+                        "backdrop_url"
                       ],
                       "additionalProperties": false,
                       "description": "L’œuvre, réduite à ce que le journal affiche"
@@ -27814,6 +28188,7 @@
                         "external_id": "27205",
                         "title": "Inception",
                         "cover_url": "https://image.tmdb.org/t/p/w500/9gk7adZmeSSuQfZBtWWLIcVcSY.jpg",
+                        "backdrop_url": "https://image.tmdb.org/t/p/w1280/s3TBrRGB1iav7gFOCNx3H31MoES.jpg",
                         "year": 2010,
                         "director": "Christopher Nolan"
                       },
@@ -27988,6 +28363,18 @@
                         "external_id": {
                           "type": "string",
                           "description": "Identifiant chez la source — le `tmdb_id` du film"
+                        },
+                        "backdrop_url": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uri"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Image de fond TMDB (w1280), servie telle quelle — nulle si TMDB n’en a pas"
                         }
                       },
                       "required": [
@@ -27998,7 +28385,8 @@
                         "cover_url",
                         "year",
                         "director",
-                        "external_id"
+                        "external_id",
+                        "backdrop_url"
                       ],
                       "additionalProperties": false,
                       "description": "L’œuvre, réduite à ce que le journal affiche"
@@ -28062,6 +28450,7 @@
                         "external_id": "27205",
                         "title": "Inception",
                         "cover_url": "https://image.tmdb.org/t/p/w500/9gk7adZmeSSuQfZBtWWLIcVcSY.jpg",
+                        "backdrop_url": "https://image.tmdb.org/t/p/w1280/s3TBrRGB1iav7gFOCNx3H31MoES.jpg",
                         "year": 2010,
                         "director": "Christopher Nolan"
                       },
@@ -28568,6 +28957,18 @@
                         "external_id": {
                           "type": "string",
                           "description": "Identifiant chez la source — le `tmdb_id` du film"
+                        },
+                        "backdrop_url": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uri"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Image de fond TMDB (w1280), servie telle quelle — nulle si TMDB n’en a pas"
                         }
                       },
                       "required": [
@@ -28578,7 +28979,8 @@
                         "cover_url",
                         "year",
                         "director",
-                        "external_id"
+                        "external_id",
+                        "backdrop_url"
                       ],
                       "additionalProperties": false,
                       "description": "L’œuvre, réduite à ce que le journal affiche"
@@ -28642,6 +29044,7 @@
                         "external_id": "27205",
                         "title": "Inception",
                         "cover_url": "https://image.tmdb.org/t/p/w500/9gk7adZmeSSuQfZBtWWLIcVcSY.jpg",
+                        "backdrop_url": "https://image.tmdb.org/t/p/w1280/s3TBrRGB1iav7gFOCNx3H31MoES.jpg",
                         "year": 2010,
                         "director": "Christopher Nolan"
                       },
@@ -29419,6 +29822,18 @@
                             ],
                             "description": "Affiche en URL absolue, taille `w500`"
                           },
+                          "backdrop_url": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uri"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Image de fond en URL absolue, taille `w1280`, servie telle quelle — nulle si TMDB n’en a pas"
+                          },
                           "vu": {
                             "anyOf": [
                               {
@@ -29476,6 +29891,7 @@
                           "year",
                           "release_date",
                           "cover_url",
+                          "backdrop_url",
                           "vu",
                           "introuvable"
                         ],
@@ -29501,6 +29917,7 @@
                           "year": 2010,
                           "release_date": "2010-07-15",
                           "cover_url": "https://image.tmdb.org/t/p/w500/9gk7adZmeSSuQfZBtWWLIcVcSY.jpg",
+                          "backdrop_url": "https://image.tmdb.org/t/p/w1280/s3TBrRGB1iav7gFOCNx3H31MoES.jpg",
                           "vu": {
                             "entry_id": "e0000000-0000-4000-8000-000000000002",
                             "rating": 9,
@@ -29515,6 +29932,7 @@
                           "year": 2014,
                           "release_date": "2014-11-05",
                           "cover_url": "https://image.tmdb.org/t/p/w500/nrJ0FuWpoGVQ8lLkmDVUxr4b8vF.jpg",
+                          "backdrop_url": "https://image.tmdb.org/t/p/w1280/xJHokMbljvjADYdit5fK5VQsXEG.jpg",
                           "vu": null,
                           "introuvable": false
                         },
@@ -29525,6 +29943,7 @@
                           "year": null,
                           "release_date": "1975-01-01",
                           "cover_url": null,
+                          "backdrop_url": null,
                           "vu": null,
                           "introuvable": true
                         }
@@ -29732,6 +30151,18 @@
                             ],
                             "description": "Affiche en URL absolue, taille `w500`"
                           },
+                          "backdrop_url": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uri"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Image de fond en URL absolue, taille `w1280`, servie telle quelle — nulle si TMDB n’en a pas"
+                          },
                           "vu": {
                             "anyOf": [
                               {
@@ -29863,6 +30294,7 @@
                           "year",
                           "release_date",
                           "cover_url",
+                          "backdrop_url",
                           "vu",
                           "introuvable",
                           "type",
@@ -29913,6 +30345,7 @@
                           "year": 2010,
                           "release_date": "2010-07-15",
                           "cover_url": "https://image.tmdb.org/t/p/w500/9gk7adZmeSSuQfZBtWWLIcVcSY.jpg",
+                          "backdrop_url": "https://image.tmdb.org/t/p/w1280/s3TBrRGB1iav7gFOCNx3H31MoES.jpg",
                           "vu": {
                             "entry_id": "e0000000-0000-4000-8000-000000000002",
                             "rating": 9,
@@ -29938,6 +30371,7 @@
                           "year": 2024,
                           "release_date": "2024-03-01",
                           "cover_url": null,
+                          "backdrop_url": null,
                           "vu": null,
                           "introuvable": false,
                           "court": false,
@@ -41626,6 +42060,18 @@
                             ],
                             "description": "L’affiche du n°1 du podium — nulle si la marche 1 est vide"
                           },
+                          "fond_url": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uri"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "L’image de fond du n°1 du podium — nulle si la marche 1 est vide, un programme, ou sans image de fond"
+                          },
                           "recompense": {
                             "anyOf": [
                               {
@@ -41649,6 +42095,7 @@
                           "visitee",
                           "profondeur",
                           "affiche_url",
+                          "fond_url",
                           "recompense"
                         ],
                         "additionalProperties": false,
@@ -41817,6 +42264,7 @@
                           "visitee": true,
                           "profondeur": 6,
                           "affiche_url": null,
+                          "fond_url": null,
                           "recompense": "ours"
                         },
                         {
@@ -41825,6 +42273,7 @@
                           "visitee": true,
                           "profondeur": 4,
                           "affiche_url": "https://image.tmdb.org/t/p/w500/sav0jxhqiH0bPr2vZFU0Kjt2nZL.jpg",
+                          "fond_url": "https://image.tmdb.org/t/p/w1280/sav0jxhqiH0bPr2vZFU0Kjt2nZL.jpg",
                           "recompense": "lion"
                         },
                         {
@@ -41833,6 +42282,7 @@
                           "visitee": false,
                           "profondeur": 0,
                           "affiche_url": null,
+                          "fond_url": null,
                           "recompense": null
                         }
                       ],
@@ -42136,6 +42586,18 @@
                                         }
                                       ]
                                     },
+                                    "backdrop_url": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "format": "uri"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ],
+                                      "description": "Image de fond TMDB (w1280), résolue sur la fiche de ce `tmdb_id` si l’œuvre est déjà en bibliothèque — nulle sinon, ou si TMDB n’en a pas"
+                                    },
                                     "plex_url": {
                                       "anyOf": [
                                         {
@@ -42270,6 +42732,7 @@
                                     "realisateur",
                                     "raison",
                                     "cover_url",
+                                    "backdrop_url",
                                     "plex_url",
                                     "etat",
                                     "note",
@@ -42345,6 +42808,18 @@
                                         "type": "null"
                                       }
                                     ]
+                                  },
+                                  "backdrop_url": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "uri"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "Image de fond TMDB (w1280) — résolue depuis la fiche du `tmdb_id`, nulle sur un `programme_id` ou si TMDB n’en a pas"
                                   }
                                 },
                                 "required": [
@@ -42352,7 +42827,8 @@
                                   "tmdb_id",
                                   "programme_id",
                                   "title",
-                                  "cover_url"
+                                  "cover_url",
+                                  "backdrop_url"
                                 ],
                                 "additionalProperties": false,
                                 "description": "Une marche du podium, occupée"
@@ -43008,6 +43484,18 @@
                                         "type": "null"
                                       }
                                     ]
+                                  },
+                                  "backdrop_url": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "uri"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ],
+                                    "description": "Image de fond TMDB (w1280) — résolue depuis la fiche du `tmdb_id`, nulle sur un `programme_id` ou si TMDB n’en a pas"
                                   }
                                 },
                                 "required": [
@@ -43015,7 +43503,8 @@
                                   "tmdb_id",
                                   "programme_id",
                                   "title",
-                                  "cover_url"
+                                  "cover_url",
+                                  "backdrop_url"
                                 ],
                                 "additionalProperties": false,
                                 "description": "Une marche du podium, occupée"
@@ -43107,6 +43596,7 @@
                               "realisateur": "Orson Welles",
                               "raison": null,
                               "cover_url": "https://image.tmdb.org/t/p/w500/sav0jxhqiH0bPr2vZFU0Kjt2nZL.jpg",
+                              "backdrop_url": "https://image.tmdb.org/t/p/w1280/sav0jxhqiH0bPr2vZFU0Kjt2nZL.jpg",
                               "plex_url": null,
                               "etat": "vu",
                               "note": 9,
@@ -43122,6 +43612,7 @@
                               "realisateur": "John Huston",
                               "raison": "Fonde le film noir, avec Bogart au sommet de son premier grand rôle. Une réputation qui n’a jamais faibli depuis.",
                               "cover_url": "https://image.tmdb.org/t/p/w500/hPgOKGzJ7hCq9zpG3jXPKGWQ7A6.jpg",
+                              "backdrop_url": null,
                               "plex_url": null,
                               "etat": "a_demander",
                               "note": null,
@@ -43146,7 +43637,8 @@
                           "tmdb_id": 15,
                           "programme_id": null,
                           "title": "Citizen Kane",
-                          "cover_url": "https://image.tmdb.org/t/p/w500/sav0jxhqiH0bPr2vZFU0Kjt2nZL.jpg"
+                          "cover_url": "https://image.tmdb.org/t/p/w500/sav0jxhqiH0bPr2vZFU0Kjt2nZL.jpg",
+                          "backdrop_url": "https://image.tmdb.org/t/p/w1280/sav0jxhqiH0bPr2vZFU0Kjt2nZL.jpg"
                         },
                         null,
                         null
@@ -43402,6 +43894,18 @@
                                     "type": "null"
                                   }
                                 ]
+                              },
+                              "backdrop_url": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "uri"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "Image de fond TMDB (w1280) — résolue depuis la fiche du `tmdb_id`, nulle sur un `programme_id` ou si TMDB n’en a pas"
                               }
                             },
                             "required": [
@@ -43409,7 +43913,8 @@
                               "tmdb_id",
                               "programme_id",
                               "title",
-                              "cover_url"
+                              "cover_url",
+                              "backdrop_url"
                             ],
                             "additionalProperties": false,
                             "description": "Une marche du podium, occupée"
@@ -43437,7 +43942,8 @@
                           "tmdb_id": 15,
                           "programme_id": null,
                           "title": "Citizen Kane",
-                          "cover_url": "https://image.tmdb.org/t/p/w500/sav0jxhqiH0bPr2vZFU0Kjt2nZL.jpg"
+                          "cover_url": "https://image.tmdb.org/t/p/w500/sav0jxhqiH0bPr2vZFU0Kjt2nZL.jpg",
+                          "backdrop_url": "https://image.tmdb.org/t/p/w1280/sav0jxhqiH0bPr2vZFU0Kjt2nZL.jpg"
                         },
                         null,
                         null
