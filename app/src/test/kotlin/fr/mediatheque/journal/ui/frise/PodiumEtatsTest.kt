@@ -34,7 +34,7 @@ class PodiumEtatsTest {
     )
 
     private fun salle(vararg films: FilmSalleUi) =
-        SalleUi("s1", 1, "Une salle", "Ce qu'il ne fallait pas manquer", null, false, false, films.toList())
+        SalleUi("s1", 1, "Une salle", "Ce qu'il ne fallait pas manquer", null, null, false, false, films.toList())
 
     // Jamais un film d'une autre année (le back refuserait le `tmdb_id` en `400` sinon).
     // Mutation : retirer le filtre sur l'année ferait proposer un film de 1940 sur le podium de 1941.

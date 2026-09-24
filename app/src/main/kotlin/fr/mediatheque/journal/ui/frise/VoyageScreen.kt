@@ -32,7 +32,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -40,7 +39,6 @@ import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
@@ -127,9 +125,6 @@ fun VoyageScreen(
     // « Année dans la boîte » (habillage du 23 septembre 2026, geste 11) : le calque qui remplace
     // l'ancienne snackbar — nul hors célébration.
     var celebrationAnnee by remember { mutableStateOf<FrontiereAvancee?>(null) }
-    // La proposition de carnet (décision 1 du brief du 22 septembre 2026, « le carnet ») : nulle
-    // hors dialogue, sinon l'année à proposer.
-    var carnetPropose by remember { mutableStateOf<Int?>(null) }
     // Le clap qui marche le long de la pellicule après un enregistrement (complément du 23
     // septembre 2026 à l'habillage, geste 14) : vrai le temps du défilement animé de 800 ms, faux
     // au premier chargement de l'écran (l'ouverture se positionne d'un coup, sans marche à voir).
@@ -188,15 +183,11 @@ fun VoyageScreen(
     }
 
     // L'année en cours qui avance : le clap claque, le calque « *1898* dans la boîte » joue sa
-    // séquence (habillage du 23 septembre 2026, geste 11 — remplace l'ancienne snackbar), et la
-    // proposition de carnet s'ouvre pour l'année qu'on quitte (décision 1 du brief du 22 septembre
-    // 2026, « le carnet ») — même site quelle que soit la façon dont le ticket a été encaissé (la
-    // fiche d'une année, le calque ou le portefeuille), tous relisent `GET /me/voyage` en retour.
+    // séquence (habillage du 23 septembre 2026, geste 11 — remplace l'ancienne snackbar).
     LaunchedEffect(Unit) {
         vm.avancees.collect { avancee ->
             claques += 1
             celebrationAnnee = avancee
-            carnetPropose = anneeProposeeCarnet(avancee)
         }
     }
 
@@ -208,25 +199,6 @@ fun VoyageScreen(
             decennieAllumee = tampon.decennie
             onOpenGenerique(tampon)
         }
-    }
-
-    // La proposition de carnet (décision 1 du brief du 22 septembre 2026, « le carnet ») : « Oui »
-    // lance la fabrication et referme le dialogue tout de suite (optimiste, jumeau des autres
-    // gestes du Voyage) — `vm.proposerCarnet` porte le message bref de succès, ou celui du back sur
-    // une `409` (une fabrication déjà en cours pour cette année).
-    carnetPropose?.let { annee ->
-        AlertDialog(
-            onDismissRequest = { carnetPropose = null },
-            title = { Text("$annee est bouclée") },
-            text = { Text("Veux-tu son carnet ?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    carnetPropose = null
-                    vm.proposerCarnet(annee) { message -> snackbar.showBriefly(message) }
-                }) { Text("Oui") }
-            },
-            dismissButton = { TextButton(onClick = { carnetPropose = null }) { Text("Plus tard") } },
-        )
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -297,6 +269,9 @@ fun VoyageScreen(
             avancee = avancee,
             recompense = recompenseDe(ui.voyage.parAnnee[avancee.anneeBouclee]?.recompense),
             onTermine = { celebrationAnnee = null },
+            // Le générique de fin (décision 5 du brief du 24 septembre 2026, « le voyage revu ») :
+            // simple lecture, silencieuse en cas d'échec — la ligne ne s'affiche simplement pas.
+            chargerGenerique = { vm.chargerGeneriqueAnnee(avancee.anneeBouclee) },
         )
     }
     // Le carton-titre d'un monde (geste 22) : fondu d'entrée et de sortie porté ici, comme le

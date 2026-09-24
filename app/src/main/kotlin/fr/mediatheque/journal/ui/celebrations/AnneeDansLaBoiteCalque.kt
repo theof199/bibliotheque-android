@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,6 +44,8 @@ import androidx.compose.ui.unit.sp
 import com.airbnb.lottie.LottieProperty
 import com.airbnb.lottie.compose.rememberLottieDynamicProperties
 import com.airbnb.lottie.compose.rememberLottieDynamicProperty
+import fr.mediatheque.journal.ui.EtatFeuilleDeLecture
+import fr.mediatheque.journal.ui.FeuilleDeLecture
 import fr.mediatheque.journal.ui.frise.FrontiereAvancee
 import fr.mediatheque.journal.ui.frise.Recompense
 import fr.mediatheque.journal.ui.theme.Animation
@@ -78,11 +81,23 @@ private val TroisOrsDeLaPluie = listOf(Or, Color(0xFFC9A227), Color(0xFFF2D98A))
  * de la Frise indépendamment de toute célébration, une seconde raison d'exister.
  */
 @Composable
-fun AnneeDansLaBoiteCalque(avancee: FrontiereAvancee, recompense: Recompense?, onTermine: () -> Unit) {
+fun AnneeDansLaBoiteCalque(
+    avancee: FrontiereAvancee,
+    recompense: Recompense?,
+    onTermine: () -> Unit,
+    /**
+     * Le générique de fin de l'année qu'on quitte (décision 5 du brief du 24 septembre 2026, « le
+     * voyage revu ») : lu en tâche de fond pendant la séquence, `null` s'il n'est pas (encore) là —
+     * la ligne « Lire le générique » ne s'affiche simplement pas dans ce cas.
+     */
+    chargerGenerique: suspend () -> String? = { null },
+) {
     val haptique = LocalHapticFeedback.current
     var phase by remember(avancee) { mutableStateOf(PhaseBoite.COMPTE) }
     var chiffre by remember(avancee) { mutableIntStateOf(5) }
     val balayage = remember(avancee) { Animatable(0f) }
+    var generique by remember(avancee) { mutableStateOf<String?>(null) }
+    var feuilleGeneriqueOuverte by remember(avancee) { mutableStateOf(false) }
 
     LaunchedEffect(avancee) {
         listOf(5, 4, 3).forEach { n ->
@@ -93,6 +108,9 @@ fun AnneeDansLaBoiteCalque(avancee: FrontiereAvancee, recompense: Recompense?, o
         }
         phase = PhaseBoite.RECOMPENSE
         haptique.performHapticFeedback(HapticFeedbackType.Confirm)
+        // Lu en tâche de fond, sans retarder la séquence : « Lire le générique » n'apparaît que
+        // s'il a fini de répondre avant la révélation, silencieux sinon.
+        launch { generique = chargerGenerique() }
         // La pluie (ci-dessous, `confetti-1.json`) joue sur ce même intervalle, indépendamment de
         // cette temporisation — la même durée que gardait la pluie dessinée à la main qu'elle
         // remplace.
@@ -114,7 +132,13 @@ fun AnneeDansLaBoiteCalque(avancee: FrontiereAvancee, recompense: Recompense?, o
             when (etat) {
                 PhaseBoite.COMPTE -> AmorceCompteARebours(chiffre, balayage.value)
                 PhaseBoite.RECOMPENSE, PhaseBoite.REVELATION ->
-                    ContenuRecompense(avancee.anneeBouclee, recompense, etat == PhaseBoite.REVELATION)
+                    ContenuRecompense(
+                        avancee.anneeBouclee,
+                        recompense,
+                        etat == PhaseBoite.REVELATION,
+                        generique = generique,
+                        onLireGenerique = { feuilleGeneriqueOuverte = true },
+                    )
             }
         }
         if (phase != PhaseBoite.COMPTE) {
@@ -137,6 +161,14 @@ fun AnneeDansLaBoiteCalque(avancee: FrontiereAvancee, recompense: Recompense?, o
                 modifier = Modifier.fillMaxSize(),
             )
         }
+    }
+
+    if (feuilleGeneriqueOuverte && generique != null) {
+        FeuilleDeLecture(
+            titre = "Le générique de fin",
+            etat = EtatFeuilleDeLecture.Texte(generique!!),
+            onDismiss = { feuilleGeneriqueOuverte = false },
+        )
     }
 }
 
@@ -168,7 +200,14 @@ private fun AmorceCompteARebours(chiffre: Int, tours: Float) {
  * l'année, le passeport, le tampon « perdu ») : seule cette apparition change.
  */
 @Composable
-private fun ContenuRecompense(anneeBouclee: Int, recompense: Recompense?, revele: Boolean) {
+private fun ContenuRecompense(
+    anneeBouclee: Int,
+    recompense: Recompense?,
+    revele: Boolean,
+    /** Le générique de fin (décision 5 du brief du 24 septembre 2026, « le voyage revu ») — nul tant qu'il n'a pas répondu. */
+    generique: String? = null,
+    onLireGenerique: () -> Unit = {},
+) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
         recompense?.let {
             Animation(
@@ -195,6 +234,12 @@ private fun ContenuRecompense(anneeBouclee: Int, recompense: Recompense?, revele
         )
         recompense?.let {
             Text(it.singulier, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        // « Lire le générique » (décision 5 du brief du 24 septembre 2026, « le voyage revu ») : ne
+        // s'affiche que si l'appel a fini de répondre avant la révélation — silencieux sinon,
+        // jamais un chargement dans cette célébration déjà rythmée par ses propres temporisations.
+        generique?.let {
+            TextButton(onClick = onLireGenerique) { Text("Lire le générique") }
         }
         if (revele) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {

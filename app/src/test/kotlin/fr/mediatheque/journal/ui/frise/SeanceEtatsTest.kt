@@ -31,7 +31,7 @@ class SeanceEtatsTest {
     )
 
     private fun salle(nom: String, vararg films: FilmSalleUi) =
-        SalleUi("s-$nom", 1, nom, "Ce qu'il ne fallait pas manquer", null, false, false, films.toList())
+        SalleUi("s-$nom", 1, nom, "Ce qu'il ne fallait pas manquer", null, null, false, false, films.toList())
 
     private fun seanceFilm(filmId: String = "f-long", tmdbId: Int = 1, etat: String = "a_demander", plexUrl: String? = null, bobine: SeanceBobineUi? = null) =
         SeanceFilmUi(filmId, tmdbId, "Film $tmdbId", null, "Les essentiels", etat, plexUrl, bobine)

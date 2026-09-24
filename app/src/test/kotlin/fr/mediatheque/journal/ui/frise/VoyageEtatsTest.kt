@@ -7,6 +7,7 @@ import fr.mediatheque.journal.api.dto.SeancePriseVoyage
 import fr.mediatheque.journal.api.dto.TamponVoyage
 import fr.mediatheque.journal.api.dto.TicketAMontrerVoyage
 import fr.mediatheque.journal.api.dto.VoyageResponse
+import fr.mediatheque.journal.ui.EtatFeuilleDeLecture
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -228,46 +229,6 @@ class VoyageEtatsTest {
         assertEquals(TICKET_RELECTURE_ESSAIS_MAX, douzieme.second)
     }
 
-    // La relecture d'un paragraphe (« Ajouter à la chronique », décision 1 du brief du 21 septembre
-    // 2026, « la chronique et les salles ») : s'arrête dès qu'il est là, abandon au plafond sinon —
-    // jumeau d'`etatFourneeSuivant` et d'`etatRelectureTicketSuivant`.
-    @Test
-    fun `etatParagrapheSuivant s'arrete des que le paragraphe est trouve, sans compter d'essai de plus`() {
-        val (etat, essais) = etatParagrapheSuivant(paragrapheTrouve = true, essaisPrecedents = 4)
-        assertEquals(EtatChronique.PRETE, etat)
-        assertEquals(4, essais)
-    }
-
-    @Test
-    fun `etatParagrapheSuivant compte les essais jusqu'a l'abandon au plafond`() {
-        var essais = 0
-        var etat = EtatChronique.EN_PREPARATION
-        repeat(2) {
-            val resultat = etatParagrapheSuivant(paragrapheTrouve = false, essaisPrecedents = essais, plafond = 3)
-            etat = resultat.first
-            essais = resultat.second
-            assertEquals("essai $essais", EtatChronique.EN_PREPARATION, etat)
-        }
-        assertEquals(2, essais)
-
-        // Le troisième essai, et pas avant (mutation : `essais > plafond` au lieu de `>=` ferait
-        // attendre un quatrième essai avant l'abandon).
-        val troisieme = etatParagrapheSuivant(paragrapheTrouve = false, essaisPrecedents = essais, plafond = 3)
-        assertEquals(EtatChronique.ABANDON, troisieme.first)
-        assertEquals(3, troisieme.second)
-    }
-
-    // L'éligibilité du bouton « Ajouter à la chronique » sur l'écran de correction (décision 1) :
-    // seule une année en cours ou ouverte compte — mutation : accepter `VERROUILLEE` ou `null`
-    // proposerait la chronique sur une année qui ne l'accepterait pas côté back (`404`).
-    @Test
-    fun `eligibleChroniqueDepuisEdition n'accepte que ouverte ou en cours`() {
-        assertTrue(eligibleChroniqueDepuisEdition(StatutAnneeVoyage.OUVERTE))
-        assertTrue(eligibleChroniqueDepuisEdition(StatutAnneeVoyage.EN_COURS))
-        assertFalse(eligibleChroniqueDepuisEdition(StatutAnneeVoyage.VERROUILLEE))
-        assertFalse(eligibleChroniqueDepuisEdition(null))
-    }
-
     // L'état de la zone « Ouvrir une nouvelle salle » (décision 3) : bouton, étagère fantôme ou
     // motif du refus — jamais deux à la fois pour le même statut.
     @Test
@@ -315,5 +276,35 @@ class VoyageEtatsTest {
             "Le chroniqueur n’a pas pu composer ce soir, réessaie.",
             messageEchecComposition(EtatChronique.PRETE, seancesAvant = 3, seancesApres = 2),
         )
+    }
+
+    // --- Le voyage revu (brief du 24 septembre 2026) : le contexte d'une salle, le générique de
+    // fin, la feuille de lecture. ----------------------------------------------------------------
+
+    // Mutation : inverser la comparaison (`!= null`) appellerait la route à chaque ouverture de la
+    // feuille, y compris quand le back a déjà écrit le contexte — un second appel au chroniqueur
+    // pour un texte déjà là.
+    @Test
+    fun `doitAppelerContexteSalle seulement si rien n'est encore ecrit`() {
+        assertTrue(doitAppelerContexteSalle(null))
+        assertFalse(doitAppelerContexteSalle("Déjà écrit."))
+    }
+
+    // Le bouton « Le générique de fin » (décision 5) : seul le ticket compte, pas son usage —
+    // mutation : exiger `!ticket.utilise` ferait disparaître le bouton dès que le ticket est
+    // encaissé, alors que le générique reste lisible.
+    @Test
+    fun `afficherBoutonGenerique des que l'annee a son ticket, utilise ou non`() {
+        assertTrue(afficherBoutonGenerique(TicketAnneeUi(1942, utilise = false)))
+        assertTrue(afficherBoutonGenerique(TicketAnneeUi(1942, utilise = true)))
+        assertFalse(afficherBoutonGenerique(null))
+    }
+
+    // Mutation : rendre `Chargement` même quand le texte est déjà connu ferait clignoter la bobine
+    // sur une feuille rouverte, plutôt que de montrer le texte tout de suite.
+    @Test
+    fun `etatInitialFeuilleTexte rend le texte s'il est deja connu, le chargement sinon`() {
+        assertEquals(EtatFeuilleDeLecture.Texte("Déjà écrit."), etatInitialFeuilleTexte("Déjà écrit."))
+        assertEquals(EtatFeuilleDeLecture.Chargement, etatInitialFeuilleTexte(null))
     }
 }

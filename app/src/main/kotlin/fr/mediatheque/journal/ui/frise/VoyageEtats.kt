@@ -3,6 +3,7 @@ package fr.mediatheque.journal.ui.frise
 import fr.mediatheque.journal.api.dto.AnneeVoyage
 import fr.mediatheque.journal.api.dto.TamponVoyage
 import fr.mediatheque.journal.api.dto.VoyageResponse
+import fr.mediatheque.journal.ui.EtatFeuilleDeLecture
 
 /**
  * Le Voyage : les états d'une année et d'une génération (chronique, carton ou fournée), en
@@ -160,28 +161,9 @@ fun etatRelectureTicketSuivant(
 }
 
 /**
- * La relecture après un tap « Ajouter à la chronique » (décision 1 du brief du 21 septembre 2026,
- * « la chronique et les salles ») : s'arrête dès que le paragraphe est là, abandon au plafond sinon
- * — réutilise `etatChroniqueSuivant` avec un statut synthétique, jumeau d'`etatFourneeSuivant` et
- * d'`etatRelectureTicketSuivant`, sur le plafond de l'année (`CHRONIQUE_ANNEE_ESSAIS_MAX`) : une
- * relecture de trois minutes, pas cinquante secondes — un paragraphe est un appel du même ordre de
- * grandeur qu'une fournée, pas du carton d'un film.
- */
-fun etatParagrapheSuivant(
-    paragrapheTrouve: Boolean,
-    essaisPrecedents: Int,
-    plafond: Int = CHRONIQUE_ANNEE_ESSAIS_MAX,
-): Pair<EtatChronique, Int> = etatChroniqueSuivant(
-    configure = true,
-    statut = if (paragrapheTrouve) "prete" else "en_preparation",
-    essaisPrecedents = essaisPrecedents,
-    plafond = plafond,
-)
-
-/**
  * La relecture après « Composer une séance » (décision 1 du brief du 21 septembre 2026, « la
  * séance ») : s'arrête dès que `seance_en_cours` retombe, abandon au plafond de l'année sinon —
- * réutilise `etatChroniqueSuivant` avec un statut synthétique, jumeau d'`etatParagrapheSuivant`.
+ * réutilise `etatChroniqueSuivant` avec un statut synthétique, jumeau d'`etatFourneeSuivant`.
  */
 fun etatSeanceSuivant(
     seanceEnCours: Boolean,
@@ -211,15 +193,6 @@ fun messageEchecComposition(etat: EtatChronique, seancesAvant: Int, seancesApres
 }
 
 /**
- * L'éligibilité du bouton « Ajouter à la chronique » sur l'écran de correction du journal
- * (`Screen.Edit`, décision 1 du brief du 21 septembre 2026) : le statut lu dans `/me/voyage`, déjà
- * chargé par la Frise — année en cours ou ouverte seulement, jamais verrouillée ni inconnue (le
- * Voyage pas encore chargé, ou le film hors de la plage qu'il sert).
- */
-fun eligibleChroniqueDepuisEdition(statutAnnee: StatutAnneeVoyage?): Boolean =
-    statutAnnee == StatutAnneeVoyage.OUVERTE || statutAnnee == StatutAnneeVoyage.EN_COURS
-
-/**
  * L'état de la zone « Ouvrir une nouvelle salle » (décision 3 du brief du 21 septembre 2026) : le
  * bouton, l'étagère fantôme pendant que la demande s'écrit, ou le motif du refus sous le bouton —
  * jamais les deux à la fois. `statutDemande` vient de `demande_salle.statut`, nul quand il n'y a
@@ -232,3 +205,27 @@ fun etatZoneSalleVoyage(statutDemande: String?): EtatZoneSalleVoyage = when (sta
     "refusee" -> EtatZoneSalleVoyage.REFUS
     else -> EtatZoneSalleVoyage.BOUTON
 }
+
+/**
+ * Le contexte d'une salle (décision 3 du brief du 24 septembre 2026, « le voyage revu ») :
+ * `POST .../contexte` n'a de sens à appeler que si le back n'a encore rien écrit — un texte déjà
+ * là se rouvre tel quel, sans second appel au chroniqueur. Fonction pure, testée en JVM.
+ */
+fun doitAppelerContexteSalle(contexteExistant: String?): Boolean = contexteExistant == null
+
+/**
+ * Le bouton « Le générique de fin » sur la fiche d'une année (décision 5 du brief du 24 septembre
+ * 2026, « le voyage revu ») : n'existe qu'avec le ticket de l'année — peu importe qu'il soit déjà
+ * utilisé, le jugement de maturité l'a de toute façon déjà accordé, et c'est la seule condition qui
+ * rend `POST .../generique` possible côté back (`409` sans elle). Fonction pure, testée en JVM.
+ */
+fun afficherBoutonGenerique(ticket: TicketAnneeUi?): Boolean = ticket != null
+
+/**
+ * L'état initial d'une feuille de lecture dont le texte peut déjà être connu (décision 3 et 5) :
+ * `Texte` tout de suite s'il est déjà là, `Chargement` sinon — c'est cet état qui décide si
+ * l'appelant doit lancer l'appel réseau ou seulement ouvrir la feuille. Fonction pure, testée en
+ * JVM.
+ */
+fun etatInitialFeuilleTexte(texteExistant: String?): EtatFeuilleDeLecture =
+    texteExistant?.let { EtatFeuilleDeLecture.Texte(it) } ?: EtatFeuilleDeLecture.Chargement

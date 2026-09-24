@@ -5,21 +5,18 @@ import fr.mediatheque.journal.MainDispatcherRule
 import fr.mediatheque.journal.api.ApiError
 import fr.mediatheque.journal.api.dto.AnneeVoyage
 import fr.mediatheque.journal.api.dto.AnneeVoyageDetailResponse
-import fr.mediatheque.journal.api.dto.CarnetAnneeVoyage
-import fr.mediatheque.journal.api.dto.CarnetFabricationResponse
-import fr.mediatheque.journal.api.dto.ChroniqueEcritureResponse
 import fr.mediatheque.journal.api.dto.DemandeSalleEcritureResponse
 import fr.mediatheque.journal.api.dto.DemandeSalleVoyage
 import fr.mediatheque.journal.api.dto.DemanderVoyageResponse
 import fr.mediatheque.journal.api.dto.FilmSalleVoyage
+import fr.mediatheque.journal.api.dto.GeneriqueEcritureResponse
 import fr.mediatheque.journal.api.dto.MaturiteVoyage
-import fr.mediatheque.journal.api.dto.ParagrapheFilmVoyage
-import fr.mediatheque.journal.api.dto.ParagrapheVoyage
 import fr.mediatheque.journal.api.dto.PisteVoyage
 import fr.mediatheque.journal.api.dto.PistesVoyageResponse
 import fr.mediatheque.journal.api.dto.PodiumMarcheVoyage
 import fr.mediatheque.journal.api.dto.PodiumResponse
 import fr.mediatheque.journal.api.dto.ProgressionVoyage
+import fr.mediatheque.journal.api.dto.SalleContexteEcritureResponse
 import fr.mediatheque.journal.api.dto.SalleVoyage
 import fr.mediatheque.journal.api.dto.SallePlusResponse
 import fr.mediatheque.journal.api.dto.SeanceComposerResponse
@@ -422,84 +419,93 @@ class AnneeViewModelTest {
         assertEquals(listOf("retirerPodium 1941 1"), api.calls.filter { it.startsWith("retirerPodium") })
     }
 
-    // « Ajouter à la chronique » (décision 1 du brief du 21 septembre 2026, « la chronique et les
-    // salles ») : un paragraphe déjà écrit (`200 ecrit`) s'affiche directement, sans passer par la
-    // relecture.
+    // Le contexte d'une salle (décision 3 du brief du 24 septembre 2026, « le voyage revu ») :
+    // appelle la route si `contexte` est encore nul, et le mémorise dans `ui.salles`.
     @Test
-    fun `ajouterChronique deja ecrit affiche le paragraphe tout de suite, sans relire`() = runTest(dispatcher) {
+    fun `contexteSalle appelle la route quand la salle n'a pas encore de contexte, et le memorise`() = runTest(dispatcher) {
         api.onVoyageAnnee = { prete(salle("s1", film("f1", 500, "vu"))) }
-        val paragraphe = ParagrapheVoyage(
-            id = "p1",
-            tmdb_id = 500,
-            titre = "Un titre",
-            texte = "Le texte du paragraphe.",
-            ecrit_le = "2026-09-21T21:30:00.000Z",
-            film = ParagrapheFilmVoyage("Film 500", null),
-        )
-        api.onVoyageChronique = { _, _ -> ChroniqueEcritureResponse(statut = "ecrit", paragraphe = paragraphe) }
+        api.onVoyageSalleContexte = { _, _ -> SalleContexteEcritureResponse(contexte = "Ce que la salle raconte.") }
         val vm = AnneeViewModel(api, 1941, null) {}
         vm.relire()
         runCurrent()
-        val appelsAvant = api.calls.count { it.startsWith("voyageAnnee") }
-        val cle: Pair<Int?, String?> = 500 to null
+        assertNull(vm.ui.value.salles.single().contexte)
 
-        vm.ajouterChronique(500, null)
-        runCurrent()
+        val texte = vm.contexteSalle("s1")
 
-        assertEquals(listOf("Le texte du paragraphe."), vm.ui.value.paragraphes.map { it.texte })
-        assertFalse(cle in vm.ui.value.paragraphesEnCours)
-        // Mutation : appeler `voyageAnnee` ici régénérerait un paragraphe déjà écrit — le contrat
-        // dit `200 ecrit` sans jamais rappeler le chroniqueur.
-        assertEquals(appelsAvant, api.calls.count { it.startsWith("voyageAnnee") })
+        assertEquals("Ce que la salle raconte.", texte)
+        assertEquals("Ce que la salle raconte.", vm.ui.value.salles.single().contexte)
+        assertEquals(listOf("voyageSalleContexte 1941 s1"), api.calls.filter { it.startsWith("voyageSalleContexte") })
     }
 
-    // `202 en_preparation` marque tout de suite le bouton « en cours » (optimiste), puis la
-    // relecture s'arrête dès que `paragraphes` porte le film.
+    // Mutation : retirer la garde `contexte?.let { return it }` rappellerait la route à chaque
+    // ouverture de la feuille, même une fois le contexte déjà écrit.
     @Test
-    fun `ajouterChronique en preparation marque en cours puis relit jusqu'au paragraphe`() = runTest(dispatcher) {
+    fun `contexteSalle ne rappelle jamais la route une fois le contexte deja connu`() = runTest(dispatcher) {
         api.onVoyageAnnee = { prete(salle("s1", film("f1", 500, "vu"))) }
-        api.onVoyageChronique = { _, _ -> ChroniqueEcritureResponse(statut = "en_preparation") }
+        api.onVoyageSalleContexte = { _, _ -> SalleContexteEcritureResponse(contexte = "Une fois pour toutes.") }
         val vm = AnneeViewModel(api, 1941, null) {}
         vm.relire()
         runCurrent()
-        val cle: Pair<Int?, String?> = 500 to null
 
-        vm.ajouterChronique(500, null)
-        runCurrent()
-        assertTrue(cle in vm.ui.value.paragraphesEnCours)
-        assertTrue(vm.ui.value.paragraphes.isEmpty())
+        vm.contexteSalle("s1")
+        val appelsApres = api.calls.count { it.startsWith("voyageSalleContexte") }
+        vm.contexteSalle("s1")
 
-        val paragraphe = ParagrapheVoyage(
-            id = "p1",
-            tmdb_id = 500,
-            titre = "Un titre",
-            texte = "Le texte.",
-            ecrit_le = "2026-09-21T21:30:00.000Z",
-            film = ParagrapheFilmVoyage("Film 500", null),
-        )
-        api.onVoyageAnnee = { prete(salle("s1", film("f1", 500, "vu"))).copy(paragraphes = listOf(paragraphe)) }
-        testScheduler.advanceUntilIdle()
-
-        assertEquals(listOf("Le texte."), vm.ui.value.paragraphes.map { it.texte })
-        assertFalse(cle in vm.ui.value.paragraphesEnCours)
+        assertEquals(appelsApres, api.calls.count { it.startsWith("voyageSalleContexte") })
     }
 
-    // Abandon au plafond : le paragraphe n'arrive jamais, la relecture cesse et « en cours » retombe
-    // — mutation : ne jamais retirer la clé laisserait le bouton bloqué sur « écrit… » pour toujours.
+    // Une erreur (le plus souvent `503`) est relancée telle quelle — c'est la feuille de lecture,
+    // pas un bandeau, qui la montre avec son bouton « Réessayer ».
     @Test
-    fun `ajouterChronique abandonne au plafond et retire l'etat en cours`() = runTest(dispatcher) {
+    fun `contexteSalle relance l'erreur du back`() = runTest(dispatcher) {
         api.onVoyageAnnee = { prete(salle("s1", film("f1", 500, "vu"))) }
-        api.onVoyageChronique = { _, _ -> ChroniqueEcritureResponse(statut = "en_preparation") }
+        api.onVoyageSalleContexte = { _, _ ->
+            throw ApiError("UPSTREAM_UNAVAILABLE", "Le chroniqueur ne répond pas. Réessaie plus tard.", retryable = true, status = 503)
+        }
         val vm = AnneeViewModel(api, 1941, null) {}
         vm.relire()
         runCurrent()
-        val cle: Pair<Int?, String?> = 500 to null
 
-        vm.ajouterChronique(500, null)
-        testScheduler.advanceUntilIdle()
+        val erreur = try {
+            vm.contexteSalle("s1")
+            null
+        } catch (e: ApiError) {
+            e
+        }
 
-        assertTrue(vm.ui.value.paragraphes.isEmpty())
-        assertFalse(cle in vm.ui.value.paragraphesEnCours)
+        assertEquals("Le chroniqueur ne répond pas. Réessaie plus tard.", erreur?.message)
+    }
+
+    // Le générique de fin (décision 5), jumeau de `contexteSalle` ci-dessus.
+    @Test
+    fun `generiqueAnnee appelle la route quand il n'est pas encore connu, et le memorise`() = runTest(dispatcher) {
+        api.onVoyageAnnee = { prete(salle("s1")) }
+        api.onVoyageGenerique = { GeneriqueEcritureResponse(generique = "Mon parcours dans l’année.") }
+        val vm = AnneeViewModel(api, 1941, null) {}
+        vm.relire()
+        runCurrent()
+        assertNull(vm.ui.value.generique)
+
+        val texte = vm.generiqueAnnee()
+
+        assertEquals("Mon parcours dans l’année.", texte)
+        assertEquals("Mon parcours dans l’année.", vm.ui.value.generique)
+        assertEquals(listOf("voyageGenerique 1941"), api.calls.filter { it.startsWith("voyageGenerique") })
+    }
+
+    @Test
+    fun `generiqueAnnee ne rappelle jamais la route une fois connu`() = runTest(dispatcher) {
+        api.onVoyageAnnee = { prete(salle("s1")) }
+        api.onVoyageGenerique = { GeneriqueEcritureResponse(generique = "Une fois pour toutes.") }
+        val vm = AnneeViewModel(api, 1941, null) {}
+        vm.relire()
+        runCurrent()
+
+        vm.generiqueAnnee()
+        val appelsApres = api.calls.count { it.startsWith("voyageGenerique") }
+        vm.generiqueAnnee()
+
+        assertEquals(appelsApres, api.calls.count { it.startsWith("voyageGenerique") })
     }
 
     // « Ouvrir une nouvelle salle » (décision 3) : enfile la demande, marque l'étagère fantôme tout
@@ -880,56 +886,4 @@ class AnneeViewModelTest {
         assertEquals(listOf("voyageRemplacerSeance sc-1 long f-autre null"), api.calls.filter { it.startsWith("voyageRemplacerSeance") })
     }
 
-    // Le carnet (décision 2 du brief du 22 septembre 2026, « le carnet ») : jumeau de
-    // `composerSeance marque en cours puis relit...` — la relecture s'arrête dès que
-    // `carnet_en_cours` retombe, avec le carnet frais dans la dernière réponse.
-    @Test
-    fun `fabriquerCarnet marque en cours puis relit jusqu'a ce que carnet_en_cours retombe`() = runTest(dispatcher) {
-        var relectures = 0
-        api.onVoyageAnnee = {
-            relectures++
-            when (relectures) {
-                1 -> prete(salle("s1")).copy(carnet_en_cours = false)
-                2 -> prete(salle("s1")).copy(carnet_en_cours = true)
-                else -> prete(salle("s1")).copy(carnet_en_cours = false, carnet = CarnetAnneeVoyage("2026-09-21T10:00:00.000Z", 12))
-            }
-        }
-        api.onVoyageFabriquerCarnet = { CarnetFabricationResponse(statut = "en_preparation") }
-        val vm = AnneeViewModel(api, 1941, null) {}
-        vm.relire()
-        runCurrent()
-        assertNull(vm.ui.value.carnet)
-
-        vm.fabriquerCarnet()
-        // Le bouton passe en cours tout de suite, avant même la première relecture.
-        runCurrent()
-        assertTrue(vm.ui.value.carnetEnCours)
-
-        testScheduler.advanceUntilIdle()
-
-        assertFalse(vm.ui.value.carnetEnCours)
-        assertEquals(12, vm.ui.value.carnet?.pages)
-        assertEquals(listOf("voyageFabriquerCarnet 1941"), api.calls.filter { it.startsWith("voyageFabriquerCarnet") })
-    }
-
-    // Une fabrication déjà en cours (`409`) : le message du back remonte, sans marquer le bouton en
-    // cours — jumeau de `composerSeance en echec envoie le message du back au bandeau...`.
-    @Test
-    fun `fabriquerCarnet en echec 409 envoie le message du back au bandeau, sans marquer en cours`() = runTest(dispatcher) {
-        api.onVoyageAnnee = { prete(salle("s1")) }
-        api.onVoyageFabriquerCarnet = { throw ApiError("CONFLICT", "Le carnet de cette année se fabrique déjà.", retryable = false, status = 409) }
-        val vm = AnneeViewModel(api, 1941, null) {}
-        vm.relire()
-        runCurrent()
-
-        val messages = mutableListOf<String>()
-        val job = launch { vm.messages.collect { messages += it } }
-
-        vm.fabriquerCarnet()
-        runCurrent()
-
-        assertEquals(listOf("Le carnet de cette année se fabrique déjà."), messages)
-        assertFalse(vm.ui.value.carnetEnCours)
-        job.cancel()
-    }
 }

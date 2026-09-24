@@ -405,22 +405,16 @@ class FriseViewModel(private val api: JournalApi, private val onUnauthenticated:
     }
 
     /**
-     * « Oui » sur la proposition de carnet (décision 1 du brief du 22 septembre 2026, « le
-     * carnet »), après que l'usage d'un ticket a fait avancer l'année en cours (`avancees`
-     * ci-dessus) : lance sa fabrication, sans rien attendre de plus — la fiche de l'année ou le
-     * profil disent son avancement. `onMessage` reçoit le message bref de succès, ou celui du back
-     * sur une `409` (une fabrication déjà en cours pour cette année).
+     * Le générique de fin d'une année (décision 5 du brief du 24 septembre 2026, « le voyage
+     * revu »), lu depuis la célébration « année dans la boîte » (`AnneeDansLaBoiteCalque`) : simple
+     * lecture, silencieuse en cas d'échec — la ligne « Lire le générique » ne s'affiche simplement
+     * pas si l'appel échoue, une célébration n'étant pas le lieu d'un message d'erreur.
      */
-    fun proposerCarnet(annee: Int, onMessage: suspend (String) -> Unit) {
-        viewModelScope.launch {
-            try {
-                api.voyageFabriquerCarnet(annee)
-            } catch (e: ApiError) {
-                if (e.isUnauthenticated) onUnauthenticated() else onMessage(e.message ?: "Impossible pour l’instant")
-                return@launch
-            }
-            onMessage("Le carnet de $annee se fabrique")
-        }
+    suspend fun chargerGeneriqueAnnee(annee: Int): String? = try {
+        api.voyageGenerique(annee).generique
+    } catch (e: ApiError) {
+        if (e.isUnauthenticated) onUnauthenticated()
+        null
     }
 
     companion object {

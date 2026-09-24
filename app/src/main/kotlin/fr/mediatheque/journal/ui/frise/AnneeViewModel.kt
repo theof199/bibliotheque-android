@@ -7,12 +7,9 @@ import fr.mediatheque.journal.api.JournalApi
 import fr.mediatheque.journal.api.dto.AnneeVoyage
 import fr.mediatheque.journal.api.dto.AnneeVoyageDetailResponse
 import fr.mediatheque.journal.api.dto.BobineVoyage
-import fr.mediatheque.journal.api.dto.CarnetAnneeVoyage
-import fr.mediatheque.journal.api.dto.ChroniqueBody
 import fr.mediatheque.journal.api.dto.DemandeSalleVoyage
 import fr.mediatheque.journal.api.dto.FilmSalleVoyage
 import fr.mediatheque.journal.api.dto.MaturiteVoyage
-import fr.mediatheque.journal.api.dto.ParagrapheVoyage
 import fr.mediatheque.journal.api.dto.PisteVoyage
 import fr.mediatheque.journal.api.dto.PodiumMarcheVoyage
 import fr.mediatheque.journal.api.dto.ProgrammeVoyage
@@ -82,6 +79,8 @@ data class SalleUi(
     val nom: String,
     val raisonDEtre: String,
     val cle: String?,
+    /** Un vrai paragraphe sur ce que la salle raconte de l'année — nul tant qu'il n'a pas été demandé (décision 3 du brief du 24 septembre 2026, « le voyage revu »). */
+    val contexte: String? = null,
     val epuisee: Boolean,
     val fourneeEnCours: Boolean,
     val films: List<FilmSalleUi>,
@@ -95,18 +94,6 @@ data class MaturiteUi(val mure: Boolean, val motif: String)
 
 /** Le ticket vers l'année suivante, s'il a été gagné (décision 4) — `utilise` dit s'il l'a déjà été encaissé. */
 data class TicketAnneeUi(val annee: Int, val utilise: Boolean)
-
-/** Un paragraphe de la chronique, ajouté à la demande sur un film (décision 1 du brief du 21 septembre 2026, « la chronique et les salles »). */
-data class ParagrapheUi(
-    val id: String,
-    val tmdbId: Int?,
-    val programmeId: String?,
-    val titre: String,
-    val texte: String,
-    val ecritLe: String,
-    val filmTitle: String,
-    val filmCoverUrl: String?,
-)
 
 /** La dernière demande de nouvelle salle, tant qu'elle compte encore (décision 3 du brief du 21 septembre 2026). */
 data class DemandeSalleUi(val id: String, val demande: String, val statut: String, val motif: String?)
@@ -190,8 +177,6 @@ data class AnneeUi(
     val etat: EtatAnnee = EtatAnnee.NON_CONFIGURE,
     val essais: Int = 0,
     val profondeur: Int = 0,
-    /** Repliée par défaut (spec du 19 septembre 2026, §3) — « Lire la suite » la déplie. */
-    val ouvertureDepliee: Boolean = false,
     val ouverture: String? = null,
     val faits: List<String> = emptyList(),
     val salles: List<SalleUi> = emptyList(),
@@ -201,10 +186,8 @@ data class AnneeUi(
     val maturite: MaturiteUi? = null,
     /** Le ticket vers l'année suivante, s'il a été gagné (décision 4) — nul sinon. */
     val ticket: TicketAnneeUi? = null,
-    /** Par `ecritLe` croissant (décision 1 du brief du 21 septembre 2026, « la chronique et les salles »). */
-    val paragraphes: List<ParagrapheUi> = emptyList(),
-    /** Les cibles (`tmdbId` à `programmeId`) dont le paragraphe est en cours d'écriture — celles du back et celle qu'on vient de demander, avant la première relecture. */
-    val paragraphesEnCours: Set<Pair<Int?, String?>> = emptySet(),
+    /** Le générique de fin d'année (décision 5 du brief du 24 septembre 2026, « le voyage revu ») — nul tant qu'il n'a pas été demandé. */
+    val generique: String? = null,
     /** La dernière demande de nouvelle salle, tant qu'elle compte encore (décision 3) — nulle sinon. */
     val demandeSalle: DemandeSalleUi? = null,
     /** La récompense de l'année (`prete` seulement, étape 5, « les récompenses ») — nulle sans aucun film vu. */
@@ -215,10 +198,6 @@ data class AnneeUi(
     val seances: List<SeanceUi> = emptyList(),
     /** Une composition vient d'être demandée et s'écrit encore (décision 1) — `prete` seulement. */
     val seanceEnCours: Boolean = false,
-    /** Le carnet de cette année (décision 2 du brief du 22 septembre 2026, « le carnet ») — nul tant qu'il n'a pas été fabriqué. */
-    val carnet: CarnetUi? = null,
-    /** Sa fabrication tourne encore (décision 2) — `prete` seulement. */
-    val carnetEnCours: Boolean = false,
     /** Les pistes de salles proposées par le chroniqueur (brief du 22 septembre 2026, « les pistes ») — `prete` seulement, vide possible. */
     val pistes: List<PisteUi> = emptyList(),
     /** « D'autres pistes » vient d'être demandé et l'appel synchrone tourne encore (décision 3 du brief). */
@@ -242,18 +221,16 @@ private fun FilmSalleVoyage.versUi() = FilmSalleUi(
     note = note,
     programme = programme?.versUi(),
 )
-private fun SalleVoyage.versUi() = SalleUi(id, rang, nom, raison_d_etre, cle, epuisee, fournee_en_cours, films.map { it.versUi() })
+private fun SalleVoyage.versUi() = SalleUi(id, rang, nom, raison_d_etre, cle, contexte, epuisee, fournee_en_cours, films.map { it.versUi() })
 private fun PodiumMarcheVoyage.versUi() = PodiumMarcheUi(place, tmdb_id, programme_id, title, cover_url)
 private fun MaturiteVoyage.versUi() = MaturiteUi(mure, motif)
 private fun TicketAnneeVoyage.versUi() = TicketAnneeUi(annee, utilise = utilise_le != null)
-private fun ParagrapheVoyage.versUi() = ParagrapheUi(id, tmdb_id, programme_id, titre, texte, ecrit_le, film.title, film.cover_url)
 private fun DemandeSalleVoyage.versUi() = DemandeSalleUi(id, demande, statut, motif)
 private fun PisteVoyage.versUi() = PisteUi(nom, raison)
 private fun ProgressionVoyage.versUi() = ProgressionUi(essentiels_vus, essentiels_total, salles_completes, salles_autres)
 private fun SeanceBobineVoyage.versUi() = SeanceBobineUi(tmdb_id, title)
 private fun SeanceFilmVoyage.versUi() = SeanceFilmUi(film_id, tmdb_id, title, cover_url, salle, etat, plex_url, bobine?.versUi())
 private fun SeanceVoyage.versUi() = SeanceUi(id, rang, statut, composee_le, anecdote, long.versUi(), court?.versUi())
-private fun CarnetAnneeVoyage.versUi() = CarnetUi(fabrique_le, pages)
 
 /** Toujours trois marches, une entrée nulle pour chacune que le back ne sert pas (encore vide, ou réponse plus courte). */
 private fun List<PodiumMarcheVoyage?>.versPodiumUi(): List<PodiumMarcheUi?> = (0..2).map { i -> getOrNull(i)?.versUi() }
@@ -289,7 +266,6 @@ class AnneeViewModel(
 
     private var pollJob: Job? = null
     private val salleJobs = mutableMapOf<String, Job>()
-    private val chroniqueJobs = mutableMapOf<Pair<Int?, String?>, Job>()
     private var salleDemandeJob: Job? = null
 
     /**
@@ -362,18 +338,11 @@ class AnneeViewModel(
                 podium = if (etat == EtatAnnee.PRETE) reponse.podium.versPodiumUi() else it.podium,
                 maturite = if (etat == EtatAnnee.PRETE) reponse.maturite?.versUi() else it.maturite,
                 ticket = if (etat == EtatAnnee.PRETE) reponse.ticket?.versUi() else it.ticket,
-                paragraphes = if (etat == EtatAnnee.PRETE) reponse.paragraphes.map { p -> p.versUi() } else it.paragraphes,
-                paragraphesEnCours = if (etat == EtatAnnee.PRETE) {
-                    reponse.paragraphes_en_cours.map { p -> p.tmdb_id to p.programme_id }.toSet()
-                } else {
-                    it.paragraphesEnCours
-                },
+                generique = if (etat == EtatAnnee.PRETE) reponse.generique ?: it.generique else it.generique,
                 recompense = if (etat == EtatAnnee.PRETE) recompenseDe(reponse.recompense) else it.recompense,
                 progression = if (etat == EtatAnnee.PRETE) reponse.progression?.versUi() else it.progression,
                 seances = if (etat == EtatAnnee.PRETE) reponse.seances.sortedBy { s -> s.rang }.map { s -> s.versUi() } else it.seances,
                 seanceEnCours = if (etat == EtatAnnee.PRETE) reponse.seance_en_cours else it.seanceEnCours,
-                carnet = if (etat == EtatAnnee.PRETE) reponse.carnet?.versUi() else it.carnet,
-                carnetEnCours = if (etat == EtatAnnee.PRETE) reponse.carnet_en_cours else it.carnetEnCours,
                 pistes = if (etat == EtatAnnee.PRETE) reponse.pistes.map { p -> p.versUi() } else it.pistes,
             )
         }
@@ -400,11 +369,6 @@ class AnneeViewModel(
                 }
             }
         }
-    }
-
-    /** « Lire la suite » sur le cartouche — l'ouverture, repliée à trois lignes par défaut, se déplie. */
-    fun deplierOuverture() {
-        _ui.update { it.copy(ouvertureDepliee = true) }
     }
 
     /**
@@ -445,59 +409,6 @@ class AnneeViewModel(
                 val (etat, prochainEssai) = etatFourneeSuivant(fourneeEnCours, essais)
                 essais = prochainEssai
                 if (etat != EtatFournee.EN_COURS) return@launch
-            }
-        }
-    }
-
-    /**
-     * « Ajouter à la chronique » (décision 1 du brief du 21 septembre 2026, « la chronique et les
-     * salles ») : sur un film vu, ou un programme entièrement vu — `tmdbId` **ou** `programmeId`,
-     * jamais les deux. `200 ecrit` affiche directement le paragraphe (déjà existant, jamais
-     * régénéré) ; `202 en_preparation` marque tout de suite le bouton « Le chroniqueur écrit… »
-     * (optimiste, jumeau de `voirPlus`) puis relit l'année toutes les cinq secondes jusqu'à ce que
-     * `paragraphes` porte ce film, abandon au plafond (`etatParagrapheSuivant`).
-     */
-    fun ajouterChronique(tmdbId: Int?, programmeId: String?) {
-        val cle = tmdbId to programmeId
-        if (chroniqueJobs[cle]?.isActive == true) return
-        chroniqueJobs[cle] = viewModelScope.launch {
-            val reponse = try {
-                api.voyageChronique(annee, ChroniqueBody(tmdbId, programmeId))
-            } catch (e: ApiError) {
-                if (e.isUnauthenticated) onUnauthenticated() else _messages.trySend(e.message ?: "Impossible pour l’instant")
-                return@launch
-            }
-            val paragraphe = reponse.paragraphe
-            if (reponse.statut == "ecrit" && paragraphe != null) {
-                _ui.update {
-                    it.copy(
-                        paragraphes = it.paragraphes.filterNot { p -> p.id == paragraphe.id } + paragraphe.versUi(),
-                        paragraphesEnCours = it.paragraphesEnCours - cle,
-                    )
-                }
-                return@launch
-            }
-            _ui.update { it.copy(paragraphesEnCours = it.paragraphesEnCours + cle) }
-
-            var essais = 0
-            while (true) {
-                delay(POLL_INTERVAL_MS)
-                val detail = try {
-                    api.voyageAnnee(annee)
-                } catch (e: ApiError) {
-                    if (e.isUnauthenticated) onUnauthenticated()
-                    return@launch
-                }
-                if (detail.configure && detail.statut == "prete") {
-                    _ui.update { it.copy(paragraphes = detail.paragraphes.map { p -> p.versUi() }) }
-                }
-                val trouve = _ui.value.paragraphes.any { (it.tmdbId to it.programmeId) == cle }
-                val (etatSuivant, prochainEssai) = etatParagrapheSuivant(trouve, essais)
-                essais = prochainEssai
-                if (etatSuivant != EtatChronique.EN_PREPARATION) {
-                    _ui.update { it.copy(paragraphesEnCours = it.paragraphesEnCours - cle) }
-                    return@launch
-                }
             }
         }
     }
@@ -862,63 +773,44 @@ class AnneeViewModel(
         }
     }
 
-    // --- Le carnet (brief du 22 septembre 2026, « le carnet »). ---
-
-    private var carnetJob: Job? = null
+    // --- Le contexte d'une salle et le générique de fin (décision 3 et 5 du brief du
+    // 24 septembre 2026, « le voyage revu »). ---
 
     /**
-     * « Faire le carnet »/« Refaire le carnet » (décision 2) : lance ou relance la fabrication,
-     * marque tout de suite `carnetEnCours` (optimiste, jumeau de `voirPlus`/`composerSeance`), puis
-     * relit l'année toutes les cinq secondes jusqu'à ce que `carnet_en_cours` retombe, abandon au
-     * plafond de l'année (`etatFourneeSuivant`, même plafond que la chronique et les salles —
-     * `CHRONIQUE_ANNEE_ESSAIS_MAX`). Une erreur (dont une `409`, une fabrication déjà en cours)
-     * envoie le message du back au bandeau, sans marquer en cours.
+     * Le contexte d'une salle (décision 3) : synchrone, jamais rappelé une fois écrit (`doitAppelerContexteSalle`,
+     * `ui/frise/VoyageEtats.kt`) — l'appelant (`AnneeScreen`) ne l'invoque donc que si `contexte`
+     * est encore nul. Le résultat est mémorisé dans `ui.salles` pour ne plus jamais redemander
+     * cette salle. Une erreur (le plus souvent `503`) est relancée telle quelle : c'est la feuille
+     * de lecture, pas un bandeau, qui la montre avec son bouton « Réessayer ».
      */
-    fun fabriquerCarnet() {
-        if (carnetJob?.isActive == true) return
-        carnetJob = viewModelScope.launch {
-            try {
-                api.voyageFabriquerCarnet(annee)
-            } catch (e: ApiError) {
-                if (e.isUnauthenticated) onUnauthenticated() else _messages.trySend(e.message ?: "Impossible pour l’instant")
-                return@launch
-            }
-            _ui.update { it.copy(carnetEnCours = true) }
-
-            var essais = 0
-            while (true) {
-                delay(POLL_INTERVAL_MS)
-                val detail = try {
-                    api.voyageAnnee(annee)
-                } catch (e: ApiError) {
-                    if (e.isUnauthenticated) onUnauthenticated()
-                    return@launch
-                }
-                if (detail.configure && detail.statut == "prete") {
-                    _ui.update { it.copy(carnet = detail.carnet?.versUi(), carnetEnCours = detail.carnet_en_cours) }
-                }
-                val (etat, prochainEssai) = etatFourneeSuivant(_ui.value.carnetEnCours, essais, plafond = CHRONIQUE_ANNEE_ESSAIS_MAX)
-                essais = prochainEssai
-                if (etat != EtatFournee.EN_COURS) return@launch
-            }
+    suspend fun contexteSalle(salleId: String): String {
+        _ui.value.salles.firstOrNull { it.id == salleId }?.contexte?.let { return it }
+        val reponse = try {
+            api.voyageSalleContexte(annee, salleId)
+        } catch (e: ApiError) {
+            if (e.isUnauthenticated) onUnauthenticated()
+            throw e
         }
+        mettreAJourSalle(salleId) { it.copy(contexte = reponse.contexte) }
+        return reponse.contexte
     }
 
     /**
-     * Un tap sur « Fabriqué le… » (décision 4) : les octets seuls — c'est l'appelant (`AnneeScreen`,
-     * `ouvrirCarnet`) qui les écrit dans `cacheDir` et ouvre l'intention, avec le `Context` qu'un
-     * `ViewModel` ne doit pas tenir. `null` après une session expirée, déjà traitée ici comme
-     * partout ailleurs.
+     * Le générique de fin d'année (décision 5), jumeau de `contexteSalle` ci-dessus : synchrone,
+     * jamais rappelé une fois écrit — `afficherBoutonGenerique` (`VoyageEtats.kt`) garde le bouton
+     * absent tant que l'année n'a pas son ticket, seule condition qui rend l'appel possible côté
+     * back (`409` sinon).
      */
-    suspend fun telechargerCarnetPdf(): ByteArray? = try {
-        api.telechargerCarnetPdf(annee)
-    } catch (e: ApiError) {
-        if (e.isUnauthenticated) {
-            onUnauthenticated()
-            null
-        } else {
+    suspend fun generiqueAnnee(): String {
+        _ui.value.generique?.let { return it }
+        val reponse = try {
+            api.voyageGenerique(annee)
+        } catch (e: ApiError) {
+            if (e.isUnauthenticated) onUnauthenticated()
             throw e
         }
+        _ui.update { it.copy(generique = reponse.generique) }
+        return reponse.generique
     }
 
     companion object {

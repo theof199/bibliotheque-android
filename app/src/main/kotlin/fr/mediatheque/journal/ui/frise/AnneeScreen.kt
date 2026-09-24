@@ -40,7 +40,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -86,10 +85,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
+import fr.mediatheque.journal.api.ApiError
 import fr.mediatheque.journal.api.dto.SearchMetadata
 import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.ui.AfficheVolante
 import fr.mediatheque.journal.ui.Cover
+import fr.mediatheque.journal.ui.EtatFeuilleDeLecture
+import fr.mediatheque.journal.ui.FeuilleDeLecture
 import fr.mediatheque.journal.ui.PlexBadge
 import fr.mediatheque.journal.ui.TamponPerdu
 import fr.mediatheque.journal.ui.Embleme
@@ -152,13 +154,20 @@ fun AnneeScreen(
 ) {
     val ui by vm.ui.collectAsState()
     val snackbar = remember { SnackbarHostState() }
-    val contexte = LocalContext.current
     val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) { vm.messages.collect { snackbar.showBriefly(it) } }
     LaunchedEffect(Unit) { vm.relire() }
     val millesime = annee.annee ?: LocalDate.now().year
     val monde = mondeDe(millesime)
     var marcheOuverte by remember { mutableStateOf<Int?>(null) }
+    // Les feuilles de lecture posées à côté de l'ouverture, et sur chaque salle (décisions 2, 3 et
+    // 5 du brief du 24 septembre 2026, « le voyage revu ») : l'ouverture n'appelle jamais de route
+    // (déjà chargée avec l'année), le contexte d'une salle et le générique si — d'où les formes
+    // différentes.
+    var feuilleOuverte by remember { mutableStateOf(false) }
+    var feuilleGenerique by remember { mutableStateOf<EtatFeuilleDeLecture?>(null) }
+    // La salle ouverte dans la feuille, avec son état — nul hors feuille.
+    var feuilleSalle by remember { mutableStateOf<Pair<String, EtatFeuilleDeLecture>?>(null) }
     // La cascade d'entrée (habillage du 23 septembre 2026, geste 8) : posée une fois ici, pour le
     // podium et les salles ci-dessous.
     val porteCascade = rememberPorteCascade()
@@ -194,6 +203,44 @@ fun AnneeScreen(
             }
         }
         podiumPrecedent = ui.podium
+    }
+
+    // Le générique de fin (décision 5) : appelle la route seulement si `ui.generique` est encore
+    // nul (`doitAppelerContexteSalle`, même règle qu'une salle, la route étant sur le même modèle
+    // synchrone) ; sinon la feuille rouvre le texte déjà là, sans appel.
+    val chargerGenerique: suspend () -> Unit = {
+        feuilleGenerique = EtatFeuilleDeLecture.Chargement
+        feuilleGenerique = try {
+            EtatFeuilleDeLecture.Texte(vm.generiqueAnnee())
+        } catch (e: ApiError) {
+            EtatFeuilleDeLecture.Erreur(e.message ?: "Impossible pour l’instant", e.retryable)
+        }
+    }
+    val onOuvrirGenerique: () -> Unit = {
+        if (doitAppelerContexteSalle(ui.generique)) {
+            scope.launch { chargerGenerique() }
+        } else {
+            feuilleGenerique = EtatFeuilleDeLecture.Texte(ui.generique!!)
+        }
+    }
+
+    // Le contexte d'une salle (décision 3) : jumeau du générique ci-dessus, sur une salle précise —
+    // `contexteSalle` (`AnneeViewModel`) ne rappelle la route que si elle ne l'a pas déjà.
+    val chargerContexteSalle: suspend (String) -> Unit = { salleId ->
+        feuilleSalle = salleId to EtatFeuilleDeLecture.Chargement
+        val etat = try {
+            EtatFeuilleDeLecture.Texte(vm.contexteSalle(salleId))
+        } catch (e: ApiError) {
+            EtatFeuilleDeLecture.Erreur(e.message ?: "Impossible pour l’instant", e.retryable)
+        }
+        feuilleSalle = salleId to etat
+    }
+    val onOuvrirContexteSalle: (SalleUi) -> Unit = { salle ->
+        if (doitAppelerContexteSalle(salle.contexte)) {
+            scope.launch { chargerContexteSalle(salle.id) }
+        } else {
+            feuilleSalle = salle.id to EtatFeuilleDeLecture.Texte(salle.contexte!!)
+        }
     }
 
     marcheOuverte?.let { place ->
@@ -259,7 +306,15 @@ fun AnneeScreen(
                     }
                 }
 
-                item { Cartouche(millesime, ui, monde, onLireLaSuite = vm::deplierOuverture) }
+                item {
+                    Cartouche(
+                        millesime,
+                        ui,
+                        monde,
+                        onLireOuverture = { feuilleOuverte = true },
+                        onOuvrirGenerique = onOuvrirGenerique,
+                    )
+                }
 
                 if (ui.etat == EtatAnnee.PRETE) {
                     item {
@@ -301,6 +356,7 @@ fun AnneeScreen(
                             vientDeSeBoucler = salle.id == salleVenantDeBoucler,
                             onVoirPlus = { vm.voirPlus(salle.id) },
                             onOuvrirFilm = { filmId -> onOpenFilm(salle.id, filmId) },
+                            onOuvrirContexte = { onOuvrirContexteSalle(salle) },
                             sharedTransitionScope = sharedTransitionScope,
                             animatedVisibilityScope = animatedVisibilityScope,
                         )
@@ -319,49 +375,41 @@ fun AnneeScreen(
                 if (ui.statutVoyage == StatutAnneeVoyage.EN_COURS) {
                     item { LigneBasAnneeEnCours(ligneBasAnnee(ui.ticket, ui.maturite), onUtiliserTicket = { vm.utiliserTicket(onTicketChange) }) }
                 }
-
-                // Le carnet (décision 2 du brief du 22 septembre 2026, « le carnet »), sous la ligne du
-                // ticket : toute année qui a une ouverture (etat PRETE, la seule condition qui gouverne
-                // déjà le podium et les salles ci-dessus), pas seulement l'année en cours.
-                if (ui.etat == EtatAnnee.PRETE) {
-                    item {
-                        BlocCarnet(
-                            carnet = ui.carnet,
-                            carnetEnCours = ui.carnetEnCours,
-                            onFaireCarnet = vm::fabriquerCarnet,
-                            onOuvrirCarnet = {
-                                scope.launch { ouvrirCarnet(contexte, millesime, vm::telechargerCarnetPdf) { message -> snackbar.showBriefly(message) } }
-                            },
-                        )
-                    }
-                }
             }
         }
     }
-}
 
-/**
- * « Faire le carnet »/« Refaire le carnet » (décision 2 du brief du 22 septembre 2026, « le
- * carnet »), désactivé et « Le carnet se fabrique… » pendant `carnetEnCours` ; en dessous, dès
- * qu'un carnet existe déjà, « Fabriqué le… » — un tap l'ouvre (décision 4).
- */
-@Composable
-private fun BlocCarnet(carnet: CarnetUi?, carnetEnCours: Boolean, onFaireCarnet: () -> Unit, onOuvrirCarnet: () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        BoutonSecondaireAnnee(
-            libelleBoutonCarnet(carnet, carnetEnCours),
-            onClick = onFaireCarnet,
-            enabled = !carnetEnCours,
-            modifier = Modifier.fillMaxWidth(),
+    // L'ouverture (décision 2) : déjà chargée avec l'année, la feuille ne fait jamais d'appel.
+    if (feuilleOuverte) {
+        FeuilleDeLecture(
+            titre = "$millesime",
+            etat = EtatFeuilleDeLecture.Texte(ui.ouverture ?: ""),
+            onDismiss = { feuilleOuverte = false },
         )
-        carnet?.let {
-            Text(
-                ligneFabriqueLeCarnet(it),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.clickable(onClick = onOuvrirCarnet),
-            )
-        }
+    }
+
+    // Le générique de fin (décision 5) : ouvert depuis le bouton posé à côté de l'ouverture dans le
+    // cartouche (`Cartouche`, ci-dessous) — synchrone, appelle la route si nul.
+    feuilleGenerique?.let { etat ->
+        FeuilleDeLecture(
+            titre = "Le générique de fin",
+            etat = etat,
+            onDismiss = { feuilleGenerique = null },
+            onRetry = { scope.launch { chargerGenerique() } },
+        )
+    }
+
+    // Le contexte d'une salle (décision 3) : le titre de la feuille est celui de la salle, retrouvé
+    // dans `ui.salles` — nul (donc muet) si la salle a disparu entre-temps, ce qui n'arrive jamais
+    // en pratique (une salle n'est jamais retirée).
+    feuilleSalle?.let { (salleId, etat) ->
+        val nomSalle = ui.salles.firstOrNull { it.id == salleId }?.nom ?: ""
+        FeuilleDeLecture(
+            titre = nomSalle,
+            etat = etat,
+            onDismiss = { feuilleSalle = null },
+            onRetry = { scope.launch { chargerContexteSalle(salleId) } },
+        )
     }
 }
 
@@ -394,8 +442,8 @@ private fun LigneBasAnneeEnCours(ligne: LigneBasAnnee, onUtiliserTicket: () -> U
  * Un bouton secondaire lisible (point 8 de la revue du 24 septembre 2026) : contour or plein,
  * texte clair — avant cette revue, les quatre `OutlinedButton` de cette fiche gardaient les
  * couleurs par défaut de Material (contour `outline`, presque invisible sur ce fond déjà sombre ;
- * texte `primary`, le corail réservé ailleurs à un choix ou un déclenchement). « Faire le carnet »,
- * « Composer une séance », « Ouvrir une nouvelle salle » (les deux sites de `BlocNouvelleSalle`).
+ * texte `primary`, le corail réservé ailleurs à un choix ou un déclenchement). « Composer une
+ * séance », « Ouvrir une nouvelle salle » (les deux sites de `BlocNouvelleSalle`).
  */
 @Composable
 private fun BoutonSecondaireAnnee(texte: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
@@ -429,7 +477,7 @@ private fun PastilleStat(texte: String) {
  * (spec §3) — une phrase pour chaque état, y compris la première visite (`202`) et l'abandon.
  */
 @Composable
-private fun Cartouche(millesime: Int, ui: AnneeUi, monde: Monde, onLireLaSuite: () -> Unit) {
+private fun Cartouche(millesime: Int, ui: AnneeUi, monde: Monde, onLireOuverture: () -> Unit, onOuvrirGenerique: () -> Unit) {
     // Coins 16 (habillage du 23 septembre 2026, geste 5) : le shape du cartouche suit désormais
     // `CadreOrne`, dont le double filet remplace le `Modifier.ornemente()` qui le dessinait à la
     // main — jumeau généralisé du même dessin (geste 3).
@@ -476,7 +524,7 @@ private fun Cartouche(millesime: Int, ui: AnneeUi, monde: Monde, onLireLaSuite: 
                 }
             }
             when (ui.etat) {
-                EtatAnnee.PRETE -> ui.ouverture?.let { CartoucheOuverture(it, ui, monde, onLireLaSuite) }
+                EtatAnnee.PRETE -> ui.ouverture?.let { CartoucheOuverture(it, ui, onLireOuverture, onOuvrirGenerique) }
                 EtatAnnee.EN_PREPARATION -> Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -500,43 +548,30 @@ private fun Cartouche(millesime: Int, ui: AnneeUi, monde: Monde, onLireLaSuite: 
 }
 
 /**
- * L'ouverture, repliée à trois lignes (« Lire la suite » la déplie), puis les faits, puis les
- * paragraphes de la chronique dans l'ordre (décision 2 du brief du 21 septembre 2026, « la
- * chronique et les salles ») : date, titre dans l'accent du monde, texte, puis « à propos de
- * *Titre* » — un filet fin entre deux paragraphes (spec §3).
+ * L'ouverture, en pop-in (décision 2 du brief du 24 septembre 2026, « le voyage revu ») : le
+ * cartouche montre les trois premières lignes et « Lire l'ouverture », qui ouvre la feuille pleine
+ * (déjà chargée, aucun appel) — plus d'expansion en place. Les faits restent sous les trois lignes,
+ * toujours visibles ; « Le générique de fin » (décision 5), n'apparaît qu'avec le ticket de l'année
+ * (`afficherBoutonGenerique`).
  */
 @Composable
-private fun CartoucheOuverture(ouverture: String, ui: AnneeUi, monde: Monde, onLireLaSuite: () -> Unit) {
-    // `animateContentSize()` (peaufinage du 23 septembre 2026, geste 2) : « Lire la suite » fait
-    // passer ce bloc de trois lignes aux faits puis aux paragraphes de la chronique, ce qui
-    // décalait d'un coup le podium et les salles en dessous — la hauteur s'anime désormais.
-    Column(Modifier.animateContentSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+private fun CartoucheOuverture(ouverture: String, ui: AnneeUi, onLireOuverture: () -> Unit, onOuvrirGenerique: () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             ouverture,
             style = MaterialTheme.typography.bodyLarge,
             color = TextePapier,
-            maxLines = if (ui.ouvertureDepliee) Int.MAX_VALUE else 3,
+            maxLines = 3,
             overflow = TextOverflow.Ellipsis,
         )
-        if (!ui.ouvertureDepliee) {
-            TextButton(onClick = onLireLaSuite) { Text("Lire la suite") }
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                ui.faits.forEach { fait -> Text("· $fait", style = MaterialTheme.typography.bodyMedium, color = TextePapier) }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = onLireOuverture) { Text("Lire l’ouverture") }
+            if (afficherBoutonGenerique(ui.ticket)) {
+                TextButton(onClick = onOuvrirGenerique) { Text("Le générique de fin") }
             }
-            ui.paragraphes.forEachIndexed { index, paragraphe ->
-                if (index > 0) HorizontalDivider(color = CadrePapier, thickness = 0.5.dp)
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        formatDateTime(paragraphe.ecritLe),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(paragraphe.titre, style = MaterialTheme.typography.titleSmall, color = monde.accent)
-                    Text(paragraphe.texte, style = MaterialTheme.typography.bodyMedium, color = TextePapier)
-                    Text("à propos de ${paragraphe.filmTitle}", style = MaterialTheme.typography.bodySmall, color = TextePapier)
-                }
-            }
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            ui.faits.forEach { fait -> Text("· $fait", style = MaterialTheme.typography.bodyMedium, color = TextePapier) }
         }
     }
 }
@@ -1160,11 +1195,17 @@ private fun BlocSalle(
     vientDeSeBoucler: Boolean,
     onVoirPlus: () -> Unit,
     onOuvrirFilm: (String) -> Unit,
+    /** Le contexte de la salle, en pop-in (décision 3 du brief du 24 septembre 2026, « le voyage revu ») — un tap sur le titre ou la raison l'ouvre. */
+    onOuvrirContexte: () -> Unit,
     sharedTransitionScope: SharedTransitionScope? = null,
     animatedVisibilityScope: AnimatedVisibilityScope? = null,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.clickable(onClick = onOuvrirContexte),
+        ) {
             Text(salle.nom, style = MaterialTheme.typography.titleMedium)
             // Le ruban « Salle bouclée » (habillage du 23 septembre 2026, geste 10), glissé depuis
             // la gauche — une fois par salle, jamais rejoué (`vientDeSeBoucler` vient d'un `Channel`
@@ -1191,7 +1232,12 @@ private fun BlocSalle(
             }
             Perforations(allumees = allumees)
         }
-        Text(salle.raisonDEtre, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            salle.raisonDEtre,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.clickable(onClick = onOuvrirContexte),
+        )
         // Les salles en lignes « billets » (habillage du 23 septembre 2026, geste 5), séparées par
         // un filet pointillé or — remplace l'étagère horizontale d'affiches. La cascade d'entrée
         // (geste 8) rejoue son index propre à chaque salle, comme une petite liste à elle seule.
