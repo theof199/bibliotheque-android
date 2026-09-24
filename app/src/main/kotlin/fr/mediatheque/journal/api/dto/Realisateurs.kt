@@ -75,6 +75,11 @@ data class FilmDeFilmographie(
     val year: Int? = null,
     val release_date: String,
     val cover_url: String? = null,
+    /**
+     * L'image de fond (`w1280`), en héros de la fiche simple d'un film (point 10 de la revue du
+     * 24 septembre 2026) — déjà rendue par le contrat (v1.17.0) avant que l'appli ne la lise.
+     */
+    val backdrop_url: String? = null,
     val vu: VuDuFilm? = null,
     val introuvable: Boolean = false,
     val type: String = "movie",

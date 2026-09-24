@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -35,6 +36,7 @@ import fr.mediatheque.journal.api.dto.SearchMetadata
 import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.ui.AfficheVolante
 import fr.mediatheque.journal.ui.Cover
+import fr.mediatheque.journal.ui.FondHeros
 import fr.mediatheque.journal.ui.titreOriginalAffiche
 import fr.mediatheque.journal.ui.voler
 import fr.mediatheque.journal.ui.frise.ouvrirPlex
@@ -94,75 +96,89 @@ fun FicheFilmScreen(
         val etatFilm = etatFilmographie(film)
         val boutons = boutonsFicheFilm(film.type, etatFilm, film.plex_url)
 
-        Column(
-            Modifier.fillMaxWidth().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) { IconeTabler("arrow-left", "Retour") }
-            }
+        Box(Modifier.fillMaxSize().padding(padding)) {
+            // Le fond héros (point 10 de la revue du 24 septembre 2026) : `backdrop_url`, dans le
+            // contrat depuis la v1.17.0 mais jamais encore lu par l'appli — jumeau de `FormScreen`
+            // et `FicheVoyageScreen`. Ni synopsis, ni durée, ni genres dans cette réponse
+            // (`GET /me/realisateurs/{tmdbId}/page`, vérifié dans `contract/openapi.json`) : rien
+            // de plus à afficher, l'appli n'a que ce que la fiche montrait déjà.
+            FondHeros(film.backdrop_url, hauteur = 220.dp)
+            Column(
+                Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onBack) { IconeTabler("arrow-left", "Retour") }
+                }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Cover(film.cover_url, film.title, 96.dp, 144.dp, modifier = Modifier.voler(volante))
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(film.title, style = MaterialTheme.typography.titleLarge)
-                    titreOriginalAffiche(film.title, film.original_title)?.let { original ->
-                        Text(original, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Cover(film.cover_url, film.title, 96.dp, 144.dp, modifier = Modifier.voler(volante))
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(film.title, style = MaterialTheme.typography.titleLarge)
+                        titreOriginalAffiche(film.title, film.original_title)?.let { original ->
+                            Text(original, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Text(
+                            film.year?.toString() ?: "",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        NomRealisateurTouchable(
+                            filmTmdbId = film.tmdb_id,
+                            nomConnu = page.name,
+                            resolveur = resolveur,
+                            onOuvrirRealisateur = onOuvrirRealisateur,
+                        )
                     }
+                }
+
+                film.vu?.let { vu ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Vu", style = MaterialTheme.typography.bodyMedium)
+                        vu.rating?.let { note -> Text("$note", style = MaterialTheme.typography.titleMedium) }
+                    }
+                }
+
+                if (film.type == "tv") {
                     Text(
-                        film.year?.toString() ?: "",
+                        "Les séries se suivent dans Suivis",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    NomRealisateurTouchable(
-                        filmTmdbId = film.tmdb_id,
-                        nomConnu = page.name,
-                        resolveur = resolveur,
-                        onOuvrirRealisateur = onOuvrirRealisateur,
-                    )
                 }
-            }
 
-            film.vu?.let { vu ->
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Vu", style = MaterialTheme.typography.bodyMedium)
-                    vu.rating?.let { note -> Text("$note", style = MaterialTheme.typography.titleMedium) }
-                }
-            }
-
-            if (film.type == "tv") {
-                Text(
-                    "Les séries se suivent dans Suivis",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                boutons.forEach { bouton ->
-                    when (bouton) {
-                        BoutonFicheFilm.VOIR_SUR_LE_PLEX -> OutlinedButton(
-                            onClick = { ouvrirPlex(contexte, film.plex_url) },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) { Text("Voir sur le Plex") }
-                        BoutonFicheFilm.JE_L_AI_VU -> Button(
-                            onClick = { onOuvrirForm(film.versSearchResult(page.name)) },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) { Text("Je l’ai vu") }
-                        BoutonFicheFilm.DEMANDER -> OutlinedButton(
-                            onClick = { vm.demander(film.tmdb_id) },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) { Text("Demander sur Sir") }
-                        BoutonFicheFilm.MARQUER_INTROUVABLE -> TextButton(onClick = { vm.marquerIntrouvable(film.tmdb_id) }) {
-                            Text("Introuvable")
-                        }
-                        BoutonFicheFilm.RETIRER_INTROUVABLE -> TextButton(onClick = { vm.retirerIntrouvable(film.tmdb_id) }) {
-                            Text("Le remettre à voir")
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    boutons.forEach { bouton ->
+                        when (bouton) {
+                            BoutonFicheFilm.VOIR_SUR_LE_PLEX -> OutlinedButton(
+                                onClick = { ouvrirPlex(contexte, film.plex_url) },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) { Text("Voir sur le Plex") }
+                            BoutonFicheFilm.JE_L_AI_VU -> Button(
+                                onClick = { onOuvrirForm(film.versSearchResult(page.name)) },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) { Text("Je l’ai vu") }
+                            BoutonFicheFilm.DEMANDER -> OutlinedButton(
+                                onClick = { vm.demander(film.tmdb_id) },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) { Text("Demander sur Sir") }
+                            // En bouton texte gris, pas en corail (point 10) : avant cette revue,
+                            // `TextButton` gardait la couleur par défaut de Material
+                            // (`colorScheme.primary`), le corail réservé ailleurs à un choix ou un
+                            // déclenchement — jamais à ce geste, plus proche d'un aveu que d'une
+                            // action positive.
+                            BoutonFicheFilm.MARQUER_INTROUVABLE -> TextButton(
+                                onClick = { vm.marquerIntrouvable(film.tmdb_id) },
+                                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant),
+                            ) { Text("Introuvable") }
+                            BoutonFicheFilm.RETIRER_INTROUVABLE -> TextButton(onClick = { vm.retirerIntrouvable(film.tmdb_id) }) {
+                                Text("Le remettre à voir")
+                            }
                         }
                     }
-                }
-                if (etatFilm == "demande") {
-                    Text("demandé", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (etatFilm == "demande") {
+                        Text("demandé", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             }
         }
