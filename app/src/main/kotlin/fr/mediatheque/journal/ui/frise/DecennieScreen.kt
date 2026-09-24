@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -29,6 +30,10 @@ import androidx.compose.ui.unit.dp
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.PlexFilm
 import fr.mediatheque.journal.ui.Cover
+import fr.mediatheque.journal.ui.Embleme
+import fr.mediatheque.journal.ui.EmblemeType
+import fr.mediatheque.journal.ui.Emblemes
+import fr.mediatheque.journal.ui.formatDateTime
 import fr.mediatheque.journal.ui.theme.Fraunces
 import fr.mediatheque.journal.ui.theme.IconeTabler
 import kotlin.math.roundToInt
@@ -103,28 +108,70 @@ fun DecennieScreen(
                 }
             }
 
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            // Année par année, sous la bande d'affiches (point 15 de la revue du 24 septembre
+            // 2026) : millésime, nombre de films vus, récompense du Voyage et meilleure note —
+            // remplace la simple rangée de dix chiffres d'avant elle, qui laissait un grand vide
+            // sous elle (le constat de la revue).
+            val lignes = lignesDecennie(decennie.annees, decennie.films, voyage)
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-                decennie.annees.forEach { annee ->
-                    // « Grisées si l'année n'a rien » (le constat, point 2), et désormais aussi si
-                    // le Voyage la déclare verrouillée (brief du 16 septembre 2026) : opacité
-                    // désactivée du design (§6, 38 %), jamais retirées de la rangée — les dix
-                    // puces restent touchables, une année vide ou verrouillée ouvrant simplement
-                    // l'écran correspondant.
-                    val rien = annee.vus == 0 && annee.aVoir == 0
-                    val verrouillee = statutVoyage(annee.annee, voyage) == StatutAnneeVoyage.VERROUILLEE
-                    // Le chiffre d'année en serif (habillage du 23 septembre 2026, geste 7).
-                    Text(
-                        annee.annee.toString(),
-                        style = MaterialTheme.typography.labelSmall.copy(fontFamily = Fraunces),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier
-                            .weight(1f)
+                lignes.forEach { ligne ->
+                    // « Grisées si l'année n'a rien » (le constat, point 2 du chantier d'origine),
+                    // et désormais aussi si le Voyage la déclare verrouillée : opacité désactivée
+                    // du design (§6, 38 %), jamais retirée de la liste — une ligne vide ou
+                    // verrouillée ouvre simplement l'écran correspondant.
+                    val rien = ligne.vus == 0 && decennie.annees.first { it.annee == ligne.annee }.aVoir == 0
+                    val verrouillee = statutVoyage(ligne.annee, voyage) == StatutAnneeVoyage.VERROUILLEE
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
                             .let { if (rien || verrouillee) it.alpha(0.38f) else it }
-                            .clickable { onOuvrirAnnee(annee.annee) }
+                            .clickable { onOuvrirAnnee(ligne.annee) }
                             .padding(vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        // Le chiffre d'année en serif (habillage du 23 septembre 2026, geste 7).
+                        Text(
+                            ligne.annee.toString(),
+                            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = Fraunces),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.width(48.dp),
+                        )
+                        Text(
+                            if (ligne.vus == 0) "—" else "${ligne.vus} ${if (ligne.vus > 1) "vus" else "vu"}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
+                        )
+                        recompenseDe(ligne.recompense)?.let { recompense ->
+                            Embleme(Emblemes.typeDe(recompense), 18.dp)
+                        }
+                        ligne.meilleureNote?.let { note ->
+                            Text(
+                                "★ $note",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = monde.accent,
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Le tampon du passeport, s'il existe (point 15) : la décennie est déjà bouclée.
+            voyage.tampons.firstOrNull { it.decennie == decennie.decennie }?.let { tampon ->
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Embleme(EmblemeType.PASSEPORT, 28.dp)
+                    Text(
+                        "Décennie bouclée le ${formatDateTime(tampon.boucle_le)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }

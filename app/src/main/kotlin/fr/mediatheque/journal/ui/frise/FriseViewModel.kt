@@ -118,6 +118,36 @@ data class DecennieFrise(
 )
 
 /**
+ * Une ligne « année par année » du rayon d'une décennie (point 15 de la revue du 24 septembre
+ * 2026) : millésime, nombre de films vus, récompense (Ours/Lion/Palme du Voyage, nulle sans aucun
+ * film vu cette année-là) et meilleure note (nulle si aucun des films vus n'a de note).
+ */
+data class LigneAnneeDecennie(val annee: Int, val vus: Int, val recompense: String?, val meilleureNote: Int?)
+
+/**
+ * Les dix lignes du rayon (point 15), une par `AnneeDecennie` — fonction pure, testée en JVM.
+ * `recompense` vient du Voyage (`voyage.parAnnee`, `AnneeVoyage.recompense`), pas du journal : une
+ * année sans ouverture Voyage n'a jamais de récompense, quel que soit son nombre de vus.
+ * `meilleureNote` ne regarde que les films vus de la décennie (`FilmDecennie.Vu`), jamais les « à
+ * voir » qui n'ont pas de note.
+ */
+fun lignesDecennie(annees: List<AnneeDecennie>, films: List<FilmDecennie>, voyage: VoyageUi): List<LigneAnneeDecennie> {
+    val meilleuresNotes: Map<Int, Int> = films
+        .filterIsInstance<FilmDecennie.Vu>()
+        .mapNotNull { film -> film.item.entry.rating?.let { note -> film.annee to note } }
+        .groupBy({ it.first }, { it.second })
+        .mapValues { (_, notes) -> notes.max() }
+    return annees.map { annee ->
+        LigneAnneeDecennie(
+            annee = annee.annee,
+            vus = annee.vus,
+            recompense = voyage.parAnnee[annee.annee]?.recompense,
+            meilleureNote = meilleuresNotes[annee.annee],
+        )
+    }
+}
+
+/**
  * Les agrégats par décennie de la Frise (brief du 16 septembre 2026), pour le calendrier
  * (`FriseScreen`) et le rayon (`Screen.Decennie`) — fonction pure, testée en JVM.
  *

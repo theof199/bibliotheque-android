@@ -1,6 +1,7 @@
 package fr.mediatheque.journal.ui.frise
 
 import fr.mediatheque.journal.FakeJournalApi
+import fr.mediatheque.journal.api.dto.AnneeVoyage
 import fr.mediatheque.journal.api.dto.PlexFilm
 import fr.mediatheque.journal.api.dto.PlexResponse
 import org.junit.Assert.assertEquals
@@ -217,5 +218,34 @@ class FriseTest {
 
         assertEquals(3, decennie1940.vus)
         assertEquals(3, decennie1940.aVoir)
+    }
+
+    // Point 15 de la revue du 24 septembre 2026, « les lignes de la décennie ». Mutation : lire
+    // `voyage.parAnnee[annee]?.recompense` sans la clé `annee` (par exemple la décennie entière)
+    // ferait porter la même récompense à toutes les lignes ; `notes.max()` remplacé par `.first()`
+    // ou `.min()` ferait tomber l'assertion sur la meilleure note.
+    @Test
+    fun `lignesDecennie porte le compte de vus, la recompense du Voyage et la meilleure note`() {
+        val journal = listOf(
+            FakeJournalApi.item("metropolis", "2026-01-01", 6, emptyList(), null, id = "e-1", year = 1927, externalId = "10"),
+            FakeJournalApi.item("m", "2026-01-02", 9, emptyList(), null, id = "e-2", year = 1927, externalId = "11", title = "M le maudit"),
+            FakeJournalApi.item("nosferatu", "2026-01-03", null, emptyList(), null, id = "e-3", year = 1922, externalId = "12"),
+        )
+        val plex = PlexResponse(configure = true, films = emptyList())
+        val frise = construireFrise(journal, plex)
+        val decennie1920 = construireDecennies(frise, anneeActuelle = 2026).first { it.decennie == 1920 }
+        val voyage = VoyageUi(parAnnee = mapOf(1927 to AnneeVoyage(annee = 1927, statut = "ouverte", recompense = "lion")))
+
+        val lignes = lignesDecennie(decennie1920.annees, decennie1920.films, voyage)
+
+        val ligne1927 = lignes.first { it.annee == 1927 }
+        assertEquals(2, ligne1927.vus)
+        assertEquals("lion", ligne1927.recompense)
+        assertEquals(9, ligne1927.meilleureNote)
+
+        val ligne1922 = lignes.first { it.annee == 1922 }
+        assertEquals(1, ligne1922.vus)
+        assertNull(ligne1922.recompense) // aucune ouverture Voyage pour 1922 dans ce test
+        assertNull(ligne1922.meilleureNote) // le seul film vu de 1922 n'a pas de note
     }
 }
