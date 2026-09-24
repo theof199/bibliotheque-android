@@ -142,18 +142,23 @@ data class SeanceUi(
 )
 
 /**
- * La ligne sous la profondeur, dans l'en-tête de la fiche d'année (décision 2 du brief du
- * 21 septembre 2026, « les récompenses ») : « *N* essentiels sur *M* · *N* salles complètes sur
- * *M* », ou « Aucun essentiel encore » si l'année n'a pas d'essentiel connu — nulle (la ligne ne
- * s'affiche pas) tant que la progression n'est pas encore chargée. Fonction pure, testée en JVM.
+ * Les pastilles du haut de la fiche d'année (décision 2 du brief du 21 septembre 2026, « les
+ * récompenses », revue en trois pastilles lisibles au point 8 de la revue du 24 septembre 2026 —
+ * avant elle, une seule ligne « *N* essentiels sur *M* · *N* salles complètes sur *M* » sous la
+ * profondeur) : films, essentiels, salles complètes. La pastille des films est toujours là ; les
+ * deux autres attendent `progression` (absentes tant qu'elle n'a pas répondu), et se réduisent à
+ * une seule pastille « Aucun essentiel encore » si l'année n'a pas d'essentiel connu — jamais
+ * « 0 essentiel sur 0 », qui laisserait croire à un calcul plutôt qu'à une absence. Fonction pure,
+ * testée en JVM.
  */
-fun ligneProgression(progression: ProgressionUi?): String? {
-    if (progression == null) return null
-    if (progression.essentielsTotal == 0) return "Aucun essentiel encore"
+fun pastillesProgression(profondeur: Int, progression: ProgressionUi?): List<String> {
+    val films = "$profondeur ${if (profondeur <= 1) "film" else "films"}"
+    if (progression == null) return listOf(films)
+    if (progression.essentielsTotal == 0) return listOf(films, "Aucun essentiel encore")
     val essentiels = "${progression.essentielsVus} essentiel${if (progression.essentielsVus > 1) "s" else ""} sur ${progression.essentielsTotal}"
     val salles = "${progression.sallesCompletes} salle${if (progression.sallesCompletes > 1) "s" else ""} " +
         "complète${if (progression.sallesCompletes > 1) "s" else ""} sur ${progression.sallesAutres}"
-    return "$essentiels · $salles"
+    return listOf(films, essentiels, salles)
 }
 
 /**

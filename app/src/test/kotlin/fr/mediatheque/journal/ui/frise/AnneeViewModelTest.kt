@@ -677,30 +677,32 @@ class AnneeViewModelTest {
         assertEquals(LigneBasAnnee.Rien, ligneBasAnnee(null, null))
     }
 
-    // La ligne de progression, sous la profondeur (décision 2 du brief du 21 septembre 2026,
-    // « les récompenses »), fonction pure : « Aucun essentiel encore » avant `essentiels_total`,
-    // « *N* sur *M* » ensuite, le pluriel sur chaque compte. Mutation : accorder « essentiel(s) »
-    // ou « salle(s) complète(s) » sur l'autre nombre du couple ferait échouer les deux dernières
-    // assertions ; ne pas court-circuiter sur `essentielsTotal == 0` ferait apparaître « 0 essentiel
-    // sur 0 » au lieu du message dédié.
+    // Les pastilles du haut (décision 2 du brief du 21 septembre 2026, « les récompenses », revue
+    // en trois pastilles au point 8 de la revue du 24 septembre 2026), fonction pure : la pastille
+    // des films toujours en tête, « Aucun essentiel encore » avant `essentiels_total`, deux
+    // pastilles « *N* sur *M* » ensuite, le pluriel sur chaque compte. Mutation : accorder
+    // « essentiel(s) » ou « salle(s) complète(s) » sur l'autre nombre du couple ferait échouer les
+    // deux dernières assertions ; ne pas court-circuiter sur `essentielsTotal == 0` ferait
+    // apparaître « 0 essentiel sur 0 » au lieu de la pastille dédiée.
     @Test
-    fun `ligneProgression donne le compte au pluriel, ou Aucun essentiel encore`() {
-        assertEquals("Aucun essentiel encore", ligneProgression(ProgressionUi(0, 0, 0, 0)))
+    fun `pastillesProgression donne le compte au pluriel, ou Aucun essentiel encore`() {
+        assertEquals(listOf("9 films", "Aucun essentiel encore"), pastillesProgression(9, ProgressionUi(0, 0, 0, 0)))
         assertEquals(
-            "1 essentiel sur 5 · 1 salle complète sur 4",
-            ligneProgression(ProgressionUi(essentielsVus = 1, essentielsTotal = 5, sallesCompletes = 1, sallesAutres = 4)),
+            listOf("9 films", "1 essentiel sur 5", "1 salle complète sur 4"),
+            pastillesProgression(9, ProgressionUi(essentielsVus = 1, essentielsTotal = 5, sallesCompletes = 1, sallesAutres = 4)),
         )
         assertEquals(
-            "3 essentiels sur 5 · 2 salles complètes sur 4",
-            ligneProgression(ProgressionUi(essentielsVus = 3, essentielsTotal = 5, sallesCompletes = 2, sallesAutres = 4)),
+            listOf("9 films", "3 essentiels sur 5", "2 salles complètes sur 4"),
+            pastillesProgression(9, ProgressionUi(essentielsVus = 3, essentielsTotal = 5, sallesCompletes = 2, sallesAutres = 4)),
         )
     }
 
-    // Nulle (la ligne ne s'affiche pas) tant que la progression n'est pas encore chargée — jamais
-    // confondue avec « Aucun essentiel encore », qui dit que le back a répondu sans essentiel.
+    // Un seul film au singulier, et une seule pastille (la profondeur) tant que la progression
+    // n'est pas encore chargée — jamais confondue avec « Aucun essentiel encore », qui dit que le
+    // back a répondu sans essentiel.
     @Test
-    fun `ligneProgression est nulle sans progression chargee`() {
-        assertNull(ligneProgression(null))
+    fun `pastillesProgression accorde le film au singulier, et n a que la profondeur sans progression`() {
+        assertEquals(listOf("1 film"), pastillesProgression(1, null))
     }
 
     // La récompense et la progression se lisent sur une année prête (étape 5, « les récompenses »)

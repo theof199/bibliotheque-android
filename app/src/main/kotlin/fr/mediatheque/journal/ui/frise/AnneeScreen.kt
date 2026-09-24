@@ -13,6 +13,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -36,6 +37,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -88,6 +90,8 @@ import fr.mediatheque.journal.api.dto.SearchMetadata
 import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.ui.AfficheVolante
 import fr.mediatheque.journal.ui.Cover
+import fr.mediatheque.journal.ui.PlexBadge
+import fr.mediatheque.journal.ui.TamponPerdu
 import fr.mediatheque.journal.ui.Embleme
 import fr.mediatheque.journal.ui.Emblemes
 import fr.mediatheque.journal.ui.EntreeEnCascade
@@ -232,16 +236,18 @@ fun AnneeScreen(
                                 )
                                 IconeTabler("sparkles", null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(16.dp))
                             }
-                            Text(
-                                "${ui.profondeur} ${if (ui.profondeur <= 1) "film" else "films"}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            // Sous la profondeur (décision 2 du brief du 21 septembre 2026, « les
-                            // récompenses ») : nulle (pas de ligne) tant que la progression n'est pas
-                            // encore chargée — `ligneProgression` seule décide de son texte.
-                            ligneProgression(ui.progression)?.let { ligne ->
-                                Text(ligne, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            // Trois petites pastilles lisibles (point 8 de la revue du 24 septembre
+                            // 2026) : films, essentiels, salles complètes — remplace la ligne « *N*
+                            // films » suivie d'une seconde ligne « *N* essentiels sur *M* · … »,
+                            // moins lisible sur le fond héros. `pastillesProgression` (fonction pure
+                            // testée) décide lesquelles existent.
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier.padding(top = 4.dp),
+                            ) {
+                                pastillesProgression(ui.profondeur, ui.progression).forEach { texte ->
+                                    PastilleStat(texte)
+                                }
                             }
                             // Le sous-titre en capitales espacées (geste 5) : « LA FÉERIE, MÉLIÈS… ».
                             Text(
@@ -342,9 +348,12 @@ fun AnneeScreen(
 @Composable
 private fun BlocCarnet(carnet: CarnetUi?, carnetEnCours: Boolean, onFaireCarnet: () -> Unit, onOuvrirCarnet: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        OutlinedButton(onClick = onFaireCarnet, enabled = !carnetEnCours, modifier = Modifier.fillMaxWidth()) {
-            Text(libelleBoutonCarnet(carnet, carnetEnCours))
-        }
+        BoutonSecondaireAnnee(
+            libelleBoutonCarnet(carnet, carnetEnCours),
+            onClick = onFaireCarnet,
+            enabled = !carnetEnCours,
+            modifier = Modifier.fillMaxWidth(),
+        )
         carnet?.let {
             Text(
                 ligneFabriqueLeCarnet(it),
@@ -378,6 +387,40 @@ private fun LigneBasAnneeEnCours(ligne: LigneBasAnnee, onUtiliserTicket: () -> U
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         LigneBasAnnee.Rien -> {}
+    }
+}
+
+/**
+ * Un bouton secondaire lisible (point 8 de la revue du 24 septembre 2026) : contour or plein,
+ * texte clair — avant cette revue, les quatre `OutlinedButton` de cette fiche gardaient les
+ * couleurs par défaut de Material (contour `outline`, presque invisible sur ce fond déjà sombre ;
+ * texte `primary`, le corail réservé ailleurs à un choix ou un déclenchement). « Faire le carnet »,
+ * « Composer une séance », « Ouvrir une nouvelle salle » (les deux sites de `BlocNouvelleSalle`).
+ */
+@Composable
+private fun BoutonSecondaireAnnee(texte: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+    OutlinedButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+    ) { Text(texte) }
+}
+
+/**
+ * Une petite pastille de statistique, en tête de la fiche d'année (point 8 de la revue du
+ * 24 septembre 2026) : un fond plein discret, un texte lisible — remplace les deux lignes de texte
+ * brut qui se lisaient mal sur le fond héros, encore visible à cette hauteur d'écran.
+ */
+@Composable
+private fun PastilleStat(texte: String) {
+    Box(
+        Modifier
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh, CircleShape)
+            .padding(horizontal = 10.dp, vertical = 5.dp),
+    ) {
+        Text(texte, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
     }
 }
 
@@ -630,14 +673,34 @@ private fun PhotogrammePodium(
             },
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        // La troisième marche vide, en cadre pointillé « à venir » (point 8 de la revue du
+        // 24 septembre 2026) — avant elle, un cadre plein nu, indiscernable d'une marche 1 ou 2
+        // vide. Les deux autres marches vides gardent leur cadre nu : seule la troisième, jamais
+        // occupée la première (la cascade se pose 1, 2 puis 3), invite explicitement à s'y poser.
+        val venir = marche == null && place == 3
         Box(
             Modifier
                 .size(largeur, hauteur)
                 .graphicsLayer { translationY = glissement * (largeur.toPx() * 0.6f) }
-                .background(Color.Black, shape)
-                .border(1.5.dp, monde.couleurPodium(place), shape),
+                .then(
+                    if (venir) {
+                        Modifier.dashedBorder(monde.couleurPodium(place), cornerRadius = 3.dp, strokeWidth = 1.5.dp)
+                    } else {
+                        Modifier.background(Color.Black, shape).border(1.5.dp, monde.couleurPodium(place), shape)
+                    },
+                ),
+            contentAlignment = Alignment.Center,
         ) {
             marche?.let { Cover(it.coverUrl, it.title, largeur, hauteur) }
+            if (venir) {
+                Text(
+                    "à venir",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = monde.couleurPodium(place),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(4.dp),
+                )
+            }
         }
         Text(
             "$place",
@@ -648,10 +711,12 @@ private fun PhotogrammePodium(
                 .graphicsLayer { scaleX = rebondNumero; scaleY = rebondNumero },
         )
         if (marche != null) {
+            // Deux lignes au lieu d'être tronqué (point 8) : un titre du podium se lisait souvent
+            // coupé sur une seule ligne (« *Le Manoir du…* ») à la largeur d'un petit photogramme.
             Text(
                 marche.title,
                 style = MaterialTheme.typography.labelSmall,
-                maxLines = 1,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.width(largeur),
@@ -780,9 +845,7 @@ private fun BlocSeance(
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         when (etatZoneSeance(ui.seanceEnCours, ui.seances)) {
-            EtatZoneSeance.BOUTON -> OutlinedButton(onClick = vm::composerSeance, modifier = Modifier.fillMaxWidth()) {
-                Text("Composer une séance")
-            }
+            EtatZoneSeance.BOUTON -> BoutonSecondaireAnnee("Composer une séance", onClick = vm::composerSeance, modifier = Modifier.fillMaxWidth())
             EtatZoneSeance.EN_COURS -> CarteAttenteSeance()
             EtatZoneSeance.CARTE_PROPOSEE, EtatZoneSeance.CARTE_PRISE -> seanceCourante?.let { seance ->
                 CarteSeance(
@@ -1161,7 +1224,6 @@ private fun BlocSalle(
 private fun LigneBillet(film: FilmSalleUi, onClick: () -> Unit, volante: AfficheVolante? = null, modifier: Modifier = Modifier) {
     val etat = etatFilmVoyage(film.etat, film.programme?.bobines ?: emptyList())
     val vu = etat == "vu"
-    val etiquette = etiquetteEtatFilm(etat)
     val or = MaterialTheme.colorScheme.secondary
 
     Row(
@@ -1186,8 +1248,17 @@ private fun LigneBillet(film: FilmSalleUi, onClick: () -> Unit, volante: Affiche
         }
         Column(Modifier.weight(1f)) {
             Text(film.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (etiquette != null) {
-                Text(etiquette, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            // L'état d'un film non vu (point 8 de la revue du 24 septembre 2026) : à voir, sur
+            // Plex (le badge du point 2 — `PlexBadge`, jamais plus le texte « sur ton Plex »),
+            // introuvable (le tampon « perdu » en petit — `TamponPerdu`, jamais plus le mot nu).
+            // Scopé à cette seule ligne de salle : `etiquetteEtatFilm` garde son texte partout
+            // ailleurs (la feuille d'un programme, `FicheVoyageScreen`), hors du périmètre du
+            // point 8.
+            when (etat) {
+                "sur_le_plex" -> PlexBadge(modifier = Modifier.padding(top = 2.dp))
+                "introuvable" -> TamponPerdu(taille = 18.dp, modifier = Modifier.padding(top = 2.dp))
+                "demande" -> Text("demandé", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                "a_demander" -> Text("à voir", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             film.programme?.let { programme ->
                 Text(
@@ -1272,13 +1343,17 @@ private fun BlocNouvelleSalle(
 
     when (etatZoneSalleVoyage(demandeSalle?.statut)) {
         EtatZoneSalleVoyage.FANTOME -> EtagereFantome()
-        EtatZoneSalleVoyage.BOUTON -> OutlinedButton(onClick = { sheetOuverte = true }, modifier = Modifier.fillMaxWidth()) {
-            Text("Ouvrir une nouvelle salle")
-        }
+        EtatZoneSalleVoyage.BOUTON -> BoutonSecondaireAnnee(
+            "Ouvrir une nouvelle salle",
+            onClick = { sheetOuverte = true },
+            modifier = Modifier.fillMaxWidth(),
+        )
         EtatZoneSalleVoyage.REFUS -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            OutlinedButton(onClick = { sheetOuverte = true }, modifier = Modifier.fillMaxWidth()) {
-                Text("Ouvrir une nouvelle salle")
-            }
+            BoutonSecondaireAnnee(
+                "Ouvrir une nouvelle salle",
+                onClick = { sheetOuverte = true },
+                modifier = Modifier.fillMaxWidth(),
+            )
             Text(
                 demandeSalle?.motif ?: "",
                 style = MaterialTheme.typography.bodySmall,
