@@ -22,4 +22,14 @@ class FormatTest {
         // Mutation : sans l'arrondi à une décimale, ce serait "101,16".
         assertEquals("101,2", formatCentimes(101.16))
     }
+
+    // Revue du 24 septembre 2026, point 4, « titres sans doublon ». Mutation : retirer le
+    // `takeIf` (toujours renvoyer `titreOriginal` tel quel) fait tomber la deuxième assertion ;
+    // comparer sans tenir compte de la casse ferait tomber la troisième, qui doit rester distincte.
+    @Test fun `le titre original ne s affiche que s il differe`() {
+        assertEquals("Metropolis", titreOriginalAffiche("Le Voyage de Chihiro", "Metropolis"))
+        assertEquals(null, titreOriginalAffiche("Metropolis", "Metropolis"))
+        assertEquals(null, titreOriginalAffiche("Metropolis", null))
+        assertEquals("METROPOLIS", titreOriginalAffiche("Metropolis", "METROPOLIS"))
+    }
 }

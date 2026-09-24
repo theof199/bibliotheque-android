@@ -220,13 +220,18 @@ fun ProfileScreen(
 
 /**
  * La carte « Bilan » (brief du 15 septembre 2026), sous les deux chiffres du
- * haut : sept lignes, chacune apparaissant quand sa donnée arrive — « … »
- * avant, jamais un chiffre provisoire. Les cinq premières viennent du
+ * haut : six lignes, chacune apparaissant quand sa donnée arrive — « … »
+ * avant, jamais un chiffre provisoire. Les quatre premières viennent du
  * journal (`bilanJournal`, calculé une fois par `BilanViewModel`) ; les deux
  * dernières viennent des deux sources suivies (`bilanSuivi`, **la même
  * fonction pour les deux** : elle ne sait pas si elle compte des
  * réalisateurs ou des sagas), tant qu'elles n'ont pas fini de charger leurs
  * filmographies.
+ *
+ * Le compte des films vus ne s'y répète pas (revue du 24 septembre 2026,
+ * point 4) : les deux chiffres du haut (`ui.total`, `ui.thisYear`) le disent
+ * déjà, en gros, juste au-dessus — une carte qui le redisait mot pour mot
+ * (« *N* films vus, dont *M* cette année ») avant cette revue.
  */
 @Composable
 private fun BilanCard(journal: BilanJournal?, realisateurs: SuiviState, sagas: SuiviState) {
@@ -239,7 +244,6 @@ private fun BilanCard(journal: BilanJournal?, realisateurs: SuiviState, sagas: S
     ) {
         Text("Bilan", style = MaterialTheme.typography.titleMedium)
 
-        LigneBilan(if (journal == null) "…" else "${journal.filmsVus} films vus, dont ${journal.filmsVusCetteAnnee} cette année")
         LigneBilan(if (journal == null) "…" else "${journal.seancesEnSalle} séances en salle, dont ${journal.seancesEnSalleCetteAnnee} cette année")
         LigneBilan(
             when {

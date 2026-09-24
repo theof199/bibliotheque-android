@@ -35,6 +35,7 @@ import fr.mediatheque.journal.api.dto.SearchMetadata
 import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.ui.AfficheVolante
 import fr.mediatheque.journal.ui.Cover
+import fr.mediatheque.journal.ui.titreOriginalAffiche
 import fr.mediatheque.journal.ui.voler
 import fr.mediatheque.journal.ui.frise.ouvrirPlex
 import fr.mediatheque.journal.ui.showBriefly
@@ -105,8 +106,8 @@ fun FicheFilmScreen(
                 Cover(film.cover_url, film.title, 96.dp, 144.dp, modifier = Modifier.voler(volante))
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(film.title, style = MaterialTheme.typography.titleLarge)
-                    if (film.original_title != null && film.original_title != film.title) {
-                        Text(film.original_title, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    titreOriginalAffiche(film.title, film.original_title)?.let { original ->
+                        Text(original, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Text(
                         film.year?.toString() ?: "",

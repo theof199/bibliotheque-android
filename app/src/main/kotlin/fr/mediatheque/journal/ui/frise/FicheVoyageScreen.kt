@@ -59,6 +59,7 @@ import fr.mediatheque.journal.reactions.Reactions
 import fr.mediatheque.journal.ui.AfficheVolante
 import fr.mediatheque.journal.ui.Cover
 import fr.mediatheque.journal.ui.FondHeros
+import fr.mediatheque.journal.ui.titreOriginalAffiche
 import fr.mediatheque.journal.ui.voler
 import fr.mediatheque.journal.ui.realisateur.NomRealisateurTouchable
 import fr.mediatheque.journal.ui.realisateur.RealisateurResolveur
@@ -168,8 +169,8 @@ fun FicheVoyageScreen(
                     )
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(film.title, style = MaterialTheme.typography.titleLarge)
-                        if (film.originalTitle != null && film.originalTitle != film.title) {
-                            Text(film.originalTitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        titreOriginalAffiche(film.title, film.originalTitle)?.let { original ->
+                            Text(original, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         NomRealisateurTouchable(
                             filmTmdbId = film.tmdbId,

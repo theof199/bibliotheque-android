@@ -32,6 +32,16 @@ fun subtitle(director: String?, year: Int?): String =
     listOfNotNull(director?.takeIf { it.isNotBlank() }, year?.toString()).joinToString(", ")
 
 /**
+ * Le titre original à afficher sous le titre, ou `null` s'il ne doit pas l'être (revue du
+ * 24 septembre 2026, point 4, « titres sans doublon ») : `null` lui-même, ou identique au titre
+ * (même chaîne exacte — un film sans titre distinct porte souvent le même `title` et
+ * `original_title` côté back). Fonction pure, extraite de la même condition écrite en double dans
+ * `FicheVoyageScreen` et `FicheFilmScreen` avant cette revue, testée ici une fois pour les deux.
+ */
+fun titreOriginalAffiche(titre: String, titreOriginal: String?): String? =
+    titreOriginal?.takeIf { it != titre }
+
+/**
  * `"2026-08"` → « Août 2026 » (décision 2 du brief du 21 septembre 2026, « les dépenses ») : le
  * mois en toutes lettres, en français, capitalisé — seul mot en tête d'une ligne du profil, jumeau
  * de `MONTH_YEAR` avec la capitale en plus.
