@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import fr.mediatheque.journal.api.ApiError
 import fr.mediatheque.journal.api.JournalApi
+import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.journalComplet
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,7 +13,13 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
-data class BilanUi(val journal: BilanJournal? = null)
+/**
+ * `journalBrut` (point 14 de la revue du 24 septembre 2026) : le journal complet tel quel, en plus
+ * du `BilanJournal` déjà résumé — les trois graphiques du profil (`filmsParMois`,
+ * `decenniesCouvertesGrille`, `repartitionNotes`, `Bilan.kt`) en ont besoin entier, `BilanJournal`
+ * ne gardant que des agrégats déjà réduits (une moyenne, un compte).
+ */
+data class BilanUi(val journal: BilanJournal? = null, val journalBrut: List<JournalItem> = emptyList())
 
 /**
  * Charge le journal complet pour la carte « Bilan » du profil (brief du
@@ -39,7 +46,7 @@ class BilanViewModel(private val api: JournalApi, private val onUnauthenticated:
                 if (e.isUnauthenticated) onUnauthenticated()
                 return@launch
             }
-            _ui.update { it.copy(journal = bilanJournal(journal, LocalDate.now().year)) }
+            _ui.update { it.copy(journal = bilanJournal(journal, LocalDate.now().year), journalBrut = journal) }
         }
     }
 }

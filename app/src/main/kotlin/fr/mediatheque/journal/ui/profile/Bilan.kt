@@ -3,8 +3,10 @@ package fr.mediatheque.journal.ui.profile
 import fr.mediatheque.journal.api.dto.FilmSuivi
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.reactions.Reactions
+import fr.mediatheque.journal.ui.frise.MONDES
 import fr.mediatheque.journal.ui.suivis.EntiteSuivie
 import fr.mediatheque.journal.ui.suivis.EtatFilmographie
+import java.time.YearMonth
 import kotlin.math.round
 
 /**
@@ -132,4 +134,38 @@ fun bilanSuivi(entites: List<EntiteSuivie>, filmographies: Map<Int, EtatFilmogra
         filmographieTerminee(etat.films)
     }
     return BilanSuivi(suivis = entites.size, termines = termines)
+}
+
+// --- Les trois graphiques du profil (point 14 de la revue du 24 septembre 2026) -------------------
+//
+// Trois séries, chacune une fonction pure sur le journal complet, testées en JVM comme le reste de
+// ce fichier — `ProfileScreen.kt` ne fait que les dessiner (`Canvas`), jamais les calculer.
+
+/**
+ * Les films vus par mois, sur les douze derniers mois glissants jusqu'à [moisCourant] inclus, dans
+ * l'ordre chronologique (le plus ancien d'abord) — chaque entrée de journal compte, revoyure
+ * comprise : un graphique d'activité, pas un compte de films distincts comme `bilanJournal`.
+ */
+fun filmsParMois(journal: List<JournalItem>, moisCourant: YearMonth): List<Int> {
+    val comptes = journal.groupingBy { YearMonth.parse(it.entry.finished_at.take(7)) }.eachCount()
+    return (11 downTo 0).map { reculDeMois -> comptes[moisCourant.minusMonths(reculDeMois.toLong())] ?: 0 }
+}
+
+/**
+ * Une case par décennie du Voyage, vraie si un film vu a une année de sortie dans cette décennie —
+ * les quatorze décennies de `MONDES` (`ui/frise/Mondes.kt`, 1890 à 2020), dans le même ordre :
+ * cette grille et la carte du Voyage comptent donc toujours le même nombre de cases.
+ */
+fun decenniesCouvertesGrille(journal: List<JournalItem>): List<Boolean> {
+    val decenniesVues = journal.mapNotNull { it.media.year }.map { (it / 10) * 10 }.toSet()
+    return MONDES.map { it.decennie in decenniesVues }
+}
+
+/**
+ * Un compte par note, de 1 à 10, dans cet ordre — dix entiers ; un film vu sans note n'entre dans
+ * aucune case, il n'existe pas de case « sans note » dans ce graphique.
+ */
+fun repartitionNotes(journal: List<JournalItem>): List<Int> {
+    val comptes = journal.mapNotNull { it.entry.rating }.groupingBy { it }.eachCount()
+    return (1..10).map { note -> comptes[note] ?: 0 }
 }

@@ -3,10 +3,13 @@ package fr.mediatheque.journal.ui.profile
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,8 +17,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -34,9 +39,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.buildAnnotatedString
@@ -44,6 +53,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import fr.mediatheque.journal.R
+import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.User
 import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.frise.LigneCarnetProfil
@@ -155,9 +165,9 @@ fun ProfileScreen(
                         // réponse (décision 3 de la tâche 7).
                     }
                     BilanCard(bilanUi.journal, suivisUi.realisateurs, suivisUi.sagas)
+                    GraphiquesCard(bilanUi.journalBrut)
                     PasseportCard(passeport, onOuvrirGenerique)
                     PortefeuilleCard(portefeuilleUi.tickets, onUtiliserTicket)
-                    DepensesCard(depensesUi.mois)
                     CarnetsCard(
                         carnetsUi,
                         onOuvrir = { annee ->
@@ -192,6 +202,11 @@ fun ProfileScreen(
                             )
                         },
                     )
+                    // « Dépenses » descend dans une section « Coulisses », repliée en bas (point
+                    // 14 de la revue du 24 septembre 2026) : avant elle, la carte vivait entre le
+                    // portefeuille et les carnets, dépliée d'office — un détail de coût qui n'a pas
+                    // à s'imposer au même niveau que le reste du profil.
+                    CoulissesSection(depensesUi.mois)
                     TextButton(onClick = onSignOut) { Text("Se déconnecter", color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
                 // La mention TMDB : une condition de leurs conditions d'utilisation de l'API
@@ -289,6 +304,76 @@ private fun BilanCard(journal: BilanJournal?, realisateurs: SuiviState, sagas: S
 }
 
 /**
+ * Les trois graphiques du profil (point 14 de la revue du 24 septembre 2026), sous le Bilan :
+ * films par mois sur douze mois, décennies couvertes (quatorze cases, les mondes du Voyage), et la
+ * répartition des notes de 1 à 10 — trois séries pures (`Bilan.kt`, testées), dessinées ici en
+ * `Canvas`, sobres, dans la palette (`secondary`, l'or, sur `surfaceContainerHigh`, jamais le
+ * corail réservé à un choix ou un déclenchement). Absente tant que le journal n'a pas répondu
+ * (`journal` vide au tout premier rendu) : pas de graphique à zéro partout, qui laisserait croire à
+ * un calcul plutôt qu'à une absence.
+ */
+@Composable
+private fun GraphiquesCard(journal: List<JournalItem>) {
+    if (journal.isEmpty()) return
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceContainer, MaterialTheme.shapes.medium)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text("Graphiques", style = MaterialTheme.typography.titleMedium)
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Films par mois", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            GraphiqueBarres(filmsParMois(journal, YearMonth.now()))
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Décennies couvertes", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            GrilleDecennies(decenniesCouvertesGrille(journal))
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Répartition des notes", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            GraphiqueBarres(repartitionNotes(journal))
+        }
+    }
+}
+
+/** Un petit histogramme sobre : une barre par valeur, à l'échelle du maximum — sert « Films par mois » et « Répartition des notes ». */
+@Composable
+private fun GraphiqueBarres(valeurs: List<Int>) {
+    val couleur = MaterialTheme.colorScheme.secondary
+    val fond = MaterialTheme.colorScheme.surfaceContainerHigh
+    val maxValeur = (valeurs.maxOrNull() ?: 0).coerceAtLeast(1)
+    Canvas(Modifier.fillMaxWidth().height(40.dp)) {
+        val largeurBarre = size.width / valeurs.size
+        valeurs.forEachIndexed { index, valeur ->
+            val hauteurBarre = if (valeur == 0) 2f else size.height * (valeur.toFloat() / maxValeur)
+            val x = index * largeurBarre + largeurBarre * 0.15f
+            val largeur = largeurBarre * 0.7f
+            drawRect(fond, topLeft = Offset(x, 0f), size = Size(largeur, size.height))
+            drawRect(couleur, topLeft = Offset(x, size.height - hauteurBarre), size = Size(largeur, hauteurBarre))
+        }
+    }
+}
+
+/** Quatorze petites cases, une par décennie du Voyage — pleines (or) si couverte, vides (`surfaceContainerHigh`) sinon. */
+@Composable
+private fun GrilleDecennies(couvertes: List<Boolean>) {
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        couvertes.forEach { couverte ->
+            Box(
+                Modifier
+                    .size(16.dp)
+                    .background(
+                        if (couverte) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.surfaceContainerHigh,
+                        RoundedCornerShape(3.dp),
+                    ),
+            )
+        }
+    }
+}
+
+/**
  * Le passeport (brief du 16 septembre 2026, phase 2, item 10), sous le Bilan : un tampon par
  * décennie bouclée, qui rejoue son générique de fin. « Aucun tampon encore » tant qu'aucune
  * décennie n'est bouclée — jamais une carte vide, jamais une carte absente : le passeport se voit
@@ -373,6 +458,37 @@ private fun DepensesCard(mois: List<DepenseMoisUi>?) {
             )
             if (deplie) {
                 triMoisPrecedents(mois, moisCourant).forEach { m -> LigneBilan(ligneMoisPrecedent(m)) }
+            }
+        }
+    }
+}
+
+/**
+ * « Coulisses » (point 14 de la revue du 24 septembre 2026) : une section repliée par défaut, en
+ * bas du profil, qui ne porte que les Dépenses pour l'instant — le seul détail de coût de l'appli,
+ * qui n'a pas à s'imposer au même niveau que le reste (Bilan, Passeport, Portefeuille, Carnets).
+ * `chevron-right` tourné à 90° une fois dépliée : aucune icône « chevron-down » dans le catalogue
+ * Tabler de l'appli (`icones/tabler.txt`), la rotation évite d'en ajouter une pour ce seul geste.
+ */
+@Composable
+private fun CoulissesSection(mois: List<DepenseMoisUi>?) {
+    var depliee by rememberSaveable { mutableStateOf(false) }
+    val rotation by animateFloatAsState(if (depliee) 90f else 0f, label = "coulisses")
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth().clickable { depliee = !depliee },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Coulisses", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            IconeTabler(
+                "chevron-right",
+                if (depliee) "Replier" else "Déplier",
+                modifier = Modifier.graphicsLayer { rotationZ = rotation },
+            )
+        }
+        if (depliee) {
+            Column(Modifier.padding(top = 8.dp)) {
+                DepensesCard(mois)
             }
         }
     }

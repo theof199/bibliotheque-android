@@ -9,6 +9,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.YearMonth
 
 /**
  * Le Bilan du profil (brief du 15 septembre 2026) : fonctions pures, sans
@@ -232,5 +233,78 @@ class BilanTest {
         val bilan = bilanSuivi(listOf(alien, godzilla), filmographies)
         assertEquals(2, bilan.suivis)
         assertEquals(1, bilan.termines)
+    }
+
+    // ---------------------------------------------------------------------
+    // Les trois graphiques du profil (point 14 de la revue du 24 septembre 2026)
+    // ---------------------------------------------------------------------
+
+    // Douze mois glissants, le plus ancien d'abord, jusqu'au mois courant inclus — une revoyure
+    // compte, à la différence de `filmsVus` de `bilanJournal`. Mutation : ne pas décaler avec
+    // `minusMonths` (comparer au mois littéral de `finished_at` sans les aligner sur la fenêtre)
+    // décalerait tout le tableau ; compter les `media_id` distincts au lieu des entrées ferait
+    // tomber "inception" revu deux fois le même mois à 1 au lieu de 2.
+    @Test
+    fun `filmsParMois compte chaque entree, sur douze mois glissants jusqu au mois courant`() {
+        val journal = listOf(
+            item("interstellar", "2025-10-15", 8, emptyList(), null, id = "e-1"), // le mois le plus ancien de la fenetre
+            item("inception", "2026-09-02", 9, emptyList(), null, id = "e-2"),
+            item("inception", "2026-09-20", 9, emptyList(), null, id = "e-3"), // meme mois, une revoyure
+            item("dunkerque", "2024-01-01", 7, emptyList(), null, id = "e-4"), // hors fenetre (trop ancien)
+        )
+        val serie = filmsParMois(journal, YearMonth.of(2026, 9))
+
+        assertEquals(12, serie.size)
+        assertEquals(1, serie.first()) // 2025-10, le mois le plus ancien de la fenetre
+        assertEquals(2, serie.last()) // 2026-09, le mois courant : inception compte deux fois
+        assertEquals(3, serie.sum()) // dunkerque (2024-01), hors fenetre, ne compte nulle part
+    }
+
+    @Test
+    fun `filmsParMois est nulle partout sur un journal vide`() {
+        assertEquals(List(12) { 0 }, filmsParMois(emptyList(), YearMonth.of(2026, 9)))
+    }
+
+    // Les quatorze décennies du Voyage, dans l'ordre de `MONDES` (1890 en tête). Mutation : lire
+    // `it.entry.finished_at` au lieu de `it.media.year` confondrait la date de visionnage avec la
+    // décennie de sortie du film ; ne pas diviser-puis-multiplier par 10 raterait une année qui ne
+    // tombe pas rond.
+    @Test
+    fun `decenniesCouvertesGrille marque les decennies d annees vues, dans l ordre du Voyage`() {
+        val journal = listOf(
+            item("metropolis", "2026-01-01", 8, emptyList(), null, id = "e-1", year = 1927),
+            item("chihiro", "2026-02-01", 9, emptyList(), null, id = "e-2", year = 2001),
+        )
+        val grille = decenniesCouvertesGrille(journal)
+
+        assertEquals(14, grille.size)
+        assertEquals(false, grille[0]) // 1890
+        assertEquals(true, grille[3]) // 1920, Metropolis (1927)
+        assertEquals(true, grille[11]) // 2000, Chihiro (2001)
+        assertEquals(2, grille.count { it })
+    }
+
+    @Test
+    fun `decenniesCouvertesGrille est vide sans aucune annee connue`() {
+        val journal = listOf(item("sans-annee", "2026-01-01", null, emptyList(), null, id = "e-1"))
+        assertTrue(decenniesCouvertesGrille(journal).none { it })
+    }
+
+    // Dix cases, une par note de 1 à 10 — un film non noté n'entre dans aucune. Mutation : décaler
+    // l'index (`note` au lieu de `note - 1`) ferait pointer une note vers la case suivante.
+    @Test
+    fun `repartitionNotes compte une case par note, un film non note dans aucune`() {
+        val journal = listOf(
+            item("a", "2026-01-01", 7, emptyList(), null, id = "e-1"),
+            item("b", "2026-01-02", 7, emptyList(), null, id = "e-2"),
+            item("c", "2026-01-03", 10, emptyList(), null, id = "e-3"),
+            item("d", "2026-01-04", null, emptyList(), null, id = "e-4"),
+        )
+        val repartition = repartitionNotes(journal)
+
+        assertEquals(10, repartition.size)
+        assertEquals(2, repartition[6]) // note 7
+        assertEquals(1, repartition[9]) // note 10
+        assertEquals(3, repartition.sum()) // la non-notee n'entre dans aucune case
     }
 }
