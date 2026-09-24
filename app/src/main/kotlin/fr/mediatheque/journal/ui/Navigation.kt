@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -183,10 +184,13 @@ fun Screen.bottomBarTab(): BottomTab? = when (this) {
  * « Suivis » le même jour encore quand les sagas l'ont rejointe — icône inchangée).
  * Toucher l’écran où l’on est déjà ne fait rien ; depuis « Mes films », « Profil » est surlignée
  * mais reste touchable et ramène au profil (`Root.kt` lui passe un `pop`).
- * Hauteur 56 dp, icônes seules (le `NavigationBar` de Material fait 80 dp avec ses libellés,
- * jugé trop haut par le propriétaire le 14 septembre 2026) : un `Row` sous les mêmes insets et
- * la même couleur que `NavigationBar`, avec les `NavigationBarItem` de Material dedans. Le
- * libellé passe en `contentDescription` pour le lecteur d’écran.
+ * Hauteur 64 dp, avec un libellé sous chaque icône (revue du 24 septembre 2026 : la barre sans
+ * libellés, choisie le 14 septembre 2026 pour tenir sous 56 dp, laissait deviner l'icône du
+ * Voyage) — encore en dessous des 80 dp par défaut d'un `NavigationBar` Material. Un `Row` sous
+ * les mêmes insets et la même couleur que `NavigationBar`, avec les `NavigationBarItem` de
+ * Material dedans, `alwaysShowLabel = true`. L'icône du Voyage devient une carte (`tabler:map`,
+ * ex-`timeline`) : « Frise » d'origine désignait le calendrier, mais l'écran s'appelle « Voyage »
+ * partout ailleurs dans l'appli.
  */
 @Composable
 fun JournalBottomBar(
@@ -200,33 +204,43 @@ fun JournalBottomBar(
     val selected = current.bottomBarTab()
     Surface(color = NavigationBarDefaults.containerColor) {
         Row(
-            Modifier.fillMaxWidth().windowInsetsPadding(NavigationBarDefaults.windowInsets).height(56.dp).selectableGroup(),
+            Modifier.fillMaxWidth().windowInsetsPadding(NavigationBarDefaults.windowInsets).height(64.dp).selectableGroup(),
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
             NavigationBarItem(
                 selected = selected == BottomTab.Home,
                 onClick = { if (current != Screen.Home) onHome() },
-                icon = { IconeTabler("home", "Accueil") },
+                icon = { IconeTabler("home", null) },
+                label = { Text("Accueil") },
+                alwaysShowLabel = true,
             )
             NavigationBarItem(
                 selected = selected == BottomTab.Frise,
                 onClick = { if (current != Screen.Frise) onFrise() },
-                icon = { IconeTabler("timeline", "Frise") },
+                icon = { IconeTabler("map", null) },
+                label = { Text("Voyage") },
+                alwaysShowLabel = true,
             )
             NavigationBarItem(
                 selected = selected == BottomTab.Suivis,
                 onClick = { if (current != Screen.Suivis) onSuivis() },
-                icon = { IconeTabler("movie", "Suivis") },
+                icon = { IconeTabler("movie", null) },
+                label = { Text("Suivis") },
+                alwaysShowLabel = true,
             )
             NavigationBarItem(
                 selected = selected == BottomTab.Cinema,
                 onClick = { if (current != Screen.Cinema) onCinema() },
-                icon = { IconeTabler("ticket", "Au ciné") },
+                icon = { IconeTabler("ticket", null) },
+                label = { Text("Au ciné") },
+                alwaysShowLabel = true,
             )
             NavigationBarItem(
                 selected = selected == BottomTab.Profile,
                 onClick = { if (current != Screen.Profile) onProfile() },
-                icon = { IconeTabler("user", "Profil") },
+                icon = { IconeTabler("user", null) },
+                label = { Text("Profil") },
+                alwaysShowLabel = true,
             )
         }
     }

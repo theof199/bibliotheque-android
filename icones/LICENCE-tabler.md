@@ -16,6 +16,7 @@ Les icones de l'application sous `res/drawable/tabler_*.xml` viennent du paquet 
 - `tabler_plus` — `plus` (outline)
 - `tabler_chevron_right` — `chevron-right` (outline)
 - `tabler_timeline` — `timeline` (outline)
+- `tabler_map` — `map` (outline)
 - `tabler_user` — `user` (outline)
 - `tabler_movie` — `movie` (outline)
 - `tabler_home` — `home` (outline)

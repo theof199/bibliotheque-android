@@ -16,7 +16,7 @@ class IconeTablerTest {
     @Test
     fun `chaque icone listee a une ressource`() {
         val noms = listOf(
-            "arrow-left", "check", "x", "plus", "chevron-right", "timeline", "user", "movie",
+            "arrow-left", "check", "x", "plus", "chevron-right", "timeline", "map", "user", "movie",
             "home", "trash", "ticket", "cloud", "star-filled", "sparkles", "award",
         )
         noms.forEach { nom ->

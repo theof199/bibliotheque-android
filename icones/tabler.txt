@@ -11,6 +11,7 @@ x
 plus
 chevron-right
 timeline
+map
 user
 movie
 home

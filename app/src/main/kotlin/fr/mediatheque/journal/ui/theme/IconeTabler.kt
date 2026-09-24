@@ -23,6 +23,7 @@ private val RESSOURCES_TABLER: Map<String, Int> = mapOf(
     "plus" to R.drawable.tabler_plus,
     "chevron-right" to R.drawable.tabler_chevron_right,
     "timeline" to R.drawable.tabler_timeline,
+    "map" to R.drawable.tabler_map,
     "user" to R.drawable.tabler_user,
     "movie" to R.drawable.tabler_movie,
     "home" to R.drawable.tabler_home,
