@@ -5,7 +5,9 @@ import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -18,9 +20,11 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import coil3.compose.SubcomposeAsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import fr.mediatheque.journal.ui.theme.IconeTabler
 
 /**
  * L'affiche partagée (peaufinage du 23 septembre 2026, geste 8) : le trio que `Modifier.voler`
@@ -100,6 +104,40 @@ fun Cover(url: String?, title: String, width: Dp, height: Dp, modifier: Modifier
             loading = {},
             error = { initiale() },
             modifier = modifier.size(width, height).clip(shape),
+        )
+    }
+}
+
+/**
+ * Le badge « sur le Plex » (revue du 24 septembre 2026, point 2) : une icône Tabler dans un petit
+ * cercle sombre, coin haut droit d'une affiche, jamais posée sur du texte. Avant cette revue,
+ * seule `RealisateurScreen` en posait un (une icône « cloud » nue, sans fond) ; ce composant le
+ * remplace et devient le seul badge Plex de l'application, pour que « le même partout » (le brief)
+ * tienne vraiment. `Modifier.align(Alignment.TopEnd)` reste à la charge de l'appelant : ce composant
+ * ne connaît pas le `Box` qui le pose.
+ *
+ * La petite caméra rouge qui flottait sur certaines captures de l'accueil et de la Frise (points
+ * de repère de la revue) n'est pas de ce badge, ni d'aucun élément dessiné par l'application : elle
+ * n'apparaît nulle part dans le code (aucune icône, aucun `Canvas`, aucune image à cette échelle et
+ * cette teinte), à des positions qui ne correspondent à aucune affiche ni aucun texte communs aux
+ * deux captures — seulement à une même position d'écran d'une capture à l'autre. Tout indique un
+ * élément externe à l'appli (bulle flottante d'un outil de capture/mirroring), pas un badge Plex ;
+ * rien à retirer côté application.
+ */
+@Composable
+fun PlexBadge(modifier: Modifier = Modifier) {
+    Box(
+        modifier
+            .padding(4.dp)
+            .size(22.dp)
+            .background(MaterialTheme.colorScheme.background.copy(alpha = 0.85f), CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        IconeTabler(
+            "cloud",
+            "Sur le Plex",
+            tint = MaterialTheme.colorScheme.secondary,
+            modifier = Modifier.size(13.dp),
         )
     }
 }

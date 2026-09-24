@@ -56,7 +56,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.graphicsLayer
@@ -75,6 +74,7 @@ import fr.mediatheque.journal.api.dto.FilmDeFilmographie
 import fr.mediatheque.journal.api.dto.RealisateurPageResponse
 import fr.mediatheque.journal.ui.AfficheVolante
 import fr.mediatheque.journal.ui.Cover
+import fr.mediatheque.journal.ui.PlexBadge
 import fr.mediatheque.journal.ui.TamponPerdu
 import fr.mediatheque.journal.ui.EntreeEnCascade
 import fr.mediatheque.journal.ui.afficheVolante
@@ -442,8 +442,8 @@ private fun AfficheFilmographie(
                     Text("${film.vu?.rating}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
                 }
             }
-            // Coin discret « Plex » (décision 1 du brief) : une icône seule, sans fond, jamais
-            // aussi appuyée que la pastille de note.
+            // Le badge Plex unique de l'appli (revue du 24 septembre 2026, point 2) : icône Tabler
+            // dans un petit cercle sombre, coin haut droit — `PlexBadge`, `ui/Cover.kt`.
             // Nom qualifié en entier : à l'intersection d'un `Column` et d'un `Box` implicites,
             // le compilateur hésite sinon entre les surcharges `ColumnScope`/`BoxScope`.
             androidx.compose.animation.AnimatedVisibility(
@@ -452,17 +452,7 @@ private fun AfficheFilmographie(
                 enter = fadeIn(tween(150)) + scaleIn(initialScale = 0.6f, animationSpec = tween(150)),
                 exit = fadeOut(tween(150)) + scaleOut(targetScale = 0.6f, animationSpec = tween(150)),
             ) {
-                IconeTabler(
-                    "cloud",
-                    "Sur le Plex",
-                    // `Color.White` ignorait le thème (peaufinage du 23 septembre 2026, geste 5) ;
-                    // `4.dp` rejoint la grille 4/8/12/16 (design §4), au lieu du `3.dp` isolé.
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier
-                        .padding(4.dp)
-                        .size(12.dp)
-                        .alpha(0.9f),
-                )
+                PlexBadge()
             }
             if (film.court) {
                 Text(
