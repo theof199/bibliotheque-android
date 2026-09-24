@@ -57,4 +57,18 @@ object Reactions {
         val known = all.map { it.key }
         return known.filter { it in selected } + (selected - known.toSet())
     }
+
+    /**
+     * Les [top] réactions que je pose le plus, calculées sur mon journal (revue du 24 septembre
+     * 2026, point 7) : `reactionsPosees` est la concaténation de toutes les réactions de toutes mes
+     * entrées de journal, une occurrence par pose. Comptées, puis triées du catalogue par fréquence
+     * décroissante — `sortedByDescending` est stable, une égalité de fréquence (y compris 0, une
+     * réaction jamais posée) garde donc l'ordre du catalogue, jamais un ordre d'arrivée qui
+     * varierait d'un rechargement à l'autre. Un journal qui n'a pas encore [top] réactions
+     * différentes se complète ainsi avec les suivantes du catalogue.
+     */
+    fun reactionsFavorites(reactionsPosees: List<String>, top: Int = 5): List<String> {
+        val comptes = reactionsPosees.groupingBy { it }.eachCount()
+        return all.map { it.key }.sortedByDescending { comptes[it] ?: 0 }.take(top)
+    }
 }

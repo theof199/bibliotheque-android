@@ -31,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import fr.mediatheque.journal.AppContainer
+import fr.mediatheque.journal.reactions.Reactions
 import fr.mediatheque.journal.ui.cinema.AuCineScreen
 import fr.mediatheque.journal.ui.cinema.AuCineViewModel
 import fr.mediatheque.journal.ui.films.FilmsScreen
@@ -202,6 +203,13 @@ fun Root(container: AppContainer) {
             // un coup de `nav.filmsEnregistres` doit trouver quelqu'un déjà là pour le collecter.
             var filmEnregistre by remember { mutableStateOf<FilmEnregistre?>(null) }
             LaunchedEffect(Unit) { nav.filmsEnregistres.collect { filmEnregistre = it } }
+            // Les réactions favorites (point 7 de la revue du 24 septembre 2026) : calculées une
+            // fois ici sur le journal déjà chargé par la Frise, pour le formulaire (création et
+            // correction) — jamais une requête réseau de plus, jamais recalculées à chaque écran.
+            val friseUiPourReactions by frise.ui.collectAsState()
+            val reactionsFavorites = remember(friseUiPourReactions.annees) {
+                Reactions.reactionsFavorites(friseUiPourReactions.annees.flatMap { it.vus }.flatMap { it.carnet.reactions })
+            }
             // Le calque du ticket (décision 2 du brief du 21 septembre 2026, « le ticket ») se pose
             // au-dessus de l'`AnimatedContent`, dans ce `Box` : il doit pouvoir s'afficher par-
             // dessus n'importe quel écran (la Frise à son ouverture, ou l'accueil juste après un
@@ -345,7 +353,13 @@ fun Root(container: AppContainer) {
                                 session::expire,
                             )
                         }
-                        FormScreen(form, nav = nav, realisateurResolveur = realisateurResolveur, onBack = nav::pop)
+                        FormScreen(
+                            form,
+                            nav = nav,
+                            realisateurResolveur = realisateurResolveur,
+                            onBack = nav::pop,
+                            reactionsFavorites = reactionsFavorites,
+                        )
                     }
                     Screen.Profile -> {
                         val profile: ProfileViewModel = viewModel(key = "profile") { ProfileViewModel(container.api, session::expire) }
@@ -506,6 +520,7 @@ fun Root(container: AppContainer) {
                             // L'affiche partagée (geste 8) : l'autre bout de la paire ouverte
                             // depuis l'accueil ou « Mes films » — même clé qu'elles.
                             volante = AfficheVolante(sharedTransitionScope, animatedVisibilityScope, "affiche-journal-${screen.item.entry.id}"),
+                            reactionsFavorites = reactionsFavorites,
                         )
                     }
                     Screen.SensCritique -> SensCritiqueScreen(senscritique, onBack = nav::pop)

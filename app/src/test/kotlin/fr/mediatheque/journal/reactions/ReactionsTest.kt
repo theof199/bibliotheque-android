@@ -31,4 +31,21 @@ class ReactionsTest {
         assertEquals("en_salle", Reactions.EN_SALLE)
         assertEquals("🎬 En salle", Reactions.label(Reactions.EN_SALLE))
     }
+
+    // Revue du 24 septembre 2026, point 7, « les réactions favorites ». Mutation : trier par
+    // fréquence croissante (au lieu de décroissante) inverse la première assertion ; un `sortedBy`
+    // non stable, ou un tri sur l'ordre d'arrivée plutôt que sur le catalogue à fréquence égale,
+    // fait tomber la deuxième (aucune réaction posée, l'ordre doit rester celui du catalogue).
+    @Test fun `reactionsFavorites classe le catalogue par frequence decroissante`() {
+        val posees = listOf("nul", "nul", "nul", "sympa", "sympa", "adore")
+        assertEquals(listOf("nul", "sympa", "adore", "marre", "touche"), Reactions.reactionsFavorites(posees))
+    }
+
+    @Test fun `reactionsFavorites sans historique rend le catalogue dans son ordre`() {
+        assertEquals(listOf("adore", "sympa", "nul", "marre", "touche"), Reactions.reactionsFavorites(emptyList()))
+    }
+
+    @Test fun `reactionsFavorites respecte le nombre demande`() {
+        assertEquals(listOf("adore", "sympa", "nul"), Reactions.reactionsFavorites(emptyList(), top = 3))
+    }
 }

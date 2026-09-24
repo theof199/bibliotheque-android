@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -55,6 +56,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import fr.mediatheque.journal.reactions.Reactions
 import fr.mediatheque.journal.ui.AfficheVolante
@@ -98,6 +100,13 @@ fun FormScreen(
      * seulement, même clé que l'accueil ou « Mes films » (`Root.kt`).
      */
     volante: AfficheVolante? = null,
+    /**
+     * Les cinq réactions que je pose le plus (point 7 de la revue du 24 septembre 2026),
+     * calculées une fois par `Root.kt` sur le journal déjà chargé par `FriseViewModel`
+     * (`Reactions.reactionsFavorites`, fonction pure testée) — le catalogue dans son ordre tant que
+     * le journal n'a pas encore répondu ou n'a pas cinq réactions différentes.
+     */
+    reactionsFavorites: List<String> = Reactions.all.take(5).map { it.key },
 ) {
     val ui by vm.ui.collectAsState()
     var showPicker by remember { mutableStateOf(false) }
@@ -212,21 +221,32 @@ fun FormScreen(
                 }
 
                 Text("Note", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                for (rangee in listOf(1..5, 6..10)) {
-                    Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                        for (n in rangee) {
-                            RatingDot(
-                                n,
-                                selected = n == noteBalayee,
-                                echelle = if (n == noteBalayee) rebondNote.value else 1f,
-                            ) { directement = true; vm.toggleRating(n) }
-                        }
+                // Une seule rangée compacte de dix pastilles (point 7 de la revue du 24 septembre
+                // 2026, qui remplace les deux rangées de cinq d'avant elle) : le propriétaire a
+                // validé ce resserrement en connaissance du design §4 (dix cercles de 48 dp ne
+                // tiennent pas sur 360 dp, dix de 28 dp sont plus durs à viser) — `RatingDot` garde
+                // sa cible tactile de 48 dp par `minimumInteractiveComponentSize()`, seul le cercle
+                // visible rétrécit.
+                Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                    for (n in 1..10) {
+                        RatingDot(
+                            n,
+                            selected = n == noteBalayee,
+                            echelle = if (n == noteBalayee) rebondNote.value else 1f,
+                            taille = 30.dp,
+                        ) { directement = true; vm.toggleRating(n) }
                     }
                 }
 
                 Text("Réactions", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                // Les favorites d'abord, puis « Plus » qui déplie les autres (point 7) : une
+                // réaction déjà cochée reste toujours visible, repliée ou non — jamais masquée par
+                // le repli, sans quoi la décocher exigerait de déplier d'abord.
+                var reactionsDepliees by remember { mutableStateOf(false) }
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    val cles = Reactions.all.map { it.key } + (ui.reactions - Reactions.all.map { it.key }.toSet())
+                    val toutes = Reactions.all.map { it.key } + (ui.reactions - Reactions.all.map { it.key }.toSet())
+                    val repliees = toutes.filter { it in reactionsFavorites || it in ui.reactions }
+                    val cles = if (reactionsDepliees) toutes else repliees
                     for (key in cles) {
                         FilterChip(
                             selected = key in ui.reactions,
@@ -245,6 +265,15 @@ fun FormScreen(
                                 .minimumInteractiveComponentSize()
                                 .height(40.dp)
                                 .semantics { contentDescription = Reactions.phrase(key) },
+                        )
+                    }
+                    if (!reactionsDepliees && repliees.size < toutes.size) {
+                        FilterChip(
+                            selected = false,
+                            onClick = { reactionsDepliees = true },
+                            label = { Text("Plus", style = MaterialTheme.typography.bodyMedium) },
+                            shape = CircleShape,
+                            modifier = Modifier.minimumInteractiveComponentSize().height(40.dp),
                         )
                     }
                 }
@@ -281,7 +310,11 @@ fun FormScreen(
                     val chroniqueUi by chronique.ui.collectAsState()
                     ChroniqueBoutonEdition(chroniqueUi, onClick = chronique::ajouter)
                 }
-                Spacer(Modifier.height(8.dp))
+                // Marge du bas égale à la hauteur du bouton d'action (point 7 de la revue du
+                // 24 septembre 2026, 52 dp comme lui, design §4) : avant cette revue, un simple
+                // `Spacer(8.dp)` laissait le bouton recouvrir la dernière ligne de réactions
+                // (constat de la revue, capture 07).
+                Spacer(Modifier.height(52.dp))
             }
 
             Column(Modifier.padding(16.dp)) {
@@ -303,7 +336,12 @@ fun FormScreen(
                         onClick = { confirmDelete = true },
                         enabled = !ui.busy,
                         modifier = Modifier.align(Alignment.CenterHorizontally),
-                    ) { Text("Supprimer", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        // En rouge d'erreur (point 7), avec le dialogue de confirmation déjà en
+                        // place ci-dessous : le seul troisième site de `colorScheme.error` de
+                        // l'application, avec les deux champs refusés que le design §2 citait —
+                        // supprimer une entrée de journal est bien un geste qui mérite ce ton.
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    ) { Text("Supprimer") }
                 }
             }
         }
@@ -369,12 +407,15 @@ private fun ChroniqueBoutonEdition(ui: ChroniqueUi, onClick: () -> Unit) {
 }
 
 /**
- * Une pastille de note : un cercle de 48 dp, corail quand elle est choisie — design §4, §7.
+ * Une pastille de note : un cercle, corail quand elle est choisie — design §4, §7. `taille` vaut
+ * 48 dp par défaut ; la rangée compacte de dix pastilles du formulaire (point 7 de la revue du
+ * 24 septembre 2026) passe 30 dp — `minimumInteractiveComponentSize()` garde alors la cible
+ * tactile à 48 dp, même idiome que les puces de réaction juste au-dessus dans ce fichier.
  * `echelle` (geste 16 du complément du 23 septembre 2026) porte le rebond de la pastille qui vient
  * de recevoir le remplissage en cascade — 1 hors rebond, sans effet sur les neuf autres.
  */
 @Composable
-private fun RatingDot(n: Int, selected: Boolean, echelle: Float = 1f, onClick: () -> Unit) {
+private fun RatingDot(n: Int, selected: Boolean, echelle: Float = 1f, taille: Dp = 48.dp, onClick: () -> Unit) {
     val fond by animateColorAsState(
         if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
         animationSpec = tween(150), label = "note",
@@ -385,7 +426,8 @@ private fun RatingDot(n: Int, selected: Boolean, echelle: Float = 1f, onClick: (
     val haptique = LocalHapticFeedback.current
     Box(
         Modifier
-            .size(48.dp)
+            .minimumInteractiveComponentSize()
+            .size(taille)
             .scale(echelle)
             .background(fond, CircleShape)
             .clickable(onClick = { haptique.performHapticFeedback(HapticFeedbackType.SegmentTick); onClick() })
