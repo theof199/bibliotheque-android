@@ -22,6 +22,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.airbnb.lottie.compose.LottieAnimation
@@ -126,22 +127,45 @@ fun CadreOrne(
 private val TAILLE_BOBINE: Dp = 32.dp
 
 /**
+ * Ce que la bobine doit montrer, selon la progression du tirage — décision pure, sans Compose,
+ * testée en JVM (`OrnementsTest.kt`). Au repos (`distanceFraction` nul, aucun chargement), elle
+ * n'est pas visible : le repère de l'indicateur Material par défaut, caché hors écran au repos,
+ * là où le dessin `Canvas` d'origine restait planté en haut du contenu (correctif du 24 septembre
+ * 2026). Pendant le tirage, `decalage` et `opacite` montent avec `distanceFraction`, plafonnés à 1.
+ * Pendant le chargement, elle reste à son décalage d'arrivée (1) et tourne — `isRefreshing`
+ * l'emporte sur `distanceFraction`, que `PullToRefreshBox` peut avoir déjà ramené à 0 pendant que
+ * le chargement se termine.
+ */
+data class PresentationBobine(val visible: Boolean, val decalage: Float, val opacite: Float)
+
+fun presentationBobine(distanceFraction: Float, isRefreshing: Boolean): PresentationBobine {
+    if (isRefreshing) return PresentationBobine(visible = true, decalage = 1f, opacite = 1f)
+    val fraction = distanceFraction.coerceIn(0f, 1f)
+    return PresentationBobine(visible = fraction > 0f, decalage = fraction, opacite = fraction)
+}
+
+/**
  * L'indicateur de tirer-pour-rafraîchir (geste 21 du complément du 23 septembre 2026 à
  * l'habillage ; porté par l'animation Lottie `bobine-1.json` depuis le brief des animations des
  * célébrations, le même jour en soirée, en remplacement du dessin `Canvas` d'origine — une caméra
  * de cinéma vintage sur pied, `assets/lottie/LICENCES.md`).
  *
- * Avant le déclenchement (`isRefreshing` faux), la progression de l'animation suit
- * `state.distanceFraction` (0 → 1, la distance tirée) directement, par le `progress` explicite de
- * `LottieAnimation` : elle avance du tirage, elle ne joue pas toute seule. Une fois `isRefreshing`
- * vrai, elle boucle à sa cadence propre (`animateLottieCompositionAsState`,
- * `LottieConstants.IterateForever`) jusqu'à la fin du chargement — `PullToRefreshBox` retire alors
- * l'indicateur lui-même, rien à arrêter ici.
+ * `presentationBobine` décide si/où/comment elle se dessine (correctif du 24 septembre 2026:
+ * l'indicateur restait affiché en permanence, `PullToRefreshDefaults.Indicator` de Material 3 sert
+ * de repère — caché hors écran au repos, descend avec le doigt). Invisible, rien n'est composé :
+ * ni place ni capteur de taps. Sinon, elle descend depuis le haut et s'éclaircit avec `decalage`
+ * (`graphicsLayer.translationY` et `alpha`) pendant le tirage. Avant le déclenchement
+ * (`isRefreshing` faux), la progression de l'animation suit `decalage` directement, par le
+ * `progress` explicite de `LottieAnimation` : elle avance du tirage, elle ne joue pas toute seule.
+ * Une fois `isRefreshing` vrai, elle boucle à sa cadence propre (`animateLottieCompositionAsState`,
+ * `LottieConstants.IterateForever`) jusqu'à la fin du chargement.
  */
 @Composable
 fun BobineIndicateur(state: PullToRefreshState, isRefreshing: Boolean, modifier: Modifier = Modifier) {
+    val presentation = presentationBobine(state.distanceFraction, isRefreshing)
+    if (!presentation.visible) return
+
     val composition by rememberLottieComposition(LottieCompositionSpec.Asset("lottie/bobine-1.json"))
-    val distance = state.distanceFraction.coerceIn(0f, 1f)
     val progressionBoucle by animateLottieCompositionAsState(
         composition,
         isPlaying = isRefreshing,
@@ -149,7 +173,12 @@ fun BobineIndicateur(state: PullToRefreshState, isRefreshing: Boolean, modifier:
     )
     LottieAnimation(
         composition = composition,
-        progress = { if (isRefreshing) progressionBoucle else distance },
-        modifier = modifier.size(TAILLE_BOBINE),
+        progress = { if (isRefreshing) progressionBoucle else presentation.decalage },
+        modifier = modifier
+            .size(TAILLE_BOBINE)
+            .graphicsLayer {
+                translationY = -TAILLE_BOBINE.toPx() * (1f - presentation.decalage)
+                alpha = presentation.opacite
+            },
     )
 }
