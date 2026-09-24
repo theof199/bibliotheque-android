@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
@@ -41,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.SubcomposeAsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import fr.mediatheque.journal.ui.Cover
 import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.showBriefly
 import fr.mediatheque.journal.ui.theme.IconeTabler
@@ -124,21 +126,67 @@ fun SuivisScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     items(etat.entites, key = { it.tmdbId }) { entite ->
-                        Row(
-                            Modifier.fillMaxWidth().clickable { onOuvrir(ui.source, entite.tmdbId) },
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Portrait(entite.imageUrl, entite.nom, 40.dp)
-                            Column {
-                                Text(entite.nom, style = MaterialTheme.typography.titleMedium)
-                                Text(
-                                    libelleLigne(etat.filmographies[entite.tmdbId] ?: EtatFilmographie.EnAttente),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
+                        CarteSuivi(
+                            entite = entite,
+                            etatFilmographie = etat.filmographies[entite.tmdbId] ?: EtatFilmographie.EnAttente,
+                            onClick = { onOuvrir(ui.source, entite.tmdbId) },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Une carte par entité suivie (point 12 de la revue du 24 septembre 2026) : portrait ou affiche,
+ * nom, une barre de progression « *N* sur *M* », puis l'affiche et le titre du prochain film à
+ * voir — remplace la simple ligne (portrait 40 dp, nom, texte résumé) d'avant cette revue.
+ * `EtatFilmographie.EnAttente`/`Indisponible` gardent un texte seul (`libelleLigne`), sans barre ni
+ * prochain film à montrer.
+ */
+@Composable
+private fun CarteSuivi(entite: EntiteSuivie, etatFilmographie: EtatFilmographie, onClick: () -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
+            .clickable(onClick = onClick)
+            .background(MaterialTheme.colorScheme.surfaceContainer, MaterialTheme.shapes.medium)
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Portrait(entite.imageUrl, entite.nom, 48.dp)
+            Text(entite.nom, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+        }
+        when (etatFilmographie) {
+            EtatFilmographie.EnAttente, EtatFilmographie.Indisponible -> Text(
+                libelleLigne(etatFilmographie),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            is EtatFilmographie.Pret -> {
+                val films = etatFilmographie.films
+                val vus = filmsVus(films)
+                val total = films.size
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    LinearProgressIndicator(
+                        progress = { if (total > 0) vus.toFloat() / total else 0f },
+                        color = MaterialTheme.colorScheme.secondary,
+                        trackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        modifier = Modifier.fillMaxWidth().clip(CircleShape),
+                    )
+                    Text(
+                        "$vus sur $total",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                prochainAVoir(films)?.let { prochain ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Cover(prochain.cover_url, prochain.title, 32.dp, 48.dp)
+                        Text(titreEtAnnee(prochain), style = MaterialTheme.typography.bodyMedium)
                     }
                 }
             }
