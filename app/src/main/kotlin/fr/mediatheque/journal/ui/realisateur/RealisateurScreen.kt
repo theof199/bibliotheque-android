@@ -34,6 +34,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -84,6 +85,7 @@ import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.frise.Monde
 import fr.mediatheque.journal.ui.frise.TeinteSepia
 import fr.mediatheque.journal.ui.theme.IconeTabler
+import fr.mediatheque.journal.ui.theme.Perforations
 import fr.mediatheque.journal.ui.frise.mondeDe
 import fr.mediatheque.journal.ui.frise.mondeDeLaDecennie
 import fr.mediatheque.journal.ui.showBriefly
@@ -151,6 +153,10 @@ fun RealisateurScreen(
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) { IconeTabler("arrow-left", "Retour") }
             }
+            // Le fond et les titres dans l'habillage papier (point 11 de la revue du 24 septembre
+            // 2026) : la bande de perforations, hallmark de l'habillage « papier et pellicule »
+            // (accueil, fiche d'année), absente de cette page avant elle.
+            Perforations(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
 
             when (val etat = ui.etat) {
                 EtatPageRealisateur.EnAttente -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -239,12 +245,20 @@ private fun GrilleFilmographie(
             decennies.forEach { decennie ->
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     val mondeDecennie = decennie.decennie?.let { mondeDeLaDecennie(it) } ?: monde
-                    Text(
-                        libelleDecennie(decennie.decennie),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = mondeDecennie.accent,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
+                    Column(Modifier.padding(top = 8.dp)) {
+                        Text(
+                            libelleDecennie(decennie.decennie),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = mondeDecennie.accent,
+                        )
+                        // La couleur de la décennie devient un accent (point 11) : un filet sous
+                        // le titre, pas seulement la teinte du texte — jusque-là son seul rôle.
+                        HorizontalDivider(
+                            modifier = Modifier.padding(top = 4.dp).width(32.dp),
+                            thickness = 2.dp,
+                            color = mondeDecennie.accent,
+                        )
+                    }
                 }
 
                 itemsIndexed(decennie.films, key = { _, film -> "film-${film.tmdb_id}" }) { index, film ->
@@ -307,12 +321,23 @@ private fun EnTeteRealisateur(
             Text(dates, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if (page.presentation.isNotEmpty()) {
-            Text(
-                page.presentation,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
+            // La biographie, masquée derrière « Lire la biographie » si elle arrive en anglais
+            // (point 11 de la revue du 24 septembre 2026) : le contrat n'envoie du français que
+            // s'il en a un, avec repli sur l'anglais sinon (`docs/openapi.json`,
+            // `biographieEstProbablementAnglaise`, fonction pure testée) — jamais affichée d'office
+            // dans une langue qu'on n'a pas demandée.
+            var biographieDepliee by remember(page.presentation) { mutableStateOf(false) }
+            val masquee = biographieEstProbablementAnglaise(page.presentation) && !biographieDepliee
+            if (masquee) {
+                TextButton(onClick = { biographieDepliee = true }) { Text("Lire la biographie") }
+            } else {
+                Text(
+                    page.presentation,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+            }
         }
         if (page.suivi) {
             OutlinedButton(onClick = onRetirer) { Text("Suivi") }

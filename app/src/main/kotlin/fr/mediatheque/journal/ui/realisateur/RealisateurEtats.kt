@@ -187,3 +187,26 @@ fun mondeDeLaPage(films: List<FilmDeFilmographie>): Monde =
  */
 fun retrospectiveComplete(films: List<FilmDeFilmographie>): Boolean =
     films.all { it.introuvable || it.vu != null }
+
+/**
+ * Devine si `presentation` arrive en anglais (point 11 de la revue du 24 septembre 2026) : le
+ * contrat (`GET /me/realisateurs/{tmdbId}/page`, `docs/openapi.json`) le dit noir sur blanc — « la
+ * première phrase de la biographie TMDB, en français avec repli sur l'anglais si elle y est vide » —
+ * sans jamais dire dans laquelle des deux elle arrive vraiment : aucun champ de langue à lire, la
+ * page doit deviner. Un accent français (à, â, é, è, ê, ë, î, ï, ô, ö, ù, û, ü, ç) dans le texte
+ * tranche pour le français, quel que soit le reste — TMDB n'accentue jamais une biographie
+ * anglaise. Sans accent, au moins deux mots anglais très courants (« the », « is », « and », …)
+ * tranchent pour l'anglais ; en dessous, la page part du principe que c'est du français (jamais de
+ * faux positif sur une biographie française simplement courte). Fonction pure, testée en JVM.
+ */
+fun biographieEstProbablementAnglaise(presentation: String): Boolean {
+    if (presentation.isBlank()) return false
+    if (presentation.any { it in "àâäéèêëîïôöùûüçÀÂÄÉÈÊËÎÏÔÖÙÛÜÇ" }) return false
+    val mots = presentation.lowercase().split(Regex("[^a-z']+")).filter { it.isNotEmpty() }
+    return mots.count { it in MOTS_ANGLAIS_COURANTS } >= 2
+}
+
+private val MOTS_ANGLAIS_COURANTS = setOf(
+    "the", "is", "was", "were", "and", "born", "his", "her", "he", "she",
+    "film", "director", "known", "actor", "actress", "who",
+)

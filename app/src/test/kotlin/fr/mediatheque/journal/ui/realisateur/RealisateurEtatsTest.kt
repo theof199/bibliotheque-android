@@ -330,4 +330,36 @@ class RealisateurEtatsTest {
     fun `retrospectiveComplete est vraie sur une filmographie vide`() {
         assertTrue(retrospectiveComplete(emptyList()))
     }
+
+    // Point 11 de la revue du 24 septembre 2026, « la biographie ». Mutation : ne pas court-
+    // circuiter sur un accent français ferait passer la biographie de Miyazaki (« réalisateur »)
+    // pour de l'anglais, faute d'accent testé avant le compte de mots ; baisser le seuil à un seul
+    // mot ferait basculer une biographie française à l'anglais sur un simple « Il a » mal filtré.
+    @Test
+    fun `biographieEstProbablementAnglaise reconnait l anglais sans accent, avec au moins deux mots courants`() {
+        assertTrue(
+            biographieEstProbablementAnglaise(
+                "Gareth Huw Evans is a Welsh film director, screenwriter, editor and action choreographer.",
+            ),
+        )
+    }
+
+    @Test
+    fun `biographieEstProbablementAnglaise reste fausse des qu un accent francais apparait`() {
+        assertTrue(
+            !biographieEstProbablementAnglaise(
+                "Hayao Miyazaki est un réalisateur, producteur et scénariste japonais, cofondateur du studio Ghibli.",
+            ),
+        )
+    }
+
+    @Test
+    fun `biographieEstProbablementAnglaise reste fausse sans accent mais avec un seul mot anglais`() {
+        assertTrue(!biographieEstProbablementAnglaise("Clint Eastwood est un acteur, realisateur et producteur."))
+    }
+
+    @Test
+    fun `biographieEstProbablementAnglaise est fausse sur une biographie vide`() {
+        assertTrue(!biographieEstProbablementAnglaise(""))
+    }
 }
