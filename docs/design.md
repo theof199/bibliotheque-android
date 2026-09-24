@@ -26,8 +26,8 @@ l'animation s'autorise largement plutôt que de rester sobre — « quand on
 finit un film, quand on finit une année, rendre l'appli plus smooth ». La
 ligne « sobre » de la décision ci-dessous et les gestes qu'elle excluait ne
 tiennent donc plus : §2 en donne la nouvelle palette, §3 les deux polices de
-titre qui s'y ajoutent, §7 le mouvement que la maquette appelait, §12 ce qui
-en reste vraiment exclu.*
+titre qui s'y ajoutent, §7 le mouvement que la maquette appelait, §12 ce qu'il
+en reste : plus rien depuis le 24 septembre 2026.*
 
 Trois couleurs organisaient l'écran : le noir, le gris du texte, le corail.
 La quatrième était l'affiche. **Le corail garde son seul sens : ce que le
@@ -44,7 +44,7 @@ inchangé par l'habillage du 23 septembre 2026, qui ajoute l'or à côté de lui
 |---|---|
 | **Sombre uniquement.** Pas de thème clair, pas de suivi du réglage système. | Le choix du propriétaire. Un seul thème, c'est moitié moins de valeurs à tenir et à vérifier sur le téléphone, et aucun écran qu'on n'aurait jamais regardé. |
 | **Palette fixe.** Pas de couleur dynamique Android. | La couleur dynamique prendrait les teintes du fond d'écran et se battrait avec les affiches. Ici, rien ne doit se battre avec les affiches. |
-| **Sobre**, jusqu'au 23 septembre 2026 : l'interface s'effaçait derrière les films. | Demande explicite, levée par le propriétaire le 23 septembre 2026 avec l'habillage « papier et pellicule » (ci-dessus, §2, §7) : des ornements, du mouvement, des célébrations. Ce qui en reste exclu : §12. |
+| **Sobre**, jusqu'au 23 septembre 2026 : l'interface s'effaçait derrière les films. | Demande explicite, levée par le propriétaire le 23 septembre 2026 avec l'habillage « papier et pellicule » (ci-dessus, §2, §7) : des ornements, du mouvement, des célébrations. Plus rien n'est exclu depuis le 24 septembre 2026 (§12). |
 | **Un accent : rouge corail, esprit cinéma.** Conservé en `primary` par l'habillage du 23 septembre 2026, l'or s'y ajoutant plutôt que de le remplacer (§2). | Le choix du propriétaire parmi quatre. |
 | **Manrope, embarquée.** Rejointe le 23 septembre 2026 par Fraunces (les titres d'écran) et Limelight (les célébrations), §3. | Le propriétaire voulait une sans-serif avec un peu plus de caractère que Roboto. Manrope est géométrique, douce, très lisible aux petites tailles, et libre (licence OFL). |
 | **Affiches à coins arrondis discrets**, comme des vignettes — les coins de toute l'application s'arrondissent avec elles le 23 septembre 2026 (12/16/20 dp). | Le choix du propriétaire. |
@@ -935,32 +935,15 @@ d'API hors de `Endpoints.kt` », pour la même raison.
 
 ## 12. Ce qui est laissé de côté, et pourquoi
 
-- **Un thème clair, la couleur dynamique.** Décidés contre, §1.
-- **Des illustrations figuratives.** Écarté par le propriétaire au choix de la maquette « papier et
-  pellicule » (§1) : des ornements oui (§2, §3, §7), un dessin de personnage ou de scène non, en
-  dehors des deux exceptions étroites et assumées ci-dessous — le reste de l'application demeure
-  vectoriel (`Canvas`) ou typographique.
-  *Jusqu'au 23 septembre 2026, cette ligne disait « des illustrations d'états vides, des animations
-  décoratives », contraires à « sobre » : la sobriété elle-même est retombée ce jour-là (§1, §7), et
-  l'application porte maintenant des dizaines de gestes qui n'existent que pour eux-mêmes — le
-  calque d'un film enregistré, le générique d'une décennie, le carton-titre d'un monde. Le retour
-  haptique, resté seul rescapé de cette ligne au peaufinage, l'a alors déjà quittée.* *Le 23 septembre
-  2026 (soir), une première exception étroite et assumée : les trois récompenses du Voyage (Ours,
-  Lion, Palme) et les deux tampons (passeport, « perdu ») seront, à terme, des images que le
-  propriétaire dessine lui-même — « les choses faites main ne sont pas si bien faites » — plutôt que
-  les glyphes vectoriels d'aujourd'hui, qui restent leur substitut tant que ces images n'existent pas
-  (`Embleme`, README « Les emblèmes »). Cinq images, pas une politique : le reste de l'application
-  ne change rien à cette ligne.* *Le même soir, une seconde exception, plus large : les célébrations
-  (§7) jouent désormais des animations Lottie récoltées sous licence libre — un clap, un trophée, des
-  confettis, une bobine de caméra, un ticket, un projecteur — chacune une image qui représente
-  quelque chose, à la différence des ornements du reste de l'appli. Deux exceptions nommées, toujours
-  pas une politique.*
-- **Une police téléchargeable.** Manrope, Fraunces et Limelight (§3) vivent toutes trois en fichiers
-  statiques dans `res/font/` : le téléphone n'a pas à dépendre des services Google pour afficher un
-  titre. *Jusqu'au 23 septembre 2026, cette ligne disait « une police pour les titres différente de
-  celle du corps », Manrope seule y suffisant : ce n'est plus vrai depuis l'habillage — Fraunces
-  (les titres d'écran) et Limelight (les célébrations) s'y ajoutent, chacune à un rôle fixe (§3),
-  sans que la règle contre une police téléchargeable n'ait jamais changé, elle.*
+*Le 24 septembre 2026, le propriétaire lève toute restriction de design : « il faut enlever toute
+restriction au niveau du design ». Ce document décrit ce qui existe et pourquoi, il n'interdit plus
+rien. Les choix des §1 à §7 (sombre, palette fixe, rôle du corail, polices, formes) sont l'état
+présent de l'appli, pas des règles : un chantier peut les changer sur la parole du propriétaire, sans
+exception à négocier. Les trois interdits qui vivaient ici sont retirés : le thème clair et la
+couleur dynamique, les illustrations figuratives (dessins, images, décors illustrés, la carte du
+Voyage façon jeu mobile comprise), la police téléchargeable. Ce qui suit n'est plus qu'une réserve
+de choses pas encore faites.*
+
 - **La jauge des essentiels au calque d'un film enregistré, le bilan complet au calque d'une année
   bouclée.** Les deux demandait le brief de l'habillage du 23 septembre 2026, absents de ce qui a
   été construit — §7, gestes 9 et 11, en disent la raison technique (une progression que ces
