@@ -3,6 +3,8 @@ package fr.mediatheque.journal.ui.search
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,6 +14,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -36,7 +40,17 @@ import fr.mediatheque.journal.ui.subtitle
 import fr.mediatheque.journal.ui.theme.IconeTabler
 
 @Composable
-fun SearchScreen(vm: SearchViewModel, onBack: () -> Unit, onPick: (SearchResult) -> Unit) {
+fun SearchScreen(
+    vm: SearchViewModel,
+    onBack: () -> Unit,
+    onPick: (SearchResult) -> Unit,
+    /** « Tes Ensuite » (point 6 de la revue du 24 septembre 2026) : les mêmes films que le carrousel de l'accueil (`cartesEnsuite`), déjà convertis en `SearchResult`. */
+    ensuite: List<SearchResult> = emptyList(),
+    /** Les films non vus de tes salles du Voyage de l'année en cours (point 6), déjà convertis en `SearchResult`. */
+    aVoirCetteAnnee: List<SearchResult> = emptyList(),
+    /** `tmdb_id` → ma note (nulle si je l'ai vu sans noter) pour le repère « vu · 7 » sur un résultat (point 6). */
+    dejaAuJournal: Map<Int, Int?> = emptyMap(),
+) {
     val ui by vm.ui.collectAsState()
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() } // le clavier suit le focus
@@ -56,6 +70,8 @@ fun SearchScreen(vm: SearchViewModel, onBack: () -> Unit, onPick: (SearchResult)
                     focusedIndicatorColor = Color.Transparent,
                     unfocusedIndicatorColor = Color.Transparent,
                 ),
+                // Une icône loupe dans le champ (point 6) : jamais posée avant cette revue.
+                leadingIcon = { IconeTabler("search", null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                 trailingIcon = {
                     if (ui.query.isNotEmpty()) {
                         IconButton(onClick = { vm.onQueryChange("") }) { IconeTabler("x", "Effacer") }
@@ -78,24 +94,97 @@ fun SearchScreen(vm: SearchViewModel, onBack: () -> Unit, onPick: (SearchResult)
                 modifier = Modifier.padding(16.dp),
             )
         }
-        LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(ui.results, key = { it.source + it.external_id }) { result ->
-                Row(
-                    Modifier.fillMaxWidth().clickable { onPick(result) },
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Cover(result.cover_url, result.title, 56.dp, 84.dp)
-                    Column {
-                        Text(result.title, style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            subtitle(result.metadata.director, result.year),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+        if (ui.query.isBlank()) {
+            // Avant la saisie (point 6) : trois sections, chacune absente si elle n'a rien à
+            // proposer — jamais un titre de section vide.
+            LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                if (ui.recentes.isNotEmpty()) {
+                    item {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text("Tes dernières recherches", style = MaterialTheme.typography.titleMedium)
+                                IconButton(onClick = vm::effacerRecherchesRecentes) { IconeTabler("trash", "Effacer les dernières recherches") }
+                            }
+                            RowDeRecherchesRecentes(ui.recentes, onChoisir = vm::onQueryChange)
+                        }
+                    }
+                }
+                if (ensuite.isNotEmpty()) {
+                    item { Text("Tes « Ensuite »", style = MaterialTheme.typography.titleMedium) }
+                    items(ensuite, key = { "ensuite:" + it.source + it.external_id }) { result ->
+                        LigneResultat(result, dejaAuJournal, onClick = { onPick(result) })
+                    }
+                }
+                if (aVoirCetteAnnee.isNotEmpty()) {
+                    item { Text("Pas encore vus, cette année du Voyage", style = MaterialTheme.typography.titleMedium) }
+                    items(aVoirCetteAnnee, key = { "voyage:" + it.source + it.external_id }) { result ->
+                        LigneResultat(result, dejaAuJournal, onClick = { onPick(result) })
                     }
                 }
             }
+        } else {
+            LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(ui.results, key = { it.source + it.external_id }) { result ->
+                    LigneResultat(result, dejaAuJournal, onClick = { onPick(result) })
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Une ligne de résultat, réutilisée pour les résultats de recherche et les deux sections
+ * d'avant-saisie (point 6) : affiche, titre, réalisateur si le résultat le porte (`subtitle`
+ * l'omet sinon plutôt que de laisser une virgule seule), et « vu · 7 » (ou « vu » sans note) si le
+ * film est déjà au journal, retrouvé par `tmdb_id`.
+ */
+@Composable
+private fun LigneResultat(result: SearchResult, dejaAuJournal: Map<Int, Int?>, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Cover(result.cover_url, result.title, 56.dp, 84.dp)
+        Column(Modifier.weight(1f)) {
+            Text(result.title, style = MaterialTheme.typography.titleMedium)
+            Text(
+                subtitle(result.metadata.director, result.year),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        val tmdbId = result.external_id.toIntOrNull()
+        if (tmdbId != null && dejaAuJournal.containsKey(tmdbId)) {
+            val note = dejaAuJournal[tmdbId]
+            Text(
+                if (note != null) "vu · $note" else "vu",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/** Les dernières recherches, en puces qu'un tap relance (point 6). */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun RowDeRecherchesRecentes(recentes: List<String>, onChoisir: (String) -> Unit) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        for (requete in recentes) {
+            FilterChip(
+                selected = false,
+                onClick = { onChoisir(requete) },
+                label = { Text(requete, style = MaterialTheme.typography.bodyMedium) },
+                shape = CircleShape,
+            )
         }
     }
 }

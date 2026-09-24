@@ -6,6 +6,8 @@ import fr.mediatheque.journal.api.ApiClient
 import fr.mediatheque.journal.api.JournalApi
 import fr.mediatheque.journal.api.PreferencesSessionStore
 import fr.mediatheque.journal.api.SessionCookieJar
+import fr.mediatheque.journal.search.PreferencesRecentSearchesStore
+import fr.mediatheque.journal.search.RecentSearchesStore
 import fr.mediatheque.journal.senscritique.GraphQlSensCritiqueAuthClient
 import fr.mediatheque.journal.senscritique.KeystoreSensCritiqueStore
 import fr.mediatheque.journal.senscritique.KtorSensCritiqueGraphQLClient
@@ -23,6 +25,9 @@ import okhttp3.CookieJar
 class AppContainer(context: Context) {
     val cookieJar = SessionCookieJar(PreferencesSessionStore(context))
     val api: JournalApi = ApiClient(BuildConfig.API_BASE_URL, ApiClient.okHttpEngine(cookieJar))
+
+    /** Les dix dernières recherches (point 6 de la revue du 24 septembre 2026) : locales, jamais envoyées au back. */
+    val recentSearches: RecentSearchesStore = PreferencesRecentSearchesStore(context)
 
     // SensCritique (brief du 14 septembre 2026) : le client Ktor existant, réutilisé avec un
     // client sans cookie jar (`CookieJar.NO_COOKIES`) — jamais celui de la médiathèque, dont le

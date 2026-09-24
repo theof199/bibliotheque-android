@@ -417,8 +417,12 @@ fun ouvrirPlex(contexte: android.content.Context, plexUrl: String?) {
     runCatching { contexte.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(lien.uri))) }
 }
 
-/** Le même formulaire pré-rempli qu'un « à voir » du Plex (`PlexFilm.toSearchResult()`). */
-private fun FilmSalleUi.versSearchResult(annee: Int): SearchResult = SearchResult(
+/**
+ * Le même formulaire pré-rempli qu'un « à voir » du Plex (`PlexFilm.toSearchResult()`) — public
+ * (point 6 de la revue du 24 septembre 2026) : `Root.kt` le réutilise pour « les films non vus de
+ * tes salles du Voyage de l'année en cours », section d'avant-saisie de la recherche.
+ */
+fun FilmSalleUi.versSearchResult(annee: Int): SearchResult = SearchResult(
     source = "tmdb",
     external_id = tmdbId.toString(),
     type = "movie",

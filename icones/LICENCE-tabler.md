@@ -11,6 +11,7 @@ Les icones de l'application sous `res/drawable/tabler_*.xml` viennent du paquet 
 ## Icones converties
 
 - `tabler_arrow_left` — `arrow-left` (outline)
+- `tabler_search` — `search` (outline)
 - `tabler_check` — `check` (outline)
 - `tabler_x` — `x` (outline)
 - `tabler_plus` — `plus` (outline)

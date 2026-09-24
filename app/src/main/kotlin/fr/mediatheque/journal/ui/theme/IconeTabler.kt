@@ -18,6 +18,7 @@ import fr.mediatheque.journal.R
  */
 private val RESSOURCES_TABLER: Map<String, Int> = mapOf(
     "arrow-left" to R.drawable.tabler_arrow_left,
+    "search" to R.drawable.tabler_search,
     "check" to R.drawable.tabler_check,
     "x" to R.drawable.tabler_x,
     "plus" to R.drawable.tabler_plus,

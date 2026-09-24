@@ -5,6 +5,9 @@ import androidx.lifecycle.viewModelScope
 import fr.mediatheque.journal.api.ApiError
 import fr.mediatheque.journal.api.JournalApi
 import fr.mediatheque.journal.api.dto.SearchResult
+import fr.mediatheque.journal.search.InMemoryRecentSearchesStore
+import fr.mediatheque.journal.search.RecentSearchesStore
+import fr.mediatheque.journal.search.ajouterRechercheRecente
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,6 +24,8 @@ data class SearchUi(
     val error: ApiError? = null,
     /** La dernière requête réellement envoyée — pour « Rien trouvé pour “…” ». */
     val searched: String = "",
+    /** Les dix dernières recherches (point 6 de la revue du 24 septembre 2026), la plus récente d'abord. */
+    val recentes: List<String> = emptyList(),
 )
 
 /**
@@ -29,9 +34,13 @@ data class SearchUi(
  * jusqu'aux nouveaux — design §6.
  */
 @OptIn(FlowPreview::class)
-class SearchViewModel(private val api: JournalApi, private val onUnauthenticated: () -> Unit) : ViewModel() {
+class SearchViewModel(
+    private val api: JournalApi,
+    private val onUnauthenticated: () -> Unit,
+    private val recentSearches: RecentSearchesStore = InMemoryRecentSearchesStore(),
+) : ViewModel() {
     private val query = MutableStateFlow("")
-    private val _ui = MutableStateFlow(SearchUi())
+    private val _ui = MutableStateFlow(SearchUi(recentes = recentSearches.read()))
     val ui: StateFlow<SearchUi> = _ui
 
     init {
@@ -46,10 +55,12 @@ class SearchViewModel(private val api: JournalApi, private val onUnauthenticated
      * `ViewModel`. Sans remise à zéro explicite, la même instance revient à chaque ouverture de
      * l'écran, requête et résultats de la visite précédente compris — jumeau du piège réglé sur
      * `LoginViewModel` (revue de la tâche 5). `Root` l'appelle à chaque entrée sur `Screen.Search`.
+     * Les dernières recherches, elles, survivent au-delà de cette instance (`recentSearches`) :
+     * `reset()` les relit plutôt que de les vider.
      */
     fun reset() {
         query.value = ""
-        _ui.value = SearchUi()
+        _ui.value = SearchUi(recentes = recentSearches.read())
     }
 
     fun onQueryChange(value: String) {
@@ -61,6 +72,12 @@ class SearchViewModel(private val api: JournalApi, private val onUnauthenticated
         viewModelScope.launch { search(query.value) }
     }
 
+    /** Effacer les dernières recherches (point 6) : la préférence locale, jamais le back. */
+    fun effacerRecherchesRecentes() {
+        recentSearches.write(emptyList())
+        _ui.update { it.copy(recentes = emptyList()) }
+    }
+
     private suspend fun search(q: String) {
         val trimmed = q.trim()
         if (trimmed.isEmpty()) {
@@ -68,15 +85,19 @@ class SearchViewModel(private val api: JournalApi, private val onUnauthenticated
             return
         }
         _ui.update { it.copy(loading = true, error = null) }
+        // Mémorisée dès l'envoi de la requête, pas seulement sur un résultat trouvé : une
+        // recherche sans résultat reste une recherche qu'on a faite (point 6).
+        val misesAJour = ajouterRechercheRecente(recentSearches.read(), trimmed)
+        recentSearches.write(misesAJour)
         try {
             val results = api.searchMovies(trimmed)
-            _ui.update { it.copy(results = results, loading = false, searched = trimmed) }
+            _ui.update { it.copy(results = results, loading = false, searched = trimmed, recentes = misesAJour) }
         } catch (e: ApiError) {
             if (e.isUnauthenticated) {
-                _ui.update { it.copy(loading = false) }
+                _ui.update { it.copy(loading = false, recentes = misesAJour) }
                 onUnauthenticated()
             } else {
-                _ui.update { it.copy(loading = false, error = e, searched = trimmed) }
+                _ui.update { it.copy(loading = false, error = e, searched = trimmed, recentes = misesAJour) }
             }
         }
     }

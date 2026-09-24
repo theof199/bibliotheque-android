@@ -52,6 +52,7 @@ import fr.mediatheque.journal.ui.frise.VoyageScreen
 import fr.mediatheque.journal.ui.frise.eligibleChroniqueDepuisEdition
 import fr.mediatheque.journal.ui.frise.statutVoyage
 import fr.mediatheque.journal.ui.frise.toSearchResult
+import fr.mediatheque.journal.ui.frise.versSearchResult
 import fr.mediatheque.journal.ui.home.HomeScreen
 import fr.mediatheque.journal.ui.login.LoginScreen
 import fr.mediatheque.journal.ui.login.LoginViewModel
@@ -126,7 +127,9 @@ fun Root(container: AppContainer) {
             // formulaire par `pop`, ce qu'on veut justement éviter (mineur 8 de la vague finale).
             // Le jumeau `Screen.Films` plus bas exploite l'inverse volontairement : son
             // `LaunchedEffect(Unit)` reste dans le `Crossfade` pour recharger à chaque entrée.
-            val search: SearchViewModel = viewModel(key = "search") { SearchViewModel(container.api, session::expire) }
+            val search: SearchViewModel = viewModel(key = "search") {
+                SearchViewModel(container.api, session::expire, container.recentSearches)
+            }
             LaunchedEffect(nav.searchVisits) { if (nav.searchVisits > 0) search.reset() }
             // Même instance dans les deux branches (`Screen.Profile` affiche le pseudo, `Screen.SensCritique`
             // porte le formulaire) — un aller-retour doit revenir sur le pseudo qu'on vient d'y lire, pas en
@@ -338,7 +341,60 @@ fun Root(container: AppContainer) {
                             },
                         )
                     }
-                    Screen.Search -> SearchScreen(search, onBack = nav::pop, onPick = { nav.push(Screen.Form(it)) })
+                    Screen.Search -> {
+                        // Les trois sections d'avant-saisie (point 6 de la revue du 24 septembre
+                        // 2026) : « tes Ensuite » relit `frise`/`suivis`, déjà chargés par l'accueil
+                        // (mêmes instances, mêmes clés) ; les films non vus des salles de l'année en
+                        // cours relisent la même instance d'`AnneeViewModel` que `Screen.Annee`
+                        // (même formule de clé), rechargée ici si elle ne l'était pas déjà.
+                        val friseUiPourRecherche by frise.ui.collectAsState()
+                        val suivisUiPourRecherche by suivis.ui.collectAsState()
+                        val ensuitePourRecherche = remember(friseUiPourRecherche.ensuite, suivisUiPourRecherche) {
+                            listOfNotNull(
+                                friseUiPourRecherche.ensuite?.toSearchResult(),
+                                entiteEnCours(
+                                    SourceSuivi.REALISATEURS,
+                                    suivisUiPourRecherche.realisateurs.entites,
+                                    suivisUiPourRecherche.realisateurs.filmographies,
+                                )?.formulaire(),
+                                entiteEnCours(
+                                    SourceSuivi.SAGAS,
+                                    suivisUiPourRecherche.sagas.entites,
+                                    suivisUiPourRecherche.sagas.filmographies,
+                                )?.formulaire(),
+                            )
+                        }
+                        // « vu · 7 » (point 6) : `tmdb_id` → ma note, sur tout le journal déjà
+                        // chargé par la Frise.
+                        val dejaAuJournalPourRecherche = remember(friseUiPourRecherche.annees) {
+                            friseUiPourRecherche.annees.flatMap { it.vus }
+                                .mapNotNull { item -> item.media.external_id.toIntOrNull()?.let { it to item.entry.rating } }
+                                .toMap()
+                        }
+                        val anneeEnCoursPourRecherche = friseUiPourRecherche.anneeEnCours
+                        val anneeVmPourRecherche: AnneeViewModel? = anneeEnCoursPourRecherche?.let { annee ->
+                            viewModel(key = "annee-$annee") { AnneeViewModel(container.api, annee, null, session::expire) }
+                        }
+                        LaunchedEffect(anneeVmPourRecherche) { anneeVmPourRecherche?.relire() }
+                        val anneeUiPourRecherche = anneeVmPourRecherche?.ui?.collectAsState()?.value
+                        val aVoirCetteAnneePourRecherche = remember(anneeUiPourRecherche, anneeEnCoursPourRecherche) {
+                            if (anneeEnCoursPourRecherche == null || anneeUiPourRecherche == null) {
+                                emptyList()
+                            } else {
+                                anneeUiPourRecherche.salles.flatMap { it.films }
+                                    .filter { it.etat != "vu" }
+                                    .map { it.versSearchResult(anneeEnCoursPourRecherche) }
+                            }
+                        }
+                        SearchScreen(
+                            search,
+                            onBack = nav::pop,
+                            onPick = { nav.push(Screen.Form(it)) },
+                            ensuite = ensuitePourRecherche,
+                            aVoirCetteAnnee = aVoirCetteAnneePourRecherche,
+                            dejaAuJournal = dejaAuJournalPourRecherche,
+                        )
+                    }
                     is Screen.Form -> {
                         // Ce `ViewModel` est indexé sur l'Activité (jumeau du piège réglé sur
                         // `SearchViewModel.reset()` ci-dessus) : la clé ne donne pas de portée,

@@ -6,6 +6,7 @@
 # Les douze premiers remplacent Icons.* (Material) dans l'appli. Les trois
 # derniers remplacent les Text("✦") (geste 2 du brief du 23 septembre 2026).
 arrow-left
+search
 check
 x
 plus

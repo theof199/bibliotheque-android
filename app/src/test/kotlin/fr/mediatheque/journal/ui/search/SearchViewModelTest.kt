@@ -26,7 +26,7 @@ class SearchViewModelTest {
     private var expire = 0
     private val chihiro = SearchResult("tmdb", "129", "movie", "Le Voyage de Chihiro", 2001)
 
-    private fun vm() = SearchViewModel(api) { expire++ }
+    private fun vm() = SearchViewModel(api, onUnauthenticated = { expire++ })
 
     @Test
     fun `attend 300 ms et ne cherche que la derniere frappe`() = runTest(dispatcher) {
@@ -121,7 +121,10 @@ class SearchViewModelTest {
         assertEquals(listOf(chihiro), vm.ui.value.results)
 
         vm.reset()
-        assertEquals(SearchUi(), vm.ui.value)
+        // Les dernières recherches survivent au `reset()` (point 6 de la revue du 24 septembre
+        // 2026) : la recherche qui vient d'être faite y figure déjà, `reset()` ne la vide pas
+        // avec le reste.
+        assertEquals(SearchUi(recentes = listOf("chihiro")), vm.ui.value)
         // Laisse le "" du reset traverser le débounce à lui seul, sinon la frappe suivante
         // l'écraserait avant qu'il n'atteigne `distinctUntilChanged` et fausserait la suite.
         advanceTimeBy(301)
@@ -134,5 +137,32 @@ class SearchViewModelTest {
 
         assertEquals(listOf("search chihiro", "search chihiro"), api.calls)
         assertEquals(listOf(chihiro), vm.ui.value.results)
+    }
+
+    // Point 6 de la revue du 24 septembre 2026, « dernières recherches ». Mutation : mémoriser
+    // seulement sur un résultat trouvé (pas sur l'envoi de la requête) fait tomber la deuxième
+    // recherche, sans résultat, de la liste.
+    @Test
+    fun `une recherche envoyee rejoint les dernieres recherches, meme sans resultat`() = runTest(dispatcher) {
+        api.onSearch = { q -> if (q == "chihiro") listOf(chihiro) else emptyList() }
+        val vm = vm()
+        vm.onQueryChange("chihiro")
+        advanceTimeBy(301)
+        vm.onQueryChange("zzzz")
+        advanceTimeBy(301)
+
+        assertEquals(listOf("zzzz", "chihiro"), vm.ui.value.recentes)
+    }
+
+    @Test
+    fun `effacerRecherchesRecentes vide la liste`() = runTest(dispatcher) {
+        api.onSearch = { listOf(chihiro) }
+        val vm = vm()
+        vm.onQueryChange("chihiro")
+        advanceTimeBy(301)
+        assertEquals(listOf("chihiro"), vm.ui.value.recentes)
+
+        vm.effacerRecherchesRecentes()
+        assertTrue(vm.ui.value.recentes.isEmpty())
     }
 }
