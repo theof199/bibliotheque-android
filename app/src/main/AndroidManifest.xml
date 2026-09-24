@@ -3,16 +3,6 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- Depuis Android 11, une appli ne voit pas les autres : sans cette déclaration,
-         `resolveActivity` et `startActivity` sur un PDF répondent « personne », même avec
-         une visionneuse installée (correctif du 22 septembre 2026, le carnet). -->
-    <queries>
-        <intent>
-            <action android:name="android.intent.action.VIEW" />
-            <data android:mimeType="application/pdf" />
-        </intent>
-    </queries>
-
     <application
         android:name=".App"
         android:allowBackup="false"

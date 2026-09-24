@@ -18,28 +18,26 @@ import fr.mediatheque.journal.api.dto.SortiesResponse
 import fr.mediatheque.journal.api.dto.StatsResponse
 import fr.mediatheque.journal.api.dto.User
 import fr.mediatheque.journal.api.dto.AnneeVoyageDetailResponse
-import fr.mediatheque.journal.api.dto.CarnetFabricationResponse
 import fr.mediatheque.journal.api.dto.CartonFilmResponse
-import fr.mediatheque.journal.api.dto.ChroniqueBody
-import fr.mediatheque.journal.api.dto.ChroniqueEcritureResponse
 import fr.mediatheque.journal.api.dto.DemandeSalleEcritureResponse
 import fr.mediatheque.journal.api.dto.DemanderVoyageResponse
+import fr.mediatheque.journal.api.dto.GeneriqueEcritureResponse
 import fr.mediatheque.journal.api.dto.PistesVoyageResponse
 import fr.mediatheque.journal.api.dto.PodiumBody
 import fr.mediatheque.journal.api.dto.PodiumResponse
+import fr.mediatheque.journal.api.dto.SalleContexteEcritureResponse
 import fr.mediatheque.journal.api.dto.SallePlusResponse
 import fr.mediatheque.journal.api.dto.SeanceComposerResponse
 import fr.mediatheque.journal.api.dto.SeanceEcritureResponse
 import fr.mediatheque.journal.api.dto.SeanceRemplacerBody
 import fr.mediatheque.journal.api.dto.TicketUtiliseResponse
-import fr.mediatheque.journal.api.dto.VoyageCarnetsResponse
 import fr.mediatheque.journal.api.dto.VoyageDepensesResponse
 import fr.mediatheque.journal.api.dto.VoyageResponse
 import fr.mediatheque.journal.api.dto.VoyageTicketsResponse
 import kotlinx.serialization.json.JsonObject
 
 /**
- * La seule porte des écrans vers le réseau. Quarante-huit opérations, celles que
+ * La seule porte des écrans vers le réseau. Cinquante opérations, celles que
  * l'application consomme ; les chemins n'existent que dans `Endpoints`, et ne
  * s'emploient que depuis `ApiClient`. Toute fonction peut lever `ApiError`.
  *
@@ -156,7 +154,10 @@ interface JournalApi {
     /** `POST /me/voyage/salles/{salleId}/plus` : « En voir plus » dans une salle — `202` en préparation, `200` épuisée. */
     suspend fun voyageSallePlus(salleId: String): SallePlusResponse
 
-    /** `GET /reference/chroniques/films/{tmdbId}` : le carton « Et pendant ce temps… » d'un film. */
+    /**
+     * `GET /reference/chroniques/films/{tmdbId}` : le carton d'un film, centré sur le film et son
+     * réalisateur (`titre`, `texte`) depuis le brief du 24 septembre 2026, « le voyage revu ».
+     */
     suspend fun cartonFilm(tmdbId: Int): CartonFilmResponse
 
     /** `POST /me/voyage/demander/{tmdbId}` : demande le film sur Seerr. `201` à la création, `200` s'il l'était déjà. */
@@ -183,15 +184,16 @@ interface JournalApi {
     /** `POST /me/voyage/tickets/{annee}/utiliser` : encaisse le ticket, `annee` devient mon année en cours. */
     suspend fun utiliserTicket(annee: Int): TicketUtiliseResponse
 
-    // --- La chronique et les salles (brief du 21 septembre 2026, étape 4). ---
+    // --- Les salles (brief du 21 septembre 2026, étape 4). ---
 
     /**
-     * `POST /me/voyage/annees/{annee}/chronique` : ajoute un paragraphe sur un film vu, ou un
-     * programme entièrement vu — `corps` porte `tmdb_id` **ou** `programme_id`, jamais les deux.
-     * `200 { statut: "ecrit", paragraphe }` s'il existait déjà (jamais régénéré), `202 { statut:
-     * "en_preparation" }` sinon, qu'il vienne d'être enfilé ou qu'une génération soit déjà en cours.
+     * `POST /me/voyage/annees/{annee}/salles/{salleId}/contexte` (décision 3 du brief du
+     * 24 septembre 2026, « le voyage revu ») : synchrone — rend le contexte déjà écrit sans
+     * appeler le chroniqueur s'il l'est déjà, sinon l'écrit et le rend. `404` si cette salle
+     * n'existe pas, n'est pas la mienne, ou n'est pas celle de cette année ; `503` sans clé
+     * Anthropic ou si le chroniqueur ne répond pas.
      */
-    suspend fun voyageChronique(annee: Int, corps: ChroniqueBody): ChroniqueEcritureResponse
+    suspend fun voyageSalleContexte(annee: Int, salleId: String): SalleContexteEcritureResponse
 
     /**
      * `POST /me/voyage/annees/{annee}/salles` : « Ouvrir une nouvelle salle » sur une phrase,
@@ -217,6 +219,15 @@ interface JournalApi {
      */
     suspend fun voyageDepenses(): VoyageDepensesResponse
 
+    /**
+     * `POST /me/voyage/annees/{annee}/generique` (décision 5 du brief du 24 septembre 2026, « le
+     * voyage revu ») : synchrone, même modèle que le contexte d'une salle ci-dessus — rend le
+     * générique déjà écrit sans rappeler le chroniqueur s'il l'est déjà. `404` sans ouverture pour
+     * cette année, `409` sans ticket encore accordé, `503` sans clé Anthropic ou si le chroniqueur
+     * ne répond pas.
+     */
+    suspend fun voyageGenerique(annee: Int): GeneriqueEcritureResponse
+
     // --- La séance (brief du 21 septembre 2026, « la séance »). ---
 
     /**
@@ -234,25 +245,6 @@ interface JournalApi {
 
     /** `POST /me/voyage/seances/{id}/ignorer` : ignore la séance. */
     suspend fun voyageIgnorerSeance(id: String): SeanceEcritureResponse
-
-    // --- Le carnet (brief du 22 septembre 2026, « le carnet »). ---
-
-    /**
-     * `POST /me/voyage/annees/{annee}/carnet` : lance ou relance la fabrication du carnet de cette
-     * année. Toujours `202`. `404` sans ouverture pour cette année, `409` si une fabrication est
-     * déjà en cours.
-     */
-    suspend fun voyageFabriquerCarnet(annee: Int): CarnetFabricationResponse
-
-    /** `GET /me/voyage/carnets` : mes carnets déjà fabriqués, et les années dont la fabrication tourne encore. */
-    suspend fun voyageCarnets(): VoyageCarnetsResponse
-
-    /**
-     * `GET /me/voyage/carnets/{annee}/pdf` : le PDF lui-même, en octets bruts — jamais affiché dans
-     * l'appli, seulement écrit dans `cacheDir` puis remis au système. `404` sans carnet pour cette
-     * année.
-     */
-    suspend fun telechargerCarnetPdf(annee: Int): ByteArray
 }
 
 /**

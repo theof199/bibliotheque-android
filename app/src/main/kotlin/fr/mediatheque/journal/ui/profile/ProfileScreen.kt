@@ -38,7 +38,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -57,14 +56,10 @@ import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.User
 import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.EtatVide
-import fr.mediatheque.journal.ui.frise.LigneCarnetProfil
 import fr.mediatheque.journal.ui.frise.LigneTicketPortefeuille
 import fr.mediatheque.journal.ui.frise.TamponDecennie
 import fr.mediatheque.journal.ui.frise.TamponPasseport
 import fr.mediatheque.journal.ui.frise.TicketPortefeuilleUi
-import fr.mediatheque.journal.ui.frise.lignesCarnetsProfil
-import fr.mediatheque.journal.ui.frise.ouvrirCarnet
-import fr.mediatheque.journal.ui.frise.texteLigneCarnetProfil
 import fr.mediatheque.journal.ui.showBriefly
 import fr.mediatheque.journal.ui.theme.IconeTabler
 import fr.mediatheque.journal.ui.suivis.SuiviState
@@ -86,8 +81,6 @@ fun ProfileScreen(
     portefeuille: PortefeuilleViewModel,
     /** Les dépenses au chroniqueur (décision 2 du brief du 21 septembre 2026, « les dépenses »), sous le portefeuille. */
     depenses: DepensesViewModel,
-    /** Les carnets (décision 3 du brief du 22 septembre 2026, « le carnet »), sous les dépenses. */
-    carnets: CarnetsViewModel,
     onBack: () -> Unit,
     onFilms: () -> Unit,
     onSensCritique: () -> Unit,
@@ -105,11 +98,7 @@ fun ProfileScreen(
     val suivisUi by suivis.ui.collectAsState()
     val portefeuilleUi by portefeuille.ui.collectAsState()
     val depensesUi by depenses.ui.collectAsState()
-    val carnetsUi by carnets.ui.collectAsState()
-    // Le carnet (décision 4 du brief du 22 septembre 2026, « le carnet ») : le message d'échec du
-    // téléchargement ou de l'ouverture, jumeau du `snackbar` d'`AnneeScreen`.
     val snackbar = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
 
     // Sélecteur de fichiers système (brief « importer Letterboxd », 16 septembre 2026) : le ZIP de
     // l'export ou `diary.csv` seul, `*/*` en repli pour les lecteurs qui ne déclarent aucun des deux
@@ -171,14 +160,6 @@ fun ProfileScreen(
                     GraphiquesCard(bilanUi.journalBrut)
                     PasseportCard(passeport, onOuvrirGenerique, onOuvrirVoyage)
                     PortefeuilleCard(portefeuilleUi.tickets, onUtiliserTicket)
-                    CarnetsCard(
-                        carnetsUi,
-                        onOuvrir = { annee ->
-                            scope.launch {
-                                ouvrirCarnet(context, annee, { carnets.telechargerCarnetPdf(annee) }) { message -> snackbar.showBriefly(message) }
-                            }
-                        },
-                    )
                     ListItem(
                         headlineContent = { Text("Mes films", style = MaterialTheme.typography.titleMedium) },
                         trailingContent = { IconeTabler("chevron-right", null) },
@@ -477,7 +458,7 @@ private fun DepensesCard(mois: List<DepenseMoisUi>?) {
 /**
  * « Coulisses » (point 14 de la revue du 24 septembre 2026) : une section repliée par défaut, en
  * bas du profil, qui ne porte que les Dépenses pour l'instant — le seul détail de coût de l'appli,
- * qui n'a pas à s'imposer au même niveau que le reste (Bilan, Passeport, Portefeuille, Carnets).
+ * qui n'a pas à s'imposer au même niveau que le reste (Bilan, Passeport, Portefeuille).
  * `chevron-right` tourné à 90° une fois dépliée : aucune icône « chevron-down » dans le catalogue
  * Tabler de l'appli (`icones/tabler.txt`), la rotation évite d'en ajouter une pour ce seul geste.
  */
@@ -505,36 +486,3 @@ private fun CoulissesSection(mois: List<DepenseMoisUi>?) {
     }
 }
 
-/**
- * Les carnets (décision 3 du brief du 22 septembre 2026, « le carnet »), sous les Dépenses, dans un
- * bloc jumeau des leurs : une ligne par carnet déjà fabriqué (`lignesCarnetsProfil`), un tap ouvre
- * son PDF (décision 4) ; les années en fabrication en ligne grisée, inertes ; « Aucun carnet pour
- * l'instant » une fois la réponse là, vide. `carnets == null` tant que `GET /me/voyage/carnets`
- * n'a pas répondu.
- */
-@Composable
-private fun CarnetsCard(carnetsUi: CarnetsUi, onOuvrir: (Int) -> Unit) {
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceContainer, MaterialTheme.shapes.medium)
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Text("Carnets", style = MaterialTheme.typography.titleMedium)
-        val carnets = carnetsUi.carnets
-        when {
-            carnets == null -> LigneBilan("…")
-            carnets.isEmpty() && carnetsUi.enCours.isEmpty() -> LigneBilan("Aucun carnet pour l’instant")
-            else -> lignesCarnetsProfil(carnets, carnetsUi.enCours).forEach { ligne ->
-                val enFabrication = ligne is LigneCarnetProfil.EnFabrication
-                Text(
-                    texteLigneCarnetProfil(ligne),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enFabrication) 0.5f else 1f),
-                    modifier = if (enFabrication) Modifier.fillMaxWidth() else Modifier.fillMaxWidth().clickable { onOuvrir(ligne.annee) },
-                )
-            }
-        }
-    }
-}

@@ -71,11 +71,16 @@ object Endpoints {
     fun voyageTicketMontre(annee: Int): String = "$voyageTickets/$annee/montre"
     fun voyageTicketUtiliser(annee: Int): String = "$voyageTickets/$annee/utiliser"
 
-    // --- La chronique et les salles (brief du 21 septembre 2026, étape 4). ---
+    // --- Les salles (brief du 21 septembre 2026, étape 4). ---
 
-    fun voyageChronique(annee: Int): String = "${voyageAnnee(annee)}/chronique"
     fun voyageSalles(annee: Int): String = "${voyageAnnee(annee)}/salles"
     fun voyageDemandeSalleVue(id: String): String = "me/voyage/demandes-salles/$id/vue"
+
+    /** `POST /me/voyage/annees/{annee}/salles/{salleId}/contexte` (décision 3 du brief du 24 septembre 2026, « le voyage revu »). */
+    fun voyageSalleContexte(annee: Int, salleId: String): String = "${voyageSalles(annee)}/$salleId/contexte"
+
+    /** `POST /me/voyage/annees/{annee}/generique` (décision 5 du brief du 24 septembre 2026, « le voyage revu »). */
+    fun voyageGenerique(annee: Int): String = "${voyageAnnee(annee)}/generique"
 
     /** `POST /me/voyage/annees/{annee}/pistes` (brief du 22 septembre 2026, « les pistes »). */
     fun voyagePistes(annee: Int): String = "${voyageAnnee(annee)}/pistes"
@@ -89,15 +94,4 @@ object Endpoints {
     fun voyageSeanceRemplacer(id: String): String = "me/voyage/seances/$id/remplacer"
     fun voyageSeancePrendre(id: String): String = "me/voyage/seances/$id/prendre"
     fun voyageSeanceIgnorer(id: String): String = "me/voyage/seances/$id/ignorer"
-
-    // --- Le carnet (brief du 22 septembre 2026, « le carnet »). ---
-
-    /** `POST /me/voyage/annees/{annee}/carnet` : lance ou relance sa fabrication. */
-    fun voyageCarnet(annee: Int): String = "${voyageAnnee(annee)}/carnet"
-
-    /** `GET /me/voyage/carnets` : mes carnets déjà fabriqués, et ceux dont la fabrication tourne encore. */
-    const val voyageCarnets = "me/voyage/carnets"
-
-    /** `GET /me/voyage/carnets/{annee}/pdf` : le PDF lui-même. */
-    fun voyageCarnetPdf(annee: Int): String = "$voyageCarnets/$annee/pdf"
 }

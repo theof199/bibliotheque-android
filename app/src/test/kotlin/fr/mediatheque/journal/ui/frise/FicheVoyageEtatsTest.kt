@@ -105,28 +105,6 @@ class FicheVoyageEtatsTest {
         assertEquals("En voir plus", etiquetteEtagere(epuisee = false, fourneeEnCours = false))
     }
 
-    // « Ajouter à la chronique » (décision 1 du brief du 21 septembre 2026, « la chronique et les
-    // salles ») : absent tant que le film n'est pas vu — un programme partiel retombe ici aussi,
-    // `etatFilm` portant déjà le calcul d'`etatFilmVoyage`. Mutation : ignorer cette garde
-    // proposerait la chronique sur un film qu'on n'a pas encore vu.
-    @Test
-    fun `etatBoutonChronique absent tant que le film n'est pas vu`() {
-        assertEquals(EtatBoutonChronique.ABSENT, etatBoutonChronique("a_demander", dejaEcrit = false, enCours = false))
-        assertEquals(EtatBoutonChronique.ABSENT, etatBoutonChronique("sur_le_plex", dejaEcrit = true, enCours = true))
-    }
-
-    // Sur un film vu : « Ajouter » par défaut, « écrit… » pendant la relecture, « Dans la
-    // chronique » dès que le paragraphe est là — et ce dernier prime sur « en cours » (mutation :
-    // tester `enCours` avant `dejaEcrit` laisserait « écrit… » affiché alors que le paragraphe est
-    // déjà arrivé).
-    @Test
-    fun `etatBoutonChronique sur un film vu distingue ajouter, en cours et deja ecrit`() {
-        assertEquals(EtatBoutonChronique.AJOUTER, etatBoutonChronique("vu", dejaEcrit = false, enCours = false))
-        assertEquals(EtatBoutonChronique.ECRIT_EN_COURS, etatBoutonChronique("vu", dejaEcrit = false, enCours = true))
-        assertEquals(EtatBoutonChronique.DANS_LA_CHRONIQUE, etatBoutonChronique("vu", dejaEcrit = true, enCours = false))
-        assertEquals(EtatBoutonChronique.DANS_LA_CHRONIQUE, etatBoutonChronique("vu", dejaEcrit = true, enCours = true))
-    }
-
     // --- salleVientDeSeBoucler (habillage du 23 septembre 2026, geste 10) --------------------
 
     private fun film(id: String, etat: String) = FilmSalleUi(

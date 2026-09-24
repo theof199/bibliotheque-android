@@ -30,22 +30,20 @@ import fr.mediatheque.journal.api.dto.SuivreSagaBody
 import fr.mediatheque.journal.api.dto.StatsResponse
 import fr.mediatheque.journal.api.dto.User
 import fr.mediatheque.journal.api.dto.AnneeVoyageDetailResponse
-import fr.mediatheque.journal.api.dto.CarnetFabricationResponse
 import fr.mediatheque.journal.api.dto.CartonFilmResponse
-import fr.mediatheque.journal.api.dto.ChroniqueBody
-import fr.mediatheque.journal.api.dto.ChroniqueEcritureResponse
 import fr.mediatheque.journal.api.dto.DemandeSalleBody
 import fr.mediatheque.journal.api.dto.DemandeSalleEcritureResponse
 import fr.mediatheque.journal.api.dto.DemanderVoyageResponse
+import fr.mediatheque.journal.api.dto.GeneriqueEcritureResponse
 import fr.mediatheque.journal.api.dto.PistesVoyageResponse
 import fr.mediatheque.journal.api.dto.PodiumBody
 import fr.mediatheque.journal.api.dto.PodiumResponse
+import fr.mediatheque.journal.api.dto.SalleContexteEcritureResponse
 import fr.mediatheque.journal.api.dto.SallePlusResponse
 import fr.mediatheque.journal.api.dto.SeanceComposerResponse
 import fr.mediatheque.journal.api.dto.SeanceEcritureResponse
 import fr.mediatheque.journal.api.dto.SeanceRemplacerBody
 import fr.mediatheque.journal.api.dto.TicketUtiliseResponse
-import fr.mediatheque.journal.api.dto.VoyageCarnetsResponse
 import fr.mediatheque.journal.api.dto.VoyageDepensesResponse
 import fr.mediatheque.journal.api.dto.VoyageResponse
 import fr.mediatheque.journal.api.dto.VoyageTicketsResponse
@@ -289,13 +287,8 @@ class ApiClient(baseUrl: String, engine: HttpClientEngine) : JournalApi {
     override suspend fun utiliserTicket(annee: Int): TicketUtiliseResponse =
         call { client.post(Endpoints.voyageTicketUtiliser(annee)) }
 
-    override suspend fun voyageChronique(annee: Int, corps: ChroniqueBody): ChroniqueEcritureResponse =
-        call {
-            client.post(Endpoints.voyageChronique(annee)) {
-                contentType(ContentType.Application.Json)
-                setBody(corps)
-            }
-        }
+    override suspend fun voyageSalleContexte(annee: Int, salleId: String): SalleContexteEcritureResponse =
+        call { client.post(Endpoints.voyageSalleContexte(annee, salleId)) }
 
     override suspend fun voyageDemanderSalle(annee: Int, demande: String, piste: String?): DemandeSalleEcritureResponse =
         call {
@@ -314,6 +307,9 @@ class ApiClient(baseUrl: String, engine: HttpClientEngine) : JournalApi {
 
     override suspend fun voyageDepenses(): VoyageDepensesResponse = call { client.get(Endpoints.voyageDepenses) }
 
+    override suspend fun voyageGenerique(annee: Int): GeneriqueEcritureResponse =
+        call { client.post(Endpoints.voyageGenerique(annee)) }
+
     override suspend fun voyageComposerSeance(annee: Int): SeanceComposerResponse =
         call { client.post(Endpoints.voyageSeances(annee)) }
 
@@ -330,17 +326,6 @@ class ApiClient(baseUrl: String, engine: HttpClientEngine) : JournalApi {
 
     override suspend fun voyageIgnorerSeance(id: String): SeanceEcritureResponse =
         call { client.post(Endpoints.voyageSeanceIgnorer(id)) }
-
-    override suspend fun voyageFabriquerCarnet(annee: Int): CarnetFabricationResponse =
-        call { client.post(Endpoints.voyageCarnet(annee)) }
-
-    override suspend fun voyageCarnets(): VoyageCarnetsResponse = call { client.get(Endpoints.voyageCarnets) }
-
-    // Les octets bruts du PDF : le même `call` générique les lit directement (`response.body<ByteArray>()`),
-    // `ContentNegotiation` ne s'appliquant qu'aux types qu'elle sait convertir — `application/pdf` n'en est
-    // pas un, la transformation par défaut du moteur (octets bruts) s'applique donc telle quelle.
-    override suspend fun telechargerCarnetPdf(annee: Int): ByteArray =
-        call { client.get(Endpoints.voyageCarnetPdf(annee)) }
 
     private suspend inline fun <reified T> call(block: () -> HttpResponse): T {
         val response = try {

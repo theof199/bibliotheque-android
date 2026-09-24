@@ -41817,11 +41817,11 @@
     },
     "/reference/chroniques/films/{tmdbId}": {
       "get": {
-        "summary": "Le carton « Et pendant ce temps… » d’un film",
+        "summary": "Le carton d’un film",
         "tags": [
           "voyage"
         ],
-        "description": "Le plus souvent écrit après coup : journaliser un film (`POST /me/journal`) enfile son carton — mais n’importe quel `tmdb_id` peut être demandé ici directement, et sera enfilé de la même façon s’il manque.\n\nTrois formes : `200` prêt, `202` en préparation (enfilé), `{ configure: false }` sans clé Anthropic. Global : ce carton ne dépend d’aucun membre.",
+        "description": "Le plus souvent écrit après coup : journaliser un film (`POST /me/journal`) enfile son carton — mais n’importe quel `tmdb_id` peut être demandé ici directement, et sera enfilé de la même façon s’il manque.\n\nTrois formes : `200` prêt, `202` en préparation (enfilé), `{ configure: false }` sans clé Anthropic. Global : ce carton ne dépend d’aucun membre.\n\nCentré sur le film et son réalisateur (brief du 24 septembre 2026, version 2) : la réalisation, les intentions du réalisateur, la réception et les innovations. Un carton resté à l’ancien format (« Et pendant ce temps… », version 1) est traité comme absent et régénéré, toujours en version 2.",
         "parameters": [
           {
             "schema": {
@@ -41861,26 +41861,21 @@
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
                         },
-                        "contexte": {
+                        "titre": {
                           "type": "string",
-                          "description": "4 à 6 lignes : le film dans son époque, sa réception, ce qu’il a changé"
+                          "description": "Une ligne"
                         },
-                        "faits": {
-                          "minItems": 3,
-                          "maxItems": 3,
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          },
-                          "description": "Trois faits de la même année, cinéma et monde"
+                        "texte": {
+                          "type": "string",
+                          "description": "4 à 10 phrases : la réalisation, les intentions du réalisateur, la réception et les innovations du film, s’il y en a"
                         }
                       },
                       "required": [
                         "configure",
                         "statut",
                         "tmdb_id",
-                        "contexte",
-                        "faits"
+                        "titre",
+                        "texte"
                       ],
                       "additionalProperties": false,
                       "description": "Le carton d’un film, prêt à afficher"
@@ -41909,12 +41904,8 @@
                       "configure": true,
                       "statut": "prete",
                       "tmdb_id": 15,
-                      "contexte": "Sorti en pleine bataille avec William Randolph Hearst, qui a tenté d'en racheter le négatif pour le détruire. Un échec commercial à sa sortie — RKO ne rentre pas dans ses frais — avant de devenir, ressorti dans les années 1950, la référence que le cinéma américain n'a plus cessé de citer.",
-                      "faits": [
-                        "Orson Welles a vingt-cinq ans et n'a jamais réalisé de long métrage auparavant",
-                        "Hearst interdit toute mention du film dans ses journaux, qui couvrent alors un quart de la presse américaine",
-                        "Le scénario s'inspire ouvertement de la vie de Hearst lui-même, jamais nommé"
-                      ]
+                      "titre": "Le miroir de Xanadu",
+                      "texte": "Orson Welles a vingt-cinq ans et n'a jamais réalisé de long métrage : il impose pourtant la profondeur de champ et la contre-plongée comme une grammaire neuve, avec Gregg Toland à la photographie. Sorti en pleine bataille avec William Randolph Hearst, qui tente d'en racheter le négatif pour le détruire et interdit toute mention du film dans ses journaux. Un échec commercial à sa sortie — RKO ne rentre pas dans ses frais — avant de devenir, ressorti dans les années 1950, la référence que le cinéma américain n'a plus cessé de citer."
                     }
                   }
                 }
@@ -42431,7 +42422,7 @@
                         },
                         "ouverture": {
                           "type": "string",
-                          "description": "Cinq à huit phrases sur l’année, écrites une fois et ne bougeant plus"
+                          "description": "De cinq à quinze phrases sur l’année, selon ce qu’elle a à dire, écrites une fois et ne bougeant plus"
                         },
                         "faits": {
                           "minItems": 3,
@@ -42493,6 +42484,17 @@
                               },
                               "raison_d_etre": {
                                 "type": "string"
+                              },
+                              "contexte": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "Un vrai paragraphe sur ce que la salle raconte de l’année — nul tant qu’il n’a pas été demandé (`POST .../contexte`)"
                               },
                               "cle": {
                                 "anyOf": [
@@ -42748,6 +42750,7 @@
                               "rang",
                               "nom",
                               "raison_d_etre",
+                              "contexte",
                               "cle",
                               "epuisee",
                               "fournee_en_cours",
@@ -42912,132 +42915,6 @@
                               "type": "null"
                             }
                           ]
-                        },
-                        "paragraphes": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "id": {
-                                "type": "string",
-                                "format": "uuid",
-                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                              },
-                              "tmdb_id": {
-                                "anyOf": [
-                                  {
-                                    "type": "integer",
-                                    "minimum": -9007199254740991,
-                                    "maximum": 9007199254740991
-                                  },
-                                  {
-                                    "type": "null"
-                                  }
-                                ]
-                              },
-                              "programme_id": {
-                                "anyOf": [
-                                  {
-                                    "type": "string",
-                                    "format": "uuid",
-                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                                  },
-                                  {
-                                    "type": "null"
-                                  }
-                                ]
-                              },
-                              "titre": {
-                                "type": "string",
-                                "description": "Une ligne"
-                              },
-                              "texte": {
-                                "type": "string",
-                                "description": "Trois à cinq phrases qui relient ce film à l’année et aux films déjà vus"
-                              },
-                              "ecrit_le": {
-                                "type": "string",
-                                "format": "date-time",
-                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
-                              },
-                              "film": {
-                                "type": "object",
-                                "properties": {
-                                  "title": {
-                                    "type": "string"
-                                  },
-                                  "cover_url": {
-                                    "anyOf": [
-                                      {
-                                        "type": "string",
-                                        "format": "uri"
-                                      },
-                                      {
-                                        "type": "null"
-                                      }
-                                    ]
-                                  }
-                                },
-                                "required": [
-                                  "title",
-                                  "cover_url"
-                                ],
-                                "additionalProperties": false,
-                                "description": "Le film auquel ce paragraphe se rattache"
-                              }
-                            },
-                            "required": [
-                              "id",
-                              "tmdb_id",
-                              "programme_id",
-                              "titre",
-                              "texte",
-                              "ecrit_le",
-                              "film"
-                            ],
-                            "additionalProperties": false,
-                            "description": "Un paragraphe de la chronique, ajouté à la demande sur un film — jamais regénéré"
-                          },
-                          "description": "Par ecrit_le croissant"
-                        },
-                        "paragraphes_en_cours": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "tmdb_id": {
-                                "anyOf": [
-                                  {
-                                    "type": "integer",
-                                    "minimum": -9007199254740991,
-                                    "maximum": 9007199254740991
-                                  },
-                                  {
-                                    "type": "null"
-                                  }
-                                ]
-                              },
-                              "programme_id": {
-                                "anyOf": [
-                                  {
-                                    "type": "string",
-                                    "format": "uuid",
-                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                                  },
-                                  {
-                                    "type": "null"
-                                  }
-                                ]
-                              }
-                            },
-                            "required": [
-                              "tmdb_id",
-                              "programme_id"
-                            ],
-                            "additionalProperties": false,
-                            "description": "Un paragraphe en cours d’écriture"
-                          },
-                          "description": "Les verrous : un paragraphe en cours d’écriture"
                         },
                         "demande_salle": {
                           "anyOf": [
@@ -43348,38 +43225,16 @@
                           "type": "boolean",
                           "description": "Une composition vient d’être demandée et s’écrit encore"
                         },
-                        "carnet": {
+                        "generique": {
                           "anyOf": [
                             {
-                              "type": "object",
-                              "properties": {
-                                "fabrique_le": {
-                                  "type": "string",
-                                  "format": "date-time",
-                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
-                                },
-                                "pages": {
-                                  "type": "integer",
-                                  "exclusiveMinimum": 0,
-                                  "maximum": 9007199254740991
-                                }
-                              },
-                              "required": [
-                                "fabrique_le",
-                                "pages"
-                              ],
-                              "additionalProperties": false,
-                              "description": "Le carnet de cette année, s’il a déjà été fabriqué"
+                              "type": "string"
                             },
                             {
                               "type": "null"
                             }
                           ],
-                          "description": "Le carnet de cette année (brief du 22 septembre 2026), s’il a déjà été fabriqué"
-                        },
-                        "carnet_en_cours": {
-                          "type": "boolean",
-                          "description": "La fabrication du carnet de cette année tourne encore"
+                          "description": "Le générique de fin d’année — mon parcours dans l’année, nul tant qu’il n’a pas été demandé (`POST .../generique`)"
                         }
                       },
                       "required": [
@@ -43397,13 +43252,10 @@
                         "podium",
                         "maturite",
                         "ticket",
-                        "paragraphes",
-                        "paragraphes_en_cours",
                         "demande_salle",
                         "seances",
                         "seance_en_cours",
-                        "carnet",
-                        "carnet_en_cours"
+                        "generique"
                       ],
                       "additionalProperties": false,
                       "description": "L’année, prête à afficher"
@@ -43582,6 +43434,7 @@
                           "rang": 1,
                           "nom": "Les essentiels",
                           "raison_d_etre": "Ce qu’il ne fallait pas manquer de 1941",
+                          "contexte": "1941 tient sur un vertige et une guerre qui approche. Kane rebat les cartes de ce que peut raconter une caméra, profondeur de champ et contre-plongées à l’appui, pendant que le film noir trouve sa grammaire avec Huston. Deux films, deux façons de regarder l’Amérique se raconter elle-même juste avant Pearl Harbor.",
                           "cle": "essentiels",
                           "epuisee": false,
                           "fournee_en_cours": false,
@@ -43625,6 +43478,7 @@
                           "rang": 2,
                           "nom": "Ailleurs cette année-là",
                           "raison_d_etre": "Ce qui ne rentre dans aucune autre salle",
+                          "contexte": null,
                           "cle": "ailleurs",
                           "epuisee": false,
                           "fournee_en_cours": true,
@@ -43653,26 +43507,6 @@
                         "emis_le": "2026-09-21T21:00:00.000Z",
                         "utilise_le": null
                       },
-                      "paragraphes": [
-                        {
-                          "id": "e7b2c9d5-5f3d-4c6e-9f1b-0d5e6f708192",
-                          "tmdb_id": 15,
-                          "programme_id": null,
-                          "titre": "Un journaliste et son miroir",
-                          "texte": "Tu retrouves Kane comme le premier grand portrait du pouvoir américain que le Voyage t’ait montré : un homme qui rachète le réel à coups de journaux, avant que Rosebud ne le lui rappelle. Aucun autre film de 1941 ne creuse aussi loin un seul homme, et c’est ce vertige qui a marqué Hollywood pour un siècle.",
-                          "ecrit_le": "2026-09-21T21:30:00.000Z",
-                          "film": {
-                            "title": "Citizen Kane",
-                            "cover_url": "https://image.tmdb.org/t/p/w185/sav0jxhqiH0bPr2vZFU0Kjt2nZL.jpg"
-                          }
-                        }
-                      ],
-                      "paragraphes_en_cours": [
-                        {
-                          "tmdb_id": 963,
-                          "programme_id": null
-                        }
-                      ],
                       "demande_salle": {
                         "id": "f8c3d0e6-6a4e-4d7f-8072-1e6f708192a3",
                         "demande": "La comédie italienne cette année-là",
@@ -43701,11 +43535,7 @@
                         }
                       ],
                       "seance_en_cours": false,
-                      "carnet": {
-                        "fabrique_le": "2026-09-22T07:12:00.000Z",
-                        "pages": 9
-                      },
-                      "carnet_en_cours": false
+                      "generique": "Tu as ouvert 1941 sur Citizen Kane, et l’année n’a plus voulu te lâcher : Welles en premier, Bogart et Huston juste après, deux façons de regarder l’Amérique se raconter elle-même. Les essentiels sont bouclés, et cette constance t’a valu le Lion. Le Faucon maltais t’attend encore, à demander — l’ouverture parlait d’une grammaire neuve, tu l’as trouvée dans chaque contre-plongée de Kane."
                     }
                   }
                 }
@@ -44164,39 +43994,13 @@
         }
       }
     },
-    "/me/voyage/annees/{annee}/chronique": {
+    "/me/voyage/annees/{annee}/salles/{salleId}/contexte": {
       "post": {
-        "summary": "« Ajouter à la chronique » un paragraphe sur un film",
+        "summary": "Le contexte d’une salle",
         "tags": [
           "voyage"
         ],
-        "description": "Corps `{ tmdb_id }` **ou** `{ programme_id }`, exactement l’un des deux. `tmdb_id` doit être un film de mon journal sorti cette année-là, sinon `400 VALIDATION`. `programme_id` doit être une ligne de mes salles de cette année (film ou programme) entièrement vue — même calcul d’état que `GET /me/voyage/annees/{annee}` — sinon `400 VALIDATION` ; d’un autre membre, d’une autre année, ou inconnue → `404`. Un film vu hors de toute salle a droit à son paragraphe tout autant qu’un film d’une salle.\n\nAnnée verrouillée ou sans ouverture → `404`.\n\n`200 { statut: \"ecrit\", paragraphe }` si un paragraphe existe déjà pour cette cible — jamais regénéré, aucun appel. Sinon enfile la génération (`paragraphe:<userId>:<annee>:<tmdbId>` ou `…:p:<programmeId>`, mêmes verrous que le reste du Voyage) et répond `202 { statut: \"en_preparation\" }`, qu’il vienne d’être enfilé ou qu’une génération soit déjà en cours.",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "tmdb_id": {
-                    "description": "Un film de mon journal, vu, sorti cette année-là",
-                    "type": "integer",
-                    "exclusiveMinimum": 0,
-                    "maximum": 9007199254740991
-                  },
-                  "programme_id": {
-                    "description": "Un film ou un programme de mes salles de cette année, entièrement vu",
-                    "type": "string",
-                    "format": "uuid",
-                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                  }
-                },
-                "description": "Le film ou le programme dont on ajoute le paragraphe à la chronique"
-              }
-            }
-          },
-          "description": "Le film ou le programme dont on ajoute le paragraphe à la chronique"
-        },
+        "description": "Appel **synchrone** au chroniqueur (modèle `CHRONIQUES_MODEL`), sur le modèle exact de la route des pistes. Si la colonne est déjà remplie, la rend telle quelle, sans appel. Sinon, génère un paragraphe de 5 à 10 phrases — ce que la salle raconte de l’année, ses films et ce qui les relie, le mouvement ou la tendance, sans reprendre l’ouverture de l’année —, l’écrit et le rend.\n\n`404` si cette salle n’existe pas, n’est pas la mienne, ou n’est pas celle de l’année demandée. `503 SERVICE_UNCONFIGURED` si `ANTHROPIC_API_KEY` n’est pas posée sur ce serveur et que le contexte n’a pas déjà été écrit. `503 UPSTREAM_UNAVAILABLE` si le chroniqueur ne répond pas ou rend une sortie inexploitable — réessaie plus tard.\n\nLe coût de l’appel se journalise dans `appels_ia` (type `contexte_salle`), comme les autres appels au chroniqueur.",
         "parameters": [
           {
             "schema": {
@@ -44207,159 +44011,41 @@
             "in": "path",
             "name": "annee",
             "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "salleId",
+            "required": true
           }
         ],
         "responses": {
           "200": {
-            "description": "Ce paragraphe existait déjà — rendu sans appel",
+            "description": "Le contexte de cette salle",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "statut": {
+                    "contexte": {
                       "type": "string",
-                      "enum": [
-                        "ecrit"
-                      ]
-                    },
-                    "paragraphe": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "format": "uuid",
-                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                        },
-                        "tmdb_id": {
-                          "anyOf": [
-                            {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            {
-                              "type": "null"
-                            }
-                          ]
-                        },
-                        "programme_id": {
-                          "anyOf": [
-                            {
-                              "type": "string",
-                              "format": "uuid",
-                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                            },
-                            {
-                              "type": "null"
-                            }
-                          ]
-                        },
-                        "titre": {
-                          "type": "string",
-                          "description": "Une ligne"
-                        },
-                        "texte": {
-                          "type": "string",
-                          "description": "Trois à cinq phrases qui relient ce film à l’année et aux films déjà vus"
-                        },
-                        "ecrit_le": {
-                          "type": "string",
-                          "format": "date-time",
-                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
-                        },
-                        "film": {
-                          "type": "object",
-                          "properties": {
-                            "title": {
-                              "type": "string"
-                            },
-                            "cover_url": {
-                              "anyOf": [
-                                {
-                                  "type": "string",
-                                  "format": "uri"
-                                },
-                                {
-                                  "type": "null"
-                                }
-                              ]
-                            }
-                          },
-                          "required": [
-                            "title",
-                            "cover_url"
-                          ],
-                          "additionalProperties": false,
-                          "description": "Le film auquel ce paragraphe se rattache"
-                        }
-                      },
-                      "required": [
-                        "id",
-                        "tmdb_id",
-                        "programme_id",
-                        "titre",
-                        "texte",
-                        "ecrit_le",
-                        "film"
-                      ],
-                      "additionalProperties": false,
-                      "description": "Un paragraphe de la chronique, ajouté à la demande sur un film — jamais regénéré"
+                      "description": "5 à 10 phrases : ce que la salle raconte de l’année, ses films et ce qui les relie"
                     }
                   },
                   "required": [
-                    "statut",
-                    "paragraphe"
+                    "contexte"
                   ],
                   "additionalProperties": false,
-                  "description": "Ce paragraphe existait déjà — rendu sans appel"
+                  "description": "Le contexte de cette salle"
                 },
                 "examples": {
                   "Réponse type": {
                     "value": {
-                      "statut": "ecrit",
-                      "paragraphe": {
-                        "id": "e7b2c9d5-5f3d-4c6e-9f1b-0d5e6f708192",
-                        "tmdb_id": 15,
-                        "programme_id": null,
-                        "titre": "Un journaliste et son miroir",
-                        "texte": "Tu retrouves Kane comme le premier grand portrait du pouvoir américain que le Voyage t’ait montré : un homme qui rachète le réel à coups de journaux, avant que Rosebud ne le lui rappelle. Aucun autre film de 1941 ne creuse aussi loin un seul homme, et c’est ce vertige qui a marqué Hollywood pour un siècle.",
-                        "ecrit_le": "2026-09-21T21:30:00.000Z",
-                        "film": {
-                          "title": "Citizen Kane",
-                          "cover_url": "https://image.tmdb.org/t/p/w185/sav0jxhqiH0bPr2vZFU0Kjt2nZL.jpg"
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "202": {
-            "description": "Le paragraphe vient d’être enfilé, ou en était déjà un en cours",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "statut": {
-                      "type": "string",
-                      "enum": [
-                        "en_preparation"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "statut"
-                  ],
-                  "additionalProperties": false,
-                  "description": "Le paragraphe vient d’être enfilé, ou en était déjà un en cours"
-                },
-                "examples": {
-                  "Réponse type": {
-                    "value": {
-                      "statut": "en_preparation"
+                      "contexte": "1941 tient sur un vertige et une guerre qui approche. Kane rebat les cartes de ce que peut raconter une caméra, profondeur de champ et contre-plongées à l’appui, pendant que le film noir trouve sa grammaire avec Huston. Deux films, deux façons de regarder l’Amérique se raconter elle-même juste avant Pearl Harbor."
                     }
                   }
                 }
@@ -44387,6 +44073,16 @@
             }
           },
           "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
             "description": "Default Response",
             "content": {
               "application/json": {
@@ -46310,13 +46006,13 @@
         }
       }
     },
-    "/me/voyage/annees/{annee}/carnet": {
+    "/me/voyage/annees/{annee}/generique": {
       "post": {
-        "summary": "Fabriquer le carnet de cette année — un PDF",
+        "summary": "Le générique de fin d’année",
         "tags": [
           "voyage"
         ],
-        "description": "Lance la fabrication en tâche de fond (`carnet/fabriquer.ts`) : la couverture avec l’affiche du n°1 du podium, l’ouverture et ses paragraphes, le podium, les salles avec mes notes et mes réactions. `202 { statut: \"en_preparation\" }` toujours — cette route ne rend jamais le PDF, voir `GET /me/voyage/carnets/{annee}/pdf`.\n\n`404` si cette année n’a pas encore d’ouverture pour moi. `409 CONFLICT` si une fabrication est déjà en cours pour elle — `carnet_en_cours` sur `GET /me/voyage/annees/{annee}`, ou `en_cours` sur `GET /me/voyage/carnets`, disent quand redemander.\n\nRefaire (l’année a déjà un carnet) remplace la ligne : `fabrique_le` avance.",
+        "description": "Appel **synchrone** au chroniqueur (modèle `CHRONIQUES_MODEL`), sur le modèle exact de la route du contexte de salle. Si `generique` est déjà posé sur l’année, le rend tel quel, sans appel. Sinon génère un texte de 5 à 15 phrases — mon parcours dans l’année : l’ordre des films vus, mes coups de cœur et mes déceptions, ce que mes réactions et remarques en disent, les salles bouclées, ma récompense, et ce qui a répondu ou non à l’ouverture —, l’écrit et le rend.\n\nSert aux années déjà bouclées avant ce brief, et au cas où la génération en arrière-plan (déclenchée à l’octroi du ticket) aurait échoué.\n\n`404` si cette année n’a pas encore d’ouverture pour moi. `409 CONFLICT` si elle n’a pas encore son ticket (le jugement de maturité ne l’a pas encore accordé). `503 SERVICE_UNCONFIGURED` si `ANTHROPIC_API_KEY` n’est pas posée sur ce serveur et que le générique n’a pas déjà été écrit. `503 UPSTREAM_UNAVAILABLE` si le chroniqueur ne répond pas ou rend une sortie inexploitable — réessaie plus tard.\n\nLe coût de l’appel se journalise dans `appels_ia` (type `generique`), comme les autres appels au chroniqueur.",
         "parameters": [
           {
             "schema": {
@@ -46330,30 +46026,28 @@
           }
         ],
         "responses": {
-          "202": {
-            "description": "La fabrication du carnet vient d’être lancée",
+          "200": {
+            "description": "Le générique de fin d’année",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "statut": {
+                    "generique": {
                       "type": "string",
-                      "enum": [
-                        "en_preparation"
-                      ]
+                      "description": "De cinq à quinze phrases : mon parcours dans cette année — l’ordre des films vus, mes coups de cœur, ce qui a répondu à l’ouverture"
                     }
                   },
                   "required": [
-                    "statut"
+                    "generique"
                   ],
                   "additionalProperties": false,
-                  "description": "La fabrication du carnet vient d’être lancée"
+                  "description": "Le générique de fin d’année"
                 },
                 "examples": {
                   "Réponse type": {
                     "value": {
-                      "statut": "en_preparation"
+                      "generique": "Tu as ouvert 1941 sur Citizen Kane, et l’année n’a plus voulu te lâcher : Welles en premier, Bogart et Huston juste après, deux façons de regarder l’Amérique se raconter elle-même. Les essentiels sont bouclés, et cette constance t’a valu le Lion. Le Faucon maltais t’attend encore, à demander — l’ouverture parlait d’une grammaire neuve, tu l’as trouvée dans chaque contre-plongée de Kane."
                     }
                   }
                 }
@@ -46399,151 +46093,8 @@
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "/me/voyage/carnets": {
-      "get": {
-        "summary": "Mes carnets déjà fabriqués",
-        "tags": [
-          "voyage"
-        ],
-        "description": "Par année croissante, sans leurs octets — `GET /me/voyage/carnets/{annee}/pdf` sert le fichier. `en_cours` liste les années dont la fabrication tourne encore.",
-        "responses": {
-          "200": {
-            "description": "Mes carnets, tous ceux déjà fabriqués",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "carnets": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "annee": {
-                            "type": "integer",
-                            "minimum": -9007199254740991,
-                            "maximum": 9007199254740991
-                          },
-                          "fabrique_le": {
-                            "type": "string",
-                            "format": "date-time",
-                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
-                          },
-                          "pages": {
-                            "type": "integer",
-                            "exclusiveMinimum": 0,
-                            "maximum": 9007199254740991
-                          },
-                          "taille_octets": {
-                            "type": "integer",
-                            "exclusiveMinimum": 0,
-                            "maximum": 9007199254740991
-                          }
-                        },
-                        "required": [
-                          "annee",
-                          "fabrique_le",
-                          "pages",
-                          "taille_octets"
-                        ],
-                        "additionalProperties": false,
-                        "description": "Un carnet déjà fabriqué"
-                      },
-                      "description": "Par année croissante"
-                    },
-                    "en_cours": {
-                      "type": "array",
-                      "items": {
-                        "type": "integer",
-                        "minimum": -9007199254740991,
-                        "maximum": 9007199254740991
-                      },
-                      "description": "Les années dont la fabrication tourne encore"
-                    }
-                  },
-                  "required": [
-                    "carnets",
-                    "en_cours"
-                  ],
-                  "additionalProperties": false,
-                  "description": "Mes carnets, tous ceux déjà fabriqués"
-                },
-                "examples": {
-                  "Réponse type": {
-                    "value": {
-                      "carnets": [
-                        {
-                          "annee": 1941,
-                          "fabrique_le": "2026-09-22T07:12:00.000Z",
-                          "pages": 9,
-                          "taille_octets": 412388
-                        }
-                      ],
-                      "en_cours": [
-                        1942
-                      ]
-                    }
-                  }
-                }
-              }
-            }
           },
-          "401": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/me/voyage/carnets/{annee}/pdf": {
-      "get": {
-        "summary": "Le PDF d’un carnet",
-        "tags": [
-          "voyage"
-        ],
-        "description": "Le fichier lui-même, `application/pdf`, en pièce jointe (`carnet-1895.pdf`). `404` sans carnet pour cette année — le mien, jamais celui d’un autre membre : viser l’année d’un autre membre répond `404`, il n’existe pas de carnet à mon nom pour cette année-là.",
-        "parameters": [
-          {
-            "schema": {
-              "type": "integer",
-              "minimum": 1895,
-              "maximum": 2027
-            },
-            "in": "path",
-            "name": "annee",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Le PDF du carnet",
-            "content": {
-              "application/pdf": {
-                "schema": {}
-              }
-            }
-          },
-          "401": {
-            "description": "Default Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "404": {
+          "503": {
             "description": "Default Response",
             "content": {
               "application/json": {

@@ -10,6 +10,13 @@ import kotlinx.serialization.Serializable
  * page avec le ticket. `AnneeSuivanteResponse` a disparu avec le bouton provisoire qui l'appelait ;
  * la récompense et le passeport, eux, reviennent sur les nouveaux seuils de la spec du
  * 19 septembre 2026, §6 (Ours, Lion, Palme — plus jamais l'ancien calcul par essentiels).
+ *
+ * Revu le 24 septembre 2026 (« le voyage revu ») : « Ajouter à la chronique » (par film) et le
+ * carnet PDF ont disparu du contrat, remplacés par deux pop-in synchrones — le contexte d'une
+ * salle (`SalleVoyage.contexte`, `POST .../salles/{salleId}/contexte`) et le générique de fin
+ * d'année (`AnneeVoyageDetailResponse.generique`, `POST .../generique`) — et le carton d'un film
+ * (`CartonFilmResponse`) se recentre sur le film et son réalisateur (`titre`, `texte`), à la place
+ * de l'ancien « Et pendant ce temps… » (`contexte`, `faits`).
  */
 
 /** Une année telle que `GET /me/voyage` la donne dans sa liste, pour la carte. */
@@ -105,6 +112,8 @@ data class SalleVoyage(
     val raison_d_etre: String,
     /** `"essentiels"` · `"ailleurs"` · nulle pour une salle nommée par le chroniqueur. */
     val cle: String? = null,
+    /** Un vrai paragraphe sur ce que la salle raconte de l'année — nul tant qu'il n'a pas été demandé (`POST .../contexte`, décision 3 du brief du 24 septembre 2026, « le voyage revu »). */
+    val contexte: String? = null,
     val epuisee: Boolean = false,
     val fournee_en_cours: Boolean = false,
     val films: List<FilmSalleVoyage> = emptyList(),
@@ -131,26 +140,6 @@ data class MaturiteVoyage(val mure: Boolean, val motif: String, val jugee_le: St
 /** Le ticket vers l'année suivante, s'il a été gagné (`prete` seulement) — `utilise_le` nul tant qu'il dort. */
 @Serializable
 data class TicketAnneeVoyage(val annee: Int, val emis_le: String, val utilise_le: String? = null)
-
-/** Le film auquel un paragraphe de la chronique se rattache (brief du 21 septembre 2026, « la chronique et les salles »). */
-@Serializable
-data class ParagrapheFilmVoyage(val title: String, val cover_url: String? = null)
-
-/** Un paragraphe de la chronique, ajouté à la demande sur un film — jamais regénéré. */
-@Serializable
-data class ParagrapheVoyage(
-    val id: String,
-    val tmdb_id: Int? = null,
-    val programme_id: String? = null,
-    val titre: String,
-    val texte: String,
-    val ecrit_le: String,
-    val film: ParagrapheFilmVoyage,
-)
-
-/** Un paragraphe en cours d'écriture — le verrou qu'`AnneeViewModel` relit jusqu'à ce qu'il tombe. */
-@Serializable
-data class ParagrapheEnCoursVoyage(val tmdb_id: Int? = null, val programme_id: String? = null)
 
 /**
  * La dernière demande de nouvelle salle, tant qu'elle compte encore : `en_cours`, ou `refusee` et
@@ -212,9 +201,6 @@ data class AnneeVoyageDetailResponse(
     val podium: List<PodiumMarcheVoyage?> = emptyList(),
     val maturite: MaturiteVoyage? = null,
     val ticket: TicketAnneeVoyage? = null,
-    /** Par `ecrit_le` croissant (brief du 21 septembre 2026, « la chronique et les salles »). */
-    val paragraphes: List<ParagrapheVoyage> = emptyList(),
-    val paragraphes_en_cours: List<ParagrapheEnCoursVoyage> = emptyList(),
     val demande_salle: DemandeSalleVoyage? = null,
     /** Des salles que le chroniqueur propose sans les ouvrir (brief du 22 septembre 2026, « les pistes ») — `prete` seulement, vide possible. */
     val pistes: List<PisteVoyage> = emptyList(),
@@ -222,22 +208,9 @@ data class AnneeVoyageDetailResponse(
     val seances: List<SeanceVoyage> = emptyList(),
     /** Une composition vient d'être demandée et s'écrit encore — `prete` seulement. */
     val seance_en_cours: Boolean = false,
-    /** Le carnet de cette année (brief du 22 septembre 2026, « le carnet »), s'il a déjà été fabriqué — `prete` seulement. */
-    val carnet: CarnetAnneeVoyage? = null,
-    /** La fabrication du carnet de cette année tourne encore — `prete` seulement. */
-    val carnet_en_cours: Boolean = false,
+    /** Le générique de fin d'année — mon parcours dans l'année, nul tant qu'il n'a pas été demandé (`POST .../generique`, décision 5 du brief du 24 septembre 2026, « le voyage revu »). Aussi écrit en arrière-plan à l'octroi du ticket. */
+    val generique: String? = null,
 )
-
-/** Corps de `POST /me/voyage/annees/{annee}/chronique` : `tmdb_id` **ou** `programme_id`, jamais les deux. */
-@Serializable
-data class ChroniqueBody(val tmdb_id: Int? = null, val programme_id: String? = null)
-
-/**
- * `POST /me/voyage/annees/{annee}/chronique` : `statut` dit si le paragraphe existait déjà (`ecrit`,
- * avec `paragraphe`) ou vient de s'enfiler (`en_preparation`, sans lui).
- */
-@Serializable
-data class ChroniqueEcritureResponse(val statut: String, val paragraphe: ParagrapheVoyage? = null)
 
 /**
  * Corps de `POST /me/voyage/annees/{annee}/salles` : une phrase de 1 à 200 caractères, `piste`
@@ -296,15 +269,28 @@ data class SallePlusResponse(
     val statut: String = "epuisee",
 )
 
-/** `GET /reference/chroniques/films/{tmdbId}` — le carton « Et pendant ce temps… », inchangé. */
+/**
+ * `GET /reference/chroniques/films/{tmdbId}` — le carton d'un film, recentré sur le film et son
+ * réalisateur depuis le brief du 24 septembre 2026, « le voyage revu » (version 2 : la réalisation,
+ * les intentions du réalisateur, la réception et les innovations — plus de `contexte` ni de
+ * `faits`, remplacés par `titre` et `texte`).
+ */
 @Serializable
 data class CartonFilmResponse(
     val configure: Boolean = false,
     val statut: String? = null,
     val tmdb_id: Int? = null,
-    val contexte: String? = null,
-    val faits: List<String> = emptyList(),
+    val titre: String? = null,
+    val texte: String? = null,
 )
+
+/** `POST /me/voyage/annees/{annee}/salles/{salleId}/contexte` — le contexte de cette salle, écrit ou déjà là. */
+@Serializable
+data class SalleContexteEcritureResponse(val contexte: String)
+
+/** `POST /me/voyage/annees/{annee}/generique` — le générique de fin d'année, écrit ou déjà là. */
+@Serializable
+data class GeneriqueEcritureResponse(val generique: String)
 
 /** `POST /me/voyage/demander/{tmdbId}`. */
 @Serializable
@@ -390,21 +376,3 @@ data class DepenseMoisVoyage(
 /** `GET /me/voyage/depenses` — mes dépenses au chroniqueur, du plus ancien au plus récent. */
 @Serializable
 data class VoyageDepensesResponse(val mois: List<DepenseMoisVoyage> = emptyList())
-
-// --- Le carnet (brief du 22 septembre 2026, « le carnet »). ---
-
-/** Le carnet d'une année, tel que `GET /me/voyage/annees/{annee}` le donne dans `carnet`. */
-@Serializable
-data class CarnetAnneeVoyage(val fabrique_le: String, val pages: Int)
-
-/** `POST /me/voyage/annees/{annee}/carnet` — la fabrication vient de s'enfiler, toujours `202`. */
-@Serializable
-data class CarnetFabricationResponse(val statut: String = "en_preparation")
-
-/** Un carnet déjà fabriqué, tel que `GET /me/voyage/carnets` le donne dans sa liste, par année croissante. */
-@Serializable
-data class CarnetVoyage(val annee: Int, val fabrique_le: String, val pages: Int)
-
-/** `GET /me/voyage/carnets` — mes carnets déjà fabriqués, et les années dont la fabrication tourne encore. */
-@Serializable
-data class VoyageCarnetsResponse(val carnets: List<CarnetVoyage> = emptyList(), val en_cours: List<Int> = emptyList())

@@ -28,15 +28,14 @@ import fr.mediatheque.journal.api.dto.StatsResponse
 import fr.mediatheque.journal.api.dto.User
 import fr.mediatheque.journal.api.dto.VuDuFilm
 import fr.mediatheque.journal.api.dto.AnneeVoyageDetailResponse
-import fr.mediatheque.journal.api.dto.CarnetFabricationResponse
 import fr.mediatheque.journal.api.dto.CartonFilmResponse
-import fr.mediatheque.journal.api.dto.ChroniqueBody
-import fr.mediatheque.journal.api.dto.ChroniqueEcritureResponse
 import fr.mediatheque.journal.api.dto.DemandeSalleEcritureResponse
 import fr.mediatheque.journal.api.dto.DemanderVoyageResponse
+import fr.mediatheque.journal.api.dto.GeneriqueEcritureResponse
 import fr.mediatheque.journal.api.dto.PistesVoyageResponse
 import fr.mediatheque.journal.api.dto.PodiumBody
 import fr.mediatheque.journal.api.dto.PodiumResponse
+import fr.mediatheque.journal.api.dto.SalleContexteEcritureResponse
 import fr.mediatheque.journal.api.dto.SallePlusResponse
 import fr.mediatheque.journal.api.dto.SeanceComposerResponse
 import fr.mediatheque.journal.api.dto.SeanceEcritureResponse
@@ -45,7 +44,6 @@ import fr.mediatheque.journal.api.dto.SeanceRemplacerBody
 import fr.mediatheque.journal.api.dto.SeanceVoyage
 import fr.mediatheque.journal.api.dto.TicketUtiliseResponse
 import fr.mediatheque.journal.api.dto.VoyageDeFilmographie
-import fr.mediatheque.journal.api.dto.VoyageCarnetsResponse
 import fr.mediatheque.journal.api.dto.VoyageDepensesResponse
 import fr.mediatheque.journal.api.dto.VoyageResponse
 import fr.mediatheque.journal.api.dto.VoyageTicketsResponse
@@ -101,7 +99,8 @@ class FakeJournalApi : JournalApi {
     var onVoyageTickets: suspend () -> VoyageTicketsResponse = { VoyageTicketsResponse() }
     var onMontrerTicket: suspend (Int) -> Unit = { _ -> }
     var onUtiliserTicket: suspend (Int) -> TicketUtiliseResponse = { TicketUtiliseResponse() }
-    var onVoyageChronique: suspend (Int, ChroniqueBody) -> ChroniqueEcritureResponse = { _, _ -> ChroniqueEcritureResponse(statut = "en_preparation") }
+    var onVoyageSalleContexte: suspend (Int, String) -> SalleContexteEcritureResponse = { _, _ -> SalleContexteEcritureResponse(contexte = "Contexte") }
+    var onVoyageGenerique: suspend (Int) -> GeneriqueEcritureResponse = { GeneriqueEcritureResponse(generique = "Générique") }
     var onVoyageDemanderSalle: suspend (Int, String, String?) -> DemandeSalleEcritureResponse =
         { _, _, _ -> DemandeSalleEcritureResponse(demande_id = "d-1") }
     var onVoyageDemandeSalleVue: suspend (String) -> Unit = { _ -> }
@@ -112,10 +111,6 @@ class FakeJournalApi : JournalApi {
         { id, _ -> SeanceEcritureResponse(seance(id)) }
     var onVoyagePrendreSeance: suspend (String) -> SeanceEcritureResponse = { id -> SeanceEcritureResponse(seance(id)) }
     var onVoyageIgnorerSeance: suspend (String) -> SeanceEcritureResponse = { id -> SeanceEcritureResponse(seance(id)) }
-    var onVoyageFabriquerCarnet: suspend (Int) -> CarnetFabricationResponse = { CarnetFabricationResponse() }
-    var onVoyageCarnets: suspend () -> VoyageCarnetsResponse = { VoyageCarnetsResponse() }
-    var onTelechargerCarnetPdf: suspend (Int) -> ByteArray = { ByteArray(0) }
-
     override suspend fun login(pseudo: String, password: String) = track("login $pseudo") { onLogin(pseudo, password) }
     override suspend fun me() = track("me") { onMe() }
     override suspend fun logout() = track("logout") { onLogout() }
@@ -159,8 +154,9 @@ class FakeJournalApi : JournalApi {
     override suspend fun voyageTickets() = track("voyageTickets") { onVoyageTickets() }
     override suspend fun montrerTicket(annee: Int) = track("montrerTicket $annee") { onMontrerTicket(annee) }
     override suspend fun utiliserTicket(annee: Int) = track("utiliserTicket $annee") { onUtiliserTicket(annee) }
-    override suspend fun voyageChronique(annee: Int, corps: ChroniqueBody) =
-        track("voyageChronique $annee ${corps.tmdb_id ?: corps.programme_id}") { onVoyageChronique(annee, corps) }
+    override suspend fun voyageSalleContexte(annee: Int, salleId: String) =
+        track("voyageSalleContexte $annee $salleId") { onVoyageSalleContexte(annee, salleId) }
+    override suspend fun voyageGenerique(annee: Int) = track("voyageGenerique $annee") { onVoyageGenerique(annee) }
     override suspend fun voyageDemanderSalle(annee: Int, demande: String, piste: String?) =
         track("voyageDemanderSalle $annee") { onVoyageDemanderSalle(annee, demande, piste) }
     override suspend fun voyageDemandeSalleVue(id: String) = track("voyageDemandeSalleVue $id") { onVoyageDemandeSalleVue(id) }
@@ -171,9 +167,6 @@ class FakeJournalApi : JournalApi {
         track("voyageRemplacerSeance $id ${corps.morceau} ${corps.film_id} ${corps.bobine_tmdb_id}") { onVoyageRemplacerSeance(id, corps) }
     override suspend fun voyagePrendreSeance(id: String) = track("voyagePrendreSeance $id") { onVoyagePrendreSeance(id) }
     override suspend fun voyageIgnorerSeance(id: String) = track("voyageIgnorerSeance $id") { onVoyageIgnorerSeance(id) }
-    override suspend fun voyageFabriquerCarnet(annee: Int) = track("voyageFabriquerCarnet $annee") { onVoyageFabriquerCarnet(annee) }
-    override suspend fun voyageCarnets() = track("voyageCarnets") { onVoyageCarnets() }
-    override suspend fun telechargerCarnetPdf(annee: Int) = track("telechargerCarnetPdf $annee") { onTelechargerCarnetPdf(annee) }
 
     private suspend fun <T> track(name: String, block: suspend () -> T): T {
         calls += name

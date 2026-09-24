@@ -82,22 +82,6 @@ fun etiquetteEtagere(epuisee: Boolean, fourneeEnCours: Boolean): String = when {
 }
 
 /**
- * L'état du bouton « Ajouter à la chronique » (décision 1 du brief du 21 septembre 2026, « la
- * chronique et les salles ») : absent si le film n'est pas vu — `etatFilm` porte déjà le calcul
- * programme-aware d'`etatFilmVoyage`, donc un programme partiellement vu retombe ici aussi ;
- * « Dans la chronique », inerte, dès que `paragraphes` porte ce film ou ce programme ; « écrit… »
- * tant que la relecture n'a pas encore trouvé le paragraphe ; « Ajouter » sinon.
- */
-enum class EtatBoutonChronique { ABSENT, AJOUTER, ECRIT_EN_COURS, DANS_LA_CHRONIQUE }
-
-fun etatBoutonChronique(etatFilm: String, dejaEcrit: Boolean, enCours: Boolean): EtatBoutonChronique = when {
-    etatFilm != "vu" -> EtatBoutonChronique.ABSENT
-    dejaEcrit -> EtatBoutonChronique.DANS_LA_CHRONIQUE
-    enCours -> EtatBoutonChronique.ECRIT_EN_COURS
-    else -> EtatBoutonChronique.AJOUTER
-}
-
-/**
  * Un film compte pour la complétion d'une salle (habillage du 23 septembre 2026, geste 10) : vu ou
  * introuvable, les deux états terminaux — jamais « sur le Plex », « demandé » ou « à demander »,
  * qui restent tous les trois à acquérir. Même dérivation programme-aware qu'`etatFilmVoyage`.
