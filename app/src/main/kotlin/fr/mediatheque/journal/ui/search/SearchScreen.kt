@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.ui.Cover
 import fr.mediatheque.journal.ui.ErrorBlock
+import fr.mediatheque.journal.ui.EtatVide
 import fr.mediatheque.journal.ui.subtitle
 import fr.mediatheque.journal.ui.theme.IconeTabler
 
@@ -87,10 +88,13 @@ fun SearchScreen(
             ErrorBlock(e.message ?: "", retryable = e.retryable, onRetry = vm::retry, modifier = Modifier.padding(16.dp))
         }
         if (ui.error == null && ui.searched.isNotEmpty() && ui.results.isEmpty() && !ui.loading) {
-            Text(
-                "Rien trouvé pour “${ui.searched}”.",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            // État vide (point 16 de la revue du 24 septembre 2026) : une icône, la phrase, une
+            // action — « Effacer » vide le champ pour recommencer, plutôt qu'un texte seul.
+            EtatVide(
+                icone = "search",
+                phrase = "Rien trouvé pour “${ui.searched}”.",
+                libelleAction = "Effacer",
+                onAction = { vm.onQueryChange("") },
                 modifier = Modifier.padding(16.dp),
             )
         }

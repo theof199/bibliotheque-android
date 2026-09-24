@@ -44,6 +44,7 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import fr.mediatheque.journal.ui.Cover
 import fr.mediatheque.journal.ui.ErrorBlock
+import fr.mediatheque.journal.ui.EtatVide
 import fr.mediatheque.journal.ui.showBriefly
 import fr.mediatheque.journal.ui.theme.IconeTabler
 
@@ -112,11 +113,15 @@ fun SuivisScreen(
             }
 
             if (etat.entites.isEmpty() && etat.error == null && !etat.loading) {
+                // État vide (point 16 de la revue du 24 septembre 2026) : une icône, la phrase
+                // déjà là (`libelleVide`), une action — « Ajouter » ouvre la même recherche que le
+                // « + » de l'en-tête, plutôt qu'un texte seul et invisible sans lui.
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Text(
-                        ui.source.libelleVide,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    EtatVide(
+                        icone = if (ui.source == SourceSuivi.REALISATEURS) "user" else "movie",
+                        phrase = ui.source.libelleVide,
+                        libelleAction = "Ajouter",
+                        onAction = onAjouter,
                     )
                 }
             } else {

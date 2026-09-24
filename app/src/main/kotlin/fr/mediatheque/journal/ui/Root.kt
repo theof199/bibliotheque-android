@@ -475,6 +475,9 @@ fun Root(container: AppContainer) {
                                     nav.push(Screen.Generique(it))
                                 }
                             },
+                            // L'action de l'état vide du passeport (point 16 de la revue du
+                            // 24 septembre 2026) : même geste que la barre du bas.
+                            onOuvrirVoyage = { nav.push(Screen.Frise) },
                             onImportLetterboxd = { bytes -> letterboxd.start(bytes); nav.push(Screen.RapportImport) },
                             // « Utiliser » sur un ticket du portefeuille (décision 3) : même appel
                             // que le calque, puis `frise.refresh()` met la carte à jour — la même
@@ -504,6 +507,9 @@ fun Root(container: AppContainer) {
                             films,
                             onBack = nav::pop,
                             onOpen = { nav.push(Screen.Edit(it)) },
+                            // L'action de l'état vide (point 16 de la revue du 24 septembre 2026) :
+                            // même recherche que le bouton rond de l'accueil.
+                            onAdd = { nav.push(Screen.Search) },
                             // L'affiche partagée (geste 8) : jumeau de l'accueil, même paire.
                             sharedTransitionScope = sharedTransitionScope,
                             animatedVisibilityScope = animatedVisibilityScope,

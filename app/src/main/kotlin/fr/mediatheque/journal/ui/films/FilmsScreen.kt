@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.ui.ErrorBlock
+import fr.mediatheque.journal.ui.EtatVide
 import fr.mediatheque.journal.ui.JournalRow
 import fr.mediatheque.journal.ui.afficheVolante
 import fr.mediatheque.journal.ui.voler
@@ -47,6 +48,8 @@ fun FilmsScreen(
     onBack: () -> Unit,
     onOpen: (JournalItem) -> Unit,
     bottomBar: @Composable () -> Unit,
+    /** L'action de l'état vide (point 16 de la revue du 24 septembre 2026) : la même recherche que le bouton rond de l'accueil. */
+    onAdd: () -> Unit = {},
     // L'affiche partagée (peaufinage du 23 septembre 2026, geste 8) : « Mes films » est un des
     // deux bouts de la paire vers « la fiche d'entrée » (`Screen.Edit`, `Root.kt`).
     sharedTransitionScope: SharedTransitionScope? = null,
@@ -77,8 +80,15 @@ fun FilmsScreen(
             Perforations(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
             ui.error?.let { ErrorBlock(it.message ?: "", retryable = it.retryable, onRetry = vm::loadMore, modifier = Modifier.padding(16.dp)) }
             if (ui.items.isEmpty() && ui.endReached) {
+                // État vide (point 16 de la revue du 24 septembre 2026) : une icône, la phrase, une
+                // action — « Ajouter un film » plutôt qu'un texte seul.
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Aucun film pour l’instant.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    EtatVide(
+                        icone = "movie",
+                        phrase = "Aucun film pour l’instant.",
+                        libelleAction = "Ajouter un film",
+                        onAction = onAdd,
+                    )
                 }
             } else {
                 LazyColumn(state = liste, contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {

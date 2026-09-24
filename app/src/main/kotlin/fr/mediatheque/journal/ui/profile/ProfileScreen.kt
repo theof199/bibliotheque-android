@@ -56,6 +56,7 @@ import fr.mediatheque.journal.R
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.User
 import fr.mediatheque.journal.ui.ErrorBlock
+import fr.mediatheque.journal.ui.EtatVide
 import fr.mediatheque.journal.ui.frise.LigneCarnetProfil
 import fr.mediatheque.journal.ui.frise.LigneTicketPortefeuille
 import fr.mediatheque.journal.ui.frise.TamponDecennie
@@ -92,6 +93,8 @@ fun ProfileScreen(
     onSensCritique: () -> Unit,
     onSignOut: () -> Unit,
     onOuvrirGenerique: (TamponDecennie) -> Unit,
+    /** « Voir le Voyage » (point 16 de la revue du 24 septembre 2026), l'action de l'état vide du passeport. */
+    onOuvrirVoyage: () -> Unit,
     onImportLetterboxd: (ByteArray) -> Unit,
     onUtiliserTicket: (Int) -> Unit,
     bottomBar: @Composable () -> Unit,
@@ -166,7 +169,7 @@ fun ProfileScreen(
                     }
                     BilanCard(bilanUi.journal, suivisUi.realisateurs, suivisUi.sagas)
                     GraphiquesCard(bilanUi.journalBrut)
-                    PasseportCard(passeport, onOuvrirGenerique)
+                    PasseportCard(passeport, onOuvrirGenerique, onOuvrirVoyage)
                     PortefeuilleCard(portefeuilleUi.tickets, onUtiliserTicket)
                     CarnetsCard(
                         carnetsUi,
@@ -380,7 +383,7 @@ private fun GrilleDecennies(couvertes: List<Boolean>) {
  * avant d'être rempli, sinon on ne sait pas qu'il existe.
  */
 @Composable
-private fun PasseportCard(passeport: List<TamponDecennie>, onOuvrirGenerique: (TamponDecennie) -> Unit) {
+private fun PasseportCard(passeport: List<TamponDecennie>, onOuvrirGenerique: (TamponDecennie) -> Unit, onOuvrirVoyage: () -> Unit) {
     Column(
         Modifier
             .fillMaxWidth()
@@ -390,7 +393,15 @@ private fun PasseportCard(passeport: List<TamponDecennie>, onOuvrirGenerique: (T
     ) {
         Text("Passeport", style = MaterialTheme.typography.titleMedium)
         if (passeport.isEmpty()) {
-            LigneBilan("Aucun tampon encore")
+            // État vide (point 16 de la revue du 24 septembre 2026) : le passeport se remplit tout
+            // seul en bouclant une décennie du Voyage — « Voir le Voyage » y ramène, seule action
+            // qui ait un sens ici, plutôt qu'une simple phrase.
+            EtatVide(
+                icone = "map",
+                phrase = "Aucun tampon encore",
+                libelleAction = "Voir le Voyage",
+                onAction = onOuvrirVoyage,
+            )
         } else {
             passeport.forEach { tampon ->
                 TamponPasseport(tampon) { onOuvrirGenerique(tampon) }
