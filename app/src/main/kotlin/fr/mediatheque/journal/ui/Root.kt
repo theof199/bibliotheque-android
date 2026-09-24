@@ -313,6 +313,7 @@ fun Root(container: AppContainer) {
                             carton = carton,
                             onCartonDismiss = { cartonTmdbId = null },
                             onAdd = { nav.push(Screen.Search) },
+                            onFilms = { nav.push(Screen.Films) },
                             onOpen = { nav.push(Screen.Edit(it)) },
                             onOpenEnsuite = { nav.push(Screen.Form(it.toSearchResult())) },
                             onOpenEnsuiteRealisateur = { nav.push(Screen.Form(it.formulaire())) },

@@ -1,15 +1,8 @@
 package fr.mediatheque.journal.ui.home
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,8 +10,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -29,16 +22,20 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FabPosition
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
@@ -72,6 +69,7 @@ import fr.mediatheque.journal.ui.suivis.EnCours
 import fr.mediatheque.journal.ui.suivis.titreEtAnnee
 import fr.mediatheque.journal.ui.showBriefly
 import fr.mediatheque.journal.ui.theme.BobineIndicateur
+import fr.mediatheque.journal.ui.theme.IconeTabler
 import fr.mediatheque.journal.ui.theme.Perforations
 import kotlinx.coroutines.flow.distinctUntilChanged
 
@@ -80,6 +78,13 @@ import kotlinx.coroutines.flow.distinctUntilChanged
  * l'accueil montre les films vus, jaquettes seules, du plus récent au plus ancien, au-dessus
  * du bouton « Ajouter un film » qui descend en bas. Le `vm` est le même `FilmsViewModel` que
  * « Mes films » (clé `"films"` dans `Root.kt`) : une seule source, deux présentations.
+ *
+ * Revu le 24 septembre 2026 (point 5) : un unique `LazyVerticalGrid` porte tout l'écran, l'en-tête
+ * et le carrousel « Ensuite » compris (des items en pleine largeur, `GridItemSpan(maxLineSpan)`,
+ * avant les cellules de la grille elle-même) — avant cette revue, seule la grille défilait, dans
+ * une zone à elle, sous un bloc fixe (en-tête, cartes « Ensuite » empilées) qui ne bougeait jamais.
+ * « Ajouter un film » devient un bouton rond flottant du `Scaffold` plutôt qu'un enfant du
+ * `Column` : il n'a donc plus besoin d'être hors du flux de défilement pour rester visible.
  */
 @OptIn(ExperimentalSharedTransitionApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -89,6 +94,8 @@ fun HomeScreen(
     onAdd: () -> Unit,
     onOpen: (JournalItem) -> Unit,
     bottomBar: @Composable () -> Unit,
+    /** « Tout voir », au-dessus de la grille (point 5) : l'entrée de « Mes films » depuis l'accueil, jusque-là perdue. */
+    onFilms: () -> Unit = {},
     /** Le plus ancien film à voir sur le Plex (brief du 15 septembre 2026) — nul tant qu'il n'y a rien à voir, ou que `/reference/plex` n'a pas encore répondu : pas de chargement bloquant, la ligne apparaît seule. */
     ensuite: PlexFilm? = null,
     onOpenEnsuite: (PlexFilm) -> Unit = {},
@@ -135,10 +142,21 @@ fun HomeScreen(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = bottomBar,
+        // Le bouton rond flottant (point 5) : corail, icône `plus`, en bas à droite — remplace le
+        // bouton pleine largeur qui vivait au bas de la colonne, hors du flux de défilement.
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = onAdd,
+                shape = CircleShape,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+            ) { IconeTabler("plus", "Ajouter un film") }
+        },
+        floatingActionButtonPosition = FabPosition.End,
         snackbarHost = {
-            // 68 dp : le bouton (52 dp) plus sa marge (16 dp), pour que la snackbar ne tombe pas
-            // dessus (relecture, correction 6).
-            SnackbarHost(snackbar, modifier = Modifier.padding(bottom = 68.dp)) { data ->
+            // 84 dp : le bouton rond (56 dp) plus sa marge (16 dp) plus un peu d'air, pour que la
+            // snackbar ne tombe pas dessus.
+            SnackbarHost(snackbar, modifier = Modifier.padding(bottom = 84.dp)) { data ->
                 Snackbar(
                     snackbarData = data,
                     containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -147,147 +165,133 @@ fun HomeScreen(
             }
         },
     ) { padding ->
-        BoxWithConstraints(Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+        BoxWithConstraints(Modifier.fillMaxSize().padding(padding)) {
             // Trois colonnes, 8 dp d'écart (grille du design §4) : `Cover` prend une largeur et
             // une hauteur fixes, pas un modificateur élastique, donc la taille d'une jaquette se
-            // déduit ici de la largeur disponible plutôt que d'être posée dans `Cover` lui-même.
+            // déduit ici de la largeur disponible (moins les 16 dp de marge de chaque bord du
+            // `contentPadding` posé sur la grille plus bas) plutôt que d'être posée dans `Cover`
+            // lui-même.
             val ecart = 8.dp
-            val largeurJaquette = (maxWidth - ecart * 2) / 3
+            val largeurJaquette = (maxWidth - 32.dp - ecart * 2) / 3
             val hauteurJaquette = largeurJaquette * 1.5f
 
-            Column(Modifier.fillMaxSize()) {
-                // Habillage « papier et pellicule » (23 septembre 2026, geste 4) : une bande de
-                // perforations sous l'en-tête de l'écran, fixe (une décennie bouclée s'anime, pas
-                // l'accueil à chaque frame).
-                Perforations(modifier = Modifier.padding(bottom = 12.dp))
-                // Le Voyage (brief du 16 septembre 2026) : « sous le bandeau » — juste après le
-                // « Enregistré » de la snackbar — la carte du film qu'on vient de journaliser, tant
-                // qu'elle existe (`carton` nul en dehors de cette fenêtre, `CartonCard` muette tant
-                // que le chroniqueur n'est pas configuré côté back).
-                carton?.let { vm ->
-                    val cartonUi by vm.ui.collectAsState()
-                    CartonCard(
-                        cartonUi,
-                        attente = true,
-                        onDismiss = onCartonDismiss,
-                        modifier = Modifier.padding(bottom = 12.dp),
+            var tire by remember { mutableStateOf(false) }
+            LaunchedEffect(ui.loading) { if (!ui.loading) tire = false }
+            val etatTirage = rememberPullToRefreshState()
+            PullToRefreshBox(
+                isRefreshing = tire && ui.loading,
+                onRefresh = { if (!ui.loading) { tire = true; vm.refresh() } },
+                state = etatTirage,
+                indicator = {
+                    BobineIndicateur(
+                        etatTirage,
+                        isRefreshing = tire && ui.loading,
+                        modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp),
                     )
-                }
-                // « Ce soir » (décision 4 du brief du 21 septembre 2026, « la séance ») : au-dessus
-                // d'« Ensuite », même gabarit qu'elle (`LigneEnsuite`) — chargement non bloquant,
-                // comme les trois lignes qui suivent.
-                ceSoir?.let { seance ->
-                    LigneEnsuite(
-                        coverUrl = seance.longCoverUrl,
-                        titreAffiche = seance.longTitre,
-                        libelle = "Ce soir",
-                        titre = texteCeSoir(seance),
-                        onClick = { onOpenCeSoir(seance) },
-                    )
-                }
-                // Pas de chargement bloquant (brief du 15 septembre 2026) : la ligne n'existe
-                // simplement pas tant que `ensuite` est nul, que ce soit parce que
-                // `/reference/plex` n'a pas encore répondu ou parce qu'il n'y a rien à voir.
-                //
-                // « Ensuite » qui passe le relais (geste 19 du complément du 23 septembre 2026 à
-                // l'habillage) : quand le film « Ensuite » vient d'être enregistré, `ensuite`
-                // change de film sous nos yeux (rechargé après l'enregistrement) — sa carte sort
-                // par la gauche, la suivante entre par la droite. `contentKey` sur `tmdb_id` plutôt
-                // que l'égalité de tout `PlexFilm` : seul un autre film rejoue la transition, pas
-                // une jaquette dont l'URL aurait changé sans que le film change.
-                AnimatedContent(
-                    targetState = ensuite,
-                    contentKey = { it?.tmdb_id },
-                    transitionSpec = {
-                        (slideInHorizontally(tween(300)) { largeur -> largeur } + fadeIn(tween(300)))
-                            .togetherWith(slideOutHorizontally(tween(300)) { largeur -> -largeur } + fadeOut(tween(300)))
-                    },
-                    label = "ensuite",
-                ) { filmEnsuite ->
-                    filmEnsuite?.let { film ->
-                        LigneEnsuite(
-                            coverUrl = film.cover_url,
-                            titreAffiche = film.title,
-                            libelle = "Ensuite",
-                            titre = film.year?.let { annee -> "${film.title} ($annee)" } ?: film.title,
-                            onClick = { onOpenEnsuite(film) },
-                        )
-                    }
-                }
-                // La seconde ligne « Ensuite », celle du réalisateur en cours (brief du
-                // 15 septembre 2026) : même composant que celle du Plex juste au-dessus, jamais
-                // une copie — le nom vient sur la première ligne, après « Ensuite · », et le
-                // titre du film prend la seconde, comme pour le Plex.
-                ensuiteRealisateur?.let { encours ->
-                    LigneEnsuite(
-                        coverUrl = encours.prochain.cover_url,
-                        titreAffiche = encours.prochain.title,
-                        libelle = "Ensuite · ${encours.entite.nom}",
-                        titre = titreEtAnnee(encours.prochain),
-                        onClick = { onOpenEnsuiteRealisateur(encours) },
-                    )
-                }
-                // La troisième ligne « Ensuite », celle de la saga en cours (brief du
-                // 15 septembre 2026, généralisé le même jour) : même composant, même règle que
-                // celle du réalisateur juste au-dessus.
-                ensuiteSaga?.let { encours ->
-                    LigneEnsuite(
-                        coverUrl = encours.prochain.cover_url,
-                        titreAffiche = encours.prochain.title,
-                        libelle = "Ensuite · ${encours.entite.nom}",
-                        titre = titreEtAnnee(encours.prochain),
-                        onClick = { onOpenEnsuiteSaga(encours) },
-                    )
-                }
-                ui.error?.let {
-                    ErrorBlock(
-                        it.message ?: "",
-                        retryable = it.retryable,
-                        onRetry = vm::loadMore,
-                        modifier = Modifier.padding(bottom = 12.dp),
-                    )
-                }
-                // Tirer pour rafraîchir (peaufinage du 23 septembre 2026, geste 12) : branché sur
-                // le `refresh()` du même `FilmsViewModel` que « Mes films ». `ui.loading` porte
-                // aussi bien ce rafraîchissement que la pagination et le premier chargement à
-                // l'entrée sur l'écran (relecture du 23 septembre 2026) : l'indicateur de tirage
-                // ne doit s'afficher que sur un tirage vraiment fait, pas à chaque fois que
-                // `ui.loading` passe à vrai. `tire` ne monte que dans `onRefresh` et retombe dès
-                // que `ui.loading` redescend, quelle qu'en soit la cause.
-                var tire by remember { mutableStateOf(false) }
-                LaunchedEffect(ui.loading) { if (!ui.loading) tire = false }
-                // La bobine qui tourne (geste 21 du complément du 23 septembre 2026 à l'habillage) :
-                // à la place du rond Material par défaut, `BobineIndicateur` suit le même `state`.
-                val etatTirage = rememberPullToRefreshState()
-                PullToRefreshBox(
-                    isRefreshing = tire && ui.loading,
-                    onRefresh = { if (!ui.loading) { tire = true; vm.refresh() } },
-                    state = etatTirage,
-                    indicator = {
-                        BobineIndicateur(
-                            etatTirage,
-                            isRefreshing = tire && ui.loading,
-                            modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp),
-                        )
-                    },
-                    modifier = Modifier.weight(1f),
+                },
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(3),
+                    state = grille,
+                    contentPadding = PaddingValues(16.dp),
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalArrangement = Arrangement.spacedBy(ecart),
+                    verticalArrangement = Arrangement.spacedBy(ecart),
                 ) {
-                if (ui.items.isEmpty() && ui.endReached) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(
-                            "Aucun film pour l’instant.",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        Column {
+                            // L'en-tête (point 5) : le titre de l'appli en Fraunces (`titleLarge`,
+                            // design §3), au-dessus des perforations — absent avant cette revue.
+                            Text(
+                                "Journal",
+                                style = MaterialTheme.typography.titleLarge,
+                                modifier = Modifier.padding(bottom = 8.dp),
+                            )
+                            Perforations(modifier = Modifier.padding(bottom = 12.dp))
+                        }
                     }
-                } else {
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(3),
-                        state = grille,
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalArrangement = Arrangement.spacedBy(ecart),
-                        verticalArrangement = Arrangement.spacedBy(ecart),
-                    ) {
+                    // Le Voyage (brief du 16 septembre 2026) : « sous le bandeau » — juste après le
+                    // « Enregistré » de la snackbar — la carte du film qu'on vient de journaliser, tant
+                    // qu'elle existe (`carton` nul en dehors de cette fenêtre, `CartonCard` muette tant
+                    // que le chroniqueur n'est pas configuré côté back).
+                    carton?.let { vm ->
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            val cartonUi by vm.ui.collectAsState()
+                            CartonCard(
+                                cartonUi,
+                                attente = true,
+                                onDismiss = onCartonDismiss,
+                                modifier = Modifier.padding(bottom = 12.dp),
+                            )
+                        }
+                    }
+                    // « Ce soir » (décision 4 du brief du 21 septembre 2026, « la séance ») : au-dessus
+                    // d'« Ensuite », même gabarit que ses cartes — chargement non bloquant, comme le
+                    // carrousel qui suit.
+                    ceSoir?.let { seance ->
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            LigneEnsuite(
+                                coverUrl = seance.longCoverUrl,
+                                titreAffiche = seance.longTitre,
+                                libelle = "Ce soir",
+                                titre = texteCeSoir(seance),
+                                onClick = { onOpenCeSoir(seance) },
+                                modifier = Modifier.padding(bottom = 12.dp),
+                            )
+                        }
+                    }
+                    // Le carrousel « Ensuite » (point 5) : une carte de haut, jusqu'à trois pages
+                    // (Plex, réalisateur en cours, saga en cours) qui s'enclenchent au défilement,
+                    // avec des points de position — remplace les trois cartes empilées d'avant cette
+                    // revue. Pas de chargement bloquant : chaque source apparaît quand elle répond,
+                    // ou jamais si elle n'a rien à proposer (`cartesEnsuite`, fonction pure).
+                    val cartes = cartesEnsuite(ensuite, ensuiteRealisateur, ensuiteSaga)
+                    if (cartes.isNotEmpty()) {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            CarrouselEnsuite(
+                                cartes = cartes,
+                                onOpenEnsuite = onOpenEnsuite,
+                                onOpenEnsuiteRealisateur = onOpenEnsuiteRealisateur,
+                                onOpenEnsuiteSaga = onOpenEnsuiteSaga,
+                                modifier = Modifier.padding(bottom = 12.dp),
+                            )
+                        }
+                    }
+                    ui.error?.let {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            ErrorBlock(
+                                it.message ?: "",
+                                retryable = it.retryable,
+                                onRetry = vm::loadMore,
+                                modifier = Modifier.padding(bottom = 12.dp),
+                            )
+                        }
+                    }
+                    // « Derniers vus » et « Tout voir » (point 5) : le lien vers « Mes films »,
+                    // aujourd'hui perdu (aucune entrée vers cet écran depuis l'accueil) — `onFilms`
+                    // pousse `Screen.Films` (`Root.kt`), comme le fait déjà le profil.
+                    item(span = { GridItemSpan(maxLineSpan) }) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text("Derniers vus", style = MaterialTheme.typography.titleMedium)
+                            TextButton(onClick = onFilms) { Text("Tout voir") }
+                        }
+                    }
+                    if (ui.items.isEmpty() && ui.endReached) {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            Box(Modifier.fillMaxWidth().padding(vertical = 24.dp), contentAlignment = Alignment.Center) {
+                                Text(
+                                    "Aucun film pour l’instant.",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    } else {
                         itemsIndexed(ui.items, key = { _, item -> item.entry.id }) { index, item ->
                             // La grille se retasse (geste 3 du peaufinage du 23 septembre 2026) au
                             // lieu de sauter quand un film change de place ou disparaît. La cascade
@@ -343,18 +347,84 @@ fun HomeScreen(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Une carte du carrousel « Ensuite » (point 5) : laquelle des trois sources — Plex, réalisateur en
+ * cours, saga en cours — jamais mêlées entre elles, `cartesEnsuite` (fonction pure, testée) décide
+ * lesquelles existent et dans quel ordre.
+ */
+sealed interface CarteEnsuite {
+    data class Plex(val film: PlexFilm) : CarteEnsuite
+    data class Realisateur(val encours: EnCours) : CarteEnsuite
+    data class Saga(val encours: EnCours) : CarteEnsuite
+}
+
+/**
+ * Les pages du carrousel « Ensuite », dans l'ordre Plex puis réalisateur puis saga — fonction pure,
+ * testée en JVM (`HomeScreenTest.kt`) : chaque source n'y figure que si elle a quelque chose à
+ * proposer, jamais un `null` glissé dans la liste.
+ */
+fun cartesEnsuite(plex: PlexFilm?, realisateur: EnCours?, saga: EnCours?): List<CarteEnsuite> =
+    listOfNotNull(
+        plex?.let { CarteEnsuite.Plex(it) },
+        realisateur?.let { CarteEnsuite.Realisateur(it) },
+        saga?.let { CarteEnsuite.Saga(it) },
+    )
+
+/** Le carrousel : une carte de haut, qui s'enclenche au défilement, avec des points de position quand il y a plus d'une page. */
+@Composable
+private fun CarrouselEnsuite(
+    cartes: List<CarteEnsuite>,
+    onOpenEnsuite: (PlexFilm) -> Unit,
+    onOpenEnsuiteRealisateur: (EnCours) -> Unit,
+    onOpenEnsuiteSaga: (EnCours) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val etat = rememberPagerState(pageCount = { cartes.size })
+    Column(modifier) {
+        HorizontalPager(state = etat, modifier = Modifier.fillMaxWidth().height(112.dp)) { page ->
+            when (val carte = cartes[page]) {
+                is CarteEnsuite.Plex -> LigneEnsuite(
+                    coverUrl = carte.film.cover_url,
+                    titreAffiche = carte.film.title,
+                    libelle = "Ensuite",
+                    titre = carte.film.year?.let { annee -> "${carte.film.title} ($annee)" } ?: carte.film.title,
+                    onClick = { onOpenEnsuite(carte.film) },
+                )
+                is CarteEnsuite.Realisateur -> LigneEnsuite(
+                    coverUrl = carte.encours.prochain.cover_url,
+                    titreAffiche = carte.encours.prochain.title,
+                    libelle = "Ensuite · ${carte.encours.entite.nom}",
+                    titre = titreEtAnnee(carte.encours.prochain),
+                    onClick = { onOpenEnsuiteRealisateur(carte.encours) },
+                )
+                is CarteEnsuite.Saga -> LigneEnsuite(
+                    coverUrl = carte.encours.prochain.cover_url,
+                    titreAffiche = carte.encours.prochain.title,
+                    libelle = "Ensuite · ${carte.encours.entite.nom}",
+                    titre = titreEtAnnee(carte.encours.prochain),
+                    onClick = { onOpenEnsuiteSaga(carte.encours) },
+                )
+            }
+        }
+        if (cartes.size > 1) {
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.Center) {
+                repeat(cartes.size) { index ->
+                    val actif = index == etat.currentPage
+                    Box(
+                        Modifier
+                            .padding(horizontal = 3.dp)
+                            .size(if (actif) 8.dp else 6.dp)
+                            .background(
+                                if (actif) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                                CircleShape,
+                            ),
+                    )
                 }
-                Spacer(Modifier.height(16.dp))
-                // Le bouton est ici un enfant du `Column`, après la grille, plutôt qu'un enfant du
-                // `Box` aligné en bas : hors du flux de défilement, aucune jaquette ne peut passer
-                // dessous en défilant, contrairement à un `contentPadding` sur la grille, qui ne
-                // fixe que sa position au repos (relecture, correction 2 — le commentaire qu'elle
-                // remplace était faux).
-                Button(
-                    onClick = onAdd,
-                    shape = MaterialTheme.shapes.medium,
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
-                ) { Text("Ajouter un film") }
             }
         }
     }
@@ -362,10 +432,10 @@ fun HomeScreen(
 
 /**
  * Une ligne « Ensuite » : une affiche 56×84 à gauche, un libellé discret au-dessus du titre.
- * Le même composant sert les trois lignes possibles de l'accueil — celle du Plex (« Ensuite »),
- * celle du réalisateur en cours et celle de la saga en cours (« Ensuite · *Nom* » pour les deux
- * dernières) — plutôt que des copies qui divergeraient à la première retouche (brief du
- * 15 septembre 2026, généralisé aux sagas le même jour).
+ * Le même composant sert « Ce soir » et les pages du carrousel « Ensuite » (Plex, réalisateur en
+ * cours, saga en cours) — plutôt que des copies qui divergeraient à la première retouche (brief du
+ * 15 septembre 2026, généralisé aux sagas le même jour ; devenu les pages du carrousel le 24
+ * septembre 2026, point 5).
  */
 @Composable
 private fun LigneEnsuite(
@@ -374,11 +444,11 @@ private fun LigneEnsuite(
     libelle: String,
     titre: String,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        Modifier
+        modifier
             .fillMaxWidth()
-            .padding(bottom = 12.dp)
             .clickable(onClick = onClick)
             // Une carte à cadre fin (habillage du 23 septembre 2026, geste 4) : un simple filet or,
             // pas le double filet de `CadreOrne` — réservé aux cartouches.
