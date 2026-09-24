@@ -66,7 +66,6 @@ import fr.mediatheque.journal.ui.realisateur.RealisateurResolveur
 import fr.mediatheque.journal.ui.form.CartonCard
 import fr.mediatheque.journal.ui.form.CartonViewModel
 import fr.mediatheque.journal.ui.showBriefly
-import fr.mediatheque.journal.ui.theme.CadrePapier
 import fr.mediatheque.journal.ui.theme.IconeTabler
 import fr.mediatheque.journal.ui.theme.PapierJauni
 import fr.mediatheque.journal.ui.theme.TextePapier
@@ -188,20 +187,29 @@ fun FicheVoyageScreen(
                     }
                 }
 
-                CartoucheSalleEtRaison(salle.nom, film.raison)
+                // La salle en étiquette, pas dans une boîte vide (point 9 de la revue du
+                // 24 septembre 2026) : avant elle, `CartoucheSalleEtRaison` posait un cartouche
+                // papier jauni plein écran même quand `raison` manquait, un cadre quasiment vide
+                // pour une seule ligne (constat de la revue, capture 13).
+                Text(
+                    "Salle · ${salle.nom}",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+                film.raison?.let { raison ->
+                    Text(raison, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
 
                 if (etat == "vu" && journalItem != null) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        // La note dans un cercle or (habillage du 23 septembre 2026, geste 6).
+                        // La note porte son libellé (point 9) : « Ta note · 5 », plus un chiffre nu
+                        // dans un cercle sans légende.
                         journalItem.entry.rating?.let { note ->
-                            Box(
-                                Modifier
-                                    .size(30.dp)
-                                    .border(1.dp, MaterialTheme.colorScheme.secondary, CircleShape),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text("$note", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.secondary)
-                            }
+                            Text(
+                                "Ta note · $note",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.secondary,
+                            )
                         }
                     }
                     if (journalItem.carnet.reactions.isNotEmpty()) {
@@ -367,24 +375,6 @@ private fun ChoisirMarcheSheet(lignes: List<LigneChoixMarche>, onChoisir: (place
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun CartoucheSalleEtRaison(nom: String, raison: String?) {
-    val shape = RoundedCornerShape(8.dp)
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .background(PapierJauni, shape)
-            .border(1.dp, CadrePapier, shape)
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Text(nom, style = MaterialTheme.typography.titleMedium, color = TextePapier)
-        if (raison != null) {
-            Text(raison, style = MaterialTheme.typography.bodyMedium, color = TextePapier)
         }
     }
 }
