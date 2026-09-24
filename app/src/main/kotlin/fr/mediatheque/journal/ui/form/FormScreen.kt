@@ -68,9 +68,6 @@ import fr.mediatheque.journal.ui.FondHeros
 import fr.mediatheque.journal.ui.Navigator
 import fr.mediatheque.journal.ui.Screen
 import fr.mediatheque.journal.ui.formatDate
-import fr.mediatheque.journal.ui.frise.ChroniqueUi
-import fr.mediatheque.journal.ui.frise.ChroniqueViewModel
-import fr.mediatheque.journal.ui.frise.EtatBoutonChronique
 import fr.mediatheque.journal.ui.realisateur.NomRealisateurTouchable
 import fr.mediatheque.journal.ui.realisateur.RealisateurResolveur
 import fr.mediatheque.journal.ui.realisateur.filmTmdbIdTouchable
@@ -89,12 +86,6 @@ fun FormScreen(
     onBack: () -> Unit,
     carton: CartonViewModel? = null,
     /**
-     * « Ajouter à la chronique » en bas de la correction (décision 1 du brief du 21 septembre 2026,
-     * « la chronique et les salles ») : nul hors `Screen.Edit`, ou quand l'année du film n'est ni en
-     * cours ni ouverte (`eligibleChroniqueDepuisEdition`, `Root.kt`) — absente dans les deux cas.
-     */
-    chronique: ChroniqueViewModel? = null,
-    /**
      * L'affiche partagée (peaufinage du 23 septembre 2026, geste 8) : nulle sur `Screen.Form`
      * (la création, ouverte depuis la recherche, sans grille dont partir) ; posée sur `Screen.Edit`
      * seulement, même clé que l'accueil ou « Mes films » (`Root.kt`).
@@ -111,7 +102,6 @@ fun FormScreen(
     val ui by vm.ui.collectAsState()
     var showPicker by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
-    var cartonVisible by remember { mutableStateOf(true) }
     val editing = vm.mode is FormMode.Edit
     // Retour haptique (peaufinage du 23 septembre 2026, geste 10) : partagé par le bouton
     // d'enregistrement ci-dessous et par `RatingDot` plus bas dans ce fichier.
@@ -298,17 +288,11 @@ fun FormScreen(
                         ErrorBlock(error.message ?: "", retryable = error.retryable, onRetry = vm::retry)
                     }
                 }
-                // Le Voyage (brief du 16 septembre 2026) : en bas de la correction, silencieuse tant
-                // que le carton n'existe pas encore (`CartonCard` lui-même ne rend rien dans ce cas).
-                if (carton != null && cartonVisible) {
-                    val cartonUi by carton.ui.collectAsState()
-                    CartonCard(cartonUi, attente = false, onDismiss = { cartonVisible = false })
-                }
-                // « Ajouter à la chronique » (décision 1 du brief du 21 septembre 2026, « la chronique
-                // et les salles ») : nul (donc absent) quand `Root.kt` a jugé le film inéligible.
-                if (chronique != null) {
-                    val chroniqueUi by chronique.ui.collectAsState()
-                    ChroniqueBoutonEdition(chroniqueUi, onClick = chronique::ajouter)
+                // « Le film » (décision 4 du brief du 24 septembre 2026, « le voyage revu ») : rouvre
+                // le carton en pop-in — nul (donc absent) sur une création dont le film n'a pas encore
+                // de `tmdb_id` connu (`carton` nul dans ce cas, `Root.kt`).
+                if (carton != null) {
+                    BoutonLeFilm(carton, titreConnu = title)
                 }
                 // Marge du bas égale à la hauteur du bouton d'action (point 7 de la revue du
                 // 24 septembre 2026, 52 dp comme lui, design §4) : avant cette revue, un simple
@@ -379,30 +363,6 @@ fun FormScreen(
 
     ui.pendingSensCritiqueChoice?.let { pending ->
         SensCritiqueChoiceSheet(pending.candidates, onChoose = vm::chooseSensCritiqueCandidate, onDismiss = vm::abandonSensCritiqueChoice)
-    }
-}
-
-/**
- * « Ajouter à la chronique » en bas de la correction (décision 1 du brief du 21 septembre 2026,
- * « la chronique et les salles ») : « Ajouter », « Le chroniqueur écrit… » pendant la relecture, ou
- * « Dans la chronique » avec le paragraphe affiché dessous — jumeau du bloc de `FicheVoyageScreen`.
- */
-@Composable
-private fun ChroniqueBoutonEdition(ui: ChroniqueUi, onClick: () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        when (ui.etat) {
-            EtatBoutonChronique.AJOUTER -> OutlinedButton(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
-                Text("Ajouter à la chronique")
-            }
-            EtatBoutonChronique.ECRIT_EN_COURS -> OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) {
-                Text("Le chroniqueur écrit…")
-            }
-            EtatBoutonChronique.DANS_LA_CHRONIQUE -> OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) {
-                Text("Dans la chronique")
-            }
-            EtatBoutonChronique.ABSENT -> {}
-        }
-        ui.texte?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
     }
 }
 

@@ -43,14 +43,11 @@ import fr.mediatheque.journal.ui.form.FormViewModel
 import fr.mediatheque.journal.ui.frise.AnneeFrise
 import fr.mediatheque.journal.ui.frise.AnneeScreen
 import fr.mediatheque.journal.ui.frise.AnneeViewModel
-import fr.mediatheque.journal.ui.frise.ChroniqueViewModel
 import fr.mediatheque.journal.ui.frise.DecennieScreen
 import fr.mediatheque.journal.ui.frise.FicheVoyageScreen
 import fr.mediatheque.journal.ui.frise.FriseViewModel
 import fr.mediatheque.journal.ui.frise.GeneriqueScreen
 import fr.mediatheque.journal.ui.frise.VoyageScreen
-import fr.mediatheque.journal.ui.frise.eligibleChroniqueDepuisEdition
-import fr.mediatheque.journal.ui.frise.statutVoyage
 import fr.mediatheque.journal.ui.frise.toSearchResult
 import fr.mediatheque.journal.ui.frise.versSearchResult
 import fr.mediatheque.journal.ui.home.HomeScreen
@@ -60,7 +57,6 @@ import fr.mediatheque.journal.ui.frise.TicketAMontrerUi
 import fr.mediatheque.journal.ui.celebrations.FilmEnregistreCalque
 import fr.mediatheque.journal.ui.frise.TicketCalque
 import fr.mediatheque.journal.ui.profile.BilanViewModel
-import fr.mediatheque.journal.ui.profile.CarnetsViewModel
 import fr.mediatheque.journal.ui.profile.DepensesViewModel
 import fr.mediatheque.journal.ui.profile.LetterboxdImportViewModel
 import fr.mediatheque.journal.ui.profile.PasseportViewModel
@@ -188,16 +184,16 @@ fun Root(container: AppContainer) {
                 etaitSurSensCritique = nav.current == Screen.SensCritique
             }
             // Le Voyage (brief du 16 septembre 2026) : le `tmdb_id` posé par `nav.home(message,
-            // cartonTmdbId)` après une création, pour la carte « Et pendant ce temps… » de
-            // l'accueil — hoisté hors du `Crossfade` comme `etaitSurSensCritique` ci-dessus, sans
-            // quoi l'événement à un coup de `nav.cartonRequests` pourrait arriver avant que
-            // `Screen.Home` ne soit recomposé pour le collecter.
+            // cartonTmdbId)` après une création, pour la feuille du carton que le calque de
+            // célébration ouvre (décision 4 du brief du 24 septembre 2026, « le voyage revu » — plus
+            // sur l'accueil depuis ce même brief) — hoisté hors du `Crossfade` comme
+            // `etaitSurSensCritique` ci-dessus, sans quoi l'événement à un coup de
+            // `nav.cartonRequests` pourrait arriver avant que le calque ne soit là pour le collecter.
             var cartonTmdbId by remember { mutableStateOf<Int?>(null) }
             LaunchedEffect(Unit) { nav.cartonRequests.collect { cartonTmdbId = it } }
-            // Hoisté ici (plutôt que dans la seule branche `Screen.Home` plus bas) : le calque de
-            // célébration (geste 9 ci-dessous) en a besoin par-dessus l'écran courant, pas
-            // seulement quand `Screen.Home` est affiché — `viewModel(key = ...)` rend la même
-            // instance des deux côtés, indexée sur l'Activité comme les autres ci-dessus.
+            // Hoisté ici : le calque de célébration (geste 9 ci-dessous) en a besoin par-dessus
+            // l'écran courant — `viewModel(key = ...)` rend la même instance à chaque recomposition,
+            // indexée sur l'Activité comme les autres ci-dessus.
             val cartonHome: CartonViewModel? = cartonTmdbId?.let { id ->
                 viewModel(key = "carton-home-$id") { CartonViewModel(container.api, id, poll = true, session::expire) }
             }
@@ -297,11 +293,6 @@ fun Root(container: AppContainer) {
                         LaunchedEffect(Unit) { suivis.refresh(SourceSuivi.SAGAS) }
                         val friseUi by frise.ui.collectAsState()
                         val suivisUi by suivis.ui.collectAsState()
-                        // Le Voyage : une instance par film demandé, jamais réutilisée pour un
-                        // suivant (clé sur le `tmdb_id`) — `cartonTmdbId` retombe à `null` quand la
-                        // carte se ferme, ce qui la démonte plutôt que de la garder en mémoire.
-                        // Hoistée plus haut (`cartonHome`), partagée avec le calque de célébration.
-                        val carton: CartonViewModel? = cartonHome
                         HomeScreen(
                             vm = films,
                             nav = nav,
@@ -321,8 +312,6 @@ fun Root(container: AppContainer) {
                                     ?: AnneeFrise(seance.annee, emptyList(), emptyList())
                                 nav.push(Screen.Annee(groupe, friseUi.voyage.parAnnee[seance.annee]))
                             },
-                            carton = carton,
-                            onCartonDismiss = { cartonTmdbId = null },
                             onAdd = { nav.push(Screen.Search) },
                             onFilms = { nav.push(Screen.Films) },
                             onOpen = { nav.push(Screen.Edit(it)) },
@@ -439,13 +428,6 @@ fun Root(container: AppContainer) {
                             DepensesViewModel(container.api, session::expire)
                         }
                         LaunchedEffect(Unit) { depenses.refresh() }
-                        // Les carnets (décision 3 du brief du 22 septembre 2026, « le carnet »),
-                        // sous les dépenses : jumeau des deux ci-dessus, sa propre liste
-                        // (`GET /me/voyage/carnets`).
-                        val carnets: CarnetsViewModel = viewModel(key = "carnets") {
-                            CarnetsViewModel(container.api, session::expire)
-                        }
-                        LaunchedEffect(Unit) { carnets.refresh() }
                         // Le passeport (décision 3 du brief du 21 septembre 2026, « les
                         // récompenses ») charge ses données lui-même (`GET /me/voyage`), pas depuis
                         // `FriseViewModel` : plus jamais vide quand Profil s'ouvre en premier.
@@ -463,7 +445,6 @@ fun Root(container: AppContainer) {
                             passeport = passeportUi.tampons ?: emptyList(),
                             portefeuille = portefeuille,
                             depenses = depenses,
-                            carnets = carnets,
                             onBack = nav::pop,
                             onFilms = { nav.push(Screen.Films) },
                             onSensCritique = { nav.push(Screen.SensCritique) },
@@ -550,27 +531,12 @@ fun Root(container: AppContainer) {
                         val form: FormViewModel = viewModel(key = "edit:${screen.item.entry.id}:${screen.item.hashCode()}") {
                             FormViewModel(container.api, FormMode.Edit(screen.item), container.sensCritiqueSync, session::expire)
                         }
-                        // Le Voyage (brief du 16 septembre 2026) : la carte « Et pendant ce
-                        // temps… » en bas de la correction, silencieuse tant que le carton n'est
-                        // pas prêt (`poll = false` — éditer un film ne doit jamais en déclencher
-                        // l'écriture, ni afficher « le chroniqueur arrive »).
+                        // « Le film » (décision 4 du brief du 24 septembre 2026, « le voyage revu ») :
+                        // le carton en pop-in, `poll = false` — éditer un film ne doit jamais en
+                        // déclencher l'écriture.
                         val cartonTmdbId = screen.item.media.external_id.toIntOrNull()
                         val carton: CartonViewModel? = cartonTmdbId?.let { id ->
                             viewModel(key = "carton-edit-$id") { CartonViewModel(container.api, id, poll = false, session::expire) }
-                        }
-                        // « Ajouter à la chronique » (décision 1 du brief du 21 septembre 2026,
-                        // « la chronique et les salles ») : l'année de sortie du film doit être en
-                        // cours ou ouverte dans `/me/voyage`, déjà chargé par la Frise — sans ce
-                        // chargement (statut inconnu), le bouton reste absent (`chronique` nul).
-                        val friseUi by frise.ui.collectAsState()
-                        val chronique: ChroniqueViewModel? = cartonTmdbId?.let { id ->
-                            val anneeFilm = screen.item.media.year
-                            val statutAnnee = anneeFilm?.let { statutVoyage(it, friseUi.voyage) }
-                            if (anneeFilm != null && eligibleChroniqueDepuisEdition(statutAnnee)) {
-                                viewModel(key = "chronique-edit-$id") { ChroniqueViewModel(container.api, anneeFilm, id, session::expire) }
-                            } else {
-                                null
-                            }
                         }
                         FormScreen(
                             form,
@@ -578,7 +544,6 @@ fun Root(container: AppContainer) {
                             realisateurResolveur = realisateurResolveur,
                             onBack = nav::pop,
                             carton = carton,
-                            chronique = chronique,
                             // L'affiche partagée (geste 8) : l'autre bout de la paire ouverte
                             // depuis l'accueil ou « Mes films » — même clé qu'elles.
                             volante = AfficheVolante(sharedTransitionScope, animatedVisibilityScope, "affiche-journal-${screen.item.entry.id}"),
@@ -852,6 +817,11 @@ fun Root(container: AppContainer) {
                         val realisateurVm: RealisateurViewModel = viewModel(key = "realisateur-${screen.realisateurTmdbId}") {
                             RealisateurViewModel(screen.realisateurTmdbId, container.api, session::expire)
                         }
+                        // « Le film » (décision 4 du brief du 24 septembre 2026, « le voyage revu ») :
+                        // le carton en pop-in, `poll = false` — jumeau de `Screen.Edit` ci-dessus.
+                        val cartonFicheFilm: CartonViewModel = viewModel(key = "carton-fichefilm-${screen.filmTmdbId}") {
+                            CartonViewModel(container.api, screen.filmTmdbId, poll = false, session::expire)
+                        }
                         FicheFilmScreen(
                             realisateurVm,
                             realisateurResolveur,
@@ -861,6 +831,7 @@ fun Root(container: AppContainer) {
                             volante = AfficheVolante(sharedTransitionScope, animatedVisibilityScope, "affiche-realisateur-${screen.filmTmdbId}"),
                             onOuvrirForm = { nav.push(Screen.Form(it)) },
                             onOuvrirRealisateur = { id -> nav.push(Screen.Realisateur(id)) },
+                            carton = cartonFicheFilm,
                         )
                     }
                     is Screen.ChoisirFilmDeSaga -> {

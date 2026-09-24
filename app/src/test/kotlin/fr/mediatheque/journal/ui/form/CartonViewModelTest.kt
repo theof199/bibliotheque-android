@@ -3,6 +3,7 @@ package fr.mediatheque.journal.ui.form
 import fr.mediatheque.journal.FakeJournalApi
 import fr.mediatheque.journal.MainDispatcherRule
 import fr.mediatheque.journal.api.dto.CartonFilmResponse
+import fr.mediatheque.journal.ui.EtatFeuilleDeLecture
 import fr.mediatheque.journal.ui.frise.CHRONIQUE_ESSAIS_MAX
 import fr.mediatheque.journal.ui.frise.EtatChronique
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -15,9 +16,9 @@ import org.junit.Rule
 import org.junit.Test
 
 /**
- * Le carton « Et pendant ce temps… » (brief du 16 septembre 2026) : prêt, en préparation (relu
- * toutes les trois secondes), abandon après dix essais — et l'absence de sondage en bas de
- * `Screen.Edit` (`poll = false`).
+ * Le carton d'un film (brief du 16 septembre 2026, recentré sur le film par le brief du
+ * 24 septembre 2026, « le voyage revu ») : prêt, en préparation (relu toutes les trois secondes),
+ * abandon après dix essais — et l'absence de sondage en bas de `Screen.Edit` (`poll = false`).
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class CartonViewModelTest {
@@ -30,12 +31,13 @@ class CartonViewModelTest {
 
     @Test
     fun `pret des le premier appel`() = runTest(dispatcher) {
-        api.onCartonFilm = { CartonFilmResponse(configure = true, statut = "prete", tmdb_id = it, contexte = "Contexte", faits = listOf("a", "b", "c")) }
+        api.onCartonFilm = { CartonFilmResponse(configure = true, statut = "prete", tmdb_id = it, titre = "Un film", texte = "Texte") }
         val vm = CartonViewModel(api, 27205, poll = true) {}
         runCurrent()
 
         assertEquals(EtatChronique.PRETE, vm.ui.value.etat)
-        assertEquals("Contexte", vm.ui.value.contexte)
+        assertEquals("Un film", vm.ui.value.titre)
+        assertEquals("Texte", vm.ui.value.texte)
         // Un seul appel : prêt du premier coup, la boucle ne redemande rien.
         assertEquals(listOf("cartonFilm 27205"), api.calls)
     }
@@ -46,7 +48,7 @@ class CartonViewModelTest {
         api.onCartonFilm = {
             appel++
             if (appel < 3) CartonFilmResponse(configure = true, statut = "en_preparation")
-            else CartonFilmResponse(configure = true, statut = "prete", contexte = "Prêt", faits = listOf("a", "b", "c"))
+            else CartonFilmResponse(configure = true, statut = "prete", titre = "Un film", texte = "Prêt")
         }
         val vm = CartonViewModel(api, 27205, poll = true) {}
         runCurrent()
@@ -61,7 +63,7 @@ class CartonViewModelTest {
         advanceTimeBy(CartonViewModel.POLL_INTERVAL_MS)
         runCurrent()
         assertEquals(EtatChronique.PRETE, vm.ui.value.etat)
-        assertEquals("Prêt", vm.ui.value.contexte)
+        assertEquals("Prêt", vm.ui.value.texte)
         assertEquals(3, appel)
     }
 
@@ -114,5 +116,35 @@ class CartonViewModelTest {
         runCurrent()
 
         assertEquals(EtatChronique.NON_CONFIGURE, vm.ui.value.etat)
+    }
+
+    // --- etatFeuilleCarton (décision 4 du brief du 24 septembre 2026, « le voyage revu ») -------
+
+    // Mutation : rendre `EtatFeuilleDeLecture.Chargement` sur `PRETE` laisserait la feuille tourner
+    // pour toujours alors que le texte est déjà là.
+    @Test
+    fun `etatFeuilleCarton rend le texte une fois pret`() {
+        val ui = CartonUi(etat = EtatChronique.PRETE, titre = "Un film", texte = "Le texte du carton.")
+        assertEquals(EtatFeuilleDeLecture.Texte("Le texte du carton."), etatFeuilleCarton(ui))
+    }
+
+    // Mutation : rendre `Texte("")` sur `EN_PREPARATION` afficherait une feuille vide plutôt que le
+    // chargement — rien ne dirait à l'appelant qu'une écriture est en cours.
+    @Test
+    fun `etatFeuilleCarton charge tant que le statut n'est pas pret`() {
+        val ui = CartonUi(etat = EtatChronique.EN_PREPARATION)
+        assertEquals(EtatFeuilleDeLecture.Chargement, etatFeuilleCarton(ui))
+    }
+
+    // Mutation : rendre `retryable = true` sur l'abandon ou le non-configuré proposerait un
+    // « Réessayer » qui relancerait un appel pour rien — ni l'un ni l'autre ne se corrige en
+    // redemandant tout de suite.
+    @Test
+    fun `etatFeuilleCarton donne un message sans bouton Reessayer a l'abandon et sans configuration`() {
+        val abandon = etatFeuilleCarton(CartonUi(etat = EtatChronique.ABANDON))
+        val nonConfigure = etatFeuilleCarton(CartonUi(etat = EtatChronique.NON_CONFIGURE))
+
+        assertEquals(false, (abandon as EtatFeuilleDeLecture.Erreur).retryable)
+        assertEquals(false, (nonConfigure as EtatFeuilleDeLecture.Erreur).retryable)
     }
 }

@@ -61,8 +61,6 @@ import fr.mediatheque.journal.ui.rememberPorteCascade
 import fr.mediatheque.journal.ui.afficheVolante
 import fr.mediatheque.journal.ui.voler
 import fr.mediatheque.journal.ui.films.FilmsViewModel
-import fr.mediatheque.journal.ui.form.CartonCard
-import fr.mediatheque.journal.ui.form.CartonViewModel
 import fr.mediatheque.journal.ui.frise.SeancePriseUi
 import fr.mediatheque.journal.ui.frise.texteCeSoir
 import fr.mediatheque.journal.ui.suivis.EnCours
@@ -108,9 +106,6 @@ fun HomeScreen(
     /** La séance prise (décision 4 du brief du 21 septembre 2026, « la séance ») — même règle que les lignes ci-dessus : nulle tant que `/me/voyage` n'a pas répondu, ou que rien n'est pris. Disparaît d'elle-même quand le back la rend nulle. */
     ceSoir: SeancePriseUi? = null,
     onOpenCeSoir: (SeancePriseUi) -> Unit = {},
-    /** Le Voyage (brief du 16 septembre 2026) : la carte « Et pendant ce temps… » sous le bandeau, après une création. Nulle hors de cette fenêtre. */
-    carton: CartonViewModel? = null,
-    onCartonDismiss: () -> Unit = {},
     // L'affiche partagée (peaufinage du 23 septembre 2026, geste 8) : l'accueil est un des deux
     // bouts de la paire vers « la fiche d'entrée » (`Screen.Edit`, `Root.kt`).
     sharedTransitionScope: SharedTransitionScope? = null,
@@ -211,21 +206,9 @@ fun HomeScreen(
                             Perforations(modifier = Modifier.padding(bottom = 12.dp))
                         }
                     }
-                    // Le Voyage (brief du 16 septembre 2026) : « sous le bandeau » — juste après le
-                    // « Enregistré » de la snackbar — la carte du film qu'on vient de journaliser, tant
-                    // qu'elle existe (`carton` nul en dehors de cette fenêtre, `CartonCard` muette tant
-                    // que le chroniqueur n'est pas configuré côté back).
-                    carton?.let { vm ->
-                        item(span = { GridItemSpan(maxLineSpan) }) {
-                            val cartonUi by vm.ui.collectAsState()
-                            CartonCard(
-                                cartonUi,
-                                attente = true,
-                                onDismiss = onCartonDismiss,
-                                modifier = Modifier.padding(bottom = 12.dp),
-                            )
-                        }
-                    }
+                    // Le carton d'un film enregistré ne s'affiche plus sur l'accueil depuis le brief du
+                    // 24 septembre 2026, « le voyage revu », décision 4 : la feuille de lecture s'ouvre
+                    // depuis le calque de célébration (`FilmEnregistreCalque`, `Root.kt`), pas ici.
                     // « Ce soir » (décision 4 du brief du 21 septembre 2026, « la séance ») : au-dessus
                     // d'« Ensuite », même gabarit que ses cartes — chargement non bloquant, comme le
                     // carrousel qui suit.

@@ -39,6 +39,8 @@ import fr.mediatheque.journal.ui.Cover
 import fr.mediatheque.journal.ui.FondHeros
 import fr.mediatheque.journal.ui.titreOriginalAffiche
 import fr.mediatheque.journal.ui.voler
+import fr.mediatheque.journal.ui.form.BoutonLeFilm
+import fr.mediatheque.journal.ui.form.CartonViewModel
 import fr.mediatheque.journal.ui.frise.ouvrirPlex
 import fr.mediatheque.journal.ui.showBriefly
 import fr.mediatheque.journal.ui.theme.IconeTabler
@@ -66,6 +68,8 @@ fun FicheFilmScreen(
     // L'affiche partagée (peaufinage du 23 septembre 2026, geste 8) : même clé que la grille de la
     // filmographie d'où cette fiche s'est ouverte (`Root.kt`).
     volante: AfficheVolante? = null,
+    /** « Le film » (décision 4 du brief du 24 septembre 2026, « le voyage revu ») : rouvre le carton en pop-in. */
+    carton: CartonViewModel? = null,
 ) {
     val ui by vm.ui.collectAsState()
     val snackbar = remember { SnackbarHostState() }
@@ -179,6 +183,9 @@ fun FicheFilmScreen(
                     if (etatFilm == "demande") {
                         Text("demandé", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                    // « Le film » (décision 4 du brief du 24 septembre 2026, « le voyage revu ») :
+                    // rouvre le carton en pop-in.
+                    carton?.let { BoutonLeFilm(it, titreConnu = film.title) }
                 }
             }
         }

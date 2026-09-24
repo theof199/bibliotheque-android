@@ -2,11 +2,9 @@ package fr.mediatheque.journal.ui.celebrations
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -14,9 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -37,9 +33,10 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import fr.mediatheque.journal.ui.FeuilleDeLecture
 import fr.mediatheque.journal.ui.FilmEnregistre
-import fr.mediatheque.journal.ui.form.CartonCard
 import fr.mediatheque.journal.ui.form.CartonViewModel
+import fr.mediatheque.journal.ui.form.etatFeuilleCarton
 import fr.mediatheque.journal.ui.theme.Animation
 import fr.mediatheque.journal.ui.theme.Limelight
 import fr.mediatheque.journal.ui.theme.Or
@@ -61,13 +58,13 @@ private const val INSTANT_IMPACT_MS = 1_768L
  * libre — `clap-2.json`, `assets/lottie/LICENCES.md` — à la place du clap de l'icône redessiné en
  * `ClapAvatar`, qui ne rendait pas aussi bien) : plein écran, le clap joué en grand et centré.
  * L'éclair blanc et la secousse se calent sur l'instant de l'impact (`INSTANT_IMPACT_MS`,
- * ci-dessus), puis l'année du film en Limelight or et le carton du chroniqueur qui monte depuis le
- * bas.
+ * ci-dessus), puis l'année du film en Limelight or.
  *
- * Le carton est le **même** `CartonViewModel` que celui que `HomeScreen` affiche déjà sous son
- * bandeau « Enregistré » (`Root.kt` le construit une fois, indexé sur `cartonTmdbId`, et le passe
- * ici comme là-bas) : aucune seconde instance, aucun second appel réseau. Ce calque ne fait que le
- * révéler un instant plus tôt, avant que la pile ne retombe sur l'accueil où il continue de vivre.
+ * Une fois le clap joué (décision 4 du brief du 24 septembre 2026, « le voyage revu »), la feuille
+ * de lecture du carton s'ouvre — chargement tant que le statut n'est pas prêt, fermable sans
+ * attendre. `carton` est le **même** `CartonViewModel` que celui que `Root.kt` construit une fois,
+ * indexé sur `cartonTmdbId`, partagé avec « Le film » de l'accueil et des fiches : aucune seconde
+ * instance, aucun second appel réseau.
  *
  * La jauge des essentiels de l'année ouverte, que le brief demande aussi, est volontairement
  * absente : elle suppose de comparer une progression avant/après la sauvegarde, ce qu'aucun
@@ -86,6 +83,9 @@ fun FilmEnregistreCalque(film: FilmEnregistre, carton: CartonViewModel?, onFerme
     val secousse = remember { Animatable(Offset.Zero, Offset.VectorConverter) }
     var flashVisible by remember { mutableStateOf(false) }
     var contenuVisible by remember { mutableStateOf(false) }
+    // La feuille du carton (décision 4) : ouverte d'elle-même une fois le clap joué, fermable sans
+    // attendre — indépendante de la fermeture du calque, qui suit son propre délai ci-dessous.
+    var feuilleCartonOuverte by remember { mutableStateOf(false) }
 
     LaunchedEffect(film) {
         // L'éclair, la secousse et l'haptique se calent sur l'instant de l'impact, pas sur une
@@ -102,6 +102,7 @@ fun FilmEnregistreCalque(film: FilmEnregistre, carton: CartonViewModel?, onFerme
         delay(500)
         flashVisible = false
         contenuVisible = true
+        if (carton != null) feuilleCartonOuverte = true
         // Fermeture seule après 4 s (le brief), ou plus tôt d'un tap ailleurs dans l'écran.
         delay(4_000)
         onFermer()
@@ -134,19 +135,6 @@ fun FilmEnregistreCalque(film: FilmEnregistre, carton: CartonViewModel?, onFerme
                             color = Or,
                         )
                     }
-                    if (carton != null) {
-                        val cartonUi by carton.ui.collectAsState()
-                        // Le carton qui monte depuis le bas, 600 ms, la courbe du brief (0.2, 0.8, 0.2, 1).
-                        AnimatedVisibility(
-                            visible = contenuVisible,
-                            enter = slideInVertically(
-                                animationSpec = tween(600, easing = CubicBezierEasing(0.2f, 0.8f, 0.2f, 1f)),
-                                initialOffsetY = { it },
-                            ) + fadeIn(tween(600)),
-                        ) {
-                            CartonCard(cartonUi, attente = true, onDismiss = {}, modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp))
-                        }
-                    }
                 }
             }
         }
@@ -154,5 +142,14 @@ fun FilmEnregistreCalque(film: FilmEnregistre, carton: CartonViewModel?, onFerme
         if (flashVisible) {
             Box(Modifier.fillMaxSize().background(Color.White))
         }
+    }
+
+    if (feuilleCartonOuverte && carton != null) {
+        val cartonUi by carton.ui.collectAsState()
+        FeuilleDeLecture(
+            titre = cartonUi.titre ?: film.titre,
+            etat = etatFeuilleCarton(cartonUi),
+            onDismiss = { feuilleCartonOuverte = false },
+        )
     }
 }
