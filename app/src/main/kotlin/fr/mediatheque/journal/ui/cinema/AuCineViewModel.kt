@@ -90,6 +90,16 @@ fun SortieCinemaFilm.sousTitreCinemas(): String {
 }
 
 /**
+ * Le cinéma unique de la grille « à l'affiche dans mes cinémas » (point 13 de la revue du
+ * 24 septembre 2026) : quand chaque tuile ne porte, ensemble, qu'un seul nom de cinéma distinct,
+ * il devient le titre de la section, une seule fois — au lieu de se répéter sous chaque affiche.
+ * `null` dès que deux tuiles portent des cinémas différents (le propriétaire suit plusieurs
+ * salles) : `sousTitreCinemas()` garde alors son rôle, tuile par tuile, seul moyen de rester exact.
+ * Fonction pure, testée en JVM.
+ */
+fun cinemaUniqueEnCours(films: List<SortieCinemaFilm>): String? = films.flatMap { it.cinemas }.toSet().singleOrNull()
+
+/**
  * Le message à afficher à la place de la grille « à l'affiche dans mes
  * cinémas », ou nul quand elle doit s'afficher (brief du 15 septembre 2026).
  *

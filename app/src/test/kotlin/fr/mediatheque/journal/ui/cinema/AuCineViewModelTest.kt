@@ -284,4 +284,36 @@ class AuCineViewModelTest {
         assertEquals(2, vm.ui.value.seances.size)
         assertEquals(2, vm.ui.value.sorties?.en_cours?.films?.size)
     }
+
+    // Point 13 de la revue du 24 septembre 2026, « le cinéma en titre de section ». Mutation :
+    // rendre le premier cinéma trouvé plutôt que `singleOrNull()` ferait passer la deuxième
+    // assertion (deux cinémas distincts) ; ne pas aplatir `cinemas` (comparer les listes plutôt
+    // que l'ensemble des noms) ferait échouer la troisième (même cinéma, ordre différent).
+    @Test
+    fun `cinemaUniqueEnCours rend le nom quand toutes les tuiles partagent le meme cinema`() {
+        val films = listOf(
+            SortieCinemaFilm(tmdb_id = 1, allocine_id = 1, title = "Film 1", cinemas = listOf("Le Rex")),
+            SortieCinemaFilm(tmdb_id = 2, allocine_id = 2, title = "Film 2", cinemas = listOf("Le Rex")),
+        )
+        assertEquals("Le Rex", cinemaUniqueEnCours(films))
+    }
+
+    @Test
+    fun `cinemaUniqueEnCours est nul des que deux cinemas differents apparaissent`() {
+        val films = listOf(
+            SortieCinemaFilm(tmdb_id = 1, allocine_id = 1, title = "Film 1", cinemas = listOf("Le Rex")),
+            SortieCinemaFilm(tmdb_id = 2, allocine_id = 2, title = "Film 2", cinemas = listOf("Le Majestic")),
+        )
+        assertNull(cinemaUniqueEnCours(films))
+    }
+
+    @Test
+    fun `cinemaUniqueEnCours ignore l ordre des cinemas d une tuile a l autre`() {
+        val films = listOf(
+            SortieCinemaFilm(tmdb_id = 1, allocine_id = 1, title = "Film 1", cinemas = listOf("Le Rex")),
+            SortieCinemaFilm(tmdb_id = 2, allocine_id = 2, title = "Film 2", cinemas = listOf("Le Rex")),
+            SortieCinemaFilm(tmdb_id = 3, allocine_id = 3, title = "Film 3", cinemas = emptyList()),
+        )
+        assertEquals("Le Rex", cinemaUniqueEnCours(films))
+    }
 }

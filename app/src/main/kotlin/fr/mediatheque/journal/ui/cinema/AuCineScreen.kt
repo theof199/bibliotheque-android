@@ -190,25 +190,38 @@ private fun SortiesSection(
             films.chunked(3).forEach { rangee ->
                 Row(horizontalArrangement = Arrangement.spacedBy(ecart)) {
                     rangee.forEach { film ->
-                        Box(Modifier.clickable { onOpen(film) }) {
-                            Cover(film.cover_url, film.title, largeur, hauteur)
-                            if (dejaVu(film)) {
-                                Box(
-                                    Modifier
-                                        .align(Alignment.BottomEnd)
-                                        .padding(4.dp)
-                                        .background(MaterialTheme.colorScheme.primary, CircleShape)
-                                        .padding(4.dp)
-                                        .clearAndSetSemantics { contentDescription = "Déjà dans ton journal" },
-                                ) {
-                                    IconeTabler(
-                                        "check",
-                                        null,
-                                        tint = MaterialTheme.colorScheme.onPrimary,
-                                        modifier = Modifier.size(16.dp),
-                                    )
+                        Column(Modifier.width(largeur).clickable { onOpen(film) }) {
+                            Box {
+                                Cover(film.cover_url, film.title, largeur, hauteur)
+                                if (dejaVu(film)) {
+                                    Box(
+                                        Modifier
+                                            .align(Alignment.BottomEnd)
+                                            .padding(4.dp)
+                                            .background(MaterialTheme.colorScheme.primary, CircleShape)
+                                            .padding(4.dp)
+                                            .clearAndSetSemantics { contentDescription = "Déjà dans ton journal" },
+                                    ) {
+                                        IconeTabler(
+                                            "check",
+                                            null,
+                                            tint = MaterialTheme.colorScheme.onPrimary,
+                                            modifier = Modifier.size(16.dp),
+                                        )
+                                    }
                                 }
                             }
+                            // Le titre du film sous chaque affiche (point 13 de la revue du
+                            // 24 septembre 2026) : absent avant elle, une grille de jaquettes
+                            // muettes. `SortieFilm` ne porte pas d'horaire (vérifié dans
+                            // `contract/openapi.json`) : rien de plus à montrer ici.
+                            Text(
+                                film.title,
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(top = 2.dp),
+                            )
                         }
                     }
                 }
@@ -256,6 +269,14 @@ private fun SortiesEnCoursSection(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         else -> Column(verticalArrangement = Arrangement.spacedBy(ecart)) {
+            // Le cinéma en titre de section, une seule fois (point 13) : quand toutes les tuiles
+            // partagent le même (`cinemaUniqueEnCours`, fonction pure testée), il n'a plus à se
+            // répéter sous chaque affiche — sinon (plusieurs cinémas suivis), `sousTitreCinemas()`
+            // garde son rôle, tuile par tuile, seul moyen de rester exact.
+            val cinemaUnique = cinemaUniqueEnCours(enCours.films)
+            cinemaUnique?.let {
+                Text(it, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             enCours.films.chunked(3).forEach { rangee ->
                 Row(horizontalArrangement = Arrangement.spacedBy(ecart)) {
                     rangee.forEach { film ->
@@ -281,14 +302,25 @@ private fun SortiesEnCoursSection(
                                     }
                                 }
                             }
+                            // Le titre du film, toujours (point 13) — absent avant elle sous cette
+                            // grille, qui ne montrait que le cinéma. Ni horaire dans la réponse
+                            // (vérifié dans `contract/openapi.json`) : rien de plus à montrer.
                             Text(
-                                film.sousTitreCinemas(),
+                                film.title,
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.padding(top = 2.dp),
                             )
+                            if (cinemaUnique == null) {
+                                Text(
+                                    film.sousTitreCinemas(),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
                         }
                     }
                 }
