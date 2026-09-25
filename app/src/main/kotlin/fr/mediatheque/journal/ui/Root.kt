@@ -44,6 +44,7 @@ import fr.mediatheque.journal.ui.frise.AnneeFrise
 import fr.mediatheque.journal.ui.frise.AnneeScreen
 import fr.mediatheque.journal.ui.frise.AnneeViewModel
 import fr.mediatheque.journal.ui.frise.DecennieScreen
+import fr.mediatheque.journal.ui.frise.doitRelireApresCreation
 import fr.mediatheque.journal.ui.frise.FicheVoyageScreen
 import fr.mediatheque.journal.ui.frise.FriseViewModel
 import fr.mediatheque.journal.ui.frise.GeneriqueScreen
@@ -147,7 +148,20 @@ fun Root(container: AppContainer) {
             // si elle vaut la peine (l'année en cours seulement) — hoisté hors du `Crossfade` comme
             // `cartonTmdbId` plus bas, sans quoi un événement à un coup pourrait arriver avant que
             // la branche qui le collecte ne soit recomposée.
-            LaunchedEffect(Unit) { nav.ticketRelectures.collect { annee -> frise.relireApresCreation(annee) } }
+            //
+            // Le verdict de maturité (brief du 25 septembre 2026, « le verdict de maturité se
+            // relit ») partage le même signal — jumeau de `filmEnregistre`/`cartonTmdbId` plus
+            // bas : un état plutôt qu'un second événement à un coup, pour que `Screen.Annee` le
+            // retrouve même s'il n'était pas encore ouvert au moment de l'enregistrement. Remis à
+            // `null` dès consommé (dans la branche `Screen.Annee`) pour ne pas relancer la veille
+            // à chaque réouverture ultérieure de la même année.
+            var anneeAVerifierVerdict by remember { mutableStateOf<Int?>(null) }
+            LaunchedEffect(Unit) {
+                nav.ticketRelectures.collect { annee ->
+                    frise.relireApresCreation(annee)
+                    anneeAVerifierVerdict = annee
+                }
+            }
             // Le journal ne se rechargeait qu'à l'entrée sur la Frise ou l'accueil (`LaunchedEffect(Unit)`
             // plus bas), jamais en y revenant depuis le formulaire (correctif du 22 septembre 2026,
             // « la fiche du Voyage se relit après un enregistrement ») : `nav.enregistrements` porte
@@ -606,12 +620,30 @@ fun Root(container: AppContainer) {
                             AnneeViewModel(container.api, screen.annee.annee ?: 0, screen.voyage, session::expire)
                         }
                         // Relit les salles au retour du formulaire (correctif du 22 septembre 2026,
-                        // « la fiche du Voyage se relit après un enregistrement ») : `relire()`, appelé
-                        // par `AnneeScreen` à chaque entrée, rend la main tout de suite sur une année
-                        // déjà `PRETE` — jumeau du `LaunchedEffect` de `Screen.FicheVoyage` plus bas.
+                        // « la fiche du Voyage se relit après un enregistrement ») : `relireApresEnregistrement`
+                        // relit tout de suite, sans attendre la première relecture de `relire()` (qui,
+                        // depuis le 25 septembre 2026, relit elle aussi toujours le back à l'ouverture,
+                        // mais seulement une fois) — jumeau du `LaunchedEffect` de `Screen.FicheVoyage`
+                        // plus bas.
                         val friseUiPourAnnee by frise.ui.collectAsState()
                         LaunchedEffect(friseUiPourAnnee.enregistrements) {
                             if (friseUiPourAnnee.enregistrements > 0) anneeVm.relireApresEnregistrement()
+                        }
+                        // Le verdict de maturité (brief du 25 septembre 2026, « le verdict de maturité
+                        // se relit ») : ne guette que si le film qui vient d'être journalisé est bien
+                        // celui de l'année en cours (`doitRelireApresCreation`, jumeau de la relecture
+                        // du ticket sur la carte) et que c'est bien cette année-ci qu'on ouvre — sans
+                        // quoi la veille tournerait pour rien à chaque ouverture de n'importe quelle
+                        // année. Consommé tout de suite (`anneeAVerifierVerdict = null`) pour ne
+                        // relancer la veille qu'une fois par enregistrement, jamais à chaque réouverture
+                        // suivante de la même année.
+                        LaunchedEffect(Unit) {
+                            if (anneeAVerifierVerdict == screen.annee.annee &&
+                                doitRelireApresCreation(anneeAVerifierVerdict, friseUiPourAnnee.voyage.anneeEnCours)
+                            ) {
+                                anneeAVerifierVerdict = null
+                                anneeVm.guetterVerdict()
+                            }
                         }
                         AnneeScreen(
                             screen.annee,

@@ -89,8 +89,13 @@ data class SalleUi(
 /** Une marche du podium, occupée (brief du 21 septembre 2026, « le podium ») — `null` dans `AnneeUi.podium` pour une marche vide. */
 data class PodiumMarcheUi(val place: Int, val tmdbId: Int?, val programmeId: String?, val title: String, val coverUrl: String?)
 
-/** Le dernier jugement du chroniqueur sur cette année (décision 4 du brief du 21 septembre 2026, « le ticket »). */
-data class MaturiteUi(val mure: Boolean, val motif: String)
+/**
+ * Le dernier jugement du chroniqueur sur cette année (décision 4 du brief du 21 septembre 2026,
+ * « le ticket »). `jugeeLe` (brief du 25 septembre 2026, « le verdict de maturité se relit »)
+ * n'est jamais affichée : elle sert seulement à `verdictAChange` à repérer un nouveau jugement
+ * entre deux relectures.
+ */
+data class MaturiteUi(val mure: Boolean, val motif: String, val jugeeLe: String = "")
 
 /** Le ticket vers l'année suivante, s'il a été gagné (décision 4) — `utilise` dit s'il l'a déjà été encaissé. */
 data class TicketAnneeUi(val annee: Int, val utilise: Boolean)
@@ -168,6 +173,16 @@ fun ligneBasAnnee(ticket: TicketAnneeUi?, maturite: MaturiteUi?): LigneBasAnnee 
     else -> LigneBasAnnee.Rien
 }
 
+/**
+ * Le verdict de maturité a-t-il répondu, depuis le début d'une veille (brief du 25 septembre
+ * 2026, « le verdict de maturité se relit ») : soit `jugee_le` a changé — y compris de nul à non
+ * nul, la première fois qu'un jugement existe pour l'année — soit un ticket est apparu entre-
+ * temps (le chroniqueur peut émettre les deux dans la même écriture). Un verdict identique, lui,
+ * ne met jamais fin à la relecture. Fonction pure, testée en JVM.
+ */
+fun verdictAChange(verdictPrecedent: String?, verdictRelu: String?, ticket: TicketAnneeUi?): Boolean =
+    ticket != null || verdictRelu != verdictPrecedent
+
 /** L'état d'une année en détail — jumeau d'`EtatChronique`, avec `VERROUILLEE` en plus (§2 du brief). */
 enum class EtatAnnee { PRETE, EN_PREPARATION, VERROUILLEE, ABANDON, NON_CONFIGURE }
 
@@ -223,7 +238,7 @@ private fun FilmSalleVoyage.versUi() = FilmSalleUi(
 )
 private fun SalleVoyage.versUi() = SalleUi(id, rang, nom, raison_d_etre, cle, contexte, epuisee, fournee_en_cours, films.map { it.versUi() })
 private fun PodiumMarcheVoyage.versUi() = PodiumMarcheUi(place, tmdb_id, programme_id, title, cover_url)
-private fun MaturiteVoyage.versUi() = MaturiteUi(mure, motif)
+private fun MaturiteVoyage.versUi() = MaturiteUi(mure, motif, jugee_le)
 private fun TicketAnneeVoyage.versUi() = TicketAnneeUi(annee, utilise = utilise_le != null)
 private fun DemandeSalleVoyage.versUi() = DemandeSalleUi(id, demande, statut, motif)
 private fun PisteVoyage.versUi() = PisteUi(nom, raison)
@@ -274,12 +289,16 @@ class AnneeViewModel(
      * sortie de l'écran, et son compteur d'essais avec elle : sans cette remise à zéro, une page
      * rouverte après un abandon resterait vide pour toujours.
      *
-     * Rien à relire sur une année déjà prête. Une année **verrouillée**, elle, se relit à chaque
-     * entrée : un ticket a pu être utilisé depuis (21 septembre 2026 : 1896 restait sur
-     * « Prochainement » après le ticket, jusqu'au redémarrage de l'appli).
+     * Rouvrir une année relit toujours le back, **même déjà prête** (correctif du 25 septembre
+     * 2026, « le verdict de maturité se relit » : reprendre la main tout de suite sur une année
+     * `PRETE`, comme avant ce correctif, laissait un verdict ou un ticket tout juste écrits par le
+     * chroniqueur invisibles jusqu'au redémarrage de l'appli — l'instance de `ViewModel`, gardée
+     * en mémoire par sa clé, ne rechargeait plus jamais rien). L'ancien état reste affiché le
+     * temps de la réponse, `_ui` n'étant jamais vidé ici. Une année **verrouillée** se relit de la
+     * même façon à chaque entrée : un ticket a pu être utilisé depuis (21 septembre 2026 : 1896
+     * restait sur « Prochainement » après le ticket, jusqu'au redémarrage de l'appli).
      */
     fun relire() {
-        if (_ui.value.etat == EtatAnnee.PRETE) return
         _ui.update { it.copy(essais = 0) }
         charger()
     }
@@ -529,6 +548,46 @@ class AnneeViewModel(
                 }
                 _ui.update { it.copy(salles = nouvellesSalles) }
             }
+        }
+    }
+
+    /**
+     * Guette le verdict de maturité après un enregistrement réussi sur l'année en cours (brief du
+     * 25 septembre 2026, « le verdict de maturité se relit ») : relit
+     * `GET /me/voyage/annees/{annee}` toutes les cinq secondes, douze fois au plus (une minute),
+     * et s'arrête dès que `verdictAChange` le dit — la ligne du bas (`ligneBasAnnee`) en dépend
+     * directement, `ui.maturite` et `ui.ticket` étant mis à jour à chaque tour.
+     *
+     * Une `suspend fun` plutôt qu'un `viewModelScope.launch` comme le reste de ce fichier :
+     * l'appelante (`AnneeScreen`, via un `LaunchedEffect` de `Root.kt`) porte donc elle-même la
+     * coroutine, qui s'annule avec l'écran — à la différence de `charger`, `voirPlus` ou
+     * `composerSeance`, qui survivent volontairement à sa sortie. La ligne du bas n'a de sens que
+     * devant les yeux du propriétaire : personne n'a besoin de continuer à guetter le chroniqueur
+     * une fois l'écran quitté, ni de le refaire en boucle à chaque réouverture — l'appelante ne
+     * relance cette veille qu'une fois, juste après l'enregistrement qui a pu la motiver.
+     */
+    suspend fun guetterVerdict() {
+        val verdictAvant = _ui.value.maturite?.jugeeLe
+        var essais = 0
+        while (essais < VERDICT_POLL_ESSAIS_MAX) {
+            delay(POLL_INTERVAL_MS)
+            essais++
+            val reponse = try {
+                api.voyageAnnee(annee)
+            } catch (e: ApiError) {
+                if (e.isUnauthenticated) onUnauthenticated()
+                return
+            }
+            if (reponse.configure && reponse.statut == "prete") {
+                _ui.update {
+                    it.copy(
+                        salles = reponse.salles.sortedBy { s -> s.rang }.map { s -> s.versUi() },
+                        maturite = reponse.maturite?.versUi(),
+                        ticket = reponse.ticket?.versUi(),
+                    )
+                }
+            }
+            if (verdictAChange(verdictAvant, _ui.value.maturite?.jugeeLe, _ui.value.ticket)) return
         }
     }
 
@@ -819,5 +878,8 @@ class AnneeViewModel(
 
         /** Une fournée (« En voir plus ») : même intervalle que le carton d'un film, trois secondes — un appel du même ordre de grandeur. */
         const val FOURNEE_POLL_INTERVAL_MS = 3_000L
+
+        /** Le verdict de maturité (brief du 25 septembre 2026) : douze essais à cinq secondes l'un, une minute au plus — jumeau du plafond du ticket (`TICKET_RELECTURE_ESSAIS_MAX`). */
+        const val VERDICT_POLL_ESSAIS_MAX = 12
     }
 }

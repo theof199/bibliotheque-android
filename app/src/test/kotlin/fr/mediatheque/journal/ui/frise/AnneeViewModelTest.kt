@@ -173,6 +173,31 @@ class AnneeViewModelTest {
         assertEquals(EtatAnnee.EN_PREPARATION, vm.ui.value.etat)
     }
 
+    // Correctif du 25 septembre 2026 (« le verdict de maturité se relit ») : rouvrir une année
+    // relit toujours le back, même déjà prête. Avant ce correctif, `relire()` rendait la main
+    // tout de suite sur une année `PRETE` (`if (_ui.value.etat == EtatAnnee.PRETE) return`) et un
+    // verdict tout juste écrit par le chroniqueur restait invisible tant que l'instance de
+    // `ViewModel`, gardée en mémoire par sa clé, n'était pas détruite (redémarrage de l'appli).
+    @Test
+    fun `relire relit toujours le back, meme sur une annee deja prete`() = runTest(dispatcher) {
+        api.onVoyageAnnee = { prete(salle("s1")) }
+        val vm = AnneeViewModel(api, 1941, null) {}
+        vm.relire()
+        runCurrent()
+        assertEquals(EtatAnnee.PRETE, vm.ui.value.etat)
+        assertNull(vm.ui.value.maturite)
+
+        api.onVoyageAnnee = {
+            prete(salle("s1")).copy(maturite = MaturiteVoyage(mure = false, motif = "Pas encore", jugee_le = "2026-09-25T10:00:00.000Z"))
+        }
+        // Mutation : remettre la garde `if (_ui.value.etat == EtatAnnee.PRETE) return` laisserait
+        // `ui.maturite` à `null` ci-dessous, `relire()` ne rappelant jamais le back.
+        vm.relire()
+        runCurrent()
+
+        assertEquals("2026-09-25T10:00:00.000Z", vm.ui.value.maturite?.jugeeLe)
+    }
+
     @Test
     fun `demander reussit et pose l'etat demande, seulement sur le bon film`() = runTest(dispatcher) {
         api.onVoyageAnnee = { prete(salle("s1", film("f1", 500, "a_demander"), film("f2", 600, "a_demander"))) }
@@ -247,6 +272,77 @@ class AnneeViewModelTest {
         runCurrent()
 
         assertEquals("vu", vm.ui.value.salles.first().films.first().etat)
+    }
+
+    // Le verdict de maturité se relit (brief du 25 septembre 2026, « le verdict de maturité se
+    // relit ») : relit toutes les cinq secondes, s'arrête dès que `jugee_le` change — un verdict
+    // identique, lui, ne l'arrête pas.
+    @Test
+    fun `guetterVerdict relit jusqu'a ce que jugee_le change, puis s'arrete`() = runTest(dispatcher) {
+        var relectures = 0
+        api.onVoyageAnnee = {
+            relectures++
+            when (relectures) {
+                1 -> prete(salle("s1")) // vm.relire()
+                2 -> prete(salle("s1")) // premier essai de guetterVerdict : verdict pas encore ecrit
+                else -> prete(salle("s1")).copy(
+                    maturite = MaturiteVoyage(mure = false, motif = "Pas encore", jugee_le = "2026-09-25T10:00:05.000Z"),
+                )
+            }
+        }
+        val vm = AnneeViewModel(api, 1941, null) {}
+        vm.relire()
+        runCurrent()
+        assertNull(vm.ui.value.maturite)
+
+        val job = launch { vm.guetterVerdict() }
+        testScheduler.advanceUntilIdle()
+        job.join()
+
+        assertEquals("2026-09-25T10:00:05.000Z", vm.ui.value.maturite?.jugeeLe)
+        // Mutation : ne pas s'arrêter au changement (`verdictAChange` ignoré, ou `return` retiré)
+        // ferait grimper ce compte jusqu'à 1 + 12 = 13 plutôt que de s'arrêter au troisième appel.
+        assertEquals(3, relectures)
+    }
+
+    // Le ticket, lui, arrête la veille même si `jugee_le` n'a pas encore bougé — les deux peuvent
+    // arriver dans la même écriture du chroniqueur.
+    @Test
+    fun `guetterVerdict s'arrete des qu'un ticket apparait, meme sans nouveau jugee_le`() = runTest(dispatcher) {
+        api.onVoyageAnnee = { prete(salle("s1")) }
+        val vm = AnneeViewModel(api, 1941, null) {}
+        vm.relire()
+        runCurrent()
+
+        api.onVoyageAnnee = { prete(salle("s1")).copy(ticket = TicketAnneeVoyage(1942, "2026-09-25T10:00:05.000Z")) }
+        val appelsAvant = api.calls.size
+        val job = launch { vm.guetterVerdict() }
+        testScheduler.advanceUntilIdle()
+        job.join()
+
+        assertEquals(1942, vm.ui.value.ticket?.annee)
+        // Mutation : retirer `ticket != null ||` de `verdictAChange` ferait tourner cette veille
+        // jusqu'au plafond (12 essais) au lieu de s'arrêter au premier.
+        assertEquals(1, api.calls.size - appelsAvant)
+    }
+
+    // Abandon au plafond (brief : « douze fois au plus ») quand le verdict ne répond jamais.
+    @Test
+    fun `guetterVerdict abandonne au bout de douze essais si le verdict ne repond jamais`() = runTest(dispatcher) {
+        api.onVoyageAnnee = { prete(salle("s1")) }
+        val vm = AnneeViewModel(api, 1941, null) {}
+        vm.relire()
+        runCurrent()
+        val appelsAvant = api.calls.size
+
+        val job = launch { vm.guetterVerdict() }
+        testScheduler.advanceUntilIdle()
+        job.join()
+
+        // Mutation : retirer le plafond (boucler sur `while (true)`) ferait tourner cette veille
+        // indéfiniment plutôt que de s'arrêter à `VERDICT_POLL_ESSAIS_MAX` essais.
+        assertEquals(AnneeViewModel.VERDICT_POLL_ESSAIS_MAX, api.calls.size - appelsAvant)
+        assertNull(vm.ui.value.maturite)
     }
 
     @Test
@@ -681,6 +777,30 @@ class AnneeViewModelTest {
     @Test
     fun `ligneBasAnnee ne montre rien sans ticket ni maturite`() {
         assertEquals(LigneBasAnnee.Rien, ligneBasAnnee(null, null))
+    }
+
+    // Le verdict de maturité a-t-il changé (brief du 25 septembre 2026, « le verdict de maturité
+    // se relit »), fonction pure : un verdict identique ne met jamais fin à la relecture, un
+    // nouveau `jugee_le` ou un ticket, si.
+    @Test
+    fun `verdictAChange est faux quand jugee_le n'a pas bouge et qu'aucun ticket n'est arrive`() {
+        // Mutation : inverser la comparaison (`verdictRelu == verdictPrecedent`) ferait passer ce
+        // test alors qu'un verdict identique mettrait fin à la relecture.
+        assertFalse(verdictAChange("2026-09-25T10:00:00.000Z", "2026-09-25T10:00:00.000Z", null))
+    }
+
+    @Test
+    fun `verdictAChange est vrai des qu'un nouveau jugee_le apparait, meme de nul a non nul`() {
+        // Mutation : comparer seulement deux valeurs non nulles (`verdictPrecedent != null &&`)
+        // manquerait justement le cas « de nul à non nul » que le brief énumère.
+        assertTrue(verdictAChange(null, "2026-09-25T10:00:05.000Z", null))
+    }
+
+    @Test
+    fun `verdictAChange est vrai quand un ticket apparait, meme si jugee_le n'a pas bouge`() {
+        // Mutation : retirer `ticket != null ||` laisserait ce cas retomber sur la comparaison de
+        // `jugee_le`, identique ici, et renverrait faux à tort.
+        assertTrue(verdictAChange("2026-09-25T10:00:00.000Z", "2026-09-25T10:00:00.000Z", TicketAnneeUi(1897, utilise = false)))
     }
 
     // Les pastilles du haut (décision 2 du brief du 21 septembre 2026, « les récompenses », revue
