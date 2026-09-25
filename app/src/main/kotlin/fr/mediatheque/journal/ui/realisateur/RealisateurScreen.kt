@@ -4,7 +4,6 @@ import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -59,12 +58,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -90,6 +87,7 @@ import fr.mediatheque.journal.ui.frise.mondeDe
 import fr.mediatheque.journal.ui.frise.mondeDeLaDecennie
 import fr.mediatheque.journal.ui.showBriefly
 import fr.mediatheque.journal.ui.suivis.Portrait
+import fr.mediatheque.journal.ui.suivis.SceauRetrospective
 
 /**
  * La page d'un réalisateur (reprise du 21 septembre 2026, « la page réalisateur, reprise » —
@@ -307,7 +305,7 @@ private fun EnTeteRealisateur(
             // — `page.films` est déjà sans ses séries (décision 3 de la retouche du 22 septembre
             // 2026, appliquée avant `EnTeteRealisateur`).
             if (retrospectiveComplete(page.films)) {
-                SceauRetrospective(monde, modifier = Modifier.align(Alignment.BottomEnd).size(30.dp))
+                SceauRetrospective(30.dp, anime = true, modifier = Modifier.align(Alignment.BottomEnd), fond = monde.fond)
             }
         }
         Text(
@@ -363,32 +361,6 @@ private fun EnTeteRealisateur(
 }
 
 private val FiltreDesature = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
-
-/**
- * Le sceau or « rétrospective complète » (geste 20 du complément du 23 septembre 2026 à
- * l'habillage) : un cercle plein avec `tabler:award` (geste 2 du brief du 23 septembre 2026 soir,
- * qui remplace le `✦` en Fraunces d'origine), posé sur le portrait. À l'échelle avec dépassement à
- * la première composition (`LaunchedEffect(Unit)`, jamais rejouée à une simple recomposition de
- * l'en-tête — l'interrupteur des introuvables juste en dessous, par exemple) ; statique ensuite,
- * comme le sceau (plus petit) d'une année ouverte (`Photogramme`, `AnneeScreen.kt`).
- */
-@Composable
-private fun SceauRetrospective(monde: Monde, modifier: Modifier = Modifier) {
-    val echelle = remember { Animatable(0f) }
-    LaunchedEffect(Unit) {
-        echelle.animateTo(1f, tween(400, easing = CubicBezierEasing(0.3f, 1.6f, 0.4f, 1f)))
-    }
-    Box(
-        modifier
-            .graphicsLayer { scaleX = echelle.value; scaleY = echelle.value }
-            .background(MaterialTheme.colorScheme.secondary, CircleShape)
-            .border(1.dp, monde.fond, CircleShape)
-            .semantics { contentDescription = "Rétrospective complète" },
-        contentAlignment = Alignment.Center,
-    ) {
-        IconeTabler("award", null, tint = monde.fond, modifier = Modifier.size(16.dp))
-    }
-}
 
 /**
  * Une affiche de la filmographie (inchangé : vu en couleur avec pastille de note, sépia sinon,

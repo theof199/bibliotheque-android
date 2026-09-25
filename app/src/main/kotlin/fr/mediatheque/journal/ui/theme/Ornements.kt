@@ -10,8 +10,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -23,8 +26,10 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import com.airbnb.lottie.compose.LottieAnimation
 import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieConstants
@@ -38,6 +43,10 @@ import com.airbnb.lottie.compose.rememberLottieComposition
  * 23 septembre 2026, geste 21 ; portée par l'animation Lottie `bobine-1.json` depuis le brief des
  * animations des célébrations, le même jour en soirée), l'indicateur de tirer-pour-rafraîchir de la
  * Frise et de l'accueil.
+ *
+ * S'y ajoutent les petits traits or des Suivis (rétrospectives et cycles, 25 septembre 2026) :
+ * le filet sous un en-tête (`FiletOr`, né sur Mes films), la barre de progression d'une
+ * rétrospective (`BarreProgressionOr`) et l'étiquette « ENSUITE » (`EtiquetteEnsuite`).
  */
 
 /** L'espacement d'une perforation à l'autre — la maquette : `background-size:16px 10px`. */
@@ -121,6 +130,55 @@ fun CadreOrne(
             )
         },
         content = content,
+    )
+}
+
+/**
+ * Le filet or sous l'en-tête d'un onglet : 1 dp, `secondary` à 55 %, marges de 16, 8 dp sous le
+ * titre. Choix de gabarit adopté par le propriétaire le 24 septembre 2026 sur Mes films, « à poser
+ * partout ensuite » : Mes films et Suivis le partagent.
+ */
+@Composable
+fun FiletOr(modifier: Modifier = Modifier) {
+    HorizontalDivider(
+        thickness = 1.dp,
+        color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.55f),
+        modifier = modifier.padding(horizontal = 16.dp).padding(top = 8.dp),
+    )
+}
+
+/**
+ * La progression d'une rétrospective ou d'un cycle : un trait de 2 dp, or (`secondary`) sur
+ * `outline`, bouts arrondis d'1 dp. Décorative — le « 4 sur 12 » écrit à côté porte l'information,
+ * la barre ne la répète pas aux lecteurs d'écran. `total` nul : la piste seule.
+ */
+@Composable
+fun BarreProgressionOr(vus: Int, total: Int, modifier: Modifier = Modifier) {
+    val piste = MaterialTheme.colorScheme.outline
+    val or = MaterialTheme.colorScheme.secondary
+    val fraction = if (total > 0) (vus.toFloat() / total).coerceIn(0f, 1f) else 0f
+    Canvas(modifier.fillMaxWidth().height(2.dp)) {
+        val rayon = CornerRadius(1.dp.toPx())
+        drawRoundRect(piste, cornerRadius = rayon)
+        if (fraction > 0f) drawRoundRect(or, size = Size(size.width * fraction, size.height), cornerRadius = rayon)
+    }
+}
+
+/**
+ * « ENSUITE » au-dessus du prochain film à voir : `labelSmall` en majuscules, espacé de 0,14 em.
+ * `couleur` or (`secondary`) sur une carte des Suivis ; `primary` et `gras` sur la case du
+ * pavillon d'un réalisateur.
+ */
+@Composable
+fun EtiquetteEnsuite(couleur: Color, modifier: Modifier = Modifier, gras: Boolean = false) {
+    Text(
+        "ENSUITE",
+        style = MaterialTheme.typography.labelSmall.copy(
+            letterSpacing = 0.14.em,
+            fontWeight = if (gras) FontWeight.Bold else MaterialTheme.typography.labelSmall.fontWeight,
+        ),
+        color = couleur,
+        modifier = modifier,
     )
 }
 

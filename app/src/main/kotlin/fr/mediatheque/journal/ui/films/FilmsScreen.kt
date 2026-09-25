@@ -25,7 +25,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -51,6 +50,7 @@ import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.EtatVide
 import fr.mediatheque.journal.ui.afficheVolante
 import fr.mediatheque.journal.ui.profile.ProfileUi
+import fr.mediatheque.journal.ui.theme.FiletOr
 import fr.mediatheque.journal.ui.theme.IconeTabler
 import fr.mediatheque.journal.ui.voler
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -142,11 +142,7 @@ fun FilmsScreen(
             // Le filet or sous l'en-tête : choix de gabarit adopté par le propriétaire le
             // 24 septembre 2026, à poser partout ensuite. Pas de perforations sur cet écran : la
             // pellicule reste au Voyage.
-            HorizontalDivider(
-                thickness = 1.dp,
-                color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.55f),
-                modifier = Modifier.padding(horizontal = 16.dp).padding(top = 8.dp),
-            )
+            FiletOr()
             ChampRecherche(f.texte, filtres::setTexte, Modifier.padding(horizontal = 16.dp).padding(top = 12.dp))
             PucesFiltres(
                 f,

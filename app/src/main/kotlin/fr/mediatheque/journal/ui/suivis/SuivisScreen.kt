@@ -1,6 +1,7 @@
 package fr.mediatheque.journal.ui.suivis
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -208,13 +209,21 @@ private fun CarteSuivi(entite: EntiteSuivie, etatFilmographie: EtatFilmographie,
  * « rien pendant le chargement » sans plus de précision, corrigé par le geste
  * 9 du peaufinage du 23 septembre 2026, qui ajoute le fondu ci-dessous),
  * l'initiale restant le geste de l'absence d'image, pas celui d'une attente.
+ *
+ * `lisere` (Suivis, rétrospectives et cycles, 25 septembre 2026) : un trait intérieur de 1 dp, or
+ * à 35 %, sur la photo comme sur l'initiale — le jumeau rond du liseré à 22 % des affiches.
  */
 @Composable
-fun Portrait(url: String?, name: String, taille: Dp, modifier: Modifier = Modifier) {
+fun Portrait(url: String?, name: String, taille: Dp, modifier: Modifier = Modifier, lisere: Boolean = false) {
     val description = "Photo de $name"
+    val trait = if (lisere) {
+        Modifier.border(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.35f), CircleShape)
+    } else {
+        Modifier
+    }
     val initiale: @Composable () -> Unit = {
         Box(
-            Modifier.size(taille).background(MaterialTheme.colorScheme.surfaceContainerHigh, CircleShape),
+            Modifier.size(taille).background(MaterialTheme.colorScheme.surfaceContainerHigh, CircleShape).then(trait),
             contentAlignment = Alignment.Center,
         ) {
             Text(
@@ -235,7 +244,7 @@ fun Portrait(url: String?, name: String, taille: Dp, modifier: Modifier = Modifi
             contentScale = ContentScale.Crop,
             loading = {},
             error = { initiale() },
-            modifier = modifier.size(taille).clip(CircleShape),
+            modifier = modifier.size(taille).clip(CircleShape).then(trait),
         )
     }
 }
