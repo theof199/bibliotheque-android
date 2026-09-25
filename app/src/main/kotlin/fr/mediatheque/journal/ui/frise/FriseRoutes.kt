@@ -145,6 +145,10 @@ fun PorteeEcrans.routeFicheVoyage(screen: Screen.FicheVoyage) {
         onOpenForm = { nav.push(Screen.Form(it)) },
         onPodiumChange = { frise.refresh() },
         onOuvrirRealisateur = { id -> nav.push(Screen.Realisateur(id)) },
+        // « Corriger » (« la fiche · trois visages », 25 septembre 2026) : l'entrée
+        // déjà retrouvée plus haut dans le journal de `FriseViewModel` ; le bouton
+        // n'est rendu que si elle existe (`boutonsFicheVoyage`).
+        onCorriger = { journalItem?.let { nav.push(Screen.Edit(it)) } },
     )
 }
 

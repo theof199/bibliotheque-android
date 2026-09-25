@@ -10,27 +10,26 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.draw.drawBehind
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -50,25 +49,32 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.SearchMetadata
 import fr.mediatheque.journal.api.dto.SearchResult
-import fr.mediatheque.journal.reactions.Reactions
 import fr.mediatheque.journal.ui.AfficheVolante
 import fr.mediatheque.journal.ui.Cover
-import fr.mediatheque.journal.ui.FondHeros
-import fr.mediatheque.journal.ui.titreOriginalAffiche
-import fr.mediatheque.journal.ui.voler
-import fr.mediatheque.journal.ui.realisateur.NomRealisateurTouchable
-import fr.mediatheque.journal.ui.realisateur.RealisateurResolveur
+import fr.mediatheque.journal.ui.PlexBadge
+import fr.mediatheque.journal.ui.fiche.EnTeteFiche
+import fr.mediatheque.journal.ui.fiche.FORME_BOUTON_FICHE
+import fr.mediatheque.journal.ui.fiche.PucesReactions
+import fr.mediatheque.journal.ui.fiche.anneeEtDuree
+import fr.mediatheque.journal.ui.fiche.formatDuree
+import fr.mediatheque.journal.ui.fiche.tailleBoutonFiche
 import fr.mediatheque.journal.ui.form.BoutonLeFilm
 import fr.mediatheque.journal.ui.form.CartonViewModel
+import fr.mediatheque.journal.ui.lisereOr
+import fr.mediatheque.journal.ui.realisateur.NomRealisateurTouchable
+import fr.mediatheque.journal.ui.realisateur.RealisateurResolveur
 import fr.mediatheque.journal.ui.showBriefly
 import fr.mediatheque.journal.ui.theme.IconeTabler
-import fr.mediatheque.journal.ui.theme.PapierJauni
-import fr.mediatheque.journal.ui.theme.TextePapier
+import fr.mediatheque.journal.ui.titreOriginalAffiche
 
 /**
  * La fiche d'un film du Voyage (nouvel écran, `Screen.FicheVoyage`, spec du 19 septembre 2026, §3,
@@ -81,10 +87,17 @@ import fr.mediatheque.journal.ui.theme.TextePapier
  * Le podium s'y ajoute le 21 septembre 2026 (décision 3 du brief « le podium ») : « Mettre sur le
  * podium » ouvre le choix d'une marche (`lignesChoixMarche`).
  *
+ * Reprise sur l'en-tête commun le 25 septembre 2026 (« la fiche · trois visages », reprise
+ * validée) : avant, un fond héros flouté derrière une affiche 96 × 144, « Ta note · 5 » en texte et
+ * le commentaire sur papier jauni ; désormais l'affiche en héros d'`EnTeteFiche` avec « Salle ·
+ * nom » en étiquette, la raison sous un filet de l'accent, les réactions en puces, le programme et
+ * ses bobines, puis la pile de boutons où « Corriger » rejoint un film vu. Le commentaire n'apparaît
+ * plus, comme sur les deux autres fiches.
+ *
  * Lit `vm` (le même `AnneeViewModel` que l'année d'où elle s'est ouverte, `Root.kt`) plutôt que de
  * recharger quoi que ce soit : `salleId` et `filmId` désignent le film dans son état déjà connu.
  */
-@OptIn(ExperimentalSharedTransitionApi::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun FicheVoyageScreen(
     annee: Int,
@@ -99,6 +112,8 @@ fun FicheVoyageScreen(
     onPodiumChange: () -> Unit,
     /** Le nom du réalisateur est touchable ici aussi (décision 3 du brief du 21 septembre 2026, « la page réalisateur »). */
     onOuvrirRealisateur: (Int) -> Unit,
+    /** « Corriger » d'un film vu dont l'entrée est connue (`journalItem`) : le formulaire de correction. */
+    onCorriger: () -> Unit,
     /**
      * L'affiche partagée (peaufinage du 23 septembre 2026, geste 8) : même clé que la salle d'où
      * cette fiche s'est ouverte, nulle quand on y arrive directement depuis une filmographie
@@ -139,163 +154,100 @@ fun FicheVoyageScreen(
         }
 
         val etat = etatFilmVoyage(film.etat, film.programme?.bobines ?: emptyList())
-        // `entreeConnue = false` tant que cette fiche n'a pas son « Corriger » (« la fiche · trois
-        // visages », 25 septembre 2026) : il arrive avec sa reprise sur `EnTeteFiche`, la
-        // livraison suivante, et d'ici là la pile reste celle d'avant.
-        val boutons = boutonsFicheVoyage(etat, film.plexUrl, entreeConnue = false)
+        val boutons = boutonsFicheVoyage(etat, film.plexUrl, entreeConnue = journalItem != null)
+        // Ma note et mes réactions seulement sur un film vu : un programme n'est « vu » qu'une fois
+        // toutes ses bobines vues (`etatFilmVoyage`), même si l'entrée du long existe déjà.
+        val entreeVue = journalItem?.takeIf { etat == "vu" }
 
-        Box(Modifier.fillMaxSize()) {
-            // Le fond héros (geste 4 du brief du 23 septembre 2026 soir) : l'affiche déjà
-            // reçue, derrière l'en-tête — nulle tant qu'elle n'a pas chargé, sans rien réserver.
-            FondHeros(film.coverUrl, hauteur = 240.dp, fond = monde.fond)
+        // Pas de marge du haut : l'affiche passe sous la barre d'état, le disque du retour s'y range
+        // lui-même (`statusBarsPadding`, `EnTeteFiche`) — jumeau de `FicheEntreeScreen`.
+        Column(
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = padding.calculateBottomPadding()),
+        ) {
+            EnTeteFiche(
+                affiche = film.coverUrl,
+                titre = film.title,
+                titreOriginal = titreOriginalAffiche(film.title, film.originalTitle),
+                note = entreeVue?.entry?.rating,
+                realisateur = {
+                    NomRealisateurTouchable(
+                        filmTmdbId = film.tmdbId,
+                        nomConnu = film.realisateur,
+                        resolveur = realisateurResolveur,
+                        onOuvrirRealisateur = onOuvrirRealisateur,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        chevron = true,
+                    )
+                },
+                anneeEtDuree = anneeEtDuree(film.year, film.programme?.dureeMin),
+                etiquette = "Salle · ${salle.nom}",
+                couleurEtiquette = monde.accent,
+                fond = monde.fond,
+                onBack = onBack,
+                volante = volante,
+            )
             Column(
-                Modifier.fillMaxWidth().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
+                Modifier.fillMaxWidth().padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onBack) {
-                        IconeTabler("arrow-left", "Retour")
-                    }
-                }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    // L'affiche encadrée (habillage du 23 septembre 2026, geste 6).
-                    Cover(
-                        film.coverUrl,
-                        film.title,
-                        96.dp,
-                        144.dp,
-                        modifier = Modifier.voler(volante).border(1.5.dp, MaterialTheme.colorScheme.secondary, MaterialTheme.shapes.small),
-                    )
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(film.title, style = MaterialTheme.typography.titleLarge)
-                        titreOriginalAffiche(film.title, film.originalTitle)?.let { original ->
-                            Text(original, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        NomRealisateurTouchable(
-                            filmTmdbId = film.tmdbId,
-                            nomConnu = film.realisateur,
-                            resolveur = realisateurResolveur,
-                            onOuvrirRealisateur = onOuvrirRealisateur,
-                        )
-                        film.programme?.let { programme ->
-                            Text(
-                                "${programme.dureeMin} min",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-
-                // La salle en étiquette, pas dans une boîte vide (point 9 de la revue du
-                // 24 septembre 2026) : avant elle, `CartoucheSalleEtRaison` posait un cartouche
-                // papier jauni plein écran même quand `raison` manquait, un cadre quasiment vide
-                // pour une seule ligne (constat de la revue, capture 13).
-                Text(
-                    "Salle · ${salle.nom}",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.secondary,
-                )
-                film.raison?.let { raison ->
-                    Text(raison, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-
-                if (etat == "vu" && journalItem != null) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        // La note porte son libellé (point 9) : « Ta note · 5 », plus un chiffre nu
-                        // dans un cercle sans légende.
-                        journalItem.entry.rating?.let { note ->
-                            Text(
-                                "Ta note · $note",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.secondary,
-                            )
-                        }
-                    }
-                    if (journalItem.carnet.reactions.isNotEmpty()) {
-                        // Les réactions en pastilles rondes pleines (fond papier 12 %, texte or) —
-                        // remplace l'unique ligne d'emojis groupés.
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            journalItem.carnet.reactions.forEach { cle ->
-                                Box(
-                                    Modifier
-                                        .background(PapierJauni.copy(alpha = 0.12f), RoundedCornerShape(50))
-                                        .padding(horizontal = 10.dp, vertical = 5.dp),
-                                ) {
-                                    Text(
-                                        Reactions.label(cle),
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.secondary,
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    // La remarque sur papier, filet gauche or (habillage du 23 septembre 2026, geste 6)
-                    // — un filet sur un seul bord, pas un `border()` (qui les dessinerait sur les
-                    // quatre), posé en `drawBehind` avant le padding du texte.
-                    journalItem.carnet.comment?.takeIf { it.isNotBlank() }?.let { commentaire ->
-                        val or = MaterialTheme.colorScheme.secondary
-                        Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .background(PapierJauni, RoundedCornerShape(4.dp))
-                                .drawBehind { drawRect(or, size = size.copy(width = 3.dp.toPx())) }
-                                .padding(start = 14.dp, top = 10.dp, bottom = 10.dp, end = 12.dp),
-                        ) {
-                            Text(
-                                commentaire,
-                                style = MaterialTheme.typography.bodyMedium.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
-                                color = TextePapier,
-                            )
-                        }
-                    }
-                }
-
-                BoutonLeFilm(carton, titreConnu = film.title)
-
+                film.raison?.let { RaisonSalle(it, monde.accent) }
+                entreeVue?.let { PucesReactions(it.carnet.reactions) }
                 film.programme?.let { programme ->
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Les bobines", style = MaterialTheme.typography.titleMedium)
-                        programme.bobines.forEach { bobine ->
-                            LigneBobine(bobine, onClick = { onOpenForm(bobine.versSearchResult(annee)) })
-                        }
-                    }
+                    ProgrammeBobines(programme, monde, onOuvrirBobine = { bobine -> onOpenForm(bobine.versSearchResult(annee)) })
                 }
-
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     boutons.forEach { bouton ->
                         when (bouton) {
-                            // Jamais rendu tant que `entreeConnue` vaut `false` ci-dessus.
-                            BoutonFicheVoyage.CORRIGER -> Unit
+                            BoutonFicheVoyage.CORRIGER -> Button(
+                                onClick = onCorriger,
+                                modifier = Modifier.tailleBoutonFiche(),
+                                shape = FORME_BOUTON_FICHE,
+                            ) { Text("Corriger") }
                             BoutonFicheVoyage.VOIR_SUR_LE_PLEX -> OutlinedButton(
                                 onClick = { ouvrirPlex(contexte, film.plexUrl) },
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.tailleBoutonFiche(),
+                                shape = FORME_BOUTON_FICHE,
                             ) { Text("Voir sur le Plex") }
                             BoutonFicheVoyage.JE_L_AI_VU -> Button(
                                 onClick = { onOpenForm(film.versSearchResult(annee)) },
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.tailleBoutonFiche(),
+                                shape = FORME_BOUTON_FICHE,
                             ) { Text("Je l’ai vu") }
                             BoutonFicheVoyage.DEMANDER -> OutlinedButton(
                                 onClick = { vm.demander(film.tmdbId) },
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.tailleBoutonFiche(),
+                                shape = FORME_BOUTON_FICHE,
                             ) { Text("Demander sur Sir") }
-                            BoutonFicheVoyage.MARQUER_INTROUVABLE -> TextButton(onClick = { vm.marquerIntrouvable(film.tmdbId) }) {
-                                Text("Introuvable")
-                            }
+                            // En texte gris comme sur la fiche simple (« Introuvable » texte gris,
+                            // brief de la fiche · trois visages) : le corail reste au seul bouton plein.
+                            BoutonFicheVoyage.MARQUER_INTROUVABLE -> TextButton(
+                                onClick = { vm.marquerIntrouvable(film.tmdbId) },
+                                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant),
+                            ) { Text("Introuvable") }
                             BoutonFicheVoyage.RETIRER_INTROUVABLE -> TextButton(onClick = { vm.retirerIntrouvable(film.tmdbId) }) {
                                 Text("Le remettre à voir")
                             }
                             BoutonFicheVoyage.METTRE_SUR_LE_PODIUM -> OutlinedButton(
                                 onClick = { choisirMarche = true },
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.tailleBoutonFiche(),
+                                shape = FORME_BOUTON_FICHE,
                             ) { Text("Mettre sur le podium") }
                         }
                     }
                     if (etat == "demande") {
                         Text("demandé", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                    // « Le film » en dernier, filet or : le même bas de pile sur les trois fiches.
+                    BoutonLeFilm(
+                        carton,
+                        titreConnu = film.title,
+                        modifier = Modifier.tailleBoutonFiche(),
+                        bord = MaterialTheme.colorScheme.secondary,
+                        shape = FORME_BOUTON_FICHE,
+                    )
                 }
             }
         }
@@ -317,6 +269,42 @@ fun FicheVoyageScreen(
                 onChoisir = { place -> choisirMarche = false; vm.poserPodium(place, candidat, onPodiumChange) },
                 onDismiss = { choisirMarche = false },
             )
+        }
+    }
+}
+
+/**
+ * Pourquoi ce film est dans cette salle, sous un filet vertical de 1 dp dans l'accent du monde :
+ * la raison se lit comme une note en marge de l'étiquette « Salle · nom » juste au-dessus, plutôt
+ * que comme un paragraphe de plus. `IntrinsicSize.Min` donne au filet la hauteur du texte.
+ */
+@Composable
+private fun RaisonSalle(raison: String, accent: Color) {
+    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+        Box(Modifier.width(1.dp).fillMaxHeight().background(accent))
+        Text(
+            raison,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 12.dp),
+        )
+    }
+}
+
+/**
+ * « PROGRAMME · 2 h 03 » puis une ligne par bobine : la durée totale en étiquette de l'accent, comme
+ * « Salle · nom » dans l'en-tête, à la place du titre « Les bobines » d'avant la reprise.
+ */
+@Composable
+private fun ProgrammeBobines(programme: ProgrammeUi, monde: Monde, onOuvrirBobine: (BobineUi) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            "Programme · ${formatDuree(programme.dureeMin)}".uppercase(),
+            style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.16.em),
+            color = monde.accent,
+        )
+        programme.bobines.forEach { bobine ->
+            LigneBobine(bobine, monde.fond, onClick = { onOuvrirBobine(bobine) })
         }
     }
 }
@@ -353,20 +341,50 @@ private fun ChoisirMarcheSheet(lignes: List<LigneChoixMarche>, onChoisir: (place
     }
 }
 
+/**
+ * Une bobine : sa durée et, s'il y en a un, son état en toutes lettres (« 12 min · sur ton plex »),
+ * puis à droite une pastille or cochée si elle est vue, ou le badge Plex réduit à la même taille
+ * si elle attend sur le Plex. Le tap ouvre toujours le formulaire pré-rempli.
+ */
 @Composable
-private fun LigneBobine(bobine: BobineUi, onClick: () -> Unit) {
+private fun LigneBobine(bobine: BobineUi, fond: Color, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Cover(bobine.coverUrl, bobine.title, 40.dp, 60.dp)
+        Cover(bobine.coverUrl, bobine.title, 40.dp, 60.dp, modifier = Modifier.lisereOr())
         Column(Modifier.weight(1f)) {
-            Text(bobine.title, style = MaterialTheme.typography.bodyLarge)
-            Text("${bobine.dureeMin} min", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(bobine.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+            Text(
+                listOfNotNull(formatDuree(bobine.dureeMin), etiquetteEtatFilm(bobine.etat)?.lowercase()).joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
-        etiquetteEtatFilm(bobine.etat)?.let { etiquette ->
-            Text(etiquette, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        RepereBobine(bobine.etat, fond)
+    }
+}
+
+/**
+ * Le repère au bout d'une bobine, dans une case de 30 dp — la taille de `PlexBadge` avec sa marge —
+ * pour que pastille et badge tombent sur le même axe. Rien du tout pour les autres états : leur
+ * mot suffit, dans la ligne du dessous.
+ */
+@Composable
+private fun RepereBobine(etat: String, fond: Color) {
+    if (etat != "vu" && etat != "sur_le_plex") return
+    Box(Modifier.size(30.dp), contentAlignment = Alignment.Center) {
+        if (etat == "vu") {
+            Box(
+                Modifier.size(18.dp).background(MaterialTheme.colorScheme.secondary, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                IconeTabler("check", "Vue", tint = fond, modifier = Modifier.size(12.dp))
+            }
+        } else {
+            // Le disque de `PlexBadge` fait 22 dp : ramené à 18, celui de la pastille « vue ».
+            PlexBadge(Modifier.scale(18f / 22f))
         }
     }
 }

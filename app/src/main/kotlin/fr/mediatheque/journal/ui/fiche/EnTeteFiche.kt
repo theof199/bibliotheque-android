@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -31,6 +32,16 @@ import androidx.compose.ui.unit.sp
 import fr.mediatheque.journal.ui.AfficheVolante
 import fr.mediatheque.journal.ui.theme.Fraunces
 import fr.mediatheque.journal.ui.theme.IconeTabler
+
+/**
+ * Les boutons empilés des trois fiches (« la fiche · trois visages », reprise validée du
+ * 25 septembre 2026) : pleine largeur, 48 dp, rayon 12 dp — la forme du brief, commune aux trois
+ * piles pour qu'elles se ressemblent, là où le reste de l'appli garde celle du thème.
+ */
+val FORME_BOUTON_FICHE = RoundedCornerShape(12.dp)
+
+/** Jumeau de [FORME_BOUTON_FICHE] : la taille d'un bouton de fiche. */
+fun Modifier.tailleBoutonFiche(): Modifier = fillMaxWidth().height(48.dp)
 
 /** De combien le titre remonte sur le bas de l'affiche : il « mord » dessus plutôt que de la suivre. */
 private val CHEVAUCHEMENT_TITRE = 56.dp

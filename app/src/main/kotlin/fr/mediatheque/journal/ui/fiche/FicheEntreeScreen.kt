@@ -112,20 +112,20 @@ private fun realisateurDe(
 
 /**
  * « Corriger », seul bouton corail de la fiche, puis « Le film » au filet or, dernier comme sur
- * les deux autres fiches. Pas de Plex ni de Sir : un film déjà vu n'a rien à demander. La forme
- * reste celle des boutons des deux autres fiches (celle du thème), pour que les trois piles se
- * ressemblent.
+ * les deux autres fiches. Pas de Plex ni de Sir : un film déjà vu n'a rien à demander. Forme et
+ * taille communes aux trois piles (`FORME_BOUTON_FICHE`, `tailleBoutonFiche`).
  */
 @Composable
 private fun BoutonsFicheEntree(carton: CartonViewModel?, titre: String, onCorriger: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(onClick = onCorriger, modifier = Modifier.fillMaxWidth().height(48.dp)) { Text("Corriger") }
+        Button(onClick = onCorriger, modifier = Modifier.tailleBoutonFiche(), shape = FORME_BOUTON_FICHE) { Text("Corriger") }
         carton?.let {
             BoutonLeFilm(
                 it,
                 titreConnu = titre,
-                modifier = Modifier.fillMaxWidth().height(48.dp),
+                modifier = Modifier.tailleBoutonFiche(),
                 bord = MaterialTheme.colorScheme.secondary,
+                shape = FORME_BOUTON_FICHE,
             )
         }
     }
