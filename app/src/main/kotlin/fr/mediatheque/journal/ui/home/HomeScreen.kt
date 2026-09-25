@@ -335,29 +335,6 @@ fun HomeScreen(
     }
 }
 
-/**
- * Une carte du carrousel « Ensuite » (point 5) : laquelle des trois sources — Plex, réalisateur en
- * cours, saga en cours — jamais mêlées entre elles, `cartesEnsuite` (fonction pure, testée) décide
- * lesquelles existent et dans quel ordre.
- */
-sealed interface CarteEnsuite {
-    data class Plex(val film: PlexFilm) : CarteEnsuite
-    data class Realisateur(val encours: EnCours) : CarteEnsuite
-    data class Saga(val encours: EnCours) : CarteEnsuite
-}
-
-/**
- * Les pages du carrousel « Ensuite », dans l'ordre Plex puis réalisateur puis saga — fonction pure,
- * testée en JVM (`HomeScreenTest.kt`) : chaque source n'y figure que si elle a quelque chose à
- * proposer, jamais un `null` glissé dans la liste.
- */
-fun cartesEnsuite(plex: PlexFilm?, realisateur: EnCours?, saga: EnCours?): List<CarteEnsuite> =
-    listOfNotNull(
-        plex?.let { CarteEnsuite.Plex(it) },
-        realisateur?.let { CarteEnsuite.Realisateur(it) },
-        saga?.let { CarteEnsuite.Saga(it) },
-    )
-
 /** Le carrousel : une carte de haut, qui s'enclenche au défilement, avec des points de position quand il y a plus d'une page. */
 @Composable
 private fun CarrouselEnsuite(
