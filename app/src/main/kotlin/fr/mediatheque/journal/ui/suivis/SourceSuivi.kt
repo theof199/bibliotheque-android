@@ -3,14 +3,16 @@ package fr.mediatheque.journal.ui.suivis
 /**
  * Ce qui distingue un réalisateur d'une saga pour tout le code partagé de ce
  * paquet (brief « les sagas », 15 septembre 2026, jumelle du brief « les
- * réalisateurs ») : quatre libellés d'écran. Les cinq appels réseau, eux, se
+ * réalisateurs ») : ses libellés d'écran. Les cinq appels réseau, eux, se
  * dispatchent dans `SuivisViewModel` — un `when (source)` à chaque fois, et
  * un seul.
  *
  * L'onglet « Réalisateurs » devient « Suivis » (décision du propriétaire du
- * 15 septembre 2026) : deux segments dans un `SingleChoiceSegmentedButtonRow`
- * en tête de `SuivisScreen`, mémorisés pour la session dans
- * `SuivisUi.source`.
+ * 15 septembre 2026), mémorisé pour la session dans `SuivisUi.source`. Depuis
+ * le 25 septembre 2026 (rétrospectives et cycles), deux puces en tête de
+ * `SuivisScreen` : un réalisateur suivi s'y lit « rétrospective », une saga
+ * « cycle » — `titre` ne nomme que la puce, les autres libellés gardent leurs
+ * mots d'avant.
  */
 enum class SourceSuivi(
     val titre: String,
@@ -23,7 +25,7 @@ enum class SourceSuivi(
     val participeBoucle: String,
 ) {
     REALISATEURS(
-        titre = "Réalisateurs",
+        titre = "Rétrospectives",
         libelleAjouter = "Ajouter un réalisateur",
         placeholderRecherche = "Un nom de réalisateur",
         libelleVide = "Ajoute un réalisateur avec +",
@@ -31,7 +33,7 @@ enum class SourceSuivi(
         participeBoucle = "bouclée",
     ),
     SAGAS(
-        titre = "Sagas",
+        titre = "Cycles",
         libelleAjouter = "Ajouter une saga",
         placeholderRecherche = "Un nom de saga",
         libelleVide = "Ajoute une saga avec +",
