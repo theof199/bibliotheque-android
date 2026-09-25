@@ -17,17 +17,25 @@ enum class SourceSuivi(
     val libelleAjouter: String,
     val placeholderRecherche: String,
     val libelleVide: String,
+    /** L'en-tête de la section du bas, celles dont tout est vu ou introuvable. */
+    val titreComplets: String,
+    /** Accordé au nom de la puce : « bouclée le … » (une rétrospective), « bouclé le … » (un cycle). */
+    val participeBoucle: String,
 ) {
     REALISATEURS(
         titre = "Réalisateurs",
         libelleAjouter = "Ajouter un réalisateur",
         placeholderRecherche = "Un nom de réalisateur",
         libelleVide = "Ajoute un réalisateur avec +",
+        titreComplets = "Rétrospectives complètes",
+        participeBoucle = "bouclée",
     ),
     SAGAS(
         titre = "Sagas",
         libelleAjouter = "Ajouter une saga",
         placeholderRecherche = "Un nom de saga",
         libelleVide = "Ajoute une saga avec +",
+        titreComplets = "Cycles complets",
+        participeBoucle = "bouclé",
     ),
 }

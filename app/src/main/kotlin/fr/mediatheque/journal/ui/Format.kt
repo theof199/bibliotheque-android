@@ -5,6 +5,7 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import java.util.Locale
 
 private val MONTH_YEAR: DateTimeFormatter = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.FRENCH)
@@ -26,6 +27,25 @@ fun formatDate(iso: String): String = formatLocalDate(LocalDate.parse(iso))
  * chronique et les salles »), en UTC — le jour affiché ne dépend pas du fuseau du téléphone.
  */
 fun formatDateTime(iso: String): String = formatLocalDate(Instant.parse(iso).atZone(ZoneOffset.UTC).toLocalDate())
+
+/**
+ * Le temps écoulé depuis `iso` jusqu'à `aujourdHui`, en mots (Suivis, rétrospectives et cycles,
+ * 25 septembre 2026) : « aujourd’hui », « hier », « il y a 3 jours » (jusqu'à 6), « il y a
+ * 2 semaines » (1 à 4), puis « il y a 5 mois » (au moins 1). `iso` est une date (`2026-09-22`) ou un
+ * instant complet (`2026-09-15T18:22:41.000Z`) : seuls ses dix premiers caractères comptent, le jour
+ * tel que le back l'a écrit, sans conversion de fuseau. Une date à venir se lit « aujourd’hui ».
+ */
+fun formatRelatif(iso: String, aujourdHui: LocalDate): String {
+    val date = LocalDate.parse(iso.take(10))
+    val jours = ChronoUnit.DAYS.between(date, aujourdHui)
+    return when {
+        jours <= 0 -> "aujourd’hui"
+        jours == 1L -> "hier"
+        jours < 7 -> "il y a $jours jours"
+        jours < 35 -> (jours / 7).let { if (it == 1L) "il y a 1 semaine" else "il y a $it semaines" }
+        else -> "il y a ${ChronoUnit.MONTHS.between(date, aujourdHui).coerceAtLeast(1)} mois"
+    }
+}
 
 /** « Hayao Miyazaki, 2001 » — design §3. */
 fun subtitle(director: String?, year: Int?): String =

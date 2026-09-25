@@ -13,10 +13,16 @@ import fr.mediatheque.journal.api.dto.Saga
  * deux formes. `tmdbId` a le même défaut que côté back : deux espaces
  * d'identifiants distincts (personnes, collections), jamais mélangés au delà
  * de cette seule vue.
+ *
+ * `ajouteLe` (Suivis, rétrospectives et cycles, 25 septembre 2026) : le `ajoute_le` ISO du back, qui
+ * trie une entité sans film vu et dit « ajouté le … » sous son nom. Vide pour un résultat de
+ * recherche (`PersonneResult`, `CollectionResult`), qui n'a pas encore été ajouté — il ne sert
+ * qu'à choisir, jamais à être trié ni affiché en carte. Vide par défaut, pour les tests qui ne
+ * parlent pas de tri.
  */
-data class EntiteSuivie(val tmdbId: Int, val nom: String, val imageUrl: String?)
+data class EntiteSuivie(val tmdbId: Int, val nom: String, val imageUrl: String?, val ajouteLe: String = "")
 
-fun Realisateur.versEntite(): EntiteSuivie = EntiteSuivie(tmdb_id, name, profile_url)
-fun PersonneResult.versEntite(): EntiteSuivie = EntiteSuivie(tmdb_id, name, profile_url)
-fun Saga.versEntite(): EntiteSuivie = EntiteSuivie(tmdb_id, name, cover_url)
-fun CollectionResult.versEntite(): EntiteSuivie = EntiteSuivie(tmdb_id, name, cover_url)
+fun Realisateur.versEntite(): EntiteSuivie = EntiteSuivie(tmdb_id, name, profile_url, ajoute_le)
+fun PersonneResult.versEntite(): EntiteSuivie = EntiteSuivie(tmdb_id, name, profile_url, ajouteLe = "")
+fun Saga.versEntite(): EntiteSuivie = EntiteSuivie(tmdb_id, name, cover_url, ajoute_le)
+fun CollectionResult.versEntite(): EntiteSuivie = EntiteSuivie(tmdb_id, name, cover_url, ajouteLe = "")
