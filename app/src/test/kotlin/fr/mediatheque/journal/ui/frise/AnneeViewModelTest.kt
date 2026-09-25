@@ -171,6 +171,82 @@ class AnneeViewModelTest {
         runCurrent()
         assertEquals(2, appels)
         assertEquals(EtatAnnee.EN_PREPARATION, vm.ui.value.etat)
+        // Correctif du 25 septembre 2026 (« le ticket utilise ouvre l'annee ») : `statutVoyage`
+        // doit sortir de `VERROUILLEE` en même temps que `etat` — mutation : ne pas le propager
+        // dans la branche non-verrouillee de `appliquer()` laisserait ce champ figé à
+        // `VERROUILLEE`, et la fiche continuerait d'afficher « Prochainement » (`Cartouche`,
+        // `AnneeScreen.kt`) malgré l'état `EN_PREPARATION` ci-dessus.
+        assertEquals(StatutAnneeVoyage.EN_COURS, vm.ui.value.statutVoyage)
+    }
+
+    // Reproduit le cas constaté sur le téléphone le 25 septembre 2026 : la carte donne un fragment
+    // `verrouillee` pour 1897 (pris avant l'usage du ticket, `Screen.Annee` de `FriseRoutes.kt`),
+    // puis sa propre fiche répond `en_preparation` — sans ce correctif, la fiche restait affichée
+    // « Prochainement » jusqu'au redémarrage de l'appli.
+    @Test
+    fun `relire sort statutVoyage de VERROUILLEE des que la fiche n'est plus verrouillee`() = runTest(dispatcher) {
+        api.onVoyageAnnee = { AnneeVoyageDetailResponse(configure = true, statut = "en_preparation", annee = 1897) }
+        val vm = AnneeViewModel(api, 1897, AnneeVoyage(1897, "verrouillee", visitee = false)) {}
+
+        vm.relire()
+        runCurrent()
+
+        // Mutation : ne pas propager `statutVoyage` dans la branche non-verrouillee de
+        // `appliquer()` (le défaut d'origine) laisserait ce champ à `VERROUILLEE` ici.
+        assertEquals(StatutAnneeVoyage.EN_COURS, vm.ui.value.statutVoyage)
+        assertEquals(EtatAnnee.EN_PREPARATION, vm.ui.value.etat)
+    }
+
+    // `statutVoyageApresReponse` (correctif du 25 septembre 2026, « le ticket utilise ouvre
+    // l'annee ») : une année verrouillée ne peut quitter cet état qu'en devenant l'année en cours —
+    // ce que le back garantit en n'avançant `annee_en_cours` que d'une année à la fois.
+    @Test
+    fun `statutVoyageApresReponse garde le statut connu sans reponse configuree`() {
+        // Mutation : retirer la garde `!configure -> statutConnu` ferait passer ce cas par la
+        // branche de promotion plus bas et rendrait `EN_COURS` à tort, sans savoir si le serveur a
+        // seulement répondu `configure: false`.
+        assertEquals(
+            StatutAnneeVoyage.VERROUILLEE,
+            statutVoyageApresReponse(StatutAnneeVoyage.VERROUILLEE, configure = false, statutReponse = "en_preparation"),
+        )
+    }
+
+    @Test
+    fun `statutVoyageApresReponse verrouille toujours sur un statut verrouille`() {
+        // Mutation : ne verrouiller que si `statutConnu` l'était déjà laisserait `OUVERTE` ci-
+        // dessous inchangé, alors que la fiche vient de dire `verrouillee`.
+        assertEquals(
+            StatutAnneeVoyage.VERROUILLEE,
+            statutVoyageApresReponse(StatutAnneeVoyage.OUVERTE, configure = true, statutReponse = "verrouillee"),
+        )
+        assertEquals(StatutAnneeVoyage.VERROUILLEE, statutVoyageApresReponse(null, configure = true, statutReponse = "verrouillee"))
+    }
+
+    @Test
+    fun `statutVoyageApresReponse promeut une annee verrouillee en cours des qu'elle ne l'est plus`() {
+        // Mutation : retirer cette branche (retourner `statutConnu` sans le promouvoir)
+        // reproduirait le bug du 25 septembre 2026 — une année verrouillée resterait affichée
+        // « Prochainement » même une fois sa fiche prête ou en préparation.
+        assertEquals(
+            StatutAnneeVoyage.EN_COURS,
+            statutVoyageApresReponse(StatutAnneeVoyage.VERROUILLEE, configure = true, statutReponse = "en_preparation"),
+        )
+        assertEquals(
+            StatutAnneeVoyage.EN_COURS,
+            statutVoyageApresReponse(StatutAnneeVoyage.VERROUILLEE, configure = true, statutReponse = "prete"),
+        )
+    }
+
+    @Test
+    fun `statutVoyageApresReponse garde ouverte ou en cours inchange`() {
+        // Mutation : promouvoir systématiquement vers `EN_COURS` dès que la réponse est configurée
+        // et non verrouillée (au lieu de seulement depuis `VERROUILLEE`) ferait échouer la première
+        // assertion, `OUVERTE` devenant `EN_COURS` à tort.
+        assertEquals(StatutAnneeVoyage.OUVERTE, statutVoyageApresReponse(StatutAnneeVoyage.OUVERTE, configure = true, statutReponse = "prete"))
+        assertEquals(
+            StatutAnneeVoyage.EN_COURS,
+            statutVoyageApresReponse(StatutAnneeVoyage.EN_COURS, configure = true, statutReponse = "en_preparation"),
+        )
     }
 
     // Correctif du 25 septembre 2026 (« le verdict de maturité se relit ») : rouvrir une année

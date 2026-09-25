@@ -257,6 +257,33 @@ fun anneeUiInitiale(annee: Int, snapshot: AnneeVoyage?): AnneeUi = AnneeUi(
     profondeur = snapshot?.profondeur ?: 0,
 )
 
+/**
+ * Le statut d'une année au sens de la carte (`StatutAnneeVoyage`), tenu à jour à partir de sa
+ * propre fiche (`GET /me/voyage/annees/{annee}`) — correctif du 25 septembre 2026, « le ticket
+ * utilisé ouvre l'année » : avant lui, `appliquer()` ne touchait `statutVoyage` que dans la branche
+ * `verrouillee`, jamais dans l'autre ; une année verrouillée à l'ouverture de l'écran (initialisée
+ * depuis le fragment de `FriseViewModel`) restait donc affichée « Prochainement » pour toujours,
+ * même après qu'un ticket l'avait ouverte côté back et que `reponse.statut` disait `en_preparation`
+ * ou `prete` — jusqu'au redémarrage de l'appli, seul moment où une instance neuve relisait le bon
+ * fragment.
+ *
+ * Cette fiche ne distingue que « verrouillée » de « pas verrouillée » (`en_preparation`/`prete`),
+ * jamais `ouverte` d'`en_cours` — ce que seule `GET /me/voyage` sait dire. Mais une année ne peut
+ * quitter `VERROUILLEE` qu'en devenant l'année en cours : un ticket avance `annee_en_cours` d'une
+ * année à la fois, jamais de `verrouillee` directement à `ouverte`. Quitter `VERROUILLEE` ici
+ * promeut donc toujours vers `EN_COURS`, jamais `OUVERTE` — correct au moment où le ticket vient de
+ * jouer ; une année **restée** en cours après le ticket suivant se corrige à sa prochaine ouverture,
+ * `relire()` relisant toujours le back (correctif du 25 septembre 2026, « le verdict de maturité se
+ * relit »), par un nouveau fragment de la carte au prochain `Screen.Annee` poussé. Fonction pure,
+ * testée en JVM.
+ */
+fun statutVoyageApresReponse(statutConnu: StatutAnneeVoyage?, configure: Boolean, statutReponse: String?): StatutAnneeVoyage? = when {
+    !configure -> statutConnu
+    statutReponse == "verrouillee" -> StatutAnneeVoyage.VERROUILLEE
+    statutConnu == StatutAnneeVoyage.VERROUILLEE -> StatutAnneeVoyage.EN_COURS
+    else -> statutConnu
+}
+
 class AnneeViewModel(
     private val api: JournalApi,
     private val annee: Int,
@@ -327,7 +354,7 @@ class AnneeViewModel(
         if (reponse.configure && reponse.statut == "verrouillee") {
             _ui.update {
                 it.copy(
-                    statutVoyage = StatutAnneeVoyage.VERROUILLEE,
+                    statutVoyage = statutVoyageApresReponse(it.statutVoyage, reponse.configure, reponse.statut),
                     etat = EtatAnnee.VERROUILLEE,
                     profondeur = reponse.profondeur ?: it.profondeur,
                 )
@@ -348,6 +375,7 @@ class AnneeViewModel(
         }
         _ui.update {
             it.copy(
+                statutVoyage = statutVoyageApresReponse(it.statutVoyage, reponse.configure, reponse.statut),
                 etat = etat,
                 essais = essais,
                 profondeur = reponse.profondeur ?: it.profondeur,
