@@ -219,4 +219,17 @@ class FilmsEtatsTest {
         assertTrue(FiltresFilms(noteMin = 1).actifs)
         assertTrue(FiltresFilms(reactions = setOf("adore")).actifs)
     }
+
+    // Le compte de l'en-tête : les deux chiffres, le total seul, ou rien du tout tant que
+    // `GET /stats` n'a pas répondu. Mutation : afficher « 0 films » à la place de rien, ou oublier le
+    // singulier, casse l'une de ces assertions.
+    @Test
+    fun `le compte de l en-tete`() {
+        assertEquals("87 films · 12 cette année", compteEnTete(87, 12))
+        assertEquals("87 films", compteEnTete(87, null))
+        assertEquals("1 film · 1 cette année", compteEnTete(1, 1))
+        assertEquals("0 film · 0 cette année", compteEnTete(0, 0))
+        assertEquals(null, compteEnTete(null, 12))
+        assertEquals(null, compteEnTete(null, null))
+    }
 }

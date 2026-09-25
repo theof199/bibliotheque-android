@@ -110,3 +110,15 @@ fun libellePuceNote(filtres: FiltresFilms): String {
 /** La puce Réaction : « Réaction », ou « Réaction · 2 » avec deux réactions cochées. */
 fun libellePuceReaction(filtres: FiltresFilms): String =
     if (filtres.reactions.isEmpty()) "Réaction" else "Réaction · ${filtres.reactions.size}"
+
+/**
+ * Le compte à droite de l'en-tête, lu dans `GET /stats` (`ProfileUi`) : « 87 films · 12 cette
+ * année », « 87 films » sans le chiffre de l'année, `null` tant que le total n'est pas là — rien
+ * ne s'affiche alors, jamais un zéro ni « … » (même règle que le profil). « 1 film », « 0 film » :
+ * le français ne met le pluriel qu'à partir de deux.
+ */
+fun compteEnTete(total: Int?, cetteAnnee: Int?): String? {
+    if (total == null) return null
+    val films = if (total >= 2) "$total films" else "$total film"
+    return if (cetteAnnee == null) films else "$films · $cetteAnnee cette année"
+}
