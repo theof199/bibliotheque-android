@@ -159,7 +159,7 @@ fun PorteeEcrans.routeDecennie(screen: Screen.Decennie) {
     DecennieScreen(
         screen.decennie,
         onBack = nav::pop,
-        onOuvrirVu = { nav.push(Screen.Edit(it)) },
+        onOuvrirVu = { nav.push(Screen.FicheEntree(it)) },
         onOuvrirAVoir = { nav.push(Screen.Form(it.toSearchResult())) },
         onOuvrirAnnee = { annee ->
             val groupe = friseUi.annees.firstOrNull { it.annee == annee } ?: AnneeFrise(annee, emptyList(), emptyList())

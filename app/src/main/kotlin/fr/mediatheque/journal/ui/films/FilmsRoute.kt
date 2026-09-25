@@ -37,7 +37,10 @@ fun PorteeEcrans.routeFilms() {
         filtres = filtres,
         compte = profile.ui.collectAsState().value,
         onBack = nav::pop,
-        onOpen = { nav.push(Screen.Edit(it)) },
+        // Le tap ouvre la fiche de l'entrée (« la fiche · trois visages », 25 septembre
+        // 2026) ; le glissement « Corriger » de la ligne va toujours droit au formulaire.
+        onOpen = { nav.push(Screen.FicheEntree(it)) },
+        onCorriger = { nav.push(Screen.Edit(it)) },
         // L'action de l'état vide (point 16 de la revue du 24 septembre 2026) :
         // même recherche que le bouton rond de l'accueil.
         onAdd = { nav.push(Screen.Search) },

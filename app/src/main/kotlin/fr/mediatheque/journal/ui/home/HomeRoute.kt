@@ -51,7 +51,8 @@ fun PorteeEcrans.routeHome() {
         vm = films,
         nav = nav,
         // L'affiche partagée (geste 8) : la grille de l'accueil est un des deux
-        // bouts de la paire vers « la fiche d'entrée » (`Screen.Edit`, `FormRoutes.kt`).
+        // bouts de la paire vers la fiche d'une entrée (`Screen.FicheEntree`,
+        // `FicheRoutes.kt` ; « la fiche · trois visages », 25 septembre 2026).
         sharedTransitionScope = sharedTransitionScope,
         animatedVisibilityScope = animatedVisibilityScope,
         ensuite = friseUi.ensuite,
@@ -68,7 +69,7 @@ fun PorteeEcrans.routeHome() {
         },
         onAdd = { nav.push(Screen.Search) },
         onFilms = { nav.push(Screen.Films) },
-        onOpen = { nav.push(Screen.Edit(it)) },
+        onOpen = { nav.push(Screen.FicheEntree(it)) },
         onOpenEnsuite = { nav.push(Screen.Form(it.toSearchResult())) },
         onOpenEnsuiteRealisateur = { nav.push(Screen.Form(it.formulaire())) },
         onOpenEnsuiteSaga = { nav.push(Screen.Form(it.formulaire())) },

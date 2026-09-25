@@ -72,11 +72,13 @@ fun FilmsScreen(
     compte: ProfileUi,
     onBack: () -> Unit,
     onOpen: (JournalItem) -> Unit,
+    /** Le glissement « Corriger » d'une ligne : droit au formulaire, sans passer par la fiche de l'entrée qu'ouvre `onOpen`. */
+    onCorriger: (JournalItem) -> Unit,
     bottomBar: @Composable () -> Unit,
     /** L'action de l'état vide (point 16 de la revue du 24 septembre 2026) : la même recherche que le bouton rond de l'accueil. */
     onAdd: () -> Unit = {},
     // L'affiche partagée (peaufinage du 23 septembre 2026, geste 8) : « Mes films » est un des
-    // deux bouts de la paire vers « la fiche d'entrée » (`Screen.Edit`, `Root.kt`).
+    // deux bouts de la paire vers la fiche d'une entrée (`Screen.FicheEntree`, `FicheRoutes.kt`).
     sharedTransitionScope: SharedTransitionScope? = null,
     animatedVisibilityScope: AnimatedVisibilityScope? = null,
 ) {
@@ -205,7 +207,7 @@ fun FilmsScreen(
                             onFermer = { if (ligneOuverte == id) ligneOuverte = null },
                             // Une autre ligne ouverte : ce tap la referme, il n'ouvre pas ce film.
                             onClick = { if (ligneOuverte != null) ligneOuverte = null else onOpen(item) },
-                            onCorriger = { onOpen(item) },
+                            onCorriger = { onCorriger(item) },
                             onSupprimer = { aSupprimer = item },
                             // Pas pendant un chargement : une page 1 en vol pourrait ramener la
                             // ligne tout juste supprimée. Ni pendant une autre suppression.

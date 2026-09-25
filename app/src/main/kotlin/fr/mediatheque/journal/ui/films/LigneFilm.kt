@@ -69,8 +69,9 @@ private val LARGEUR_ACTION = 88.dp
  * film (`onClick` n'est appelé que sur une ligne fermée).
  *
  * Accessibilité : les deux actions restent dans l'arbre sémantique (atteignables au lecteur
- * d'écran sans glisser), et toucher la ligne ouvre de toute façon la correction, qui porte son
- * propre « Supprimer » — aucune `customActions` n'est nécessaire.
+ * d'écran sans glisser), et toucher la ligne ouvre la fiche de l'entrée (« la fiche · trois
+ * visages », 25 septembre 2026), d'où « Corriger » mène au formulaire et à son propre
+ * « Supprimer » — aucune `customActions` n'est nécessaire.
  */
 @Composable
 fun LigneFilm(

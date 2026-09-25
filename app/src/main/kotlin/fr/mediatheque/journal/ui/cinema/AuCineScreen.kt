@@ -79,6 +79,8 @@ fun AuCineScreen(
     reperes: ReperesSuivis,
     onOpenSortie: (SearchResult) -> Unit,
     onOpenSeance: (JournalItem) -> Unit,
+    /** Le glissement « Corriger » d'une séance : droit au formulaire, sans passer par la fiche qu'ouvre `onOpenSeance`. */
+    onCorrigerSeance: (JournalItem) -> Unit,
     bottomBar: @Composable () -> Unit,
 ) {
     val ui by vm.ui.collectAsState()
@@ -200,7 +202,7 @@ fun AuCineScreen(
                                 onFermer = { if (ligneOuverte == id) ligneOuverte = null },
                                 // Une autre ligne ouverte : ce tap la referme, il n'ouvre pas la séance.
                                 onClick = { if (ligneOuverte != null) ligneOuverte = null else onOpenSeance(item) },
-                                onCorriger = { onOpenSeance(item) },
+                                onCorriger = { onCorrigerSeance(item) },
                                 onSupprimer = { aSupprimer = item },
                                 // Pas pendant un chargement : une page 1 en vol pourrait ramener la
                                 // ligne tout juste supprimée. Ni pendant une autre suppression.

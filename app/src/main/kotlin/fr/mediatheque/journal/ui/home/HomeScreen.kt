@@ -107,7 +107,7 @@ fun HomeScreen(
     ceSoir: SeancePriseUi? = null,
     onOpenCeSoir: (SeancePriseUi) -> Unit = {},
     // L'affiche partagée (peaufinage du 23 septembre 2026, geste 8) : l'accueil est un des deux
-    // bouts de la paire vers « la fiche d'entrée » (`Screen.Edit`, `Root.kt`).
+    // bouts de la paire vers la fiche d'une entrée (`Screen.FicheEntree`, `FicheRoutes.kt`).
     sharedTransitionScope: SharedTransitionScope? = null,
     animatedVisibilityScope: AnimatedVisibilityScope? = null,
 ) {

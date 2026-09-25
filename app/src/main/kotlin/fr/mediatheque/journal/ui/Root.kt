@@ -32,6 +32,7 @@ import fr.mediatheque.journal.AppContainer
 import fr.mediatheque.journal.reactions.Reactions
 import fr.mediatheque.journal.ui.celebrations.FilmEnregistreCalque
 import fr.mediatheque.journal.ui.cinema.routeCinema
+import fr.mediatheque.journal.ui.fiche.routeFicheEntree
 import fr.mediatheque.journal.ui.films.routeFilms
 import fr.mediatheque.journal.ui.form.CartonViewModel
 import fr.mediatheque.journal.ui.form.routeEdit
@@ -270,9 +271,7 @@ fun Root(container: AppContainer) {
                     Screen.Profile -> portee.routeProfile()
                     Screen.Films -> portee.routeFilms()
                     is Screen.Edit -> portee.routeEdit(screen)
-                    // Personne n'empile encore cette fiche : son écran et sa route arrivent juste
-                    // après le socle (« la fiche · trois visages », 25 septembre 2026).
-                    is Screen.FicheEntree -> Unit
+                    is Screen.FicheEntree -> portee.routeFicheEntree(screen)
                     Screen.SensCritique -> portee.routeSensCritique()
                     Screen.Cinema -> portee.routeCinema()
                     Screen.Frise -> portee.routeFrise()

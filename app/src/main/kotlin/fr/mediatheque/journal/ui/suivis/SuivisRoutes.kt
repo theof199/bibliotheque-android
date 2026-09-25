@@ -21,7 +21,8 @@ fun PorteeEcrans.routeSuivis() {
     LaunchedEffect(Unit) { suivis.refresh(SourceSuivi.REALISATEURS) }
     LaunchedEffect(Unit) { suivis.refresh(SourceSuivi.SAGAS) }
     // Le journal complet se tire ici et pas sur l'accueil : il ne sert qu'à
-    // ouvrir la correction d'un film vu depuis une fiche, et la fiche ne
+    // ouvrir l'entrée d'un film vu depuis une fiche (sa fiche d'entrée depuis
+    // « la fiche · trois visages », 25 septembre 2026), et la fiche ne
     // s'empile que depuis cet écran.
     LaunchedEffect(Unit) { suivis.chargerEntrees() }
     SuivisScreen(
@@ -77,7 +78,7 @@ fun PorteeEcrans.routeFicheSuivi(screen: Screen.FicheSuivi) {
         source = screen.source,
         tmdbId = screen.tmdbId,
         onBack = nav::pop,
-        onOuvrirVu = { nav.push(Screen.Edit(it)) },
+        onOuvrirVu = { nav.push(Screen.FicheEntree(it)) },
         onOuvrirAVoir = { nav.push(Screen.Form(it)) },
         onSupprimer = { suivis.retirer(screen.source, screen.tmdbId); nav.pop() },
         // Le bouton n'est rendu que sur une saga (`FicheSuiviScreen`) : passer le

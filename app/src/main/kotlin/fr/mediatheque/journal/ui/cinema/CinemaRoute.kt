@@ -29,7 +29,10 @@ fun PorteeEcrans.routeCinema() {
         cinema,
         reperes = reperes,
         onOpenSortie = { nav.push(Screen.Form(it)) },
-        onOpenSeance = { nav.push(Screen.Edit(it)) },
+        // Le tap ouvre la fiche de la séance (« la fiche · trois visages », 25 septembre
+        // 2026) ; le glissement « Corriger » de la ligne va toujours droit au formulaire.
+        onOpenSeance = { nav.push(Screen.FicheEntree(it)) },
+        onCorrigerSeance = { nav.push(Screen.Edit(it)) },
         bottomBar = { barreDuBas(Screen.Cinema) },
     )
 }
