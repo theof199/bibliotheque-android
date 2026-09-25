@@ -1,9 +1,12 @@
 package fr.mediatheque.journal.ui.realisateur
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -17,11 +20,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import fr.mediatheque.journal.api.dto.RealisateurCredit
+import fr.mediatheque.journal.ui.theme.IconeTabler
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -39,6 +44,11 @@ import kotlinx.coroutines.launch
  * seul → `onOuvrirRealisateur` directement ; plusieurs → une feuille, un nom par ligne ; aucun →
  * un bandeau, qui s'efface seul après deux secondes (jumeau de `showBriefly`, `Navigation.kt`, sans
  * `SnackbarHostState` : ce composant n'en tient pas un lui-même).
+ *
+ * `chevron` (« la fiche · trois visages », reprise validée du 25 septembre 2026) : sur les fiches
+ * d'un film, un petit `chevron-right` suit le nom et dit, sans un mot de plus, que le nom mène
+ * quelque part. Le tap couvre alors le nom et le chevron ensemble — toucher la flèche ouvre la
+ * même page que toucher le nom. Faux partout ailleurs, où le nom se lit au fil d'une ligne.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,6 +60,7 @@ fun NomRealisateurTouchable(
     style: TextStyle = MaterialTheme.typography.bodyMedium,
     color: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     modifier: Modifier = Modifier,
+    chevron: Boolean = false,
 ) {
     val etats by resolveur.etats.collectAsState()
     val scope = rememberCoroutineScope()
@@ -64,20 +75,23 @@ fun NomRealisateurTouchable(
     val nomAffiche = nomConnu ?: (etat as? EtatRealisateursFilm.Pret)?.realisateurs?.takeIf { it.isNotEmpty() }?.joinToString(" · ") { it.name }
 
     if (!nomAffiche.isNullOrEmpty()) {
-        Text(
-            nomAffiche,
-            style = style,
-            color = color,
-            modifier = modifier.clickable {
-                scope.launch {
-                    when (val resultat = resultatTapRealisateur(resolveur.resoudre(filmTmdbId))) {
-                        is ResultatRealisateur.Un -> onOuvrirRealisateur(resultat.tmdbId)
-                        is ResultatRealisateur.Plusieurs -> plusieurs = resultat.realisateurs
-                        ResultatRealisateur.Aucun -> bandeau = true
-                    }
+        val toucher = modifier.clickable {
+            scope.launch {
+                when (val resultat = resultatTapRealisateur(resolveur.resoudre(filmTmdbId))) {
+                    is ResultatRealisateur.Un -> onOuvrirRealisateur(resultat.tmdbId)
+                    is ResultatRealisateur.Plusieurs -> plusieurs = resultat.realisateurs
+                    ResultatRealisateur.Aucun -> bandeau = true
                 }
-            },
-        )
+            }
+        }
+        if (chevron) {
+            Row(toucher, horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(nomAffiche, style = style, color = color)
+                IconeTabler("chevron-right", null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+            }
+        } else {
+            Text(nomAffiche, style = style, color = color, modifier = toucher)
+        }
     }
 
     if (bandeau) {

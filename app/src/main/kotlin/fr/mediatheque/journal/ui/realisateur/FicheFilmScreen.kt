@@ -98,7 +98,10 @@ fun FicheFilmScreen(
         }
 
         val etatFilm = etatFilmographie(film)
-        val boutons = boutonsFicheFilm(film.type, etatFilm, film.plex_url)
+        // `entreeConnue = false` tant que cette fiche n'a pas son « Corriger » (« la fiche · trois
+        // visages », 25 septembre 2026) : il arrive avec sa reprise sur `EnTeteFiche` et l'entrée
+        // lue dans `SuivisUi.entrees`, la livraison suivante ; d'ici là la pile reste celle d'avant.
+        val boutons = boutonsFicheFilm(film.type, etatFilm, film.plex_url, entreeConnue = false)
 
         Box(Modifier.fillMaxSize().padding(padding)) {
             // Le fond héros (point 10 de la revue du 24 septembre 2026) : `backdrop_url`, dans le
@@ -154,6 +157,8 @@ fun FicheFilmScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     boutons.forEach { bouton ->
                         when (bouton) {
+                            // Jamais rendu tant que `entreeConnue` vaut `false` ci-dessus.
+                            BoutonFicheFilm.CORRIGER -> Unit
                             BoutonFicheFilm.VOIR_SUR_LE_PLEX -> OutlinedButton(
                                 onClick = { ouvrirPlex(contexte, film.plex_url) },
                                 modifier = Modifier.fillMaxWidth(),

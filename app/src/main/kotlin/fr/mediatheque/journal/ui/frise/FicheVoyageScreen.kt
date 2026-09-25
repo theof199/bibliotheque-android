@@ -139,7 +139,10 @@ fun FicheVoyageScreen(
         }
 
         val etat = etatFilmVoyage(film.etat, film.programme?.bobines ?: emptyList())
-        val boutons = boutonsFicheVoyage(etat, film.plexUrl)
+        // `entreeConnue = false` tant que cette fiche n'a pas son « Corriger » (« la fiche · trois
+        // visages », 25 septembre 2026) : il arrive avec sa reprise sur `EnTeteFiche`, la
+        // livraison suivante, et d'ici là la pile reste celle d'avant.
+        val boutons = boutonsFicheVoyage(etat, film.plexUrl, entreeConnue = false)
 
         Box(Modifier.fillMaxSize()) {
             // Le fond héros (geste 4 du brief du 23 septembre 2026 soir) : l'affiche déjà
@@ -264,6 +267,8 @@ fun FicheVoyageScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     boutons.forEach { bouton ->
                         when (bouton) {
+                            // Jamais rendu tant que `entreeConnue` vaut `false` ci-dessus.
+                            BoutonFicheVoyage.CORRIGER -> Unit
                             BoutonFicheVoyage.VOIR_SUR_LE_PLEX -> OutlinedButton(
                                 onClick = { ouvrirPlex(contexte, film.plexUrl) },
                                 modifier = Modifier.fillMaxWidth(),

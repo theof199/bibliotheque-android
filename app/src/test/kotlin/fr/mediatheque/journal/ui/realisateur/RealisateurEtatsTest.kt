@@ -76,7 +76,7 @@ class RealisateurEtatsTest {
     // assertion.
     @Test
     fun `boutonsFicheFilm exclut Je l ai vu pour une serie`() {
-        val boutons = boutonsFicheFilm(type = "tv", etat = "a_demander", plexUrl = "https://plex/x")
+        val boutons = boutonsFicheFilm(type = "tv", etat = "a_demander", plexUrl = "https://plex/x", entreeConnue = false)
         assertEquals(listOf(BoutonFicheFilm.VOIR_SUR_LE_PLEX, BoutonFicheFilm.DEMANDER), boutons)
     }
 
@@ -86,7 +86,7 @@ class RealisateurEtatsTest {
     // cette assertion.
     @Test
     fun `boutonsFicheFilm propose Je l ai vu et son inverse pour un film introuvable`() {
-        val boutons = boutonsFicheFilm(type = "movie", etat = "introuvable", plexUrl = null)
+        val boutons = boutonsFicheFilm(type = "movie", etat = "introuvable", plexUrl = null, entreeConnue = false)
         assertEquals(listOf(BoutonFicheFilm.JE_L_AI_VU, BoutonFicheFilm.RETIRER_INTROUVABLE), boutons)
     }
 
@@ -94,7 +94,39 @@ class RealisateurEtatsTest {
     // des deux malgré `etat == "vu"` casse cette assertion.
     @Test
     fun `boutonsFicheFilm est vide pour un film vu sans lien Plex`() {
-        assertEquals(emptyList<BoutonFicheFilm>(), boutonsFicheFilm(type = "movie", etat = "vu", plexUrl = null))
+        assertEquals(emptyList<BoutonFicheFilm>(), boutonsFicheFilm(type = "movie", etat = "vu", plexUrl = null, entreeConnue = false))
+    }
+
+    // « Corriger » (« la fiche · trois visages », 25 septembre 2026) prend la tête de la pile d'un
+    // film vu dont l'entrée est connue. Mutation : l'ajouter après « Voir sur le Plex » casse
+    // l'ordre attendu.
+    @Test
+    fun `boutonsFicheFilm met Corriger en tete sur un film vu dont l entree est connue`() {
+        val boutons = boutonsFicheFilm(type = "movie", etat = "vu", plexUrl = "https://plex/x", entreeConnue = true)
+        assertEquals(listOf(BoutonFicheFilm.CORRIGER, BoutonFicheFilm.VOIR_SUR_LE_PLEX), boutons)
+    }
+
+    // Mutation : ignorer `entreeConnue` ferait sortir un « Corriger » qui n'aurait rien à ouvrir.
+    @Test
+    fun `boutonsFicheFilm ne propose pas Corriger sans entree connue`() {
+        val boutons = boutonsFicheFilm(type = "movie", etat = "vu", plexUrl = null, entreeConnue = false)
+        assertEquals(false, boutons.contains(BoutonFicheFilm.CORRIGER))
+    }
+
+    // Jamais avec « Je l'ai vu ». Mutation : ignorer `etat` mettrait les deux boutons corail
+    // l'un sur l'autre.
+    @Test
+    fun `boutonsFicheFilm ne propose pas Corriger sur un film pas vu`() {
+        val boutons = boutonsFicheFilm(type = "movie", etat = "sur_le_plex", plexUrl = null, entreeConnue = true)
+        assertEquals(false, boutons.contains(BoutonFicheFilm.CORRIGER))
+    }
+
+    // Une série n'a pas de formulaire, donc rien à corriger. Mutation : retirer `type != "tv"` de
+    // la condition ferait apparaître « Corriger » sur une série.
+    @Test
+    fun `boutonsFicheFilm ne propose pas Corriger sur une serie`() {
+        val boutons = boutonsFicheFilm(type = "tv", etat = "vu", plexUrl = null, entreeConnue = true)
+        assertEquals(false, boutons.contains(BoutonFicheFilm.CORRIGER))
     }
 
     // Le résolveur : un seul crédit mène directement à sa page. Mutation : rendre `Plusieurs` ou

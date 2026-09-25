@@ -36,9 +36,9 @@ class FicheVoyageEtatsTest {
     // Les six boutons, un par cas qui les distingue.
     @Test
     fun `boutonsFicheVoyage montre Voir sur le Plex des qu'un lien existe, quel que soit l'etat`() {
-        assertEquals(listOf(BoutonFicheVoyage.VOIR_SUR_LE_PLEX, BoutonFicheVoyage.METTRE_SUR_LE_PODIUM), boutonsFicheVoyage("vu", "https://app.plex.tv/x"))
-        assertEquals(true, boutonsFicheVoyage("a_demander", "https://app.plex.tv/x").contains(BoutonFicheVoyage.VOIR_SUR_LE_PLEX))
-        assertEquals(false, boutonsFicheVoyage("a_demander", null).contains(BoutonFicheVoyage.VOIR_SUR_LE_PLEX))
+        assertEquals(listOf(BoutonFicheVoyage.VOIR_SUR_LE_PLEX, BoutonFicheVoyage.METTRE_SUR_LE_PODIUM), boutonsFicheVoyage("vu", "https://app.plex.tv/x", entreeConnue = false))
+        assertEquals(true, boutonsFicheVoyage("a_demander", "https://app.plex.tv/x", entreeConnue = false).contains(BoutonFicheVoyage.VOIR_SUR_LE_PLEX))
+        assertEquals(false, boutonsFicheVoyage("a_demander", null, entreeConnue = false).contains(BoutonFicheVoyage.VOIR_SUR_LE_PLEX))
     }
 
     // « Mettre sur le podium » (décision 3 du brief du 21 septembre 2026) n'apparaît que sur un
@@ -46,42 +46,66 @@ class FicheVoyageEtatsTest {
     // proposerait le podium pour un film qu'on n'a pas encore vu.
     @Test
     fun `boutonsFicheVoyage ne propose Mettre sur le podium que sur un film vu`() {
-        assertEquals(true, boutonsFicheVoyage("vu", null).contains(BoutonFicheVoyage.METTRE_SUR_LE_PODIUM))
-        assertEquals(false, boutonsFicheVoyage("a_demander", null).contains(BoutonFicheVoyage.METTRE_SUR_LE_PODIUM))
-        assertEquals(false, boutonsFicheVoyage("sur_le_plex", null).contains(BoutonFicheVoyage.METTRE_SUR_LE_PODIUM))
-        assertEquals(false, boutonsFicheVoyage("introuvable", null).contains(BoutonFicheVoyage.METTRE_SUR_LE_PODIUM))
+        assertEquals(true, boutonsFicheVoyage("vu", null, entreeConnue = false).contains(BoutonFicheVoyage.METTRE_SUR_LE_PODIUM))
+        assertEquals(false, boutonsFicheVoyage("a_demander", null, entreeConnue = false).contains(BoutonFicheVoyage.METTRE_SUR_LE_PODIUM))
+        assertEquals(false, boutonsFicheVoyage("sur_le_plex", null, entreeConnue = false).contains(BoutonFicheVoyage.METTRE_SUR_LE_PODIUM))
+        assertEquals(false, boutonsFicheVoyage("introuvable", null, entreeConnue = false).contains(BoutonFicheVoyage.METTRE_SUR_LE_PODIUM))
     }
 
     @Test
     fun `boutonsFicheVoyage cache Je l'ai vu une fois le film vu, seul cas ou il disparait`() {
-        assertEquals(false, boutonsFicheVoyage("vu", null).contains(BoutonFicheVoyage.JE_L_AI_VU))
-        assertEquals(true, boutonsFicheVoyage("sur_le_plex", null).contains(BoutonFicheVoyage.JE_L_AI_VU))
-        assertEquals(true, boutonsFicheVoyage("a_demander", null).contains(BoutonFicheVoyage.JE_L_AI_VU))
-        assertEquals(true, boutonsFicheVoyage("introuvable", null).contains(BoutonFicheVoyage.JE_L_AI_VU))
+        assertEquals(false, boutonsFicheVoyage("vu", null, entreeConnue = false).contains(BoutonFicheVoyage.JE_L_AI_VU))
+        assertEquals(true, boutonsFicheVoyage("sur_le_plex", null, entreeConnue = false).contains(BoutonFicheVoyage.JE_L_AI_VU))
+        assertEquals(true, boutonsFicheVoyage("a_demander", null, entreeConnue = false).contains(BoutonFicheVoyage.JE_L_AI_VU))
+        assertEquals(true, boutonsFicheVoyage("introuvable", null, entreeConnue = false).contains(BoutonFicheVoyage.JE_L_AI_VU))
     }
 
     // Mutation : proposer « Demander » sur `demande` (déjà fait) redemanderait pour rien à Seerr.
     @Test
     fun `boutonsFicheVoyage ne propose Demander que sur a_demander, jamais sur demande`() {
-        assertEquals(true, boutonsFicheVoyage("a_demander", null).contains(BoutonFicheVoyage.DEMANDER))
-        assertEquals(false, boutonsFicheVoyage("demande", null).contains(BoutonFicheVoyage.DEMANDER))
-        assertEquals(false, boutonsFicheVoyage("sur_le_plex", null).contains(BoutonFicheVoyage.DEMANDER))
+        assertEquals(true, boutonsFicheVoyage("a_demander", null, entreeConnue = false).contains(BoutonFicheVoyage.DEMANDER))
+        assertEquals(false, boutonsFicheVoyage("demande", null, entreeConnue = false).contains(BoutonFicheVoyage.DEMANDER))
+        assertEquals(false, boutonsFicheVoyage("sur_le_plex", null, entreeConnue = false).contains(BoutonFicheVoyage.DEMANDER))
     }
 
     // Introuvable et son inverse sont mutuellement exclusifs, et aucun des deux ne sort sur un vu.
     @Test
     fun `boutonsFicheVoyage bascule entre marquer et retirer introuvable, jamais les deux`() {
-        val surIntrouvable = boutonsFicheVoyage("introuvable", null)
+        val surIntrouvable = boutonsFicheVoyage("introuvable", null, entreeConnue = false)
         assertEquals(true, surIntrouvable.contains(BoutonFicheVoyage.RETIRER_INTROUVABLE))
         assertEquals(false, surIntrouvable.contains(BoutonFicheVoyage.MARQUER_INTROUVABLE))
 
-        val surADemander = boutonsFicheVoyage("a_demander", null)
+        val surADemander = boutonsFicheVoyage("a_demander", null, entreeConnue = false)
         assertEquals(true, surADemander.contains(BoutonFicheVoyage.MARQUER_INTROUVABLE))
         assertEquals(false, surADemander.contains(BoutonFicheVoyage.RETIRER_INTROUVABLE))
 
-        val surVu = boutonsFicheVoyage("vu", null)
+        val surVu = boutonsFicheVoyage("vu", null, entreeConnue = false)
         assertEquals(false, surVu.contains(BoutonFicheVoyage.MARQUER_INTROUVABLE))
         assertEquals(false, surVu.contains(BoutonFicheVoyage.RETIRER_INTROUVABLE))
+    }
+
+    // « Corriger » (« la fiche · trois visages », 25 septembre 2026) prend la tête de la pile d'un
+    // film vu dont l'entrée est connue. Mutation : l'ajouter après « Voir sur le Plex » casse
+    // l'ordre attendu.
+    @Test
+    fun `boutonsFicheVoyage met Corriger en tete sur un film vu dont l'entree est connue`() {
+        assertEquals(
+            listOf(BoutonFicheVoyage.CORRIGER, BoutonFicheVoyage.VOIR_SUR_LE_PLEX, BoutonFicheVoyage.METTRE_SUR_LE_PODIUM),
+            boutonsFicheVoyage("vu", "https://app.plex.tv/x", entreeConnue = true),
+        )
+    }
+
+    // Mutation : ignorer `entreeConnue` ferait sortir un « Corriger » qui n'aurait rien à ouvrir.
+    @Test
+    fun `boutonsFicheVoyage ne propose pas Corriger sans entree connue`() {
+        assertEquals(false, boutonsFicheVoyage("vu", null, entreeConnue = false).contains(BoutonFicheVoyage.CORRIGER))
+    }
+
+    // Jamais avec « Je l'ai vu » : un film pas vu n'a rien à corriger. Mutation : ignorer `etat`
+    // mettrait les deux boutons corail l'un sur l'autre.
+    @Test
+    fun `boutonsFicheVoyage ne propose pas Corriger sur un film pas vu`() {
+        assertEquals(false, boutonsFicheVoyage("sur_le_plex", null, entreeConnue = true).contains(BoutonFicheVoyage.CORRIGER))
     }
 
     // Le lien Plex choisi : `plex://` avant le web, rien si nul. Mutation : inverser les deux

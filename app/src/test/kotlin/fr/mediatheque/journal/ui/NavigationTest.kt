@@ -92,19 +92,20 @@ class NavigationTest {
         assertEquals("un push vers un autre ecran ne doit rien incrementer", secondeVisite, apresPushForm)
     }
 
-    // `bottomBarTab()` fixe la matrice des quinze écrans pour la barre de navigation du bas
+    // `bottomBarTab()` fixe la matrice des dix-huit écrans pour la barre de navigation du bas
     // (décision du propriétaire du 14 septembre 2026, troisième entrée « Au ciné » ajoutée le
     // même jour ; quatrième entrée « Frise » et cinquième « Réalisateurs » le 15 septembre
     // 2026, renommée « Suivis » le même jour quand les sagas l'ont rejointe) : visible sur
     // l'accueil, la Frise, « Suivis », « Au ciné », « Mes films » et le profil — « Mes films »
     // affichant « Profil » sélectionnée, puisqu'elle ne s'empile que depuis `Screen.Profile`
     // dans `Root.kt`, jamais depuis l'accueil — cachée sur la recherche, le formulaire (création
-    // ou correction), l'écran SensCritique, le détail d'une année de la Frise, la recherche
+    // ou correction), la fiche d'une entrée (« la fiche · trois visages », 25 septembre 2026),
+    // l'écran SensCritique, le détail d'une année de la Frise, la recherche
     // d'une entité suivie et sa fiche. Mutation : faire retourner `BottomTab.Home` pour
     // `Screen.Films` casse l'assertion sur `visibles` ; rendre non nul le résultat pour l'un des
     // écrans cachés, ou nul pour l'un des visibles, casse la boucle correspondante.
     @Test
-    fun `bottomBarTab fixe la visibilite et la selection des quinze ecrans`() {
+    fun `bottomBarTab fixe la visibilite et la selection des dix-huit ecrans`() {
         val visibles = mapOf(
             Screen.Home to BottomTab.Home,
             Screen.Frise to BottomTab.Frise,
@@ -126,6 +127,7 @@ class NavigationTest {
             Screen.Search,
             Screen.Form(exemple),
             Screen.Edit(itemExemple),
+            Screen.FicheEntree(itemExemple),
             Screen.SensCritique,
             Screen.Annee(anneeExemple),
             Screen.ChercherSuivi,

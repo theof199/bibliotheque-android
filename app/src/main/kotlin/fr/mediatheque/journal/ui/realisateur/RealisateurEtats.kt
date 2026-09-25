@@ -60,15 +60,20 @@ fun etatFilmographie(film: FilmDeFilmographie): String = when {
     else -> "a_demander"
 }
 
-/** Les cinq boutons possibles de la fiche simple d'un film (décision 2 du brief). */
-enum class BoutonFicheFilm { VOIR_SUR_LE_PLEX, JE_L_AI_VU, DEMANDER, MARQUER_INTROUVABLE, RETIRER_INTROUVABLE }
+/** Les six boutons possibles de la fiche simple d'un film (décision 2 du brief ; « Corriger » avec « la fiche · trois visages », 25 septembre 2026). */
+enum class BoutonFicheFilm { CORRIGER, VOIR_SUR_LE_PLEX, JE_L_AI_VU, DEMANDER, MARQUER_INTROUVABLE, RETIRER_INTROUVABLE }
 
 /**
  * Les boutons à montrer, selon l'état du film, la présence d'un lien Plex, et son type (décision
  * 2 du brief : une série n'a ni « Je l'ai vu » ni formulaire, et garde seulement Plex et Sir — pas
  * de marque « introuvable » sur cette fiche-ci pour elle non plus).
+ *
+ * « Corriger » (« la fiche · trois visages », 25 septembre 2026) prend la tête de la pile sur un
+ * film vu dont l'entrée du journal est connue (`entreeConnue`) — à la place de « Je l'ai vu », jamais
+ * avec lui. Une série n'en a pas plus que de formulaire : le journal ne connaît que des films.
  */
-fun boutonsFicheFilm(type: String, etat: String, plexUrl: String?): List<BoutonFicheFilm> = buildList {
+fun boutonsFicheFilm(type: String, etat: String, plexUrl: String?, entreeConnue: Boolean): List<BoutonFicheFilm> = buildList {
+    if (type != "tv" && etat == "vu" && entreeConnue) add(BoutonFicheFilm.CORRIGER)
     if (plexUrl != null) add(BoutonFicheFilm.VOIR_SUR_LE_PLEX)
     if (type != "tv") {
         if (etat != "vu") add(BoutonFicheFilm.JE_L_AI_VU)

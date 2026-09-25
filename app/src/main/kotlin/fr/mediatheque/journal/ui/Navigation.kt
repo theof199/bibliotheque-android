@@ -60,7 +60,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.withTimeoutOrNull
 import java.time.LocalDate
 
-/** Les vingt écrans. Un écran qui a besoin d'une donnée la porte. */
+/** Les vingt et un écrans. Un écran qui a besoin d'une donnée la porte. */
 sealed interface Screen {
     data object Home : Screen
     data object Search : Screen
@@ -74,6 +74,16 @@ sealed interface Screen {
     data object Profile : Screen
     data object Films : Screen
     data class Edit(val item: JournalItem) : Screen
+
+    /**
+     * La fiche d'une entrée du journal (« la fiche · trois visages », reprise validée du
+     * 25 septembre 2026) : ouverte au tap sur une entrée depuis les cinq endroits qui en montrent
+     * — Mes films, la grille de l'accueil, les séances d'« Au ciné », la fiche d'une saga et le
+     * rayon d'une décennie. Porte l'entrée déjà chargée, comme `Screen.Edit` : la fiche ne
+     * recharge rien. La correction, elle, reste `Screen.Edit` — empilée depuis le « Corriger » de
+     * cette fiche, ou directement par le glissement « Corriger » d'une ligne (`LigneFilm`).
+     */
+    data class FicheEntree(val item: JournalItem) : Screen
     /** La connexion SensCritique, depuis le profil (brief du 14 septembre 2026). */
     data object SensCritique : Screen
     /** « Au ciné » : mes séances et les sorties en salle (brief du 14 septembre 2026). */
@@ -178,7 +188,7 @@ enum class BottomTab { Home, Frise, Suivis, Cinema, Profile }
 /**
  * Décide, pour un écran donné, si la barre du bas est visible et laquelle de ses entrées est
  * sélectionnée : `null` la cache. Fonction pure, sans dépendance à Compose, testée en JVM
- * (`NavigationTest.kt`) — c'est elle, et elle seule, qui fixe la matrice des dix-sept écrans, plutôt
+ * (`NavigationTest.kt`) — c'est elle, et elle seule, qui fixe la matrice des vingt et un écrans, plutôt
  * que de la reposer à chaque site d'appel.
  *
  * « Mes films » affiche « Profil » sélectionnée, pas « Accueil » : dans `ProfileRoutes.kt`, cet écran ne
@@ -193,7 +203,7 @@ fun Screen.bottomBarTab(): BottomTab? = when (this) {
     Screen.Suivis -> BottomTab.Suivis
     Screen.Cinema -> BottomTab.Cinema
     Screen.Profile, Screen.Films -> BottomTab.Profile
-    Screen.Search, is Screen.Form, is Screen.Edit, Screen.SensCritique, is Screen.Annee, is Screen.Decennie,
+    Screen.Search, is Screen.Form, is Screen.Edit, is Screen.FicheEntree, Screen.SensCritique, is Screen.Annee, is Screen.Decennie,
     is Screen.FicheVoyage, Screen.ChercherSuivi, is Screen.FicheSuivi, is Screen.ChoisirFilmDeSaga, Screen.RapportImport,
     is Screen.Generique, is Screen.Realisateur, is Screen.FicheFilm,
     -> null
@@ -518,7 +528,7 @@ fun rememberNavigator(): Navigator = remember { Navigator() }
  * bas dans la pile, empilé deux fois, partagerait son défilement avec lui-même).
  *
  * Le nom de la classe et `hashCode()`, pas `toString()` (relecture du 23 septembre 2026) :
- * `toString()` d'un `Screen.Annee` ou d'un `Screen.Edit` embarque l'objet entier, listes de films
+ * `toString()` d'un `Screen.Annee`, d'un `Screen.Edit` ou d'un `Screen.FicheEntree` embarque l'objet entier, listes de films
  * comprises — une clé de plusieurs Ko dans le `SaveableStateHolder` et dans le Bundle d'instance.
  * `hashCode()` d'une `data class` reste stable pour un même contenu, courte, et distingue déjà
  * deux écrans différents dans l'immense majorité des cas.

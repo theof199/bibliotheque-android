@@ -16,8 +16,12 @@ package fr.mediatheque.journal.ui.frise
 fun etatFilmVoyage(etatPropre: String, bobines: List<BobineUi>): String =
     if (bobines.isEmpty()) etatPropre else if (bobines.all { it.etat == "vu" }) "vu" else etatPropre
 
-/** Les six boutons possibles de la fiche d'un film (spec du 19 septembre 2026, §3 ; « Mettre sur le podium » ajouté le 21 septembre 2026). */
-enum class BoutonFicheVoyage { VOIR_SUR_LE_PLEX, JE_L_AI_VU, DEMANDER, MARQUER_INTROUVABLE, RETIRER_INTROUVABLE, METTRE_SUR_LE_PODIUM }
+/**
+ * Les sept boutons possibles de la fiche d'un film (spec du 19 septembre 2026, §3 ; « Mettre sur le
+ * podium » ajouté le 21 septembre 2026 ; « Corriger » avec « la fiche · trois visages », 25
+ * septembre 2026).
+ */
+enum class BoutonFicheVoyage { CORRIGER, VOIR_SUR_LE_PLEX, JE_L_AI_VU, DEMANDER, MARQUER_INTROUVABLE, RETIRER_INTROUVABLE, METTRE_SUR_LE_PODIUM }
 
 /**
  * Les boutons à montrer, selon l'état du film et la présence d'un lien Plex :
@@ -28,9 +32,14 @@ enum class BoutonFicheVoyage { VOIR_SUR_LE_PLEX, JE_L_AI_VU, DEMANDER, MARQUER_I
  * - « Introuvable » et son inverse sont mutuellement exclusifs, et aucun des deux ne sort sur un
  *   film déjà vu ;
  * - « Mettre sur le podium » (décision 3 du brief du 21 septembre 2026) n'apparaît que sur un film
- *   (ou un programme) vu — `etat` porte déjà le calcul programme-aware d'`etatFilmVoyage`.
+ *   (ou un programme) vu — `etat` porte déjà le calcul programme-aware d'`etatFilmVoyage` ;
+ * - « Corriger » (« la fiche · trois visages », 25 septembre 2026) prend la tête de la pile sur un
+ *   film vu dont l'entrée du journal est connue (`entreeConnue`, sur un programme : l'entrée du
+ *   long) — la place qu'occupe « Je l'ai vu » tant que le film n'est pas vu, jamais les deux
+ *   ensemble. Sans entrée connue, rien à corriger : le bouton ne sort pas.
  */
-fun boutonsFicheVoyage(etat: String, plexUrl: String?): List<BoutonFicheVoyage> = buildList {
+fun boutonsFicheVoyage(etat: String, plexUrl: String?, entreeConnue: Boolean): List<BoutonFicheVoyage> = buildList {
+    if (etat == "vu" && entreeConnue) add(BoutonFicheVoyage.CORRIGER)
     if (plexUrl != null) add(BoutonFicheVoyage.VOIR_SUR_LE_PLEX)
     if (etat != "vu") add(BoutonFicheVoyage.JE_L_AI_VU)
     if (etat == "a_demander") add(BoutonFicheVoyage.DEMANDER)

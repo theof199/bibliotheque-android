@@ -270,6 +270,9 @@ fun Root(container: AppContainer) {
                     Screen.Profile -> portee.routeProfile()
                     Screen.Films -> portee.routeFilms()
                     is Screen.Edit -> portee.routeEdit(screen)
+                    // Personne n'empile encore cette fiche : son écran et sa route arrivent juste
+                    // après le socle (« la fiche · trois visages », 25 septembre 2026).
+                    is Screen.FicheEntree -> Unit
                     Screen.SensCritique -> portee.routeSensCritique()
                     Screen.Cinema -> portee.routeCinema()
                     Screen.Frise -> portee.routeFrise()
