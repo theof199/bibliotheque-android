@@ -1,8 +1,8 @@
 package fr.mediatheque.journal.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -28,6 +28,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -206,7 +207,10 @@ fun Screen.bottomBarTab(): BottomTab? = when (this) {
  * sans sa marge). L'enseigne ouverte passe en or, icône et libellé, son libellé en 600 ; les autres
  * restent en `onSurfaceVariant`, 500. Pas de pilule : une lampe (`Lampe`) posée sur le rail
  * au-dessus de l'enseigne ouverte, qui glisse vers la nouvelle au changement d'onglet et saute
- * quand le téléphone a coupé les animations (`animationsReduites`, `Mouvement.kt`).
+ * quand le téléphone a coupé les animations (`animationsReduites`, `Mouvement.kt`). Sa position,
+ * `lampe`, vient d'au-dessus (`PorteeEcrans.lampeBarre`, hoistée dans `Root.kt`) : c'est la
+ * colonne de l'enseigne allumée, en `Float` (0 pour l'accueil … 4 pour le profil, le rang de
+ * `BottomTab`), et c'est cette barre-ci qui l'anime vers son onglet.
  *
  * Une rangée maison plutôt que les `NavigationBarItem` de Material : leur pilule ne se retire pas
  * proprement, et la lampe a besoin de la position de chaque enseigne — cinq colonnes égales, la
@@ -235,8 +239,28 @@ fun JournalBottomBar(
     onSuivis: () -> Unit,
     onCinema: () -> Unit,
     onProfile: () -> Unit,
+    lampe: Animatable<Float, AnimationVector1D>,
 ) {
     val selected = current.bottomBarTab()
+    // La barre du bas · les cinq enseignes (25 septembre 2026) : chaque écran compose sa propre
+    // barre dans l'`AnimatedContent` de `Root.kt`, si bien qu'au changement d'onglet c'est une
+    // barre neuve qui entre ; une valeur animée locale (`animateDpAsState`, le premier jet) y
+    // naissait déjà à sa cible, et la lampe ne glissait jamais. La valeur vit donc au-dessus de
+    // l'`AnimatedContent`, partagée : la barre qui entre l'anime depuis la colonne de celle qui
+    // sort, et les deux la lisent pendant la transition — la lampe glisse sous le fondu. Seule la
+    // barre qui entre relance l'effet : celle qui sort garde son `selected`, sa clé ne change pas.
+    // Un nouvel `animateTo` interrompt celui en cours (changement d'onglet en pleine glissade) et
+    // repart de la position atteinte.
+    if (selected != null) {
+        LaunchedEffect(selected) {
+            val cible = selected.ordinal.toFloat()
+            if (animationsReduites()) {
+                lampe.snapTo(cible)
+            } else {
+                lampe.animateTo(cible, tween(durationMillis = 250, easing = FastOutSlowInEasing))
+            }
+        }
+    }
     // `surfaceContainer`, c'est la couleur de `NavigationBarDefaults.containerColor` (material3
     // 1.4.0 : `NavigationBarTokens.ContainerColor`) : la barre garde son fond, nommé ici en clair
     // maintenant qu'elle ne passe plus par les composants de Material.
@@ -290,7 +314,7 @@ fun JournalBottomBar(
             // `pointerInput`, elle laisse passer les touchers vers l'enseigne en dessous. L'ordre
             // de `BottomTab` est celui de la rangée : son rang est la colonne de l'enseigne.
             if (selected != null) {
-                Lampe(index = selected.ordinal, largeurBarre = maxWidth)
+                Lampe(lampe = lampe, largeurBarre = maxWidth)
             }
         }
     }
@@ -337,24 +361,19 @@ private val RAYON_LUEUR_LAMPE = 22.dp
 /**
  * La lampe de l'enseigne ouverte : un trait 28 × 2 dp or aux bouts ronds, posé sur le rail, avec
  * son halo (ombre 10 dp `secondary` 45 %) et une lueur douce qui tombe vers l'enseigne (dégradé
- * radial `secondary` 22 % → transparent, sur 44 × 26 dp). Elle glisse en 250 ms, courbe standard,
- * vers la colonne `index` ; elle saute quand les animations sont réduites.
+ * radial `secondary` 22 % → transparent, sur 44 × 26 dp). Elle se pose sur la colonne que porte
+ * `lampe` (un `Float` : entre deux enseignes pendant la glissade) ; c'est `JournalBottomBar` qui
+ * l'anime, en 250 ms, courbe standard, ou la fait sauter quand les animations sont réduites.
  *
  * Le trait reste juste sous le bord haut plutôt qu'à cheval sur le rail : la `Surface` de la barre
  * découpe tout ce qui dépasse au-dessus d'elle, la moitié haute du trait et de son halo y
  * disparaîtraient. Le rail (1 dp) passe sous le trait (2 dp), qui le recouvre.
  */
 @Composable
-private fun Lampe(index: Int, largeurBarre: Dp) {
+private fun Lampe(lampe: Animatable<Float, AnimationVector1D>, largeurBarre: Dp) {
     val or = MaterialTheme.colorScheme.secondary
-    val reduites = remember { animationsReduites() }
     val largeurEnseigne = largeurBarre / 5
-    val cible = largeurEnseigne * index + (largeurEnseigne - LARGEUR_TRAIT_LAMPE) / 2
-    val x by animateDpAsState(
-        targetValue = cible,
-        animationSpec = if (reduites) snap() else tween(durationMillis = 250, easing = FastOutSlowInEasing),
-        label = "lampe",
-    )
+    val x = largeurEnseigne * lampe.value + (largeurEnseigne - LARGEUR_TRAIT_LAMPE) / 2
     // La lueur est plus large que le trait : sa boîte recule de la moitié de l'écart pour que les
     // deux restent centrés l'un sur l'autre.
     Box(

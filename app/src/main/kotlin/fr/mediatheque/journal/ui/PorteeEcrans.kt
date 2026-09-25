@@ -3,6 +3,8 @@ package fr.mediatheque.journal.ui
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
@@ -52,6 +54,13 @@ class PorteeEcrans(
      */
     val reactionsFavorites: List<String>,
     anneeAVerifierVerdictState: MutableState<Int?>,
+    /**
+     * La lampe de la barre du bas (la barre du bas · les cinq enseignes, 25 septembre 2026) : la
+     * colonne de l'enseigne allumée, hoistée dans `Root.kt` hors de l'`AnimatedContent` pour que
+     * la barre de l'écran qui sort et celle de l'écran qui entre lisent la même valeur — sans quoi
+     * la barre neuve naîtrait avec sa lampe déjà en place (`JournalBottomBar`, `Navigation.kt`).
+     */
+    val lampeBarre: Animatable<Float, AnimationVector1D>,
     val sharedTransitionScope: SharedTransitionScope,
     val animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
@@ -82,5 +91,6 @@ fun PorteeEcrans.barreDuBas(screen: Screen, onProfile: () -> Unit = { nav.push(S
         onSuivis = { nav.push(Screen.Suivis) },
         onCinema = { nav.push(Screen.Cinema) },
         onProfile = onProfile,
+        lampe = lampeBarre,
     )
 }

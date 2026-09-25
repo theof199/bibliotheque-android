@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -201,6 +202,10 @@ fun Root(container: AppContainer) {
             val reactionsFavorites = remember(friseUiPourReactions.annees) {
                 Reactions.reactionsFavorites(friseUiPourReactions.annees.flatMap { it.vus }.flatMap { it.carnet.reactions })
             }
+            // La lampe de la barre du bas (la barre du bas · les cinq enseignes, 25 septembre 2026),
+            // partagée par la barre de l'écran qui sort et celle qui entre (`PorteeEcrans.lampeBarre`) ;
+            // 0 : l'accueil, le fond de la pile.
+            val lampeBarre = remember { Animatable(0f) }
             // Le défilement survit au retour (peaufinage du 23 septembre 2026) : `stateHolder`,
             // hoisté ici comme `nav` plus haut, garde l'état sauvegardable (`rememberLazyListState`
             // et consorts) de chaque entrée de la pile pendant qu'elle est disposée par
@@ -254,7 +259,7 @@ fun Root(container: AppContainer) {
                 val portee = PorteeEcrans(
                     container, nav, session, s.user, search, senscritique, frise, suivis,
                     realisateurResolveur, letterboxd, reactionsFavorites, anneeAVerifierVerdictState,
-                    sharedTransitionScope, this,
+                    lampeBarre, sharedTransitionScope, this,
                 )
                 val screen = pile.last()
                 stateHolder.SaveableStateProvider(saveableKey(pile.lastIndex, screen)) {
