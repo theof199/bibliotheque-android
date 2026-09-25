@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -48,27 +49,28 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.PlexFilm
+import fr.mediatheque.journal.ui.AfficheVitrine
 import fr.mediatheque.journal.ui.Cover
 import fr.mediatheque.journal.ui.EntreeEnCascade
 import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.Navigator
 import fr.mediatheque.journal.ui.rememberPorteCascade
 import fr.mediatheque.journal.ui.afficheVolante
-import fr.mediatheque.journal.ui.voler
+import fr.mediatheque.journal.ui.lisereOr
 import fr.mediatheque.journal.ui.films.FilmsViewModel
 import fr.mediatheque.journal.ui.frise.SeancePriseUi
-import fr.mediatheque.journal.ui.frise.texteCeSoir
+import fr.mediatheque.journal.ui.profile.ProfileUi
 import fr.mediatheque.journal.ui.suivis.EnCours
 import fr.mediatheque.journal.ui.suivis.titreEtAnnee
 import fr.mediatheque.journal.ui.showBriefly
 import fr.mediatheque.journal.ui.theme.BobineIndicateur
+import fr.mediatheque.journal.ui.theme.FiletOr
 import fr.mediatheque.journal.ui.theme.IconeTabler
-import fr.mediatheque.journal.ui.theme.Perforations
+import java.time.LocalDate
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 /**
@@ -83,6 +85,14 @@ import kotlinx.coroutines.flow.distinctUntilChanged
  * une zone à elle, sous un bloc fixe (en-tête, cartes « Ensuite » empilées) qui ne bougeait jamais.
  * « Ajouter un film » devient un bouton rond flottant du `Scaffold` plutôt qu'un enfant du
  * `Column` : il n'a donc plus besoin d'être hors du flux de défilement pour rester visible.
+ *
+ * « Accueil · la porte d'entrée » (planche de Léon validée le 25 septembre 2026) : un fronton fixe
+ * — le jour en toutes lettres et le compte de l'année, puis le filet or — remplace le titre
+ * « Journal » et ses perforations qui défilaient avec la grille (la pellicule reste au Voyage) ;
+ * « Ce soir » devient une carte (`CarteCeSoir`) ; la grille passe de trois colonnes de jaquettes
+ * cadrées à deux colonnes d'affiches sous vitre (`AfficheVitrine`) ; le journal vide montre une
+ * vitrine à remplir (`VitrineVide`) au lieu d'une phrase, et le bouton rond se cache alors — un
+ * seul « Ajouter un film » à l'écran.
  */
 @OptIn(ExperimentalSharedTransitionApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -92,6 +102,8 @@ fun HomeScreen(
     onAdd: () -> Unit,
     onOpen: (JournalItem) -> Unit,
     bottomBar: @Composable () -> Unit,
+    /** Le compte du fronton (`GET /stats`, `ProfileViewModel`, la même instance que le profil et Mes films). */
+    compte: ProfileUi,
     /** « Tout voir », au-dessus de la grille (point 5) : l'entrée de « Mes films » depuis l'accueil, jusque-là perdue. */
     onFilms: () -> Unit = {},
     /** Le plus ancien film à voir sur le Plex (brief du 15 septembre 2026) — nul tant qu'il n'y a rien à voir, ou que `/reference/plex` n'a pas encore répondu : pas de chargement bloquant, la ligne apparaît seule. */
@@ -106,6 +118,8 @@ fun HomeScreen(
     /** La séance prise (décision 4 du brief du 21 septembre 2026, « la séance ») — même règle que les lignes ci-dessus : nulle tant que `/me/voyage` n'a pas répondu, ou que rien n'est pris. Disparaît d'elle-même quand le back la rend nulle. */
     ceSoir: SeancePriseUi? = null,
     onOpenCeSoir: (SeancePriseUi) -> Unit = {},
+    /** Le jour du fronton : un paramètre plutôt qu'un `LocalDate.now()` enfoui, pour qu'un test puisse le fixer. */
+    aujourdHui: LocalDate = LocalDate.now(),
     // L'affiche partagée (peaufinage du 23 septembre 2026, geste 8) : l'accueil est un des deux
     // bouts de la paire vers la fiche d'une entrée (`Screen.FicheEntree`, `FicheRoutes.kt`).
     sharedTransitionScope: SharedTransitionScope? = null,
@@ -134,18 +148,24 @@ fun HomeScreen(
             .collect { index -> if (index != null && index >= ui.items.size - 5) vm.loadMore() }
     }
 
+    val vide = journalVide(ui.items, ui.endReached)
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = bottomBar,
         // Le bouton rond flottant (point 5) : corail, icône `plus`, en bas à droite — remplace le
-        // bouton pleine largeur qui vivait au bas de la colonne, hors du flux de défilement.
+        // bouton pleine largeur qui vivait au bas de la colonne, hors du flux de défilement. Caché
+        // tant que le journal est vide (25 septembre 2026) : la vitrine vide porte alors le seul
+        // « Ajouter un film » de l'écran.
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = onAdd,
-                shape = CircleShape,
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-            ) { IconeTabler("plus", "Ajouter un film") }
+            if (!vide) {
+                FloatingActionButton(
+                    onClick = onAdd,
+                    shape = CircleShape,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                ) { IconeTabler("plus", "Ajouter un film") }
+            }
         },
         floatingActionButtonPosition = FabPosition.End,
         snackbarHost = {
@@ -160,177 +180,158 @@ fun HomeScreen(
             }
         },
     ) { padding ->
-        BoxWithConstraints(Modifier.fillMaxSize().padding(padding)) {
-            // Trois colonnes, 8 dp d'écart (grille du design §4) : `Cover` prend une largeur et
-            // une hauteur fixes, pas un modificateur élastique, donc la taille d'une jaquette se
-            // déduit ici de la largeur disponible (moins les 16 dp de marge de chaque bord du
-            // `contentPadding` posé sur la grille plus bas) plutôt que d'être posée dans `Cover`
-            // lui-même.
-            val ecart = 8.dp
-            val largeurJaquette = (maxWidth - 32.dp - ecart * 2) / 3
-            val hauteurJaquette = largeurJaquette * 1.5f
+        Column(Modifier.fillMaxSize().padding(padding)) {
+            // Le fronton se tient hors de la grille, comme l'en-tête de Mes films : il ne défile pas.
+            Fronton(aujourdHui, compte)
+            FiletOr()
+            BoxWithConstraints(Modifier.fillMaxSize()) {
+                // Deux colonnes, 12 dp d'écart (25 septembre 2026, trois colonnes de 8 avant) : `Cover`
+                // prend une largeur et une hauteur fixes, pas un modificateur élastique, donc la taille
+                // d'une jaquette se déduit ici de la largeur disponible (moins les 16 dp de marge de
+                // chaque bord du `contentPadding` posé sur la grille plus bas) plutôt que d'être posée
+                // dans `Cover` lui-même.
+                val ecart = 12.dp
+                val largeurJaquette = (maxWidth - 32.dp - ecart) / 2
+                val hauteurJaquette = largeurJaquette * 1.5f
 
-            var tire by remember { mutableStateOf(false) }
-            LaunchedEffect(ui.loading) { if (!ui.loading) tire = false }
-            val etatTirage = rememberPullToRefreshState()
-            PullToRefreshBox(
-                isRefreshing = tire && ui.loading,
-                onRefresh = { if (!ui.loading) { tire = true; vm.refresh() } },
-                state = etatTirage,
-                indicator = {
-                    BobineIndicateur(
-                        etatTirage,
-                        isRefreshing = tire && ui.loading,
-                        modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp),
-                    )
-                },
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
-                    state = grille,
-                    contentPadding = PaddingValues(16.dp),
+                var tire by remember { mutableStateOf(false) }
+                LaunchedEffect(ui.loading) { if (!ui.loading) tire = false }
+                val etatTirage = rememberPullToRefreshState()
+                PullToRefreshBox(
+                    isRefreshing = tire && ui.loading,
+                    onRefresh = { if (!ui.loading) { tire = true; vm.refresh() } },
+                    state = etatTirage,
+                    indicator = {
+                        BobineIndicateur(
+                            etatTirage,
+                            isRefreshing = tire && ui.loading,
+                            modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp),
+                        )
+                    },
                     modifier = Modifier.fillMaxSize(),
-                    horizontalArrangement = Arrangement.spacedBy(ecart),
-                    verticalArrangement = Arrangement.spacedBy(ecart),
                 ) {
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        Column {
-                            // L'en-tête (point 5) : le titre de l'appli en Fraunces (`titleLarge`,
-                            // design §3), au-dessus des perforations — absent avant cette revue.
-                            Text(
-                                "Journal",
-                                style = MaterialTheme.typography.titleLarge,
-                                modifier = Modifier.padding(bottom = 8.dp),
-                            )
-                            Perforations(modifier = Modifier.padding(bottom = 12.dp))
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(2),
+                        state = grille,
+                        contentPadding = PaddingValues(16.dp),
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.spacedBy(ecart),
+                        verticalArrangement = Arrangement.spacedBy(ecart),
+                    ) {
+                        // Le carton d'un film enregistré ne s'affiche plus sur l'accueil depuis le brief du
+                        // 24 septembre 2026, « le voyage revu », décision 4 : la feuille de lecture s'ouvre
+                        // depuis le calque de célébration (`FilmEnregistreCalque`, `Root.kt`), pas ici.
+                        // « Ce soir » (décision 4 du brief du 21 septembre 2026, « la séance ») : au-dessus
+                        // d'« Ensuite », en carte à elle depuis le 25 septembre 2026 (`CarteCeSoir`) —
+                        // chargement non bloquant, comme le carrousel qui suit.
+                        ceSoir?.let { seance ->
+                            item(span = { GridItemSpan(maxLineSpan) }) {
+                                CarteCeSoir(seance, onClick = { onOpenCeSoir(seance) }, modifier = Modifier.padding(bottom = 12.dp))
+                            }
                         }
-                    }
-                    // Le carton d'un film enregistré ne s'affiche plus sur l'accueil depuis le brief du
-                    // 24 septembre 2026, « le voyage revu », décision 4 : la feuille de lecture s'ouvre
-                    // depuis le calque de célébration (`FilmEnregistreCalque`, `Root.kt`), pas ici.
-                    // « Ce soir » (décision 4 du brief du 21 septembre 2026, « la séance ») : au-dessus
-                    // d'« Ensuite », même gabarit que ses cartes — chargement non bloquant, comme le
-                    // carrousel qui suit.
-                    ceSoir?.let { seance ->
-                        item(span = { GridItemSpan(maxLineSpan) }) {
-                            LigneEnsuite(
-                                coverUrl = seance.longCoverUrl,
-                                titreAffiche = seance.longTitre,
-                                libelle = "Ce soir",
-                                titre = texteCeSoir(seance),
-                                onClick = { onOpenCeSoir(seance) },
-                                modifier = Modifier.padding(bottom = 12.dp),
-                            )
-                        }
-                    }
-                    // Le carrousel « Ensuite » (point 5) : une carte de haut, jusqu'à trois pages
-                    // (Plex, réalisateur en cours, saga en cours) qui s'enclenchent au défilement,
-                    // avec des points de position — remplace les trois cartes empilées d'avant cette
-                    // revue. Pas de chargement bloquant : chaque source apparaît quand elle répond,
-                    // ou jamais si elle n'a rien à proposer (`cartesEnsuite`, fonction pure).
-                    val cartes = cartesEnsuite(ensuite, ensuiteRealisateur, ensuiteSaga)
-                    if (cartes.isNotEmpty()) {
-                        item(span = { GridItemSpan(maxLineSpan) }) {
-                            CarrouselEnsuite(
-                                cartes = cartes,
-                                onOpenEnsuite = onOpenEnsuite,
-                                onOpenEnsuiteRealisateur = onOpenEnsuiteRealisateur,
-                                onOpenEnsuiteSaga = onOpenEnsuiteSaga,
-                                modifier = Modifier.padding(bottom = 12.dp),
-                            )
-                        }
-                    }
-                    ui.error?.let {
-                        item(span = { GridItemSpan(maxLineSpan) }) {
-                            ErrorBlock(
-                                it.message ?: "",
-                                retryable = it.retryable,
-                                onRetry = vm::loadMore,
-                                modifier = Modifier.padding(bottom = 12.dp),
-                            )
-                        }
-                    }
-                    // « Derniers vus » et « Tout voir » (point 5) : le lien vers « Mes films »,
-                    // aujourd'hui perdu (aucune entrée vers cet écran depuis l'accueil) — `onFilms`
-                    // pousse `Screen.Films` (`Root.kt`), comme le fait déjà le profil.
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        Row(
-                            Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text("Derniers vus", style = MaterialTheme.typography.titleMedium)
-                            TextButton(onClick = onFilms) { Text("Tout voir") }
-                        }
-                    }
-                    if (ui.items.isEmpty() && ui.endReached) {
-                        item(span = { GridItemSpan(maxLineSpan) }) {
-                            Box(Modifier.fillMaxWidth().padding(vertical = 24.dp), contentAlignment = Alignment.Center) {
-                                Text(
-                                    "Aucun film pour l’instant.",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        // Le carrousel « Ensuite » (point 5) : une carte de haut, jusqu'à trois pages
+                        // (Plex, réalisateur en cours, saga en cours) qui s'enclenchent au défilement,
+                        // avec des points de position — remplace les trois cartes empilées d'avant cette
+                        // revue. Pas de chargement bloquant : chaque source apparaît quand elle répond,
+                        // ou jamais si elle n'a rien à proposer (`cartesEnsuite`, fonction pure).
+                        val cartes = cartesEnsuite(ensuite, ensuiteRealisateur, ensuiteSaga)
+                        if (cartes.isNotEmpty()) {
+                            item(span = { GridItemSpan(maxLineSpan) }) {
+                                CarrouselEnsuite(
+                                    cartes = cartes,
+                                    onOpenEnsuite = onOpenEnsuite,
+                                    onOpenEnsuiteRealisateur = onOpenEnsuiteRealisateur,
+                                    onOpenEnsuiteSaga = onOpenEnsuiteSaga,
+                                    modifier = Modifier.padding(bottom = 12.dp),
                                 )
                             }
                         }
-                    } else {
-                        itemsIndexed(ui.items, key = { _, item -> item.entry.id }) { index, item ->
-                            // La grille se retasse (geste 3 du peaufinage du 23 septembre 2026) au
-                            // lieu de sauter quand un film change de place ou disparaît. La cascade
-                            // d'entrée (geste 8 de l'habillage du 23 septembre 2026) l'habille en
-                            // plus, à la première composition de l'écran seulement.
-                            EntreeEnCascade(index, porteCascade, Modifier.animateItem().clickable { onOpen(item) }) { modifier ->
-                            Box(modifier) {
-                                Cover(
-                                    item.media.cover_url,
-                                    item.media.title,
-                                    largeurJaquette,
-                                    hauteurJaquette,
-                                    // L'affiche partagée (geste 8) : même clé que la fiche d'entrée.
-                                    // Le cadre or 35 % (habillage du 23 septembre 2026, geste 4) se
-                                    // pose sur ce même modificateur, avant la taille et la découpe
-                                    // posées par `Cover` lui-même.
-                                    modifier = Modifier
-                                        .voler(
-                                            afficheVolante(sharedTransitionScope, animatedVisibilityScope, "affiche-journal-${item.entry.id}"),
-                                        )
-                                        .border(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.35f), MaterialTheme.shapes.small),
+                        ui.error?.let {
+                            item(span = { GridItemSpan(maxLineSpan) }) {
+                                ErrorBlock(
+                                    it.message ?: "",
+                                    retryable = it.retryable,
+                                    onRetry = vm::loadMore,
+                                    modifier = Modifier.padding(bottom = 12.dp),
                                 )
-                                item.entry.rating?.let { note ->
-                                    Box(
-                                        Modifier
-                                            .align(Alignment.BottomEnd)
-                                            .padding(4.dp)
-                                            .size(22.dp)
-                                            .background(MaterialTheme.colorScheme.background.copy(alpha = 0.85f), CircleShape)
-                                            .border(1.dp, MaterialTheme.colorScheme.secondary, CircleShape)
-                                            // Design §8 : une pastille dit « Note {n} sur 10 », pas
-                                            // le chiffre nu que `Text` donnerait seul à TalkBack
-                                            // (relecture, correction 3).
-                                            .clearAndSetSemantics { contentDescription = "Note $note sur 10" },
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        Text(
-                                            "$note",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.secondary,
-                                        )
-                                    }
+                            }
+                        }
+                        // « Derniers vus » et « Tout voir » (point 5) : le lien vers « Mes films »,
+                        // aujourd'hui perdu (aucune entrée vers cet écran depuis l'accueil) — `onFilms`
+                        // pousse `Screen.Films` (`Root.kt`), comme le fait déjà le profil.
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            Row(
+                                Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text("Derniers vus", style = MaterialTheme.typography.titleMedium)
+                                TextButton(onClick = onFilms) { Text("Tout voir") }
+                            }
+                        }
+                        if (vide) {
+                            item(span = { GridItemSpan(maxLineSpan) }) {
+                                VitrineVide(onAjouter = onAdd)
+                            }
+                        } else {
+                            itemsIndexed(ui.items, key = { _, item -> item.entry.id }) { index, item ->
+                                // La grille se retasse (geste 3 du peaufinage du 23 septembre 2026) au
+                                // lieu de sauter quand un film change de place ou disparaît. La cascade
+                                // d'entrée (geste 8 de l'habillage du 23 septembre 2026) l'habille en
+                                // plus, à la première composition de l'écran seulement.
+                                EntreeEnCascade(index, porteCascade, Modifier.animateItem().clickable { onOpen(item) }) { modifier ->
+                                    AfficheVitrine(
+                                        item.media.cover_url,
+                                        item.media.title,
+                                        largeurJaquette,
+                                        hauteurJaquette,
+                                        item.entry.rating,
+                                        // L'affiche partagée (geste 8) : même clé que la fiche d'entrée.
+                                        afficheVolante(sharedTransitionScope, animatedVisibilityScope, "affiche-journal-${item.entry.id}"),
+                                        modifier,
+                                    )
                                 }
                             }
-                            }
-                        }
-                        if (ui.loading) {
-                            item(span = { GridItemSpan(maxLineSpan) }) {
-                                Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                                    CircularProgressIndicator(Modifier.size(40.dp), color = MaterialTheme.colorScheme.primary)
+                            if (ui.loading) {
+                                item(span = { GridItemSpan(maxLineSpan) }) {
+                                    Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                        CircularProgressIndicator(Modifier.size(40.dp), color = MaterialTheme.colorScheme.primary)
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * Le fronton (25 septembre 2026) : le jour en toutes lettres à gauche, le compte de l'année à
+ * droite sur la même ligne de base. Le jour cède (une ligne, points de suspension) plutôt que le
+ * compte, qui ne s'affiche pas tant que `/stats` n'a pas répondu — rien de réservé, pas de « … ».
+ */
+@Composable
+private fun Fronton(aujourdHui: LocalDate, compte: ProfileUi) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            formatJour(aujourdHui),
+            style = MaterialTheme.typography.titleLarge,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f).alignByBaseline(),
+        )
+        compteAccueil(compte.thisYear)?.let {
+            Text(
+                it,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 12.dp).alignByBaseline(),
+            )
         }
     }
 }
@@ -392,10 +393,11 @@ private fun CarrouselEnsuite(
 
 /**
  * Une ligne « Ensuite » : une affiche 56×84 à gauche, un libellé discret au-dessus du titre.
- * Le même composant sert « Ce soir » et les pages du carrousel « Ensuite » (Plex, réalisateur en
- * cours, saga en cours) — plutôt que des copies qui divergeraient à la première retouche (brief du
- * 15 septembre 2026, généralisé aux sagas le même jour ; devenu les pages du carrousel le 24
- * septembre 2026, point 5).
+ * Le même composant sert les pages du carrousel « Ensuite » (Plex, réalisateur en cours, saga en
+ * cours) — plutôt que des copies qui divergeraient à la première retouche (brief du 15 septembre
+ * 2026, généralisé aux sagas le même jour ; devenu les pages du carrousel le 24 septembre 2026,
+ * point 5). « Ce soir » l'a quitté le 25 septembre 2026 pour sa carte (`CarteCeSoir`) ; l'affiche
+ * a pris le liseré or le même jour.
  */
 @Composable
 private fun LigneEnsuite(
@@ -417,7 +419,7 @@ private fun LigneEnsuite(
             .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Cover(coverUrl, titreAffiche, 56.dp, 84.dp)
+        Cover(coverUrl, titreAffiche, 56.dp, 84.dp, modifier = Modifier.lisereOr())
         Column(Modifier.padding(start = 12.dp)) {
             Text(
                 libelle,

@@ -33,16 +33,10 @@ data class TicketAMontrerUi(val annee: Int, val motif: String)
 
 /**
  * La séance prise, mise en forme pour l'accueil (décision 4 du brief du 21 septembre 2026,
- * « la séance ») : de quoi construire la ligne « Ce soir », et l'année où l'ouvrir.
+ * « la séance ») : de quoi construire la carte « Ce soir » (`CarteCeSoir`, `ui/home/`), et l'année
+ * où l'ouvrir.
  */
 data class SeancePriseUi(val annee: Int, val longTitre: String, val longCoverUrl: String?, val courtTitre: String?)
-
-/**
- * « Le Faucon maltais » seul, ou « Le Faucon maltais + Un chien andalou » avec un court — décision
- * 4 du brief du 21 septembre 2026, « la séance ». Fonction pure, testée en JVM.
- */
-fun texteCeSoir(seance: SeancePriseUi): String =
-    if (seance.courtTitre != null) "${seance.longTitre} + ${seance.courtTitre}" else seance.longTitre
 
 /** Ma progression, mise en forme pour l'écran — `VoyageResponse.toVoyageUi()` plus bas. */
 data class VoyageUi(

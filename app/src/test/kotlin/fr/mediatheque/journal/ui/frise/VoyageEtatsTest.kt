@@ -119,18 +119,6 @@ class VoyageEtatsTest {
         assertNull(ui.seancePrise)
     }
 
-    // Le texte de la ligne « Ce soir » (décision 4) : le long seul, ou le long et le court réunis
-    // par un « + ». Fonction pure.
-    // Mutation : inverser la condition afficherait le court seul, ou « + » sans court.
-    @Test
-    fun `texteCeSoir donne le long seul, ou le long et le court`() {
-        assertEquals("Le Faucon maltais", texteCeSoir(SeancePriseUi(1941, "Le Faucon maltais", null, null)))
-        assertEquals(
-            "Le Faucon maltais + Un chien andalou",
-            texteCeSoir(SeancePriseUi(1941, "Le Faucon maltais", null, "Un chien andalou")),
-        )
-    }
-
     @Test
     fun `etatChroniqueSuivant rend PRETE des que le statut l'est, sans compter d'essai de plus`() {
         val (etat, essais) = etatChroniqueSuivant(configure = true, statut = "prete", essaisPrecedents = 3)

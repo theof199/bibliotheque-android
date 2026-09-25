@@ -12,11 +12,12 @@ import fr.mediatheque.journal.ui.barreDuBas
 import fr.mediatheque.journal.ui.films.FilmsViewModel
 import fr.mediatheque.journal.ui.frise.AnneeFrise
 import fr.mediatheque.journal.ui.frise.toSearchResult
+import fr.mediatheque.journal.ui.profile.ProfileViewModel
 import fr.mediatheque.journal.ui.suivis.SourceSuivi
 import fr.mediatheque.journal.ui.suivis.entiteEnCours
 import fr.mediatheque.journal.ui.suivis.formulaire
 
-/** `Screen.Home` : la grille des jaquettes, les lignes « Ce soir » et « Ensuite ». */
+/** `Screen.Home` : le fronton, la carte « Ce soir », le carrousel « Ensuite » et la grille sous vitre. */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun PorteeEcrans.routeHome() {
@@ -45,8 +46,15 @@ fun PorteeEcrans.routeHome() {
     // à le payer.
     LaunchedEffect(Unit) { suivis.refresh(SourceSuivi.REALISATEURS) }
     LaunchedEffect(Unit) { suivis.refresh(SourceSuivi.SAGAS) }
+    // Le compte du fronton (« Accueil · la porte d'entrée », 25 septembre 2026), « 12 films
+    // cette année », vient de `GET /stats` : la même instance que le profil et Mes films (clé
+    // `"profile"`, `FilmsRoute.kt`), relue à chaque entrée — sans quoi il resterait en retard
+    // d'un film après un ajout, une correction ou une suppression.
+    val profile: ProfileViewModel = viewModel(key = "profile") { ProfileViewModel(container.api, session::expire) }
+    LaunchedEffect(Unit) { profile.retry() }
     val friseUi by frise.ui.collectAsState()
     val suivisUi by suivis.ui.collectAsState()
+    val compteUi by profile.ui.collectAsState()
     HomeScreen(
         vm = films,
         nav = nav,
@@ -55,6 +63,7 @@ fun PorteeEcrans.routeHome() {
         // `FicheRoutes.kt` ; « la fiche · trois visages », 25 septembre 2026).
         sharedTransitionScope = sharedTransitionScope,
         animatedVisibilityScope = animatedVisibilityScope,
+        compte = compteUi,
         ensuite = friseUi.ensuite,
         ensuiteRealisateur = entiteEnCours(SourceSuivi.REALISATEURS, suivisUi.realisateurs.entites, suivisUi.realisateurs.filmographies),
         ensuiteSaga = entiteEnCours(SourceSuivi.SAGAS, suivisUi.sagas.entites, suivisUi.sagas.filmographies),
