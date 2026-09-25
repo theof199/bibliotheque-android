@@ -247,41 +247,63 @@ class RealisateurEtatsTest {
         assertEquals(listOf(film), decennies[0].films)
     }
 
-    // « 3 films · 2 vus · 1 sur le Plex », comptée sur films et courts métrages confondus.
-    // Mutation : ne compter que les longs, ou inverser vus et Plex, casse cette assertion.
+    // « 2 sur le Plex », compté sur films et courts métrages confondus, introuvables compris (le
+    // pavillon, 25 septembre 2026). Mutation : ne compter que les longs, ou oublier l'introuvable,
+    // casse cette assertion.
     @Test
-    fun `ligneResume compte films et courts vus et sur le plex confondus`() {
+    fun `ligneSurLePlex compte films et courts introuvables compris`() {
         val films = listOf(
             FakeJournalApi.filmDeFilmographie(1, "A", 2000, entryId = "e1", surLePlex = true),
-            FakeJournalApi.filmDeFilmographie(2, "B", 2001, entryId = "e2", court = true),
+            FakeJournalApi.filmDeFilmographie(2, "B", 2001, court = true, surLePlex = true, introuvable = true),
             FakeJournalApi.filmDeFilmographie(3, "C", 2002),
         )
-        assertEquals("3 films · 2 vus · 1 sur le Plex", ligneResume(films))
+        assertEquals("2 sur le Plex", ligneSurLePlex(films))
     }
 
-    // Le résumé compte donc films et courts seulement (décision 3) : une série filtrée avant
-    // l'appel n'y contribue plus. Mutation : la compter quand même casse cette assertion.
+    // Une série filtrée avant l'appel n'y contribue plus (décision 3 de la retouche du 22 septembre
+    // 2026). Mutation : la compter quand même casse cette assertion.
     @Test
-    fun `filmsSansSeries retire les series avant ligneResume`() {
-        val film = FakeJournalApi.filmDeFilmographie(1, "Film", 2000, entryId = "e1")
-        val serie = FakeJournalApi.filmDeFilmographie(2, "Serie", 2000, type = "tv", entryId = "e2")
-        assertEquals("1 film · 1 vu · 0 sur le Plex", ligneResume(filmsSansSeries(listOf(film, serie))))
+    fun `filmsSansSeries retire les series avant ligneSurLePlex`() {
+        val film = FakeJournalApi.filmDeFilmographie(1, "Film", 2000, surLePlex = true)
+        val serie = FakeJournalApi.filmDeFilmographie(2, "Serie", 2000, type = "tv", surLePlex = true)
+        assertEquals("1 sur le Plex", ligneSurLePlex(filmsSansSeries(listOf(film, serie))))
     }
 
-    // « 1 film · 1 vu · 1 sur le Plex » : accord au singulier. Mutation : garder le pluriel malgré
-    // un seul élément casse cette assertion.
+    // « 0 sur le Plex » s'écrit quand même, jamais omis. Mutation : rendre une chaîne vide casse
+    // cette assertion.
     @Test
-    fun `ligneResume accorde au singulier`() {
-        val films = listOf(FakeJournalApi.filmDeFilmographie(1, "A", 2000, entryId = "e1", surLePlex = true))
-        assertEquals("1 film · 1 vu · 1 sur le Plex", ligneResume(films))
+    fun `ligneSurLePlex ecrit 0 sur le Plex`() {
+        assertEquals("0 sur le Plex", ligneSurLePlex(listOf(FakeJournalApi.filmDeFilmographie(1, "A", 2000))))
     }
 
-    // « 0 vu » et « 0 sur le Plex » s'écrivent quand même, jamais omis. Mutation : les remplacer par
-    // une chaîne vide dans ce cas casse cette assertion.
+    // L'étiquette de l'en-tête, en capitales telle qu'affichée. Mutation : inverser vus et total, ou
+    // perdre l'accent de « RÉTROSPECTIVE », casse cette assertion.
     @Test
-    fun `ligneResume ecrit 0 vu et 0 sur le plex`() {
-        val films = listOf(FakeJournalApi.filmDeFilmographie(1, "A", 2000))
-        assertEquals("1 film · 0 vu · 0 sur le Plex", ligneResume(films))
+    fun `etiquetteRetrospective ecrit vus sur total en capitales`() {
+        assertEquals("RÉTROSPECTIVE · 4 SUR 12", etiquetteRetrospective(4, 12))
+        assertEquals("RÉTROSPECTIVE · 0 SUR 0", etiquetteRetrospective(0, 0))
+    }
+
+    // Le compte de l'en-tête compte les introuvables au total, jamais vus. Mutation : les retirer du
+    // total casse cette assertion.
+    @Test
+    fun `compteRetrospective compte les introuvables au total`() {
+        val films = listOf(
+            FakeJournalApi.filmDeFilmographie(1, "Vu", 2000, entryId = "e1"),
+            FakeJournalApi.filmDeFilmographie(2, "Perdu", 2001, introuvable = true),
+            FakeJournalApi.filmDeFilmographie(3, "A voir", 2002, court = true),
+        )
+        assertEquals(1 to 3, compteRetrospective(films))
+    }
+
+    // « Suivre », puis « Suivi » ou « Suivie » selon le genre ; un genre inconnu reste au masculin
+    // d'usage. Mutation : ignorer `genre` casse la deuxième assertion.
+    @Test
+    fun `libelleBoutonSuivi s accorde au genre`() {
+        assertEquals("Suivre", libelleBoutonSuivi(false, "femme"))
+        assertEquals("Suivie", libelleBoutonSuivi(true, "femme"))
+        assertEquals("Suivi", libelleBoutonSuivi(true, "homme"))
+        assertEquals("Suivi", libelleBoutonSuivi(true, null))
     }
 
     // Le monde de la page est celui de l'année du premier film daté, un film sans année en tête ne
@@ -329,37 +351,5 @@ class RealisateurEtatsTest {
     @Test
     fun `retrospectiveComplete est vraie sur une filmographie vide`() {
         assertTrue(retrospectiveComplete(emptyList()))
-    }
-
-    // Point 11 de la revue du 24 septembre 2026, « la biographie ». Mutation : ne pas court-
-    // circuiter sur un accent français ferait passer la biographie de Miyazaki (« réalisateur »)
-    // pour de l'anglais, faute d'accent testé avant le compte de mots ; baisser le seuil à un seul
-    // mot ferait basculer une biographie française à l'anglais sur un simple « Il a » mal filtré.
-    @Test
-    fun `biographieEstProbablementAnglaise reconnait l anglais sans accent, avec au moins deux mots courants`() {
-        assertTrue(
-            biographieEstProbablementAnglaise(
-                "Gareth Huw Evans is a Welsh film director, screenwriter, editor and action choreographer.",
-            ),
-        )
-    }
-
-    @Test
-    fun `biographieEstProbablementAnglaise reste fausse des qu un accent francais apparait`() {
-        assertTrue(
-            !biographieEstProbablementAnglaise(
-                "Hayao Miyazaki est un réalisateur, producteur et scénariste japonais, cofondateur du studio Ghibli.",
-            ),
-        )
-    }
-
-    @Test
-    fun `biographieEstProbablementAnglaise reste fausse sans accent mais avec un seul mot anglais`() {
-        assertTrue(!biographieEstProbablementAnglaise("Clint Eastwood est un acteur, realisateur et producteur."))
-    }
-
-    @Test
-    fun `biographieEstProbablementAnglaise est fausse sur une biographie vide`() {
-        assertTrue(!biographieEstProbablementAnglaise(""))
     }
 }

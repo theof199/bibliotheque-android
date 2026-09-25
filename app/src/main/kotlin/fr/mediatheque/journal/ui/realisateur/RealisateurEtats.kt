@@ -150,24 +150,35 @@ fun filmsAffiches(films: List<FilmDeFilmographie>, masquerIntrouvables: Boolean)
  * Les séries sortent de la page (décision 3 de la retouche du 22 septembre 2026, « la
  * filmographie dans l'ordre ») : le propriétaire n'a pas besoin des séries ici, seulement des
  * films et des courts métrages. Filtré avant tout — avant `regrouperParDecennie`, avant
- * `ligneResume`, avant `mondeDeLaPage` — pour qu'aucun des trois ne les compte ni ne les affiche.
+ * `ligneSurLePlex`, avant `mondeDeLaPage` — pour qu'aucun des trois ne les compte ni ne les affiche.
  */
 fun filmsSansSeries(films: List<FilmDeFilmographie>): List<FilmDeFilmographie> =
     films.filter { it.type == "movie" }
 
 /**
- * La ligne de résumé sous le bouton Suivre (décision 4) : « 42 films · 9 vus · 3 sur le Plex »,
- * comptée sur les films et les courts métrages (les séries en sont déjà sorties par
- * `filmsSansSeries`, appliqué avant l'appel), accordée au singulier — « 0 vu » et « 0 sur le
- * Plex » s'écrivent quand même, jamais omis.
+ * « 3 sur le Plex » sous l'étiquette de la rétrospective (le pavillon d'un réalisateur, 25 septembre
+ * 2026 : le compte Plex gardé, décision du propriétaire — la seule part de l'ancien résumé « 42 films
+ * · 9 vus · 3 sur le Plex » qui survit, le reste passant dans `etiquetteRetrospective`). Comptée sur
+ * les films et les courts métrages (les séries en sont déjà sorties par `filmsSansSeries`),
+ * introuvables compris ; « 0 sur le Plex » s'écrit quand même, jamais omis.
  */
-fun ligneResume(films: List<FilmDeFilmographie>): String {
-    val total = films.size
-    val vus = films.count { it.vu != null }
-    val surLePlex = films.count { it.sur_le_plex }
-    val filmMot = if (total <= 1) "film" else "films"
-    val vuMot = if (vus <= 1) "vu" else "vus"
-    return "$total $filmMot · $vus $vuMot · $surLePlex sur le Plex"
+fun ligneSurLePlex(films: List<FilmDeFilmographie>): String = "${films.count { it.sur_le_plex }} sur le Plex"
+
+/**
+ * « RÉTROSPECTIVE · 4 SUR 12 » dans l'en-tête du pavillon (25 septembre 2026) : vus sur total des
+ * films et courts métrages, introuvables compris — l'interrupteur cache des affiches, il ne change
+ * pas la filmographie. Déjà en capitales : le texte est l'étiquette telle qu'elle s'affiche.
+ */
+fun etiquetteRetrospective(vus: Int, total: Int): String = "RÉTROSPECTIVE · $vus SUR $total"
+
+/** (vus, total) de l'en-tête du pavillon, sur `films` déjà sans séries, introuvables compris. */
+fun compteRetrospective(films: List<FilmDeFilmographie>): Pair<Int, Int> = films.count { it.vu != null } to films.size
+
+/** Le libellé du bouton de suivi : « Suivre », sinon « Suivi » ou « Suivie » selon `genre`. */
+fun libelleBoutonSuivi(suivi: Boolean, genre: String?): String = when {
+    !suivi -> "Suivre"
+    genre == "femme" -> "Suivie"
+    else -> "Suivi"
 }
 
 /**
@@ -182,31 +193,8 @@ fun mondeDeLaPage(films: List<FilmDeFilmographie>): Monde =
  * l'habillage) : vraie quand tous ses films sont vus ou introuvables — un introuvable compte, comme
  * `filmographieTerminee` (`ui/profile/Bilan.kt`) pour le Bilan, mais ici sur `FilmDeFilmographie`
  * (courts compris) plutôt que `FilmSuivi`. `films` doit déjà être filtré par `filmsSansSeries` : les
- * séries n'y entrent jamais, la même convention que `ligneResume`/`mondeDeLaPage` ci-dessus. Vide
+ * séries n'y entrent jamais, la même convention que `ligneSurLePlex`/`mondeDeLaPage` ci-dessus. Vide
  * (aucun film, ou uniquement des séries), elle est complète aussi : rien n'y reste à voir.
  */
 fun retrospectiveComplete(films: List<FilmDeFilmographie>): Boolean =
     films.all { it.introuvable || it.vu != null }
-
-/**
- * Devine si `presentation` arrive en anglais (point 11 de la revue du 24 septembre 2026) : le
- * contrat (`GET /me/realisateurs/{tmdbId}/page`, `docs/openapi.json`) le dit noir sur blanc — « la
- * première phrase de la biographie TMDB, en français avec repli sur l'anglais si elle y est vide » —
- * sans jamais dire dans laquelle des deux elle arrive vraiment : aucun champ de langue à lire, la
- * page doit deviner. Un accent français (à, â, é, è, ê, ë, î, ï, ô, ö, ù, û, ü, ç) dans le texte
- * tranche pour le français, quel que soit le reste — TMDB n'accentue jamais une biographie
- * anglaise. Sans accent, au moins deux mots anglais très courants (« the », « is », « and », …)
- * tranchent pour l'anglais ; en dessous, la page part du principe que c'est du français (jamais de
- * faux positif sur une biographie française simplement courte). Fonction pure, testée en JVM.
- */
-fun biographieEstProbablementAnglaise(presentation: String): Boolean {
-    if (presentation.isBlank()) return false
-    if (presentation.any { it in "àâäéèêëîïôöùûüçÀÂÄÉÈÊËÎÏÔÖÙÛÜÇ" }) return false
-    val mots = presentation.lowercase().split(Regex("[^a-z']+")).filter { it.isNotEmpty() }
-    return mots.count { it in MOTS_ANGLAIS_COURANTS } >= 2
-}
-
-private val MOTS_ANGLAIS_COURANTS = setOf(
-    "the", "is", "was", "were", "and", "born", "his", "her", "he", "she",
-    "film", "director", "known", "actor", "actress", "who",
-)

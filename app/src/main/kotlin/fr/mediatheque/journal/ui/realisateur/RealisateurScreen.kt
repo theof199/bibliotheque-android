@@ -6,10 +6,13 @@ import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -22,17 +25,22 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -56,7 +64,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -67,7 +77,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.em
 import fr.mediatheque.journal.api.dto.FilmDeFilmographie
 import fr.mediatheque.journal.api.dto.RealisateurPageResponse
 import fr.mediatheque.journal.ui.AfficheVolante
@@ -81,6 +91,7 @@ import fr.mediatheque.journal.ui.voler
 import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.frise.Monde
 import fr.mediatheque.journal.ui.frise.TeinteSepia
+import fr.mediatheque.journal.ui.theme.BarreProgressionOr
 import fr.mediatheque.journal.ui.theme.IconeTabler
 import fr.mediatheque.journal.ui.theme.Perforations
 import fr.mediatheque.journal.ui.frise.mondeDe
@@ -95,8 +106,9 @@ import fr.mediatheque.journal.ui.suivis.SceauRetrospective
  * l'ordre »). Les séries sont retirées d'emblée (`filmsSansSeries`), avant que quoi que ce soit
  * d'autre ne lise la filmographie : le fond est celui du monde du Voyage de l'année du premier
  * film daté (`mondeDeLaPage`), calculé sur cette même liste. Un seul défilement, `LazyVerticalGrid`
- * (`GridCells.Fixed(3)`) : l'en-tête (photo, nom, dates, présentation, bouton Suivre/Suivi, résumé)
- * en est le tout premier item, en pleine largeur, puis la filmographie groupée par décennie
+ * (`GridCells.Fixed(3)`) : l'en-tête (le pavillon du 25 septembre 2026 : portrait, nom, dates,
+ * étiquette de la rétrospective, compte Plex, barre or, boutons, biographie repliée) en est le tout
+ * premier item, posé sur un dégradé de l'accent du monde (`DegradeDuPavillon`), en pleine largeur, puis la filmographie groupée par décennie
  * (`regrouperParDecennie`) — une seule grille par décennie, trois affiches par ligne, longs et
  * courts mêlés dans l'ordre du back, sans rien réordonner. Les films marqués introuvables sont
  * absents tant que l'interrupteur « Masquer les introuvables » de l'en-tête est activé (retouche
@@ -134,6 +146,8 @@ fun RealisateurScreen(
     // en sont déjà sorties (décision 3 de la retouche du 22 septembre 2026) : un film sans année ne
     // doit rien à une série écartée avant lui.
     val monde = (ui.etat as? EtatPageRealisateur.Pret)?.let { mondeDeLaPage(filmsSansSeries(it.page.films)) } ?: mondeDe(1895)
+    // L'état de la grille, remonté ici pour que le dégradé du haut de page la suive.
+    val etatGrille = rememberLazyGridState()
 
     Scaffold(
         containerColor = monde.fond,
@@ -147,45 +161,77 @@ fun RealisateurScreen(
             }
         },
     ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) { IconeTabler("arrow-left", "Retour") }
-            }
-            // Le fond et les titres dans l'habillage papier (point 11 de la revue du 24 septembre
-            // 2026) : la bande de perforations, hallmark de l'habillage « papier et pellicule »
-            // (accueil, fiche d'année), absente de cette page avant elle.
-            Perforations(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
-
-            when (val etat = ui.etat) {
-                EtatPageRealisateur.EnAttente -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+        Box(Modifier.fillMaxSize()) {
+            // Le dégradé du pavillon (25 septembre 2026) : 240 dp sous la barre d'état, de l'accent du
+            // monde à 35 % vers son fond, derrière le retour, les perforations et l'en-tête — dessiné
+            // ici, sous la `Column`, puisque la grille (transparente) coupe tout ce qu'un item dessinerait
+            // au-dessus d'elle. Il remonte avec l'en-tête quand la grille défile (`DegradeDuPavillon`).
+            DegradeDuPavillon(monde, hauteur = padding.calculateTopPadding() + 240.dp, etatGrille = etatGrille)
+            Column(Modifier.fillMaxSize().padding(padding)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onBack) { IconeTabler("arrow-left", "Retour") }
                 }
+                // Le fond et les titres dans l'habillage papier (point 11 de la revue du 24 septembre
+                // 2026) : la bande de perforations, hallmark de l'habillage « papier et pellicule »
+                // (accueil, fiche d'année), absente de cette page avant elle.
+                Perforations(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
 
-                EtatPageRealisateur.Indisponible -> ErrorBlock(
-                    "Cette page est indisponible.",
-                    retryable = true,
-                    onRetry = vm::charger,
-                    modifier = Modifier.padding(16.dp),
-                )
+                when (val etat = ui.etat) {
+                    EtatPageRealisateur.EnAttente -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    }
 
-                is EtatPageRealisateur.Pret -> GrilleFilmographie(
-                    // Les séries sortent de la page ici, avant que `GrilleFilmographie` ou son
-                    // en-tête ne touchent à `page.films` : `regrouperParDecennie` et `ligneResume`
-                    // n'en voient donc plus aucune trace (décision 3 de la retouche du 22 septembre
-                    // 2026).
-                    page = etat.page.copy(films = filmsSansSeries(etat.page.films)),
-                    monde = monde,
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                    onSuivre = vm::suivre,
-                    onRetirer = vm::retirer,
-                    onOuvrirFilm = onOuvrirFilm,
-                    onLongClickNonVu = { film -> feuillePour = film },
-                    sharedTransitionScope = sharedTransitionScope,
-                    animatedVisibilityScope = animatedVisibilityScope,
-                )
+                    EtatPageRealisateur.Indisponible -> ErrorBlock(
+                        "Cette page est indisponible.",
+                        retryable = true,
+                        onRetry = vm::charger,
+                        modifier = Modifier.padding(16.dp),
+                    )
+
+                    is EtatPageRealisateur.Pret -> GrilleFilmographie(
+                        // Les séries sortent de la page ici, avant que `GrilleFilmographie` ou son
+                        // en-tête ne touchent à `page.films` : `regrouperParDecennie` et `ligneSurLePlex`
+                        // n'en voient donc plus aucune trace (décision 3 de la retouche du 22 septembre
+                        // 2026).
+                        page = etat.page.copy(films = filmsSansSeries(etat.page.films)),
+                        monde = monde,
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                        onSuivre = vm::suivre,
+                        onRetirer = vm::retirer,
+                        onOuvrirFilm = onOuvrirFilm,
+                        onLongClickNonVu = { film -> feuillePour = film },
+                        sharedTransitionScope = sharedTransitionScope,
+                        animatedVisibilityScope = animatedVisibilityScope,
+                        etatGrille = etatGrille,
+                    )
+                }
             }
         }
     }
+}
+
+/**
+ * Le dégradé du haut du pavillon : `hauteur` de haut, `monde.accent` à 35 % en haut vers
+ * `monde.fond` en bas, là où il se fond dans le `Scaffold`. Il suit l'en-tête : tant que celui-ci
+ * (le premier item) est visible, le dégradé remonte d'autant que la grille a défilé ; une fois
+ * l'en-tête sorti, il est entièrement hors de l'écran. Lu dans `graphicsLayer`, le défilement ne
+ * recompose rien.
+ */
+@Composable
+private fun DegradeDuPavillon(monde: Monde, hauteur: Dp, etatGrille: LazyGridState) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(hauteur)
+            .graphicsLayer {
+                translationY = if (etatGrille.firstVisibleItemIndex == 0) {
+                    -etatGrille.firstVisibleItemScrollOffset.toFloat()
+                } else {
+                    -size.height
+                }
+            }
+            .background(Brush.verticalGradient(listOf(monde.accent.copy(alpha = 0.35f), monde.fond))),
+    )
 }
 
 /**
@@ -206,6 +252,7 @@ private fun GrilleFilmographie(
     onLongClickNonVu: (FilmDeFilmographie) -> Unit,
     sharedTransitionScope: SharedTransitionScope? = null,
     animatedVisibilityScope: AnimatedVisibilityScope? = null,
+    etatGrille: LazyGridState = rememberLazyGridState(),
 ) {
     var masquerIntrouvables by rememberSaveable { mutableStateOf(true) }
     val decennies = remember(page.films, masquerIntrouvables) {
@@ -225,6 +272,7 @@ private fun GrilleFilmographie(
         LazyVerticalGrid(
             columns = GridCells.Fixed(3),
             modifier = Modifier.fillMaxSize(),
+            state = etatGrille,
             contentPadding = PaddingValues(horizontal = margeHorizontale, vertical = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(gouttiere),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -283,7 +331,15 @@ private fun GrilleFilmographie(
     }
 }
 
-/** L'en-tête de la page (décision 1 et 6) : photo, nom, dates, présentation, bouton, résumé, et l'interrupteur des introuvables. */
+/**
+ * L'en-tête du pavillon (25 septembre 2026, planche « Réalisateur · le pavillon » de Léon, plus le
+ * compte Plex, décision du propriétaire), aligné à gauche : le portrait liseré et, à côté, le nom,
+ * les dates, l'étiquette « RÉTROSPECTIVE · 4 SUR 12 » et « 3 sur le Plex » ; la barre or ; les deux
+ * boutons « Suivre » et « Lire la biographie » ; la biographie, repliée au départ ; l'interrupteur
+ * des introuvables. `page.films` est déjà sans séries (décision 3 de la retouche du 22 septembre
+ * 2026, appliquée avant `EnTeteRealisateur`) : les comptes portent sur films et courts métrages,
+ * introuvables compris — l'interrupteur cache des affiches, il ne change pas la filmographie.
+ */
 @Composable
 private fun EnTeteRealisateur(
     page: RealisateurPageResponse,
@@ -293,63 +349,102 @@ private fun EnTeteRealisateur(
     onSuivre: () -> Unit,
     onRetirer: () -> Unit,
 ) {
+    val (vus, total) = compteRetrospective(page.films)
+    // Toujours repliée à l'arrivée, quelle que soit sa langue (25 septembre 2026 — avant, une
+    // biographie jugée française s'affichait d'office, `biographieEstProbablementAnglaise`).
+    var biographieDepliee by rememberSaveable(page.presentation) { mutableStateOf(false) }
     Column(
         Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Box {
-            Portrait(page.photo_url, page.name, 96.dp)
-            // Le sceau de la rétrospective complète (geste 20 du complément du 23 septembre 2026
-            // à l'habillage) : posé sur le portrait, seulement quand `retrospectiveComplete` le dit
-            // — `page.films` est déjà sans ses séries (décision 3 de la retouche du 22 septembre
-            // 2026, appliquée avant `EnTeteRealisateur`).
-            if (retrospectiveComplete(page.films)) {
-                SceauRetrospective(30.dp, anime = true, modifier = Modifier.align(Alignment.BottomEnd), fond = monde.fond)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box {
+                Portrait(page.photo_url, page.name, 72.dp, lisere = true)
+                // Le sceau de la rétrospective complète (geste 20 du complément du 23 septembre
+                // 2026 à l'habillage) : posé sur le portrait, seulement quand `retrospectiveComplete`
+                // le dit.
+                if (retrospectiveComplete(page.films)) {
+                    SceauRetrospective(30.dp, anime = true, modifier = Modifier.align(Alignment.BottomEnd), fond = monde.fond)
+                }
+            }
+            Column(
+                Modifier.padding(start = 14.dp).weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(page.name, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
+                val dates = ligneDates(page.naissance, page.deces, page.genre)
+                if (dates.isNotEmpty()) {
+                    Text(dates, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Text(
+                    etiquetteRetrospective(vus, total),
+                    style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.14.em),
+                    color = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+                Text(ligneSurLePlex(page.films), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        Text(
-            page.name,
-            style = MaterialTheme.typography.titleLarge.copy(letterSpacing = 4.sp, fontWeight = FontWeight.Bold),
-            color = monde.accent,
-            textAlign = TextAlign.Center,
-        )
-        val dates = ligneDates(page.naissance, page.deces, page.genre)
-        if (dates.isNotEmpty()) {
-            Text(dates, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        if (page.presentation.isNotEmpty()) {
-            // La biographie, masquée derrière « Lire la biographie » si elle arrive en anglais
-            // (point 11 de la revue du 24 septembre 2026) : le contrat n'envoie du français que
-            // s'il en a un, avec repli sur l'anglais sinon (`docs/openapi.json`,
-            // `biographieEstProbablementAnglaise`, fonction pure testée) — jamais affichée d'office
-            // dans une langue qu'on n'a pas demandée.
-            var biographieDepliee by remember(page.presentation) { mutableStateOf(false) }
-            val masquee = biographieEstProbablementAnglaise(page.presentation) && !biographieDepliee
-            if (masquee) {
-                TextButton(onClick = { biographieDepliee = true }) { Text("Lire la biographie") }
+        BarreProgressionOr(vus, total)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            val forme = RoundedCornerShape(12.dp)
+            val boutonModifier = Modifier.weight(1f).heightIn(min = 44.dp)
+            val marges = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+            if (page.suivi) {
+                OutlinedButton(
+                    onClick = onRetirer,
+                    modifier = boutonModifier,
+                    shape = forme,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.secondary),
+                    contentPadding = marges,
+                ) {
+                    IconeTabler("check", null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(18.dp))
+                    Text(libelleBoutonSuivi(true, page.genre), modifier = Modifier.padding(start = 6.dp))
+                }
             } else {
+                OutlinedButton(
+                    onClick = onSuivre,
+                    modifier = boutonModifier,
+                    shape = forme,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+                    contentPadding = marges,
+                ) {
+                    Text(libelleBoutonSuivi(false, page.genre))
+                }
+            }
+            if (page.presentation.isNotBlank()) {
+                OutlinedButton(
+                    onClick = { biographieDepliee = !biographieDepliee },
+                    modifier = boutonModifier,
+                    shape = forme,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant),
+                    contentPadding = marges,
+                ) {
+                    Text(
+                        if (biographieDepliee) "Replier la biographie" else "Lire la biographie",
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
+        }
+        if (page.presentation.isNotBlank()) {
+            androidx.compose.animation.AnimatedVisibility(
+                visible = biographieDepliee,
+                enter = fadeIn(tween(200)) + expandVertically(tween(200)),
+                exit = fadeOut(tween(150)) + shrinkVertically(tween(150)),
+            ) {
                 Text(
                     page.presentation,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
                 )
             }
         }
-        if (page.suivi) {
-            OutlinedButton(onClick = onRetirer) { Text("Suivi") }
-        } else {
-            FilledTonalButton(onClick = onSuivre) { Text("Suivre") }
-        }
-        Text(
-            ligneResume(page.films),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        // Le résumé compte tout, introuvables compris : l'interrupteur cache des affiches, il ne
-        // change pas la filmographie. Même interrupteur que la fiche d'une saga.
-        Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        // Même interrupteur que la fiche d'une saga.
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 "Masquer les introuvables",
                 style = MaterialTheme.typography.bodyMedium,
