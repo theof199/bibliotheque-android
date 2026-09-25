@@ -26,3 +26,8 @@ award
 arrows-sort
 pencil
 chevron-down
+# Les quatre suivantes sont les enseignes de la barre du bas (25 septembre 2026).
+building-pavilion
+route
+chair-director
+armchair

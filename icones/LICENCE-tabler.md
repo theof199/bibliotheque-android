@@ -30,6 +30,10 @@ Les icones de l'application sous `res/drawable/tabler_*.xml` viennent du paquet 
 - `tabler_arrows_sort` — `arrows-sort` (outline)
 - `tabler_pencil` — `pencil` (outline)
 - `tabler_chevron_down` — `chevron-down` (outline)
+- `tabler_building_pavilion` — `building-pavilion` (outline)
+- `tabler_route` — `route` (outline)
+- `tabler_chair_director` — `chair-director` (outline)
+- `tabler_armchair` — `armchair` (outline)
 
 ## Licence MIT (`@tabler/icons`)
 

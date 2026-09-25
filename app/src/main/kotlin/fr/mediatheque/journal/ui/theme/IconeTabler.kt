@@ -38,6 +38,12 @@ private val RESSOURCES_TABLER: Map<String, Int> = mapOf(
     "arrows-sort" to R.drawable.tabler_arrows_sort,
     "pencil" to R.drawable.tabler_pencil,
     "chevron-down" to R.drawable.tabler_chevron_down,
+    // La barre du bas · les cinq enseignes (25 septembre 2026) : Accueil, Voyage, Suivis, Profil —
+    // « Au ciné » garde son `ticket`.
+    "building-pavilion" to R.drawable.tabler_building_pavilion,
+    "route" to R.drawable.tabler_route,
+    "chair-director" to R.drawable.tabler_chair_director,
+    "armchair" to R.drawable.tabler_armchair,
 )
 
 /** Fonction pure testée (mutation) : `IconeTablerTest.kt`. */
