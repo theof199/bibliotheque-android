@@ -59,7 +59,8 @@ private val LARGEUR_ACTION = 88.dp
 
 /**
  * Une ligne de « Mes films · le hall » (spec de Léon, décisions du propriétaire du 24 septembre
- * 2026), propre à cet écran : `JournalRow` reste intacte pour « Tes séances » d'« Au ciné ».
+ * 2026), reprise telle quelle, glissement compris, par « Tes séances » d'« Au ciné » depuis « le
+ * guichet » (décision du propriétaire du 25 septembre 2026), où elle remplace l'ancienne ligne.
  *
  * Glissée vers la gauche (`AnchoredDraggable`, ancres Fermé = 0 et Ouvert = −176 dp), elle
  * découvre « Corriger » et « Supprimer ». Une seule ligne ouverte à la fois : l'écran tient
@@ -203,8 +204,8 @@ private fun ContenuLigne(item: JournalItem, coverModifier: Modifier) {
             val mots = motsReactions(item)
             if (mots.isNotEmpty()) Text(mots, style = style12, color = secondaire)
         }
-        // Le cercle or de la note, recopié de celui de `JournalRow` (sa jumelle d'« Au ciné »,
-        // que cet écran ne modifie pas) : mêmes 26 dp, même trait, même chiffre.
+        // Le cercle or de la note, recopié de celui de l'ancienne ligne de « Tes séances »
+        // (retirée avec « le guichet », 25 septembre 2026) : mêmes 26 dp, même trait, même chiffre.
         item.entry.rating?.let { note ->
             Box(
                 Modifier
