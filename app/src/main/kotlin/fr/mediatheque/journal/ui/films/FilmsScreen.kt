@@ -109,6 +109,20 @@ fun FilmsScreen(
     LaunchedEffect(liste) {
         snapshotFlow { liste.isScrollInProgress }.collect { if (it) ligneOuverte = null }
     }
+    // Tout changement de tri ou de filtre (recherche comprise) ramène en haut de la liste (décision
+    // du propriétaire du 25 septembre 2026) et referme la ligne ouverte. Pas à la première
+    // composition : revenir sur l'écran avec des filtres mémorisés doit garder le défilement
+    // sauvegardé (`rememberSaveableStateHolder`, Root.kt), seul un changement fait pendant la
+    // visite remonte. `scrollToItem`, pas `animateScrollToItem` : un saut net, le contenu de la
+    // liste change de toute façon.
+    var filtresVus by remember { mutableStateOf(f) }
+    LaunchedEffect(f) {
+        if (f != filtresVus) {
+            filtresVus = f
+            ligneOuverte = null
+            liste.scrollToItem(0)
+        }
+    }
 
     // `Scaffold` plutôt que `safeDrawingPadding()` : son `bottomBar` (la barre du 14 septembre
     // 2026, « Profil » sélectionnée puisque cet écran ne s'ouvre que depuis lui) réserve sa
