@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -30,6 +31,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridState
@@ -64,10 +66,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -82,6 +83,8 @@ import fr.mediatheque.journal.api.dto.FilmDeFilmographie
 import fr.mediatheque.journal.api.dto.RealisateurPageResponse
 import fr.mediatheque.journal.ui.AfficheVolante
 import fr.mediatheque.journal.ui.Cover
+import fr.mediatheque.journal.ui.FiltreDesature
+import fr.mediatheque.journal.ui.lisereOr
 import fr.mediatheque.journal.ui.PlexBadge
 import fr.mediatheque.journal.ui.TamponPerdu
 import fr.mediatheque.journal.ui.EntreeEnCascade
@@ -92,6 +95,7 @@ import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.frise.Monde
 import fr.mediatheque.journal.ui.frise.TeinteSepia
 import fr.mediatheque.journal.ui.theme.BarreProgressionOr
+import fr.mediatheque.journal.ui.theme.EtiquetteEnsuite
 import fr.mediatheque.journal.ui.theme.IconeTabler
 import fr.mediatheque.journal.ui.theme.Perforations
 import fr.mediatheque.journal.ui.frise.mondeDe
@@ -99,6 +103,7 @@ import fr.mediatheque.journal.ui.frise.mondeDeLaDecennie
 import fr.mediatheque.journal.ui.showBriefly
 import fr.mediatheque.journal.ui.suivis.Portrait
 import fr.mediatheque.journal.ui.suivis.SceauRetrospective
+import java.util.Locale
 
 /**
  * La page d'un réalisateur (reprise du 21 septembre 2026, « la page réalisateur, reprise » —
@@ -255,9 +260,11 @@ private fun GrilleFilmographie(
     etatGrille: LazyGridState = rememberLazyGridState(),
 ) {
     var masquerIntrouvables by rememberSaveable { mutableStateOf(true) }
-    val decennies = remember(page.films, masquerIntrouvables) {
-        regrouperParDecennie(filmsAffiches(page.films, masquerIntrouvables))
-    }
+    val affiches = remember(page.films, masquerIntrouvables) { filmsAffiches(page.films, masquerIntrouvables) }
+    val decennies = remember(affiches) { regrouperParDecennie(affiches) }
+    // La case « ENSUITE » (25 septembre 2026) : une seule sur toute la page, élue dans la liste même
+    // que la grille dessine.
+    val prochainId = remember(affiches) { prochainDeLaFilmographie(affiches)?.tmdb_id }
     // La cascade d'entrée (habillage du 23 septembre 2026, geste 8) : posée une fois ici, pour
     // toute la filmographie.
     val porteCascade = rememberPorteCascade()
@@ -290,21 +297,7 @@ private fun GrilleFilmographie(
 
             decennies.forEach { decennie ->
                 item(span = { GridItemSpan(maxLineSpan) }) {
-                    val mondeDecennie = decennie.decennie?.let { mondeDeLaDecennie(it) } ?: monde
-                    Column(Modifier.padding(top = 8.dp)) {
-                        Text(
-                            libelleDecennie(decennie.decennie),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = mondeDecennie.accent,
-                        )
-                        // La couleur de la décennie devient un accent (point 11) : un filet sous
-                        // le titre, pas seulement la teinte du texte — jusque-là son seul rôle.
-                        HorizontalDivider(
-                            modifier = Modifier.padding(top = 4.dp).width(32.dp),
-                            thickness = 2.dp,
-                            color = mondeDecennie.accent,
-                        )
-                    }
+                    EnTeteDecennie(decennie, monde)
                 }
 
                 itemsIndexed(decennie.films, key = { _, film -> "film-${film.tmdb_id}" }) { index, film ->
@@ -317,6 +310,7 @@ private fun GrilleFilmographie(
                             hauteur = hauteurAffiche,
                             onClick = { onOuvrirFilm(film) },
                             onLongClick = { onLongClickNonVu(film) },
+                            ensuite = film.tmdb_id == prochainId,
                             // « Masquer les introuvables » (geste 3 du peaufinage du 23 septembre
                             // 2026) : la grille se retasse au lieu de sauter quand l'interrupteur en
                             // retire des affiches.
@@ -328,6 +322,51 @@ private fun GrilleFilmographie(
                 }
             }
         }
+    }
+}
+
+/**
+ * L'en-tête d'une décennie (25 septembre 2026) : « 1990 » en gras, puis le nom de son monde en
+ * capitales espacées (« LE BLOCKBUSTER », `Monde.nom`, design §2), les deux dans l'accent du monde de
+ * **cette** décennie ; à droite « 2 sur 4 » (`compteDecennie`, sur les films que la grille dessine) ;
+ * dessous, un filet de 2 dp dans l'accent, pleine largeur. « Année inconnue » garde l'accent de la
+ * page et n'a pas de nom de monde.
+ */
+@Composable
+private fun EnTeteDecennie(decennie: DecennieFilmographie, mondePage: Monde) {
+    val mondeDecennie = decennie.decennie?.let { mondeDeLaDecennie(it) }
+    val accent = (mondeDecennie ?: mondePage).accent
+    Column(Modifier.padding(top = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                libelleDecennie(decennie.decennie),
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = accent,
+                modifier = Modifier.alignByBaseline(),
+            )
+            if (mondeDecennie != null) {
+                Text(
+                    mondeDecennie.nom.uppercase(Locale.FRENCH),
+                    style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.18.em),
+                    color = accent,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.alignByBaseline().padding(start = 10.dp).weight(1f, fill = false),
+                )
+            }
+            Spacer(Modifier.weight(1f))
+            Text(
+                compteDecennie(decennie.films),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.alignByBaseline().padding(start = 8.dp),
+            )
+        }
+        HorizontalDivider(
+            modifier = Modifier.padding(top = 6.dp).fillMaxWidth(),
+            thickness = 2.dp,
+            color = accent,
+        )
     }
 }
 
@@ -455,14 +494,18 @@ private fun EnTeteRealisateur(
     }
 }
 
-private val FiltreDesature = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
-
 /**
  * Une affiche de la filmographie (inchangé : vu en couleur avec pastille de note, sépia sinon,
  * coin Plex, liseré dans l'accent quand `annee_ouverte`), avec sous elle son titre (deux lignes au
  * plus) puis son année — lisibles même sans jaquette, `Cover` gardant alors son rectangle sépia.
  * Le coin « Court » (retouche du 22 septembre 2026, décision 2 : jumeau du coin « TV » qu'il
  * remplace — même place, même style — les séries ayant quitté la page) marque un court métrage.
+ *
+ * Le pavillon (25 septembre 2026) : l'affiche porte le liseré or à 22 % (`lisereOr`) ; non vue, elle
+ * garde son voile sépia, l'ensemble à 80 %. `ensuite` (le prochain film de toute la filmographie,
+ * `prochainDeLaFilmographie`) : un liseré de 1,5 dp `primary`, qui prime sur celui de l'année
+ * ouverte, et l'étiquette « ENSUITE » en haut à gauche sur une petite pastille sombre ; si c'est un
+ * court, le coin « Court » passe en haut à droite, sous le badge Plex (choix de Margot).
  */
 @OptIn(ExperimentalFoundationApi::class, ExperimentalSharedTransitionApi::class)
 @Composable
@@ -473,6 +516,7 @@ private fun AfficheFilmographie(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier,
+    ensuite: Boolean = false,
     volante: AfficheVolante? = null,
 ) {
     val vu = film.vu != null
@@ -499,63 +543,77 @@ private fun AfficheFilmographie(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(
-            if (film.annee_ouverte) {
-                Modifier.border(1.5.dp, monde.accent, MaterialTheme.shapes.small)
-            } else {
-                Modifier
+            when {
+                ensuite -> Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.small)
+                film.annee_ouverte -> Modifier.border(1.5.dp, monde.accent, MaterialTheme.shapes.small)
+                else -> Modifier
             },
         ) {
-            Cover(
-                film.cover_url,
-                film.title,
-                largeur,
-                hauteur,
-                modifier = Modifier.voler(volante),
-                colorFilter = if (vu) null else FiltreDesature,
-            )
+            Box(Modifier.alpha(if (vu) 1f else 0.8f)) {
+                Cover(
+                    film.cover_url,
+                    film.title,
+                    largeur,
+                    hauteur,
+                    modifier = Modifier.voler(volante).lisereOr(),
+                    colorFilter = if (vu) null else FiltreDesature,
+                )
+                if (!vu && !film.introuvable) {
+                    Box(Modifier.size(largeur, hauteur).background(TeinteSepia.copy(alpha = 0.35f), MaterialTheme.shapes.small))
+                }
+            }
             if (film.introuvable) {
                 TamponPerdu(
                     taille = minOf(largeur, hauteur) * 0.62f,
                     modifier = Modifier.align(Alignment.Center),
                     echelle = echelleTampon.value,
                 )
-            } else if (!vu) {
-                Box(Modifier.size(largeur, hauteur).background(TeinteSepia.copy(alpha = 0.35f)))
             }
             if (vu && film.vu?.rating != null) {
                 Box(
                     Modifier
                         .align(Alignment.BottomEnd)
                         .padding(4.dp)
+                        .heightIn(min = 20.dp)
+                        .widthIn(min = 20.dp)
                         .background(MaterialTheme.colorScheme.surfaceContainerHigh, CircleShape)
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                        .padding(horizontal = 6.dp)
                         .clearAndSetSemantics { contentDescription = "Note ${film.vu?.rating} sur 10" },
+                    contentAlignment = Alignment.Center,
                 ) {
                     Text("${film.vu?.rating}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
                 }
             }
-            // Le badge Plex unique de l'appli (revue du 24 septembre 2026, point 2) : icône Tabler
-            // dans un petit cercle sombre, coin haut droit — `PlexBadge`, `ui/Cover.kt`.
-            // Nom qualifié en entier : à l'intersection d'un `Column` et d'un `Box` implicites,
-            // le compilateur hésite sinon entre les surcharges `ColumnScope`/`BoxScope`.
-            androidx.compose.animation.AnimatedVisibility(
-                visible = film.sur_le_plex,
-                modifier = Modifier.align(Alignment.TopEnd),
-                enter = fadeIn(tween(150)) + scaleIn(initialScale = 0.6f, animationSpec = tween(150)),
-                exit = fadeOut(tween(150)) + scaleOut(targetScale = 0.6f, animationSpec = tween(150)),
-            ) {
-                PlexBadge()
-            }
-            if (film.court) {
-                Text(
-                    "Court",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
+            if (ensuite) {
+                EtiquetteEnsuite(
+                    MaterialTheme.colorScheme.primary,
+                    gras = true,
                     modifier = Modifier
                         .align(Alignment.TopStart)
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.85f))
-                        .padding(horizontal = 3.dp),
+                        .padding(4.dp)
+                        .background(MaterialTheme.colorScheme.background.copy(alpha = 0.7f), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 4.dp, vertical = 2.dp),
                 )
+            }
+            // Le badge Plex unique de l'appli (revue du 24 septembre 2026, point 2) : icône Tabler
+            // dans un petit cercle sombre, coin haut droit — `PlexBadge`, `ui/Cover.kt`. Sur la case
+            // « ENSUITE », le coin « Court » s'empile dessous (le coin haut gauche est pris).
+            Column(Modifier.align(Alignment.TopEnd), horizontalAlignment = Alignment.End) {
+                // Nom qualifié en entier : à l'intersection de plusieurs portées implicites, le
+                // compilateur hésite sinon entre les surcharges `ColumnScope`/`BoxScope`.
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = film.sur_le_plex,
+                    enter = fadeIn(tween(150)) + scaleIn(initialScale = 0.6f, animationSpec = tween(150)),
+                    exit = fadeOut(tween(150)) + scaleOut(targetScale = 0.6f, animationSpec = tween(150)),
+                ) {
+                    PlexBadge()
+                }
+                if (film.court && ensuite) {
+                    CoinCourt(Modifier.padding(top = if (film.sur_le_plex) 0.dp else 4.dp, end = 4.dp))
+                }
+            }
+            if (film.court && !ensuite) {
+                CoinCourt(Modifier.align(Alignment.TopStart))
             }
         }
         Text(
@@ -574,6 +632,19 @@ private fun AfficheFilmographie(
             modifier = Modifier.padding(top = 2.dp),
         )
     }
+}
+
+/** Le coin « Court » d'une affiche : `labelSmall` sur `surfaceContainerHigh` à 85 %. */
+@Composable
+private fun CoinCourt(modifier: Modifier = Modifier) {
+    Text(
+        "Court",
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = modifier
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.85f))
+            .padding(horizontal = 3.dp),
+    )
 }
 
 /** « Marquer introuvable » / « Le remettre à voir » (existants) sur un film de la filmographie — jumeau de `IntrouvableSheet`, `ui/suivis/FicheSuiviScreen.kt`. */

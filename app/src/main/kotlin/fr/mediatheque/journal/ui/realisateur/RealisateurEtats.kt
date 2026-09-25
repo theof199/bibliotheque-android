@@ -120,8 +120,12 @@ data class DecennieFilmographie(
     val films: List<FilmDeFilmographie>,
 )
 
-/** « Années 1980 » : 1895 rejoint « Années 1890 », l'en-tête arrondissant au millésime de décennie. */
-fun libelleDecennie(decennie: Int?): String = if (decennie != null) "Années $decennie" else "Année inconnue"
+/**
+ * « 1990 » : 1895 rejoint « 1890 », l'en-tête arrondissant au millésime de décennie (le pavillon
+ * d'un réalisateur, 25 septembre 2026 — le nom du monde suit le millésime, « Années » disparaît).
+ * « Année inconnue » reste le repli d'un groupe sans film daté, sans nom de monde.
+ */
+fun libelleDecennie(decennie: Int?): String = decennie?.toString() ?: "Année inconnue"
 
 private fun decennieDe(annee: Int?): Int? = annee?.let { (it / 10) * 10 }
 
@@ -173,6 +177,24 @@ fun etiquetteRetrospective(vus: Int, total: Int): String = "RÉTROSPECTIVE · $v
 
 /** (vus, total) de l'en-tête du pavillon, sur `films` déjà sans séries, introuvables compris. */
 fun compteRetrospective(films: List<FilmDeFilmographie>): Pair<Int, Int> = films.count { it.vu != null } to films.size
+
+/**
+ * « 2 sur 4 » à droite de l'en-tête d'une décennie (25 septembre 2026) : les films vus sur les films
+ * **dessinés** de la décennie — `films` est le groupe tel que la grille le montre, après
+ * `filmsAffiches` : avec « Masquer les introuvables », ils ne comptent pas ; sinon ils comptent au
+ * total sans jamais compter vus. Jumeau de `compteBande` (`ui/suivis/BandeEtats.kt`).
+ */
+fun compteDecennie(films: List<FilmDeFilmographie>): String = "${films.count { it.vu != null }} sur ${films.size}"
+
+/**
+ * Le prochain film à voir de toute la filmographie (la case « ENSUITE », 25 septembre 2026) : le
+ * premier, dans l'ordre du back, ni vu ni introuvable — toutes décennies confondues, pas un par
+ * décennie. Nul quand il n'en reste aucun. `films` est la liste que la grille dessine
+ * (`filmsAffiches` de `filmsSansSeries`) : un introuvable n'y est jamais élu, qu'il soit masqué ou
+ * non.
+ */
+fun prochainDeLaFilmographie(films: List<FilmDeFilmographie>): FilmDeFilmographie? =
+    films.firstOrNull { it.vu == null && !it.introuvable }
 
 /** Le libellé du bouton de suivi : « Suivre », sinon « Suivi » ou « Suivie » selon `genre`. */
 fun libelleBoutonSuivi(suivi: Boolean, genre: String?): String = when {

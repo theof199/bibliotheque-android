@@ -148,11 +148,11 @@ class RealisateurEtatsTest {
         assertEquals(1890, decennies[0].decennie)
     }
 
-    // Le libellé lui-même : « Années 1980 », jamais le millésime nu. Mutation : afficher le
-    // millésime seul (sans « Années ») casse cette assertion.
+    // Le libellé lui-même : « 1980 », le millésime nu, le nom du monde venant à côté (le pavillon,
+    // 25 septembre 2026). Mutation : garder « Années 1980 » casse cette assertion.
     @Test
-    fun `libelleDecennie ecrit Annees suivi de la decennie`() {
-        assertEquals("Années 1980", libelleDecennie(1980))
+    fun `libelleDecennie ecrit le millesime nu`() {
+        assertEquals("1980", libelleDecennie(1980))
     }
 
     // Sans décennie connue (aucun film daté du groupe), un libellé de repli plutôt qu'un texte nul.
@@ -294,6 +294,48 @@ class RealisateurEtatsTest {
             FakeJournalApi.filmDeFilmographie(3, "A voir", 2002, court = true),
         )
         assertEquals(1 to 3, compteRetrospective(films))
+    }
+
+    // « 2 sur 4 » compte ce que la grille dessine : avec l'interrupteur, l'introuvable sort du total ;
+    // sans lui, il y entre sans être vu. Mutation : compter la décennie brute, avant `filmsAffiches`,
+    // casse la première assertion.
+    @Test
+    fun `compteDecennie suit l interrupteur des introuvables`() {
+        val films = listOf(
+            FakeJournalApi.filmDeFilmographie(1, "Vu", 1990, entryId = "e1"),
+            FakeJournalApi.filmDeFilmographie(2, "Vu aussi", 1991, entryId = "e2"),
+            FakeJournalApi.filmDeFilmographie(3, "Perdu", 1992, introuvable = true),
+            FakeJournalApi.filmDeFilmographie(4, "A voir", 1993),
+        )
+        val masquee = regrouperParDecennie(filmsAffiches(films, masquerIntrouvables = true)).single()
+        val montree = regrouperParDecennie(filmsAffiches(films, masquerIntrouvables = false)).single()
+        assertEquals("2 sur 3", compteDecennie(masquee.films))
+        assertEquals("2 sur 4", compteDecennie(montree.films))
+    }
+
+    // Le prochain de toute la filmographie : le premier ni vu ni introuvable, décennies confondues —
+    // ici en 1990, toute la décennie 1980 étant vue ou perdue. Mutation : élire l'introuvable, ou
+    // le premier non vu sans regarder `introuvable`, casse cette assertion.
+    @Test
+    fun `prochainDeLaFilmographie saute les vus et les introuvables toutes decennies confondues`() {
+        val vu = FakeJournalApi.filmDeFilmographie(1, "Vu", 1981, entryId = "e1")
+        val perdu = FakeJournalApi.filmDeFilmographie(2, "Perdu", 1985, introuvable = true)
+        val prochain = FakeJournalApi.filmDeFilmographie(3, "Prochain", 1990, court = true)
+        val apres = FakeJournalApi.filmDeFilmographie(4, "Apres", 1991)
+        val films = listOf(vu, perdu, prochain, apres)
+        assertEquals(prochain, prochainDeLaFilmographie(films))
+        assertEquals(prochain, prochainDeLaFilmographie(filmsAffiches(films, masquerIntrouvables = true)))
+    }
+
+    // Tout vu ou perdu : aucune case « ENSUITE ». Mutation : retomber sur le premier film casse
+    // cette assertion.
+    @Test
+    fun `prochainDeLaFilmographie est nul quand il ne reste rien a voir`() {
+        val films = listOf(
+            FakeJournalApi.filmDeFilmographie(1, "Vu", 1981, entryId = "e1"),
+            FakeJournalApi.filmDeFilmographie(2, "Perdu", 1985, introuvable = true),
+        )
+        assertEquals(null, prochainDeLaFilmographie(films))
     }
 
     // « Suivre », puis « Suivi » ou « Suivie » selon le genre ; un genre inconnu reste au masculin

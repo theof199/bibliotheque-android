@@ -75,9 +75,10 @@ fun Modifier.lisereOr(alpha: Float = 0.22f, shape: Shape = MaterialTheme.shapes.
     this.border(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = alpha), shape)
 
 /**
- * L'affiche désaturée d'un film pas encore vu (bande d'un cycle, 25 septembre 2026) : la même
- * matrice que la grille d'un réalisateur (`RealisateurScreen.kt`, qui garde la sienne jusqu'à sa
- * livraison), posée par `colorFilter`, sous un voile `TeinteSepia` que l'appelant ajoute.
+ * L'affiche désaturée d'un film pas encore vu (bande d'un cycle, 25 septembre 2026) : la matrice
+ * que partagent la bande d'un cycle et la grille d'un réalisateur (`RealisateurScreen.kt`, dont le
+ * double privé a disparu avec le pavillon), posée par `colorFilter`, sous un voile `TeinteSepia`
+ * que l'appelant ajoute.
  */
 val FiltreDesature: ColorFilter = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
 
