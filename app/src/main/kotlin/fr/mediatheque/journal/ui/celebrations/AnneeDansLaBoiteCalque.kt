@@ -165,7 +165,9 @@ fun AnneeDansLaBoiteCalque(
 
     if (feuilleGeneriqueOuverte && generique != null) {
         FeuilleDeLecture(
+            espece = "Générique",
             titre = "Le générique de fin",
+            sousTitre = "${avancee.anneeBouclee}",
             etat = EtatFeuilleDeLecture.Texte(generique!!),
             onDismiss = { feuilleGeneriqueOuverte = false },
         )

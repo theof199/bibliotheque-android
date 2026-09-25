@@ -43,7 +43,7 @@ data class CartonUi(
 fun etatFeuilleCarton(ui: CartonUi): EtatFeuilleDeLecture = when (ui.etat) {
     EtatChronique.PRETE -> EtatFeuilleDeLecture.Texte(ui.texte ?: "")
     EtatChronique.EN_PREPARATION -> EtatFeuilleDeLecture.Chargement
-    EtatChronique.ABANDON -> EtatFeuilleDeLecture.Erreur("Le chroniqueur n’a pas fini d’écrire, réessaie plus tard.", retryable = false)
+    EtatChronique.ABANDON -> EtatFeuilleDeLecture.Erreur("Le chroniqueur n’a pas fini. Reviens plus tard.", retryable = false)
     EtatChronique.NON_CONFIGURE -> EtatFeuilleDeLecture.Erreur("Le chroniqueur n’est pas configuré sur ce serveur.", retryable = false)
 }
 

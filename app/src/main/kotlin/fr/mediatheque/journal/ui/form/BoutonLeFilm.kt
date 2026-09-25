@@ -28,6 +28,10 @@ import fr.mediatheque.journal.ui.FeuilleDeLecture
  * film le passent en `secondary` — « Le film », dernier de la pile, se distingue des autres
  * boutons en contour par son filet or ; `outline` partout ailleurs, comme avant. `shape` : le
  * rayon 12 dp des piles de boutons des fiches, la forme du thème au formulaire.
+ *
+ * `sousTitre` (« la feuille de lecture · le chroniqueur », 25 septembre 2026) : la ligne sous le
+ * titre de la feuille — l'année du film, et la salle d'où l'on vient sur la fiche du Voyage ; nul
+ * au formulaire, qui n'en montre pas.
  */
 @Composable
 fun BoutonLeFilm(
@@ -36,13 +40,16 @@ fun BoutonLeFilm(
     modifier: Modifier = Modifier,
     bord: Color = MaterialTheme.colorScheme.outline,
     shape: Shape = ButtonDefaults.outlinedShape,
+    sousTitre: String? = null,
 ) {
     var ouverte by remember { mutableStateOf(false) }
     OutlinedButton(onClick = { ouverte = true }, modifier = modifier, shape = shape, border = BorderStroke(1.dp, bord)) { Text("Le film") }
     if (ouverte) {
         val cartonUi by carton.ui.collectAsState()
         FeuilleDeLecture(
+            espece = "Le film",
             titre = cartonUi.titre ?: titreConnu,
+            sousTitre = sousTitre,
             etat = etatFeuilleCarton(cartonUi),
             onDismiss = { ouverte = false },
         )

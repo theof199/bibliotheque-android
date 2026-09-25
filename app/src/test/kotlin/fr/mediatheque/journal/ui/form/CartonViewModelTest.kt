@@ -147,4 +147,13 @@ class CartonViewModelTest {
         assertEquals(false, (abandon as EtatFeuilleDeLecture.Erreur).retryable)
         assertEquals(false, (nonConfigure as EtatFeuilleDeLecture.Erreur).retryable)
     }
+
+    // « La feuille de lecture · le chroniqueur » (25 septembre 2026) : la phrase de l'abandon,
+    // plus courte, dit d'attendre plutôt que de réessayer — il n'y a pas de bouton pour le faire.
+    @Test
+    fun `etatFeuilleCarton dit de revenir plus tard a l'abandon`() {
+        val abandon = etatFeuilleCarton(CartonUi(etat = EtatChronique.ABANDON)) as EtatFeuilleDeLecture.Erreur
+
+        assertEquals("Le chroniqueur n’a pas fini. Reviens plus tard.", abandon.message)
+    }
 }

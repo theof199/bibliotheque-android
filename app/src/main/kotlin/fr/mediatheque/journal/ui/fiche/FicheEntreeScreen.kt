@@ -80,7 +80,7 @@ fun FicheEntreeScreen(
             )
             Spacer(Modifier.height(16.dp))
             PucesReactions(item.carnet.reactions, Modifier.padding(horizontal = 16.dp))
-            BoutonsFicheEntree(carton, media.title, onCorriger)
+            BoutonsFicheEntree(carton, media.title, media.year, onCorriger)
         }
     }
 }
@@ -116,7 +116,7 @@ private fun realisateurDe(
  * taille communes aux trois piles (`FORME_BOUTON_FICHE`, `tailleBoutonFiche`).
  */
 @Composable
-private fun BoutonsFicheEntree(carton: CartonViewModel?, titre: String, onCorriger: () -> Unit) {
+private fun BoutonsFicheEntree(carton: CartonViewModel?, titre: String, annee: Int?, onCorriger: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Button(onClick = onCorriger, modifier = Modifier.tailleBoutonFiche(), shape = FORME_BOUTON_FICHE) { Text("Corriger") }
         carton?.let {
@@ -126,6 +126,7 @@ private fun BoutonsFicheEntree(carton: CartonViewModel?, titre: String, onCorrig
                 modifier = Modifier.tailleBoutonFiche(),
                 bord = MaterialTheme.colorScheme.secondary,
                 shape = FORME_BOUTON_FICHE,
+                sousTitre = annee?.toString(),
             )
         }
     }

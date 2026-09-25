@@ -147,7 +147,9 @@ fun FilmEnregistreCalque(film: FilmEnregistre, carton: CartonViewModel?, onFerme
     if (feuilleCartonOuverte && carton != null) {
         val cartonUi by carton.ui.collectAsState()
         FeuilleDeLecture(
+            espece = "Le film",
             titre = cartonUi.titre ?: film.titre,
+            sousTitre = film.annee?.toString(),
             etat = etatFeuilleCarton(cartonUi),
             onDismiss = { feuilleCartonOuverte = false },
         )

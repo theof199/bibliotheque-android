@@ -207,6 +207,7 @@ fun FicheFilmScreen(
                             modifier = Modifier.tailleBoutonFiche(),
                             bord = MaterialTheme.colorScheme.secondary,
                             shape = FORME_BOUTON_FICHE,
+                            sousTitre = film.year?.toString(),
                         )
                     }
                 }

@@ -382,7 +382,9 @@ fun AnneeScreen(
     // L'ouverture (décision 2) : déjà chargée avec l'année, la feuille ne fait jamais d'appel.
     if (feuilleOuverte) {
         FeuilleDeLecture(
+            espece = "Ouverture",
             titre = "$millesime",
+            sousTitre = null,
             etat = EtatFeuilleDeLecture.Texte(ui.ouverture ?: ""),
             onDismiss = { feuilleOuverte = false },
         )
@@ -392,7 +394,9 @@ fun AnneeScreen(
     // cartouche (`Cartouche`, ci-dessous) — synchrone, appelle la route si nul.
     feuilleGenerique?.let { etat ->
         FeuilleDeLecture(
+            espece = "Générique",
             titre = "Le générique de fin",
+            sousTitre = "$millesime",
             etat = etat,
             onDismiss = { feuilleGenerique = null },
             onRetry = { scope.launch { chargerGenerique() } },
@@ -405,7 +409,9 @@ fun AnneeScreen(
     feuilleSalle?.let { (salleId, etat) ->
         val nomSalle = ui.salles.firstOrNull { it.id == salleId }?.nom ?: ""
         FeuilleDeLecture(
+            espece = "Salle",
             titre = nomSalle,
+            sousTitre = "$millesime",
             etat = etat,
             onDismiss = { feuilleSalle = null },
             onRetry = { scope.launch { chargerContexteSalle(salleId) } },
