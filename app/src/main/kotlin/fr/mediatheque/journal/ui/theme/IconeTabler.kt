@@ -23,11 +23,9 @@ private val RESSOURCES_TABLER: Map<String, Int> = mapOf(
     "x" to R.drawable.tabler_x,
     "plus" to R.drawable.tabler_plus,
     "chevron-right" to R.drawable.tabler_chevron_right,
-    "timeline" to R.drawable.tabler_timeline,
     "map" to R.drawable.tabler_map,
     "user" to R.drawable.tabler_user,
     "movie" to R.drawable.tabler_movie,
-    "home" to R.drawable.tabler_home,
     "trash" to R.drawable.tabler_trash,
     "ticket" to R.drawable.tabler_ticket,
     "cloud" to R.drawable.tabler_cloud,
@@ -39,7 +37,7 @@ private val RESSOURCES_TABLER: Map<String, Int> = mapOf(
     "pencil" to R.drawable.tabler_pencil,
     "chevron-down" to R.drawable.tabler_chevron_down,
     // La barre du bas · les cinq enseignes (25 septembre 2026) : Accueil, Voyage, Suivis, Profil —
-    // « Au ciné » garde son `ticket`.
+    // « Au ciné » garde son `ticket`. `home` et `timeline` sont partis avec elles.
     "building-pavilion" to R.drawable.tabler_building_pavilion,
     "route" to R.drawable.tabler_route,
     "chair-director" to R.drawable.tabler_chair_director,

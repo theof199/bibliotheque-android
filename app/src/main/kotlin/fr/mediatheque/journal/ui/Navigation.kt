@@ -1,19 +1,31 @@
 package fr.mediatheque.journal.ui
 
-import fr.mediatheque.journal.ui.theme.IconeTabler
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBarDefaults
-import androidx.compose.material3.Surface
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -21,6 +33,19 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import fr.mediatheque.journal.ui.theme.IconeTabler
+import fr.mediatheque.journal.ui.theme.animationsReduites
 import fr.mediatheque.journal.api.dto.AnneeVoyage
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.SearchResult
@@ -174,23 +199,33 @@ fun Screen.bottomBarTab(): BottomTab? = when (this) {
 }
 
 /**
- * La barre de navigation du bas (Material 3), visible sur l'accueil, la Frise, « Suivis »,
- * « Au ciné », « Mes films » et le profil ; cachée sur le formulaire, la recherche, l'écran
- * SensCritique, le détail d'une année de la Frise, la fiche d'un réalisateur ou d'une saga et
- * leur recherche (décision du propriétaire du 14 septembre 2026, en remplacement de
- * l'`IconButton` profil de l'accueil, jugé inaccessible ; troisième entrée « Au ciné » ajoutée le
- * même jour ; quatrième entrée « Frise » le 15 septembre 2026, entre « Accueil » et « Au ciné » ;
- * cinquième entrée « Réalisateurs » le même jour, entre « Frise » et « Au ciné », renommée
- * « Suivis » le même jour encore quand les sagas l'ont rejointe — icône inchangée).
- * Toucher l’écran où l’on est déjà ne fait rien ; depuis « Mes films », « Profil » est surlignée
- * mais reste touchable et ramène au profil (`FilmsRoute.kt` lui passe un `pop`).
- * Hauteur 64 dp, avec un libellé sous chaque icône (revue du 24 septembre 2026 : la barre sans
- * libellés, choisie le 14 septembre 2026 pour tenir sous 56 dp, laissait deviner l'icône du
- * Voyage) — encore en dessous des 80 dp par défaut d'un `NavigationBar` Material. Un `Row` sous
- * les mêmes insets et la même couleur que `NavigationBar`, avec les `NavigationBarItem` de
- * Material dedans, `alwaysShowLabel = true`. L'icône du Voyage devient une carte (`tabler:map`,
- * ex-`timeline`) : « Frise » d'origine désignait le calendrier, mais l'écran s'appelle « Voyage »
- * partout ailleurs dans l'appli.
+ * La barre du bas · les cinq enseignes (25 septembre 2026) : cinq objets du même cinéma — un
+ * pavillon pour l'accueil, une route pour le Voyage, un fauteuil de metteur en scène pour Suivis,
+ * le ticket d'« Au ciné », un fauteuil de spectateur pour le profil — sur un fond
+ * `surfaceContainer`, sous un rail de laiton (filet 1 dp `secondary` 55 %, le `FiletOr` des titres
+ * sans sa marge). L'enseigne ouverte passe en or, icône et libellé, son libellé en 600 ; les autres
+ * restent en `onSurfaceVariant`, 500. Pas de pilule : une lampe (`Lampe`) posée sur le rail
+ * au-dessus de l'enseigne ouverte, qui glisse vers la nouvelle au changement d'onglet et saute
+ * quand le téléphone a coupé les animations (`animationsReduites`, `Mouvement.kt`).
+ *
+ * Une rangée maison plutôt que les `NavigationBarItem` de Material : leur pilule ne se retire pas
+ * proprement, et la lampe a besoin de la position de chaque enseigne — cinq colonnes égales, la
+ * lampe à `index × largeur / 5`, mesurée par `BoxWithConstraints`.
+ *
+ * Visible sur l'accueil, le Voyage, Suivis, « Au ciné », « Mes films » et le profil, cachée partout
+ * ailleurs (`bottomBarTab`). Toucher l'écran où l'on est déjà ne fait rien ; depuis « Mes films »,
+ * « Profil » est surlignée mais reste touchable et ramène au profil (`FilmsRoute.kt` lui passe un
+ * `pop`). Hauteur 64 dp, libellés toujours visibles.
+ *
+ * Avant :
+ * - le 14 septembre 2026, trois entrées Material sans libellé sous 56 dp, en remplacement de
+ *   l'`IconButton` profil de l'accueil, jugé inaccessible ;
+ * - le 15 septembre 2026, « Frise » puis « Réalisateurs », renommée « Suivis » le même jour quand
+ *   les sagas l'ont rejointe ;
+ * - le 24 septembre 2026, les libellés sous chaque icône, sur 64 dp (la barre sans libellés
+ *   laissait deviner l'icône du Voyage), et la carte (`map`, ex-`timeline`) pour le Voyage ;
+ * - jusqu'au 25 septembre 2026, les `NavigationBarItem` de Material avec leur pilule, et les icônes
+ *   `home`, `map`, `movie`, `ticket`, `user`.
  */
 @Composable
 fun JournalBottomBar(
@@ -202,47 +237,148 @@ fun JournalBottomBar(
     onProfile: () -> Unit,
 ) {
     val selected = current.bottomBarTab()
-    Surface(color = NavigationBarDefaults.containerColor) {
-        Row(
-            Modifier.fillMaxWidth().windowInsetsPadding(NavigationBarDefaults.windowInsets).height(64.dp).selectableGroup(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
+    // `surfaceContainer`, c'est la couleur de `NavigationBarDefaults.containerColor` (material3
+    // 1.4.0 : `NavigationBarTokens.ContainerColor`) : la barre garde son fond, nommé ici en clair
+    // maintenant qu'elle ne passe plus par les composants de Material.
+    Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
+        BoxWithConstraints(
+            Modifier.fillMaxWidth().windowInsetsPadding(NavigationBarDefaults.windowInsets).height(64.dp),
         ) {
-            NavigationBarItem(
-                selected = selected == BottomTab.Home,
-                onClick = { if (current != Screen.Home) onHome() },
-                icon = { IconeTabler("home", null) },
-                label = { Text("Accueil") },
-                alwaysShowLabel = true,
+            Row(Modifier.fillMaxSize().selectableGroup()) {
+                Enseigne(
+                    icone = "building-pavilion",
+                    libelle = "Accueil",
+                    selectionnee = selected == BottomTab.Home,
+                    onClick = { if (current != Screen.Home) onHome() },
+                    modifier = Modifier.weight(1f),
+                )
+                Enseigne(
+                    icone = "route",
+                    libelle = "Voyage",
+                    selectionnee = selected == BottomTab.Frise,
+                    onClick = { if (current != Screen.Frise) onFrise() },
+                    modifier = Modifier.weight(1f),
+                )
+                Enseigne(
+                    icone = "chair-director",
+                    libelle = "Suivis",
+                    selectionnee = selected == BottomTab.Suivis,
+                    onClick = { if (current != Screen.Suivis) onSuivis() },
+                    modifier = Modifier.weight(1f),
+                )
+                Enseigne(
+                    icone = "ticket",
+                    libelle = "Au ciné",
+                    selectionnee = selected == BottomTab.Cinema,
+                    onClick = { if (current != Screen.Cinema) onCinema() },
+                    modifier = Modifier.weight(1f),
+                )
+                Enseigne(
+                    icone = "armchair",
+                    libelle = "Profil",
+                    selectionnee = selected == BottomTab.Profile,
+                    onClick = { if (current != Screen.Profile) onProfile() },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            HorizontalDivider(
+                thickness = 1.dp,
+                color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.55f),
+                modifier = Modifier.align(Alignment.TopStart),
             )
-            NavigationBarItem(
-                selected = selected == BottomTab.Frise,
-                onClick = { if (current != Screen.Frise) onFrise() },
-                icon = { IconeTabler("map", null) },
-                label = { Text("Voyage") },
-                alwaysShowLabel = true,
-            )
-            NavigationBarItem(
-                selected = selected == BottomTab.Suivis,
-                onClick = { if (current != Screen.Suivis) onSuivis() },
-                icon = { IconeTabler("movie", null) },
-                label = { Text("Suivis") },
-                alwaysShowLabel = true,
-            )
-            NavigationBarItem(
-                selected = selected == BottomTab.Cinema,
-                onClick = { if (current != Screen.Cinema) onCinema() },
-                icon = { IconeTabler("ticket", null) },
-                label = { Text("Au ciné") },
-                alwaysShowLabel = true,
-            )
-            NavigationBarItem(
-                selected = selected == BottomTab.Profile,
-                onClick = { if (current != Screen.Profile) onProfile() },
-                icon = { IconeTabler("user", null) },
-                label = { Text("Profil") },
-                alwaysShowLabel = true,
-            )
+            // Posée en dernier, donc dessinée par-dessus le rail ; sans `clickable` ni
+            // `pointerInput`, elle laisse passer les touchers vers l'enseigne en dessous. L'ordre
+            // de `BottomTab` est celui de la rangée : son rang est la colonne de l'enseigne.
+            if (selected != null) {
+                Lampe(index = selected.ordinal, largeurBarre = maxWidth)
+            }
         }
+    }
+}
+
+/**
+ * Une enseigne de la barre du bas : l'icône Tabler au-dessus du libellé, dans une colonne de
+ * largeur égale aux quatre autres. Le libellé est du texte : il porte seul ce que lit un lecteur
+ * d'écran, l'icône n'a pas de description ; `selectable` et `Role.Tab` disent l'onglet et son état.
+ */
+@Composable
+private fun Enseigne(
+    icone: String,
+    libelle: String,
+    selectionnee: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val couleur = if (selectionnee) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant
+    Column(
+        modifier
+            .fillMaxHeight()
+            .selectable(selected = selectionnee, role = Role.Tab, onClick = onClick),
+        verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        IconeTabler(icone, null, tint = couleur, modifier = Modifier.size(24.dp))
+        Text(
+            libelle,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = if (selectionnee) FontWeight.SemiBold else FontWeight.Medium,
+            color = couleur,
+            maxLines = 1,
+        )
+    }
+}
+
+private val LARGEUR_TRAIT_LAMPE = 28.dp
+private val HAUTEUR_TRAIT_LAMPE = 2.dp
+private val LARGEUR_LUEUR_LAMPE = 44.dp
+private val HAUTEUR_LUEUR_LAMPE = 26.dp
+private val RAYON_LUEUR_LAMPE = 22.dp
+
+/**
+ * La lampe de l'enseigne ouverte : un trait 28 × 2 dp or aux bouts ronds, posé sur le rail, avec
+ * son halo (ombre 10 dp `secondary` 45 %) et une lueur douce qui tombe vers l'enseigne (dégradé
+ * radial `secondary` 22 % → transparent, sur 44 × 26 dp). Elle glisse en 250 ms, courbe standard,
+ * vers la colonne `index` ; elle saute quand les animations sont réduites.
+ *
+ * Le trait reste juste sous le bord haut plutôt qu'à cheval sur le rail : la `Surface` de la barre
+ * découpe tout ce qui dépasse au-dessus d'elle, la moitié haute du trait et de son halo y
+ * disparaîtraient. Le rail (1 dp) passe sous le trait (2 dp), qui le recouvre.
+ */
+@Composable
+private fun Lampe(index: Int, largeurBarre: Dp) {
+    val or = MaterialTheme.colorScheme.secondary
+    val reduites = remember { animationsReduites() }
+    val largeurEnseigne = largeurBarre / 5
+    val cible = largeurEnseigne * index + (largeurEnseigne - LARGEUR_TRAIT_LAMPE) / 2
+    val x by animateDpAsState(
+        targetValue = cible,
+        animationSpec = if (reduites) snap() else tween(durationMillis = 250, easing = FastOutSlowInEasing),
+        label = "lampe",
+    )
+    // La lueur est plus large que le trait : sa boîte recule de la moitié de l'écart pour que les
+    // deux restent centrés l'un sur l'autre.
+    Box(
+        Modifier
+            .offset(x = x - (LARGEUR_LUEUR_LAMPE - LARGEUR_TRAIT_LAMPE) / 2)
+            .size(LARGEUR_LUEUR_LAMPE, HAUTEUR_LUEUR_LAMPE)
+            .drawBehind {
+                drawRect(
+                    Brush.radialGradient(
+                        colors = listOf(or.copy(alpha = 0.22f), Color.Transparent),
+                        center = Offset(size.width / 2, 0f),
+                        radius = RAYON_LUEUR_LAMPE.toPx(),
+                    ),
+                )
+            },
+    ) {
+        val forme = RoundedCornerShape(HAUTEUR_TRAIT_LAMPE / 2)
+        Box(
+            Modifier
+                .align(Alignment.TopCenter)
+                .size(LARGEUR_TRAIT_LAMPE, HAUTEUR_TRAIT_LAMPE)
+                .shadow(10.dp, forme, ambientColor = or.copy(alpha = 0.45f), spotColor = or.copy(alpha = 0.45f))
+                .background(or, forme),
+        )
     }
 }
 
