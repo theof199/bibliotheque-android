@@ -222,11 +222,20 @@ Limelight les célébrations. Jamais deux sur le même texte.
 
 Dans une liste, un film s'écrit sur deux lignes : le titre en `titleMedium`,
 puis le réalisateur et l'année en `bodyMedium onSurfaceVariant`, séparés
-d'une virgule : « Hayao Miyazaki, 2001 ». Dans « Mes films », la seconde
-ligne est la date du visionnage, écrite en toutes lettres : « 3 septembre
-2026 ». La note, si elle existe, est à droite de la ligne, en
+d'une virgule : « Hayao Miyazaki, 2001 ». Dans une ligne du journal
+(`JournalRow` — « Mes films » jusqu'au 24 septembre 2026, « Tes séances »
+toujours), la seconde ligne est la date du visionnage, écrite en toutes
+lettres : « 3 septembre 2026 ». La note, si elle existe, est à droite de la ligne, en
 `titleMedium onSurface` : « 8 ». Les réactions sont sous le titre, emojis
-seuls, sans leur phrase.
+seuls, sans leur phrase — c'est toujours le cas dans « Tes séances »
+d'« Au ciné ». **Dans « Mes films », depuis le 24 septembre
+2026 (« Mes films · le hall », première planche du redesign avec Léon),
+la ligne a trois étages** : « Hayao Miyazaki, 2001 » sous le titre, puis la
+date, puis les réactions **en mots**, séparées par « · » — « J'ai adoré ·
+À revoir » —, sans leur emoji et sans « En salle », qu'une petite icône
+ticket à côté de la date dit déjà. Ces deux dernières lignes sont en 13/18
+et 12/16, des `copy()` locaux de `bodyMedium` posés dans `LigneFilm` : la
+table des six styles ci-dessus ne change pas pour autant (§5).
 
 ### Les icônes (23 septembre 2026, soir)
 
@@ -266,6 +275,17 @@ lettre du titre centrée en `titleMedium onSurfaceVariant`. Pas d'icône
 d'image cassée, pas de texte « indisponible » : une liste où une affiche
 manque doit rester calme.
 
+**Le filet or et le liseré des affiches**, deux choix de gabarit adoptés
+par le propriétaire le 24 septembre 2026 sur « Mes films » (« Mes films ·
+le hall », première planche du redesign avec Léon, aux valeurs de Léon),
+et qui s'appliqueront partout à mesure que les écrans seront refaits. Le
+filet : un trait de 1 dp `secondary` à 55 % d'alpha sous l'en-tête d'un
+écran, pleine largeur moins les 16 dp de marge, 8 dp sous le titre — il y
+remplace la bande de perforations, que le Voyage garde pour lui. Le
+liseré : un trait intérieur de 1 dp `secondary` à 22 % tout autour d'une
+affiche de liste, aux mêmes coins de 8 dp — jamais un cadre orné. Pour
+l'heure, seul « Mes films » porte l'un et l'autre (§5).
+
 ---
 
 ## 5. Les écrans, composant par composant
@@ -303,8 +323,8 @@ ci-dessus, sans style ajouté.
 | **Portefeuille** (décision 3 du brief du 21 septembre 2026, « le ticket ») | Dans le profil, **sous le Passeport**, bloc `surfaceContainer` jumeau ; charge lui-même `GET /me/voyage/tickets` (`PortefeuilleViewModel`), jamais depuis la Frise. Les tickets non utilisés en premier (le même dessin qu'au calque, en petit), avec un `TextButton` « Utiliser » (même appel, puis `frise.refresh()`) ; les compostés en dessous, grisés (`alpha` 0,5) et barrés (`barrerTicket`), « utilisé le 4 juin 2026 » (`bodyMedium onSurfaceVariant`, barré) à la place du bouton. « Aucun ticket » tant que la réponse, une fois là, est vide — pas avant qu'elle ait répondu. |
 | **Dépenses** (décision 2 du brief du 21 septembre 2026, « les dépenses » ; descendue dans la section « Coulisses » repliée le 24 septembre 2026, point 14) | Dans le profil, **dans « Coulisses », en bas** (sous le Portefeuille jusqu'à cette revue), bloc `surfaceContainer` jumeau ; charge lui-même `GET /me/voyage/depenses` (`DepensesViewModel`), aucun appel IA. Une ligne « Ce mois-ci : 12,7 centimes · 10 appels » (`ligneMoisCourant`, virgule et décimale uniques, pluriel « appel »/« appels » ; « 0 centime · 0 appel » si le mois manque) ; un tap la déplie sur les mois précédents (`triMoisPrecedents`, du plus récent au plus ancien, mois courant excepté), une ligne chacun « Août 2026 : 4,2 centimes · 3 appels » (`ligneMoisPrecedent`, `formatMoisAnnee`) ; un second tap replie. |
 | **Import Letterboxd** (brief du 16 septembre 2026) | Empilée depuis le profil dès qu'un fichier est choisi, sans barre du bas : une barre de titre avec retour et « Import Letterboxd ». Tant que la requête est en vol : un indicateur circulaire corail centré, avec « Import en cours… » dessous (`bodyLarge onSurfaceVariant`) — jusqu'à quelques minutes pour un gros fichier ; le retour système dépile l'écran sans annuler la requête, qui continue derrière. Puis le rapport : « *N* importés · *M* déjà présents » (`titleMedium`), puis, s'il y en a, « Non reconnus » et une ligne par film non importé — le nom et l'année, « Aucun candidat » s'il n'y en a pas, sinon un `ListItem` par candidat (titre et année) ; toucher l'un d'eux ouvre le formulaire, pré-rempli avec la date et la note que le back a lues sur cette ligne du fichier. Puis, s'il y en a, « Erreurs » et une ligne par ligne en échec (« Ligne *N* : *message* »). Un `Button` plein corail « Terminé », pleine largeur, ramène au profil, qui recharge ses chiffres (même geste qu'une entrée ordinaire sur cet écran). Une panne (ZIP illisible, en-têtes fausses, réseau) rend le bloc d'erreur habituel (§6) à la place du rapport. |
-| **Mes films** | Une `LazyColumn` de lignes : affiche, titre, date, emojis des réactions, note à droite. Un `CircularProgressIndicator` corail en fin de liste tant qu'un `next_cursor` reste à charger. Vide (§6 « états vides », depuis la revue du 24 septembre 2026, point 16) : une icône Tabler `movie`, « Aucun film pour l'instant. », un bouton **« Ajouter un film »** qui ouvre la recherche — avant cette revue, la phrase seule. La `NavigationBar` du bas (brief du 14 septembre 2026) est visible ici aussi ; c'est « Profil » qui y est sélectionnée. **S'ouvre depuis le profil (« Mes films », chevron) ou, depuis la revue du 24 septembre 2026 (point 5), depuis « Tout voir » au-dessus de la grille de l'accueil — jusque-là son seule entrée était le profil, perdue depuis l'accueil.** |
-| **Au ciné** (brief du 14 puis 15 septembre 2026) | Troisième entrée de la `NavigationBar` du bas, entre « Accueil » et « Profil » — icône `ConfirmationNumber` (un ticket ; `material-icons-extended`, le cœur n'en porte pas), `contentDescription` « Au ciné » ; sélectionnée sur cet écran. En tête, « **N** séance(s) cette année » en `titleLarge`. Puis « Sorti cette semaine dans mes cinémas » (`titleMedium`, brief du 15 septembre 2026 — ex-« Cette semaine ») : sous elle, en petit (`labelSmall`, `onSurfaceVariant`), « mis à jour à *H* h » quand la tâche de fond du back a déjà tourné, **puis le nom du cinéma en titre de section, une seule fois, quand toutes les tuiles de la grille partagent le même (`cinemaUniqueEnCours`, fonction pure testée, revue du 24 septembre 2026, point 13)**. La grille, trois colonnes, mêmes tuiles que l'accueil, **avec sous chacune le titre du film depuis cette même revue (absent avant elle)**, puis, **seulement si plusieurs cinémas distincts apparaissent dans la grille**, une ligne `labelSmall` (11 sp) donnant le premier cinéma où le film joue et « +N » s'il y en a d'autres — **sinon (un seul cinéma, le cas courant) le titre de section ci-dessus suffit, plus de répétition sous chaque affiche** ; une coche `primary` (corail) en bas à droite de celles déjà dans le journal (rapprochement par `tmdb_id`, jamais par le titre). Une tuile sans `tmdb_id` (la résolution TMDB du back n'a rien trouvé de sûr) n'est ni touchable ni cochable. **Ni l'une ni l'autre grille ne porte d'horaire dans la réponse** (`contract/openapi.json`, vérifié à la revue du 24 septembre 2026) **: aucun n'est affiché.** Toucher une affiche ouvre le formulaire pré-rempli, comme depuis la recherche. Puis « La semaine prochaine » (`titleMedium`, inchangée) : même grille, TMDB, **le titre du film sous chaque affiche depuis cette même revue** (absent avant elle), sans sous-titre de cinémas (TMDB ne les porte pas). Puis « Tes séances » (`titleMedium`) : la liste `?reaction=en_salle` de « Mes films », **même ligne** qu'elle (`JournalRow`, `ui/JournalRow.kt`) — affiche, titre, date, emojis des réactions, note à droite ; toucher une ligne ouvre la correction. |
+| **Mes films** (« Mes films · le hall », première planche du redesign avec Léon, décisions du propriétaire des 24 et 25 septembre 2026) | **Réécrit les 24 et 25 septembre 2026 ; avant, une simple `LazyColumn` de lignes `JournalRow` — affiche, titre, date, emojis des réactions, note à droite — sans recherche ni tri.** En tête, retour et « Mes films » (`titleLarge`), et à droite le compte, « 87 films · 12 cette année » (`bodyMedium onSurfaceVariant`, `compteEnTete`), lu dans `GET /stats` par la même instance que le profil : « 0 film » et « 1 film » au singulier, et rien du tout tant que le total n'a pas répondu — ni zéro, ni « … ». Sous l'en-tête, 8 dp plus bas, **un filet or de 1 dp (`secondary` à 55 %), pleine largeur moins 16 dp de marge, qui remplace sur cet écran la bande de perforations : la pellicule reste au Voyage** (choix de gabarit, §4). Puis le champ de recherche : 48 dp, fond `surfaceContainer`, coins 12, icône Tabler `search` en tête, « Un titre, un réalisateur » en attente, une croix `x` « Effacer » dès qu'il y a du texte (elle ne vide que le champ, pas les puces) ; jamais focalisé à l'arrivée, contrairement à l'écran « Recherche » — on vient ici pour parcourir d'abord. Il cherche dans le titre **et** le réalisateur (« miya » trouve les Miyazaki), sans tenir compte de la casse ni des accents. Dessous, trois puces de 36 dp de haut (coins 18, bordure `outline`, Manrope 13 semi-gras, 8 dp d'écart, cible de 48 dp ; active, bordure et texte `secondary`, l'or) : **« Date, récents d'abord »** (icône `arrows-sort`), qu'un tap inverse en « Date, anciens d'abord » ; **« Note »** (`chevron-down`), qui ouvre une `ModalBottomSheet` en deux blocs — « Trier » (Date ou Note ; par note, les films sans note en dernier, une égalité départagée par la date), puis « Notes », dix pastilles compactes de 30 dp en deux rangées de cinq, cochables à plusieurs : cocher 4 et 7 montre les 4 **ou** les 7, et un film sans note est écarté dès qu'une note est cochée (plus de note minimale depuis l'essai du 25 septembre 2026 sur le téléphone) — la puce dit alors « Note · 2 », ou « Note, tri · 2 » avec le tri par note, et un `TextButton` « Effacer » décoche les notes ; **« Réaction »** (`chevron-down`), dont la feuille porte les treize réactions en puces, cochables à plusieurs et cumulées (*et* : chaque réaction cochée resserre la liste), la puce disant « Réaction · 2 », « Effacer » en bas. Pas de bouton « OK » : chaque tap s'applique tout de suite, la feuille se ferme au tap dehors ou au retour. **Tant qu'un tri, un filtre ou une recherche est actif, la liste charge tout le journal** (`chargerTout()`), sans quoi « Rien trouvé » mentirait sur les pages pas encore chargées — une barre linéaire de 2 dp `primary` sous les puces pendant ce temps ; sans filtre, la pagination d'avant, un `CircularProgressIndicator` corail en fin de liste tant qu'un `next_cursor` reste à charger. **La ligne est `LigneFilm`, propre à cet écran — `JournalRow` reste celle de « Tes séances » d'« Au ciné »** : l'affiche 56 × 84 (coins 8) avec un **liseré intérieur or de 1 dp (`secondary` à 22 %)**, le titre en `titleMedium` sur une ligne (ellipse), « Réalisateur, année » en 13/18 `onSurfaceVariant`, la date en toutes lettres suivie de l'icône `ticket` de 14 dp en or quand le film a été vu en salle (`en_salle`), puis les réactions **en mots, séparées par « · »** (« J'ai adoré · À revoir », 12/16 `onSurfaceVariant`), sans « En salle », que le ticket dit déjà ; à droite, le cercle or de la note ; 10 dp de marge verticale, 16 horizontale, et un `HorizontalDivider` de 1 dp `outline` en retrait de 16 dp. Les tailles 13/18 et 12/16 sont des `copy()` locaux de `bodyMedium`, voulus : les six styles du thème (§3) ne changent pas. **Glissée vers la gauche** (`AnchoredDraggable`), une ligne découvre deux actions de 88 dp : « Corriger » (fond `surfaceContainerHigh`, icône `pencil`, en or), qui ouvre la correction, et « Supprimer » (fond `surfaceContainer`, icône `trash`, en `error`, l'ambre), qui demande « Supprimer ce visionnage ? » dans le même `AlertDialog` que le formulaire, mêmes mots, avant de retirer la ligne ; « Supprimer » passe en désactivé (38 %) le temps d'un chargement ou d'une autre suppression. Une seule ligne ouverte à la fois ; défiler, ou toucher ailleurs, la referme — un tap sur une ligne quand une autre est ouverte referme celle-ci sans ouvrir le film. Toucher une ligne fermée ouvre la correction, comme avant. Un film revu garde deux lignes, chacune sa date, sa note, ses réactions. **Tout changement de tri, de filtre ou de recherche ramène la liste en haut (25 septembre 2026)** ; revenir sur l'écran retrouve en revanche la position quittée. **Tri et filtres sont mémorisés pour la session** (`FiltresFilmsViewModel`, clé `"mes-films-filtres"`) : quitter l'écran puis y revenir les retrouve, tuer l'appli les remet à zéro — rien n'est jamais écrit sur le disque, et l'accueil, qui partage le `FilmsViewModel` de la liste, n'en voit rien. Une erreur (de chargement ou de suppression) passe par le bloc habituel (§6), dont « Réessayer » recharge la liste. Vide (§6 « états vides », depuis la revue du 24 septembre 2026, point 16) : une icône Tabler `movie`, « Aucun film pour l'instant. », un bouton **« Ajouter un film »** qui ouvre la recherche — avant cette revue, la phrase seule ; une recherche ou des filtres sans résultat ont leur propre état vide (§6). La `NavigationBar` du bas (brief du 14 septembre 2026) est visible ici aussi ; c'est « Profil » qui y est sélectionnée. **S'ouvre depuis le profil (« Mes films », chevron) ou, depuis la revue du 24 septembre 2026 (point 5), depuis « Tout voir » au-dessus de la grille de l'accueil — jusque-là son seule entrée était le profil, perdue depuis l'accueil.** |
+| **Au ciné** (brief du 14 puis 15 septembre 2026) | Troisième entrée de la `NavigationBar` du bas, entre « Accueil » et « Profil » — icône `ConfirmationNumber` (un ticket ; `material-icons-extended`, le cœur n'en porte pas), `contentDescription` « Au ciné » ; sélectionnée sur cet écran. En tête, « **N** séance(s) cette année » en `titleLarge`. Puis « Sorti cette semaine dans mes cinémas » (`titleMedium`, brief du 15 septembre 2026 — ex-« Cette semaine ») : sous elle, en petit (`labelSmall`, `onSurfaceVariant`), « mis à jour à *H* h » quand la tâche de fond du back a déjà tourné, **puis le nom du cinéma en titre de section, une seule fois, quand toutes les tuiles de la grille partagent le même (`cinemaUniqueEnCours`, fonction pure testée, revue du 24 septembre 2026, point 13)**. La grille, trois colonnes, mêmes tuiles que l'accueil, **avec sous chacune le titre du film depuis cette même revue (absent avant elle)**, puis, **seulement si plusieurs cinémas distincts apparaissent dans la grille**, une ligne `labelSmall` (11 sp) donnant le premier cinéma où le film joue et « +N » s'il y en a d'autres — **sinon (un seul cinéma, le cas courant) le titre de section ci-dessus suffit, plus de répétition sous chaque affiche** ; une coche `primary` (corail) en bas à droite de celles déjà dans le journal (rapprochement par `tmdb_id`, jamais par le titre). Une tuile sans `tmdb_id` (la résolution TMDB du back n'a rien trouvé de sûr) n'est ni touchable ni cochable. **Ni l'une ni l'autre grille ne porte d'horaire dans la réponse** (`contract/openapi.json`, vérifié à la revue du 24 septembre 2026) **: aucun n'est affiché.** Toucher une affiche ouvre le formulaire pré-rempli, comme depuis la recherche. Puis « La semaine prochaine » (`titleMedium`, inchangée) : même grille, TMDB, **le titre du film sous chaque affiche depuis cette même revue** (absent avant elle), sans sous-titre de cinémas (TMDB ne les porte pas). Puis « Tes séances » (`titleMedium`) : la liste `?reaction=en_salle` de « Mes films », avec la ligne (`JournalRow`, `ui/JournalRow.kt`) que « Mes films » portait aussi jusqu'au 24 septembre 2026 — affiche, titre, date, emojis des réactions, note à droite ; « Mes films » a désormais la sienne (`LigneFilm`, « le hall »), celle-ci ne change pas ; toucher une ligne ouvre la correction. |
 | **Connexion SensCritique** (brief du 14 septembre 2026) | Jumeau de l'écran « Connexion » : deux `OutlinedTextField` (e-mail, mot de passe avec bascule de visibilité), un `Button` plein corail « Connecter », le message du back — ici celui de SensCritique — sous le bouton. Connecté : le pseudo en `bodyLarge`, et un `TextButton` « Déconnecter ». |
 | **Feuille « Lequel sur SensCritique ? »** (brief du 14 septembre 2026) | Un `ModalBottomSheet` : une ligne par candidat (affiche 56×84, titre, année et réalisateur — SensCritique le rend, `directors[0].name`), puis un `TextButton` « Aucun de ceux-là » en bas, la liste bornée pour que ce bouton reste toujours visible même avec une dizaine de candidats. Le retour système la referme comme toute autre feuille (Material 3 ne s'y oppose pas) : à la différence de « Aucun de ceux-là », qui ne met rien en file et mémorise « ignoré », ce geste met la poussée en file sans décision — la correction suivante du film redemandera (revue du 14 septembre 2026, critique 2). |
 
@@ -323,6 +343,8 @@ plusieurs, ce sont des états sélectionnés, pas des boutons, et un seul bouton
 | **Vide**, l'accueil | « Aucun film pour l'instant. » en `bodyLarge onSurfaceVariant`, centré — inchangé par la revue du 24 septembre 2026 (point 16 : seuls « Mes films », la recherche, les suivis et le passeport, ci-dessous, gagnent une icône et une action). |
 | **Vide**, « Mes films » (icône, phrase et action depuis la revue du 24 septembre 2026, point 16) | `EtatVide` (`ui/EtatVide.kt`) : une icône Tabler `movie`, « Aucun film pour l'instant. », un bouton **« Ajouter un film »** qui ouvre la recherche — avant cette revue, la phrase seule, centrée, comme l'accueil ci-dessus. |
 | **Vide**, recherche sans résultat (icône, phrase et action depuis la revue du 24 septembre 2026, point 16) | `EtatVide` : une icône `search`, « Rien trouvé pour “…”. » sous la barre, un bouton **« Effacer »** qui vide le champ — avant cette revue, la phrase seule. Champ vide : rien du tout. |
+| **Vide**, « Mes films » filtré (« Mes films · le hall », 24 septembre 2026) | Une recherche, des notes ou des réactions cochées qui ne laissent aucun film, une fois tout le journal chargé : `EtatVide`, une icône `search`, « Rien trouvé pour « … ». » quand le champ a du texte, « Rien avec ces filtres. » sinon, et un bouton **« Effacer »** qui remet tout à zéro — texte, tri, notes et réactions. Distinct de l'état vide ci-dessus, qui ne dit « Aucun film pour l'instant. » que d'un journal vraiment vide. |
+| **Chargement** de tout le journal, « Mes films » (24 septembre 2026) | Dès qu'un tri, un filtre ou une recherche est actif, la liste doit être complète : la barre linéaire de 2 dp `primary` de la recherche, sous les puces, le temps que les pages restantes arrivent — les lignes déjà filtrées restent affichées dessous. Sans filtre, rien ne change : l'indicateur circulaire en fin de liste, page après page. |
 | **Vide**, « Au ciné » (brief du 14 puis 15 septembre 2026) | « Tes séances » sans entrée : « Aucune séance pour l'instant. », même style que l'accueil. « La semaine prochaine » sans film cette semaine-là : « Rien cette semaine. », même style, à la place de la grille. « Sorti cette semaine dans mes cinémas » : « Pas encore de programme. » tant qu'aucun cinéma n'est configuré ou que la tâche de fond du back n'a jamais tourné ; « Rien à l'affiche aujourd'hui. » si elle a tourné et n'a simplement rien trouvé ce jour-là — deux messages distincts, même style. Aucun de ces trois états vides n'a gagné d'icône ni d'action à la revue du 24 septembre 2026 (point 16), hors de son périmètre. |
 | **Vide**, Suivis (icône, phrase et action depuis la revue du 24 septembre 2026, point 16) | `EtatVide` : une icône `user` (réalisateurs) ou `movie` (sagas), « Ajoute un réalisateur avec + » ou « Ajoute une saga avec + », un bouton **« Ajouter »** qui ouvre la même recherche que le « + » de l'en-tête — avant cette revue, la phrase seule. |
 | **Erreur**, toutes | Le `message` du back tel quel, `bodyLarge onSurface`, dans un bloc `surfaceContainer` à coins 12 dp, marge 16 dp. Si `retryable`, un `TextButton` « Réessayer » corail, aligné à droite dans le bloc. Panne réseau : le même bloc avec « L'API est injoignable. » |
@@ -524,6 +546,22 @@ récompense et la pluie d'« année dans la boîte » (geste 11), la bobine de t
 (geste 21) et le projecteur avant le carton-titre d'un monde (geste 22) en jouent une, ajoutée au
 poinçon du ticket (geste 15) sans le remplacer ; le dessin `Canvas`/`AndroidView` que ces gestes
 décrivaient au moment de leur écriture a cédé la place là où le tableau ci-dessus le disait.*
+
+### Mes films · le hall (24 et 25 septembre 2026)
+
+La première planche du redesign avec Léon n'ajoute que deux mouvements, au-delà du retassement
+(`animateItem()`) que la liste avait déjà. **Le glissement d'une ligne** (`LigneFilm`,
+`AnchoredDraggable` sur deux ancres, Fermé à 0 et Ouvert à −176 dp) : la ligne suit le doigt et
+se pose sur l'une ou l'autre, découvrant « Corriger » et « Supprimer » ; l'arrivée sur Ouvert
+donne un retour haptique `SegmentTick` — le cinquième geste qui en porte un, après les quatre de
+la liste ci-dessus — et, tant que la ligne est déplacée, une ombre de 8 dp la détache des actions
+qu'elle recouvre encore, aucune au repos. Une seule ligne ouverte à la fois : en ouvrir une
+referme l'autre en l'animant jusqu'à Fermé, comme le font un défilement ou un tap ailleurs.
+**Le retour en haut** (décision du propriétaire du 25 septembre 2026) : tout changement de tri,
+de filtre ou de recherche ramène la liste à sa première ligne d'un saut net (`scrollToItem`,
+pas `animateScrollToItem` — le contenu change de toute façon, un défilement animé n'y montrerait
+rien), et referme la ligne ouverte. Pas à l'arrivée sur l'écran : des filtres mémorisés
+retrouvent la position que le défilement sauvegardé (ci-dessus) avait gardée.
 
 ---
 
@@ -857,6 +895,44 @@ porte ni `type` ni les champs du Voyage (`sur_le_plex`, `demande`, `plex_url`,
 réalisateur (décision 4) : `peutRetirerDeSaga` (`SuivisViewModel.kt`) n'a plus de
 paramètre de source, cette fiche ne servant plus qu'aux sagas — un réalisateur a
 désormais sa propre page.
+
+**Mes films · le hall** (24 et 25 septembre 2026, première planche du redesign avec Léon), sous
+`app/src/main/kotlin/fr/mediatheque/journal/ui/films/` — un écran refait seul, sans toucher à
+aucun composant partagé :
+
+```
+FilmsEtats.kt             nouveau, fonctions pures testées en JVM (FilmsEtatsTest) :
+                           FiltresFilms (texte, tri, notes, réactions ; `actifs`, vrai dès
+                           que la liste peut différer de la pagination brute), TriFilms
+                           (DATE_DESC, DATE_ASC, NOTE_DESC), appliquerFiltres (titre et
+                           réalisateur sans casse ni accents, notes en ou, réactions en
+                           et, tri stable), motsReactions et auCinema (la ligne),
+                           libellePuceDate/Note/Reaction, compteEnTete (« 87 films ·
+                           12 cette année », singulier à 0 et 1, nul avant /stats)
+FiltresFilmsViewModel.kt  nouveau : l'état des filtres, ses mutateurs, effacer() ; clé
+                           "mes-films-filtres" dans FilmsRoute.kt — indexé sur l'Activité,
+                           mémorisé pour la session, jamais persisté ; séparé de
+                           FilmsViewModel pour que l'accueil, qui partage la clé "films",
+                           n'en voie rien
+FiltresSheets.kt          nouveau : PucesFiltres (la rangée de trois puces), FeuilleNote
+                           (Trier, puis les dix pastilles compactes) et FeuilleReactions
+                           (les treize réactions), deux ModalBottomSheet
+LigneFilm.kt              nouveau : la ligne, son glissement (AnchoredDraggable) et ses
+                           deux actions ; JournalRow (ui/JournalRow.kt) reste celle
+                           d'« Au ciné »
+FilmsScreen.kt            réécrit : en-tête et compte, filet or, champ de recherche,
+                           puces, liste filtrée, les deux états vides, le dialogue de
+                           suppression, le retour en haut
+FilmsViewModel.kt         + chargerTout() (enchaîne les pages jusqu'à la dernière) et
+                           supprimer(id) (DELETE, puis retrait local de la ligne)
+FilmsRoute.kt             obtient les filtres (clé "mes-films-filtres") et le compte
+                           (ProfileViewModel, clé "profile", relu à chaque entrée)
+```
+
+Trois icônes Tabler de plus pour cet écran, ajoutées au bas d'`icones/tabler.txt` sous leur
+propre commentaire et produites par `bin/icones` (README, « Les icônes ») : `arrows-sort` (la
+puce Date), `chevron-down` (les puces Note et Réaction) et `pencil` (« Corriger ») — leurs
+`res/drawable/tabler_*.xml`, la map d'`IconeTabler.kt` et `IconeTablerTest` suivent.
 
 **SensCritique** (brief du 14 septembre 2026), sous
 `app/src/main/kotlin/fr/mediatheque/journal/` :
