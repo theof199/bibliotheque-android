@@ -8,6 +8,7 @@ import fr.mediatheque.journal.api.dto.SortieFilm
 import fr.mediatheque.journal.api.dto.SortiesEnCours
 import fr.mediatheque.journal.api.dto.SortiesResponse
 import fr.mediatheque.journal.api.dto.SortieSemaine
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -315,5 +316,68 @@ class AuCineViewModelTest {
             SortieCinemaFilm(tmdb_id = 3, allocine_id = 3, title = "Film 3", cinemas = emptyList()),
         )
         assertEquals("Le Rex", cinemaUniqueEnCours(films))
+    }
+
+    // --- « Au ciné · le guichet » (25 septembre 2026) : supprimer(), jumeau de Mes films --------
+
+    // Le DELETE d'abord, la ligne ensuite : pendant l'appel, elle est encore là et
+    // `suppressionEnCours` est vrai ; à la réponse, elle part, les autres restent. Mutation :
+    // retirer la ligne avant la réponse, ou ne pas la retirer du tout, casse ces assertions.
+    @Test
+    fun `supprimer retire la seance apres la reponse du back`() = runTest(dispatcher) {
+        api.onSeances = { page("2026-09-03", "2026-09-02") }
+        val porte = CompletableDeferred<Unit>()
+        api.onDeleteViewing = { porte.await() }
+        val vm = AuCineViewModel(api) { expire++ }
+        vm.refresh()
+        testScheduler.advanceUntilIdle()
+
+        vm.supprimer("e-2026-09-03")
+        testScheduler.advanceUntilIdle()
+        assertEquals(2, vm.ui.value.seances.size)
+        assertTrue(vm.ui.value.suppressionEnCours)
+
+        porte.complete(Unit)
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf("2026-09-02"), vm.ui.value.seances.map { it.entry.finished_at })
+        assertFalse(vm.ui.value.suppressionEnCours)
+        assertTrue("deleteViewing e-2026-09-03" in api.calls)
+    }
+
+    // Une panne garde la ligne et remonte dans `seancesError`. Mutation : retirer la ligne malgré
+    // l'erreur, ou avaler l'erreur, casse ces assertions.
+    @Test
+    fun `supprimer en erreur garde la seance et remonte l erreur`() = runTest(dispatcher) {
+        api.onSeances = { page("2026-09-03") }
+        api.onDeleteViewing = { throw FakeJournalApi.rateLimited(30) }
+        val vm = AuCineViewModel(api) { expire++ }
+        vm.refresh()
+        testScheduler.advanceUntilIdle()
+
+        vm.supprimer("e-2026-09-03")
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(1, vm.ui.value.seances.size)
+        assertEquals("Trop de tentatives.", vm.ui.value.seancesError?.message)
+        assertFalse(vm.ui.value.suppressionEnCours)
+        assertEquals(0, expire)
+    }
+
+    // Un 401 prévient la session, sans message d'erreur à l'écran. Mutation : ne pas appeler
+    // `onUnauthenticated` casse cette assertion.
+    @Test
+    fun `supprimer sur un 401 previent la session`() = runTest(dispatcher) {
+        api.onSeances = { page("2026-09-03") }
+        api.onDeleteViewing = { throw FakeJournalApi.unauthorized() }
+        val vm = AuCineViewModel(api) { expire++ }
+        vm.refresh()
+        testScheduler.advanceUntilIdle()
+
+        vm.supprimer("e-2026-09-03")
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(1, expire)
+        assertNull(vm.ui.value.seancesError)
+        assertEquals(1, vm.ui.value.seances.size)
     }
 }

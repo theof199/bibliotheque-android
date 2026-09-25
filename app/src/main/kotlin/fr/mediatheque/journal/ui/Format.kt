@@ -1,5 +1,6 @@
 package fr.mediatheque.journal.ui
 
+import java.text.Normalizer
 import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
@@ -74,3 +75,17 @@ fun formatMoisAnnee(isoAnneeMois: String): String =
  * virgule à la française — jamais un point, jamais deux décimales.
  */
 fun formatCentimes(centimes: Double): String = String.format(Locale.FRANCE, "%.1f", centimes)
+
+/**
+ * Le texte tel qu'on le compare : décomposé (NFD), marques diacritiques retirées, en minuscules,
+ * sans espaces aux bords. « Léon » et « leon », « MIYAZAKI » et « miyazaki » deviennent la même
+ * chaîne : on tape sur un téléphone, sans chercher l'accent ni la majuscule.
+ *
+ * Sortie de `FilmsEtats.kt` (« Au ciné · le guichet », 25 septembre 2026) : la recherche de Mes
+ * films et le sceau « réalisateur suivi » d'Au ciné (`AuCineEtats.kt`) comparent des noms de la
+ * même façon, un seul exemplaire pour les deux.
+ */
+fun normaliser(s: String): String =
+    Normalizer.normalize(s, Normalizer.Form.NFD).replace(DIACRITIQUES, "").lowercase().trim()
+
+private val DIACRITIQUES = Regex("\\p{M}+")

@@ -2,7 +2,7 @@ package fr.mediatheque.journal.ui.films
 
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.reactions.Reactions
-import java.text.Normalizer
+import fr.mediatheque.journal.ui.normaliser
 
 /**
  * « Mes films · le hall » (décisions du propriétaire du 24 septembre 2026) : la recherche, le tri
@@ -32,16 +32,6 @@ data class FiltresFilms(
     val actifs: Boolean
         get() = texte.isNotBlank() || tri != TriFilms.DATE_DESC || notes.isNotEmpty() || reactions.isNotEmpty()
 }
-
-/**
- * Le texte tel qu'on le compare : décomposé (NFD), marques diacritiques retirées, en minuscules,
- * sans espaces aux bords. « Léon » et « leon », « MIYAZAKI » et « miyazaki » deviennent la même
- * chaîne : on tape sur un téléphone, sans chercher l'accent ni la majuscule.
- */
-private fun normaliser(s: String): String =
-    Normalizer.normalize(s, Normalizer.Form.NFD).replace(DIACRITIQUES, "").lowercase().trim()
-
-private val DIACRITIQUES = Regex("\\p{M}+")
 
 /**
  * La liste affichée : d'abord les filtres, puis le tri.

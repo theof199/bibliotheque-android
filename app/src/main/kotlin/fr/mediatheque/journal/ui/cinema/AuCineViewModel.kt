@@ -37,6 +37,8 @@ data class AuCineUi(
     val seancesLoading: Boolean = false,
     val seancesEndReached: Boolean = false,
     val seancesError: ApiError? = null,
+    /** Vrai le temps d'un `supprimer()` : le glissement « Supprimer » de « Tes séances » est grisé. */
+    val suppressionEnCours: Boolean = false,
 )
 
 /**
@@ -230,6 +232,27 @@ class AuCineViewModel(private val api: JournalApi, private val onUnauthenticated
                 }
             } catch (e: ApiError) {
                 _ui.update { it.copy(seancesLoading = false, seancesError = if (e.isUnauthenticated) null else e) }
+                if (e.isUnauthenticated) onUnauthenticated()
+            }
+        }
+    }
+
+    /**
+     * Le glissement « Supprimer » d'une ligne de « Tes séances » (« Au ciné · le guichet »,
+     * décision du propriétaire du 25 septembre 2026 : le même glissement que Mes films). Jumeau de
+     * `FilmsViewModel.supprimer()` : le `DELETE` d'abord, la ligne retirée localement ensuite, sans
+     * recharger la liste ; une panne garde la ligne et passe par `seancesError`, le bloc d'erreur
+     * que l'écran montre déjà au-dessus des séances.
+     */
+    fun supprimer(id: String) {
+        if (_ui.value.suppressionEnCours) return
+        _ui.update { it.copy(suppressionEnCours = true, seancesError = null) }
+        viewModelScope.launch {
+            try {
+                api.deleteViewing(id)
+                _ui.update { ui -> ui.copy(seances = ui.seances.filterNot { it.entry.id == id }, suppressionEnCours = false) }
+            } catch (e: ApiError) {
+                _ui.update { it.copy(suppressionEnCours = false, seancesError = if (e.isUnauthenticated) null else e) }
                 if (e.isUnauthenticated) onUnauthenticated()
             }
         }
