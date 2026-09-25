@@ -3,6 +3,8 @@ package fr.mediatheque.journal.ui.realisateur
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import fr.mediatheque.journal.ui.AfficheVolante
 import fr.mediatheque.journal.ui.PorteeEcrans
@@ -54,15 +56,24 @@ fun PorteeEcrans.routeFicheFilm(screen: Screen.FicheFilm) {
     val cartonFicheFilm: CartonViewModel = viewModel(key = "carton-fichefilm-${screen.filmTmdbId}") {
         CartonViewModel(container.api, screen.filmTmdbId, poll = false, session::expire)
     }
+    // Le journal complet se relit ici aussi (« la fiche · trois visages », 25
+    // septembre 2026) : la ligne de filmographie ne porte que `vu.entry_id`, et
+    // le contrat n'a pas de `GET /me/journal/{id}` — l'entrée entière, pour ses
+    // réactions et « Corriger », se retrouve dans `SuivisUi.entrees`. Jumeau de
+    // `routeSuivis`, d'où la page d'un réalisateur ne s'ouvre pas toujours.
+    LaunchedEffect(Unit) { suivis.chargerEntrees() }
+    val suivisUi by suivis.ui.collectAsState()
     FicheFilmScreen(
         realisateurVm,
         realisateurResolveur,
         filmTmdbId = screen.filmTmdbId,
+        entrees = suivisUi.entrees,
         onBack = nav::pop,
         // L'affiche partagée (geste 8) : même clé que la grille d'où on vient.
         volante = AfficheVolante(sharedTransitionScope, animatedVisibilityScope, "affiche-realisateur-${screen.filmTmdbId}"),
         onOuvrirForm = { nav.push(Screen.Form(it)) },
         onOuvrirRealisateur = { id -> nav.push(Screen.Realisateur(id)) },
+        onCorriger = { entree -> nav.push(Screen.Edit(entree)) },
         carton = cartonFicheFilm,
     )
 }

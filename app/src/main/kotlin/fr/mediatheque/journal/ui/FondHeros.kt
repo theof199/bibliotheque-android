@@ -18,9 +18,10 @@ import coil3.request.ImageRequest
 /**
  * Le fond héros d'une fiche (brief du 23 septembre 2026 soir, geste 4 ; dégradé resserré à la
  * revue du 24 septembre 2026, point 3) : l'affiche déjà reçue, étirée en fond derrière l'en-tête,
- * floutée et assombrie sous un dégradé vers le fond de page — la fiche d'un film (journal,
- * `FormScreen`, et Voyage, `FicheVoyageScreen`) et la fiche d'année (`AnneeScreen`, l'affiche du
- * n°1 du podium). Le contenu posé par-dessus ne change pas.
+ * floutée et assombrie sous un dégradé vers le fond de page — le formulaire d'une entrée
+ * (`FormScreen`) et la fiche d'année (`AnneeScreen`, l'affiche du n°1 du podium). Les trois fiches
+ * d'un film l'ont quitté le 25 septembre 2026 pour l'affiche en héros (`AfficheHero`, « la fiche ·
+ * trois visages »). Le contenu posé par-dessus ne change pas.
  *
  * Le dégradé atteint le fond plein dès [FIN_FONDU] de la hauteur, pas seulement à la toute
  * dernière ligne de pixels : avant la revue du 24 septembre 2026, il courait sur la hauteur

@@ -4,7 +4,6 @@ import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -13,7 +12,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -32,18 +30,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import fr.mediatheque.journal.api.dto.FilmDeFilmographie
+import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.SearchMetadata
 import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.ui.AfficheVolante
-import fr.mediatheque.journal.ui.Cover
-import fr.mediatheque.journal.ui.FondHeros
-import fr.mediatheque.journal.ui.titreOriginalAffiche
-import fr.mediatheque.journal.ui.voler
+import fr.mediatheque.journal.ui.fiche.EnTeteFiche
+import fr.mediatheque.journal.ui.fiche.FORME_BOUTON_FICHE
+import fr.mediatheque.journal.ui.fiche.PucesReactions
+import fr.mediatheque.journal.ui.fiche.anneeEtDuree
+import fr.mediatheque.journal.ui.fiche.etiquetteDecennie
+import fr.mediatheque.journal.ui.fiche.tailleBoutonFiche
 import fr.mediatheque.journal.ui.form.BoutonLeFilm
 import fr.mediatheque.journal.ui.form.CartonViewModel
+import fr.mediatheque.journal.ui.frise.mondeDe
 import fr.mediatheque.journal.ui.frise.ouvrirPlex
 import fr.mediatheque.journal.ui.showBriefly
-import fr.mediatheque.journal.ui.theme.IconeTabler
+import fr.mediatheque.journal.ui.titreOriginalAffiche
 
 /**
  * La fiche simple d'un film (décision 2 du brief du 21 septembre 2026, « la page réalisateur ») :
@@ -53,8 +55,20 @@ import fr.mediatheque.journal.ui.theme.IconeTabler
  * `realisateurTmdbId`) et re-dérive le film par son `tmdb_id` : une correction posée ici (« Je l'ai
  * vu », « Introuvable ») se voit donc sans recharger la fiche elle-même.
  *
+ * Reprise sur l'en-tête commun le 25 septembre 2026 (« la fiche · trois visages », reprise
+ * validée) : avant, un fond héros tiré de `backdrop_url` derrière une affiche 96 × 144, « Vu » et
+ * la note nue, et « Les séries se suivent dans Suivis » sous une série ; désormais l'affiche en
+ * héros d'`EnTeteFiche` sur le fond du monde de la décennie du film, son étiquette « Années 1990 ·
+ * Le blockbuster », la note dans « TA NOTE », les réactions de l'entrée quand on la connaît, et
+ * « Corriger » sur un film vu.
+ *
+ * `entrees` : le journal complet (`SuivisUi.entrees`, par identifiant d'entrée). La ligne de
+ * filmographie ne porte que `vu.entry_id`, la note et la date : l'entrée entière — réactions, et
+ * de quoi ouvrir la correction — se retrouve par cet identifiant. Tant qu'elle n'y est pas (journal
+ * pas encore relu, ou relecture en panne), la fiche reste sans réactions ni « Corriger ».
+ *
  * Une série (`type == "tv"`) n'a ni « Je l'ai vu » ni formulaire (`boutonsFicheFilm`) : elle garde
- * seulement Plex et Sir, avec la ligne « Les séries se suivent dans Suivis ».
+ * seulement Plex et Sir.
  */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -62,9 +76,12 @@ fun FicheFilmScreen(
     vm: RealisateurViewModel,
     resolveur: RealisateurResolveur,
     filmTmdbId: Int,
+    entrees: Map<String, JournalItem>,
     onBack: () -> Unit,
     onOuvrirForm: (SearchResult) -> Unit,
     onOuvrirRealisateur: (Int) -> Unit,
+    /** « Corriger » d'un film vu dont l'entrée est connue : le formulaire de correction de cette entrée. */
+    onCorriger: (JournalItem) -> Unit,
     // L'affiche partagée (peaufinage du 23 septembre 2026, geste 8) : même clé que la grille de la
     // filmographie d'où cette fiche s'est ouverte (`Root.kt`).
     volante: AfficheVolante? = null,
@@ -78,9 +95,12 @@ fun FicheFilmScreen(
 
     val page = (ui.etat as? EtatPageRealisateur.Pret)?.page
     val film = page?.films?.firstOrNull { it.tmdb_id == filmTmdbId }
+    // Le fond du monde de la décennie du film, calculé avant le `Scaffold` qui le porte ; celui de
+    // l'appli sans année (ou le temps que la page arrive).
+    val fond = film?.year?.let { mondeDe(it).fond } ?: MaterialTheme.colorScheme.background
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = fond,
         snackbarHost = { SnackbarHost(snackbar) { data -> Snackbar(snackbarData = data) } },
     ) { padding ->
         if (page == null || film == null) {
@@ -98,78 +118,68 @@ fun FicheFilmScreen(
         }
 
         val etatFilm = etatFilmographie(film)
-        // `entreeConnue = false` tant que cette fiche n'a pas son « Corriger » (« la fiche · trois
-        // visages », 25 septembre 2026) : il arrive avec sa reprise sur `EnTeteFiche` et l'entrée
-        // lue dans `SuivisUi.entrees`, la livraison suivante ; d'ici là la pile reste celle d'avant.
-        val boutons = boutonsFicheFilm(film.type, etatFilm, film.plex_url, entreeConnue = false)
+        val entree = film.vu?.entry_id?.let { entrees[it] }
+        val boutons = boutonsFicheFilm(film.type, etatFilm, film.plex_url, entreeConnue = entree != null)
 
-        Box(Modifier.fillMaxSize().padding(padding)) {
-            // Le fond héros (point 10 de la revue du 24 septembre 2026) : `backdrop_url`, dans le
-            // contrat depuis la v1.17.0 mais jamais encore lu par l'appli — jumeau de `FormScreen`
-            // et `FicheVoyageScreen`. Ni synopsis, ni durée, ni genres dans cette réponse
-            // (`GET /me/realisateurs/{tmdbId}/page`, vérifié dans `contract/openapi.json`) : rien
-            // de plus à afficher, l'appli n'a que ce que la fiche montrait déjà.
-            FondHeros(film.backdrop_url, hauteur = 220.dp)
+        // Pas de marge du haut : l'affiche passe sous la barre d'état, le disque du retour s'y range
+        // lui-même (`statusBarsPadding`, `EnTeteFiche`) — jumeau de `FicheEntreeScreen`.
+        Column(
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = padding.calculateBottomPadding()),
+        ) {
+            EnTeteFiche(
+                affiche = film.cover_url,
+                titre = film.title,
+                titreOriginal = titreOriginalAffiche(film.title, film.original_title),
+                note = film.vu?.rating,
+                realisateur = {
+                    NomRealisateurTouchable(
+                        filmTmdbId = film.tmdb_id,
+                        nomConnu = page.name,
+                        resolveur = resolveur,
+                        onOuvrirRealisateur = onOuvrirRealisateur,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        chevron = true,
+                    )
+                },
+                // Ni durée ni synopsis dans `GET /me/realisateurs/{tmdbId}/page` : l'année seule.
+                anneeEtDuree = anneeEtDuree(film.year, null),
+                etiquette = etiquetteDecennie(film.year),
+                couleurEtiquette = film.year?.let { mondeDe(it).accent } ?: MaterialTheme.colorScheme.secondary,
+                fond = fond,
+                onBack = onBack,
+                volante = volante,
+            )
             Column(
-                Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
+                Modifier.fillMaxWidth().padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onBack) { IconeTabler("arrow-left", "Retour") }
-                }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Cover(film.cover_url, film.title, 96.dp, 144.dp, modifier = Modifier.voler(volante))
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(film.title, style = MaterialTheme.typography.titleLarge)
-                        titreOriginalAffiche(film.title, film.original_title)?.let { original ->
-                            Text(original, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Text(
-                            film.year?.toString() ?: "",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        NomRealisateurTouchable(
-                            filmTmdbId = film.tmdb_id,
-                            nomConnu = page.name,
-                            resolveur = resolveur,
-                            onOuvrirRealisateur = onOuvrirRealisateur,
-                        )
-                    }
-                }
-
-                film.vu?.let { vu ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Vu", style = MaterialTheme.typography.bodyMedium)
-                        vu.rating?.let { note -> Text("$note", style = MaterialTheme.typography.titleMedium) }
-                    }
-                }
-
-                if (film.type == "tv") {
-                    Text(
-                        "Les séries se suivent dans Suivis",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-
+                PucesReactions(entree?.carnet?.reactions ?: emptyList())
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     boutons.forEach { bouton ->
                         when (bouton) {
-                            // Jamais rendu tant que `entreeConnue` vaut `false` ci-dessus.
-                            BoutonFicheFilm.CORRIGER -> Unit
+                            BoutonFicheFilm.CORRIGER -> Button(
+                                // `CORRIGER` n'est dans la pile que si l'entrée est connue.
+                                onClick = { entree?.let(onCorriger) },
+                                modifier = Modifier.tailleBoutonFiche(),
+                                shape = FORME_BOUTON_FICHE,
+                            ) { Text("Corriger") }
                             BoutonFicheFilm.VOIR_SUR_LE_PLEX -> OutlinedButton(
                                 onClick = { ouvrirPlex(contexte, film.plex_url) },
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.tailleBoutonFiche(),
+                                shape = FORME_BOUTON_FICHE,
                             ) { Text("Voir sur le Plex") }
                             BoutonFicheFilm.JE_L_AI_VU -> Button(
                                 onClick = { onOuvrirForm(film.versSearchResult(page.name)) },
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.tailleBoutonFiche(),
+                                shape = FORME_BOUTON_FICHE,
                             ) { Text("Je l’ai vu") }
                             BoutonFicheFilm.DEMANDER -> OutlinedButton(
                                 onClick = { vm.demander(film.tmdb_id) },
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.tailleBoutonFiche(),
+                                shape = FORME_BOUTON_FICHE,
                             ) { Text("Demander sur Sir") }
                             // En bouton texte gris, pas en corail (point 10) : avant cette revue,
                             // `TextButton` gardait la couleur par défaut de Material
@@ -189,8 +199,16 @@ fun FicheFilmScreen(
                         Text("demandé", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     // « Le film » (décision 4 du brief du 24 septembre 2026, « le voyage revu ») :
-                    // rouvre le carton en pop-in.
-                    carton?.let { BoutonLeFilm(it, titreConnu = film.title) }
+                    // rouvre le carton en pop-in — dernier de la pile, filet or, sur les trois fiches.
+                    carton?.let {
+                        BoutonLeFilm(
+                            it,
+                            titreConnu = film.title,
+                            modifier = Modifier.tailleBoutonFiche(),
+                            bord = MaterialTheme.colorScheme.secondary,
+                            shape = FORME_BOUTON_FICHE,
+                        )
+                    }
                 }
             }
         }
