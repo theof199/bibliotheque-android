@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -15,6 +16,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -61,6 +64,24 @@ fun Modifier.voler(volante: AfficheVolante?): Modifier {
 }
 
 /**
+ * Le liseré intérieur or d'une affiche (gabarit adopté par le propriétaire le 24 septembre 2026) :
+ * un trait de 1 dp en `secondary` à 22 %, jamais un cadre orné. Mes films (`LigneFilm.kt`), les
+ * cartes et la bande d'un cycle (`ui/suivis/`) et la fiche d'une saga le partagent plutôt que de
+ * répéter chacun leur `border(...)`. `shape` suit celle de l'affiche qu'il borde (`Cover` clippe à
+ * `shapes.small` par défaut).
+ */
+@Composable
+fun Modifier.lisereOr(alpha: Float = 0.22f, shape: Shape = MaterialTheme.shapes.small): Modifier =
+    this.border(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = alpha), shape)
+
+/**
+ * L'affiche désaturée d'un film pas encore vu (bande d'un cycle, 25 septembre 2026) : la même
+ * matrice que la grille d'un réalisateur (`RealisateurScreen.kt`, qui garde la sienne jusqu'à sa
+ * livraison), posée par `colorFilter`, sous un voile `TeinteSepia` que l'appelant ajoute.
+ */
+val FiltreDesature: ColorFilter = ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) })
+
+/**
  * Décision 2 de la tâche 5 : un `contentDescription` toujours posé, jaquette
  * ou non — le brief le laissait vide sans jaquette, corrigé ici avec le titre
  * (design §8 : « une affiche dit “Affiche de {titre}” »), pour que l'initiale
@@ -68,10 +89,20 @@ fun Modifier.voler(volante: AfficheVolante?): Modifier {
  *
  * `colorFilter` (brief du 21 septembre 2026, l'étagère d'une salle du Voyage) : nul partout
  * ailleurs, il teinte l'affiche d'un film pas encore vu en sépia sans dupliquer ce composant.
+ *
+ * `shape` (bande d'un cycle, 25 septembre 2026) : `shapes.small` (8 dp) partout, sauf les cases
+ * de la bande, arrondies à 6.
  */
 @Composable
-fun Cover(url: String?, title: String, width: Dp, height: Dp, modifier: Modifier = Modifier, colorFilter: ColorFilter? = null) {
-    val shape = MaterialTheme.shapes.small
+fun Cover(
+    url: String?,
+    title: String,
+    width: Dp,
+    height: Dp,
+    modifier: Modifier = Modifier,
+    colorFilter: ColorFilter? = null,
+    shape: Shape = MaterialTheme.shapes.small,
+) {
     val description = "Affiche de $title"
     val initiale: @Composable () -> Unit = {
         Box(

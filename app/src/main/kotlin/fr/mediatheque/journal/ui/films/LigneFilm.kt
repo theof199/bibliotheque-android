@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.sp
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.ui.Cover
 import fr.mediatheque.journal.ui.formatDate
+import fr.mediatheque.journal.ui.lisereOr
 import fr.mediatheque.journal.ui.subtitle
 import fr.mediatheque.journal.ui.theme.IconeTabler
 import kotlin.math.roundToInt
@@ -186,7 +187,7 @@ private fun ContenuLigne(item: JournalItem, coverModifier: Modifier) {
             84.dp,
             // Liseré intérieur or à 22 % (gabarit adopté par le propriétaire le 24 septembre
             // 2026) : un trait de 1 dp, jamais un cadre orné.
-            modifier = coverModifier.border(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.22f), MaterialTheme.shapes.small),
+            modifier = coverModifier.lisereOr(),
         )
         Column(Modifier.weight(1f)) {
             Text(item.media.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)

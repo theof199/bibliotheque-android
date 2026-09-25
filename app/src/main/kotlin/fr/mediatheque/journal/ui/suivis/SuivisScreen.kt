@@ -54,6 +54,7 @@ import fr.mediatheque.journal.ui.Cover
 import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.EtatVide
 import fr.mediatheque.journal.ui.Puce
+import fr.mediatheque.journal.ui.lisereOr
 import fr.mediatheque.journal.ui.showBriefly
 import fr.mediatheque.journal.ui.theme.BarreProgressionOr
 import fr.mediatheque.journal.ui.theme.EtiquetteEnsuite
@@ -288,7 +289,7 @@ private fun CarteSuivi(
                         40.dp,
                         60.dp,
                         // Le liseré or à 22 % des affiches de Mes films (`LigneFilm.kt`).
-                        modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.22f), MaterialTheme.shapes.small),
+                        modifier = Modifier.lisereOr(),
                     )
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         EtiquetteEnsuite(MaterialTheme.colorScheme.secondary)
