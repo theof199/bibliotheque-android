@@ -34,6 +34,10 @@ private val RESSOURCES_TABLER: Map<String, Int> = mapOf(
     "star-filled" to R.drawable.tabler_star_filled,
     "sparkles" to R.drawable.tabler_sparkles,
     "award" to R.drawable.tabler_award,
+    // « Mes films · le hall » (24 septembre 2026) : la puce Date, l'action Corriger, les puces Note et Réaction.
+    "arrows-sort" to R.drawable.tabler_arrows_sort,
+    "pencil" to R.drawable.tabler_pencil,
+    "chevron-down" to R.drawable.tabler_chevron_down,
 )
 
 /** Fonction pure testée (mutation) : `IconeTablerTest.kt`. */

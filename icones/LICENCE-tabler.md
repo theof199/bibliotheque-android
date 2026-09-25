@@ -27,6 +27,9 @@ Les icones de l'application sous `res/drawable/tabler_*.xml` viennent du paquet 
 - `tabler_star_filled` — `star-filled` (filled)
 - `tabler_sparkles` — `sparkles` (outline)
 - `tabler_award` — `award` (outline)
+- `tabler_arrows_sort` — `arrows-sort` (outline)
+- `tabler_pencil` — `pencil` (outline)
+- `tabler_chevron_down` — `chevron-down` (outline)
 
 ## Licence MIT (`@tabler/icons`)
 

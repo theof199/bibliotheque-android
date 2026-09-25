@@ -22,3 +22,7 @@ cloud
 star-filled
 sparkles
 award
+# Les trois suivantes servent « Mes films · le hall » (24 septembre 2026).
+arrows-sort
+pencil
+chevron-down
