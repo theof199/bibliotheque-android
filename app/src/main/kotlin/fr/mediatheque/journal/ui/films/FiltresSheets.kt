@@ -112,7 +112,7 @@ fun PucesFiltres(
         Puce(libellePuceDate(filtres), active = filtres.tri == TriFilms.DATE_ASC, onClick = onDate, icone = "arrows-sort")
         Puce(
             libellePuceNote(filtres),
-            active = filtres.tri == TriFilms.NOTE_DESC || filtres.noteMin != null,
+            active = filtres.tri == TriFilms.NOTE_DESC || filtres.notes.isNotEmpty(),
             onClick = onNote,
             icone = "chevron-down",
         )
@@ -121,8 +121,9 @@ fun PucesFiltres(
 }
 
 /**
- * La feuille de la puce Note, qui porte le tri par note **et** la note minimale (décision du
- * propriétaire du 24 septembre 2026) : « Trier » (Date / Note), puis dix pastilles compactes.
+ * La feuille de la puce Note, qui porte le tri par note **et** le filtre par notes (décisions du
+ * propriétaire des 24 et 25 septembre 2026) : « Trier » (Date / Note), puis « Notes », dix
+ * pastilles compactes cochables à plusieurs — cocher 4 et 7 montre les 4 et les 7.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -142,20 +143,18 @@ fun FeuilleNote(filtres: FiltresFilms, vm: FiltresFilmsViewModel, onDismiss: () 
                 Puce("Date", active = filtres.tri != TriFilms.NOTE_DESC, onClick = { vm.setTri(TriFilms.DATE_DESC) })
                 Puce("Note", active = filtres.tri == TriFilms.NOTE_DESC, onClick = { vm.setTri(TriFilms.NOTE_DESC) })
             }
-            Text("Note minimale", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Notes", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             // Deux rangées de cinq : dix pastilles de 30 dp, chacune dans sa cible de 48, ne
             // tiennent pas sur une seule rangée de 360 dp moins les marges.
             for (rangee in listOf(1..5, 6..10)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     for (n in rangee) {
-                        PastilleNoteMin(n, selected = filtres.noteMin == n) {
-                            vm.setNoteMin(if (filtres.noteMin == n) null else n)
-                        }
+                        PastilleNote(n, selected = n in filtres.notes) { vm.basculerNote(n) }
                     }
                 }
             }
             TextButton(
-                onClick = { vm.setTri(TriFilms.DATE_DESC); vm.setNoteMin(null) },
+                onClick = { vm.setTri(TriFilms.DATE_DESC); vm.effacerNotes() },
                 modifier = Modifier.align(Alignment.End),
             ) { Text("Effacer") }
         }
@@ -163,12 +162,12 @@ fun FeuilleNote(filtres: FiltresFilms, vm: FiltresFilmsViewModel, onDismiss: () 
 }
 
 /**
- * Une pastille de note minimale, compacte : cercle de 30 dp dans une cible de 48, corail quand
- * elle est choisie — les couleurs de `RatingDot` du formulaire, qui reste privé à `FormScreen`.
- * Retoucher la pastille choisie retire la note minimale.
+ * Une pastille de note, compacte : cercle de 30 dp dans une cible de 48, corail quand elle est
+ * cochée — les couleurs de `RatingDot` du formulaire, qui reste privé à `FormScreen`. Un tap la
+ * coche ou la décoche, les autres pastilles gardent leur état.
  */
 @Composable
-private fun PastilleNoteMin(n: Int, selected: Boolean, onClick: () -> Unit) {
+private fun PastilleNote(n: Int, selected: Boolean, onClick: () -> Unit) {
     val fond = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh
     val texte = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
     Box(
@@ -178,7 +177,7 @@ private fun PastilleNoteMin(n: Int, selected: Boolean, onClick: () -> Unit) {
             .background(fond, CircleShape)
             .clickable(onClick = onClick)
             .semantics {
-                contentDescription = "Note minimale $n"
+                contentDescription = "Note $n"
                 this.selected = selected
             },
         contentAlignment = Alignment.Center,
@@ -210,7 +209,7 @@ fun FeuilleReactions(filtres: FiltresFilms, vm: FiltresFilmsViewModel, onDismiss
                 }
             }
             TextButton(
-                onClick = { filtres.reactions.forEach(vm::basculerReaction) },
+                onClick = { vm.effacerReactions() },
                 modifier = Modifier.align(Alignment.End),
             ) { Text("Effacer") }
         }

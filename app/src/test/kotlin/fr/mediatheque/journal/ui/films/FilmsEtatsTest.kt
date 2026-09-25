@@ -9,8 +9,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Les règles de « Mes films · le hall » (décisions du propriétaire du 24 septembre 2026) :
- * recherche, note minimale, réactions, tri, et les libellés des trois puces. Fonctions pures de
+ * Les règles de « Mes films · le hall » (décisions du propriétaire des 24 et 25 septembre 2026) :
+ * recherche, notes cochées, réactions, tri, et les libellés des trois puces. Fonctions pures de
  * `FilmsEtats.kt`, jumelles de `RealisateurEtatsTest.kt` — pas de réseau, pas de `ViewModel`.
  */
 class FilmsEtatsTest {
@@ -71,14 +71,33 @@ class FilmsEtatsTest {
         assertEquals(4, appliquerFiltres(liste, FiltresFilms(texte = "   ")).size)
     }
 
-    // --- Note minimale -----------------------------------------------------------------------
+    // --- Notes -------------------------------------------------------------------------------
 
-    // Au moins `noteMin`, bornes comprises ; un film sans note est écarté. Mutation : `>` au lieu de
-    // `>=`, ou garder les films sans note, casse cette assertion.
+    // Une note cochée garde exactement cette note, pas celles au-dessus (décision du propriétaire du
+    // 25 septembre 2026). Mutation : revenir à un seuil `>=` garderait Chihiro (9) avec 7 coché et
+    // casse cette assertion.
     @Test
-    fun `la note minimale garde les notes egales ou superieures, jamais les films sans note`() {
-        assertEquals(listOf("chihiro", "leon"), ids(appliquerFiltres(tous, FiltresFilms(noteMin = 7))))
-        assertEquals(listOf("chihiro"), ids(appliquerFiltres(tous, FiltresFilms(noteMin = 8))))
+    fun `une note cochee garde exactement cette note`() {
+        assertEquals(listOf("leon"), ids(appliquerFiltres(tous, FiltresFilms(notes = setOf(7)))))
+        assertEquals(listOf("chihiro"), ids(appliquerFiltres(tous, FiltresFilms(notes = setOf(9)))))
+        assertEquals(emptyList<String>(), ids(appliquerFiltres(tous, FiltresFilms(notes = setOf(8)))))
+    }
+
+    // Deux notes cochées : l'une ou l'autre (ou), pas les deux à la fois. Mutation : un « et »
+    // (toutes les notes) ne garderait rien et casse cette assertion.
+    @Test
+    fun `deux notes cochees gardent l une ou l autre`() {
+        assertEquals(listOf("chihiro", "leon"), ids(appliquerFiltres(tous, FiltresFilms(notes = setOf(7, 9)))))
+        assertEquals(listOf("leon"), ids(appliquerFiltres(tous, FiltresFilms(notes = setOf(4, 7)))))
+    }
+
+    // Un film sans note est écarté dès qu'une note est cochée, et gardé sinon. Mutation : garder
+    // les films sans note casse la première assertion.
+    @Test
+    fun `un film sans note est ecarte des qu une note est cochee`() {
+        val tout = (1..10).toSet()
+        assertEquals(listOf("chihiro", "leon"), ids(appliquerFiltres(tous, FiltresFilms(notes = tout))))
+        assertEquals(listOf("chihiro", "leon", "totoro"), ids(appliquerFiltres(tous, FiltresFilms())))
     }
 
     // --- Réactions ---------------------------------------------------------------------------
@@ -96,7 +115,7 @@ class FilmsEtatsTest {
     // assertion.
     @Test
     fun `texte, note et reactions se cumulent`() {
-        val filtres = FiltresFilms(texte = "miyazaki", noteMin = 5, reactions = setOf("adore"))
+        val filtres = FiltresFilms(texte = "miyazaki", notes = setOf(9, 5), reactions = setOf("adore"))
         assertEquals(listOf("chihiro"), ids(appliquerFiltres(tous, filtres)))
     }
 
@@ -188,14 +207,16 @@ class FilmsEtatsTest {
         assertEquals("Date, récents d’abord", libellePuceDate(FiltresFilms(tri = TriFilms.NOTE_DESC)))
     }
 
-    // Les quatre combinaisons du tri par note et de la note minimale (décision du propriétaire du
-    // 24 septembre 2026 : une seule puce pour les deux).
+    // Les combinaisons du tri par note et des notes cochées (décisions du propriétaire des 24 et 25
+    // septembre 2026 : une seule puce pour les deux, qui compte les notes comme la puce Réaction
+    // compte les réactions). Mutation : afficher la note plutôt que le compte casse cette assertion.
     @Test
-    fun `la puce Note dit le tri et la note minimale`() {
+    fun `la puce Note dit le tri et le nombre de notes cochees`() {
         assertEquals("Note", libellePuceNote(FiltresFilms()))
-        assertEquals("Note · ≥ 8", libellePuceNote(FiltresFilms(noteMin = 8)))
+        assertEquals("Note · 1", libellePuceNote(FiltresFilms(notes = setOf(8))))
+        assertEquals("Note · 2", libellePuceNote(FiltresFilms(notes = setOf(4, 7))))
         assertEquals("Note, tri", libellePuceNote(FiltresFilms(tri = TriFilms.NOTE_DESC)))
-        assertEquals("Note, tri · ≥ 8", libellePuceNote(FiltresFilms(tri = TriFilms.NOTE_DESC, noteMin = 8)))
+        assertEquals("Note, tri · 2", libellePuceNote(FiltresFilms(tri = TriFilms.NOTE_DESC, notes = setOf(4, 7))))
     }
 
     @Test
@@ -216,7 +237,7 @@ class FilmsEtatsTest {
         assertTrue(FiltresFilms(texte = "miya").actifs)
         assertTrue(FiltresFilms(tri = TriFilms.DATE_ASC).actifs)
         assertTrue(FiltresFilms(tri = TriFilms.NOTE_DESC).actifs)
-        assertTrue(FiltresFilms(noteMin = 1).actifs)
+        assertTrue(FiltresFilms(notes = setOf(1)).actifs)
         assertTrue(FiltresFilms(reactions = setOf("adore")).actifs)
     }
 

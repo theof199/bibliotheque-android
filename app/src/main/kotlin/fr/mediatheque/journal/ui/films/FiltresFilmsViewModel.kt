@@ -38,9 +38,14 @@ class FiltresFilmsViewModel : ViewModel() {
         _filtres.update { it.copy(tri = tri) }
     }
 
-    /** `null` retire la note minimale. */
-    fun setNoteMin(noteMin: Int?) {
-        _filtres.update { it.copy(noteMin = noteMin) }
+    /** Coche la note si elle ne l'était pas, la décoche sinon ; plusieurs notes à la fois. */
+    fun basculerNote(n: Int) {
+        _filtres.update { it.copy(notes = if (n in it.notes) it.notes - n else it.notes + n) }
+    }
+
+    /** Le « Effacer » de la feuille Note : décoche toutes les notes, sans toucher au reste. */
+    fun effacerNotes() {
+        _filtres.update { it.copy(notes = emptySet()) }
     }
 
     /** Coche la réaction si elle ne l'était pas, la décoche sinon. */
@@ -48,7 +53,12 @@ class FiltresFilmsViewModel : ViewModel() {
         _filtres.update { it.copy(reactions = if (key in it.reactions) it.reactions - key else it.reactions + key) }
     }
 
-    /** Tout revient à zéro : texte vide, récents d'abord, aucune note minimale, aucune réaction. */
+    /** Le « Effacer » de la feuille Réaction : décoche toutes les réactions, sans toucher au reste. */
+    fun effacerReactions() {
+        _filtres.update { it.copy(reactions = emptySet()) }
+    }
+
+    /** Tout revient à zéro : texte vide, récents d'abord, aucune note, aucune réaction. */
     fun effacer() {
         _filtres.value = FiltresFilms()
     }

@@ -14,13 +14,13 @@ import java.text.Normalizer
 enum class TriFilms { DATE_DESC, DATE_ASC, NOTE_DESC }
 
 /**
- * Ce que le propriétaire a choisi sur l'écran. `noteMin` nul = aucune note minimale ;
+ * Ce que le propriétaire a choisi sur l'écran. `notes` vide = aucun filtre de note ;
  * `reactions` vide = aucun filtre de réaction.
  */
 data class FiltresFilms(
     val texte: String = "",
     val tri: TriFilms = TriFilms.DATE_DESC,
-    val noteMin: Int? = null,
+    val notes: Set<Int> = emptySet(),
     val reactions: Set<String> = emptySet(),
 ) {
     /**
@@ -30,7 +30,7 @@ data class FiltresFilms(
      * (`appliquerFiltres`) : il ne compte pas, pour ne pas charger tout le journal pour rien.
      */
     val actifs: Boolean
-        get() = texte.isNotBlank() || tri != TriFilms.DATE_DESC || noteMin != null || reactions.isNotEmpty()
+        get() = texte.isNotBlank() || tri != TriFilms.DATE_DESC || notes.isNotEmpty() || reactions.isNotEmpty()
 }
 
 /**
@@ -49,8 +49,9 @@ private val DIACRITIQUES = Regex("\\p{M}+")
  * - **Texte** : cherché dans le titre **et** le réalisateur (« miya » trouve les films de Hayao
  *   Miyazaki), insensible à la casse et aux accents (voir `normaliser`). Vide ou blanc : aucun
  *   filtre.
- * - **Note minimale** : garde les visionnages notés au moins `noteMin` ; un visionnage sans note
- *   est écarté dès qu'une note minimale est posée.
+ * - **Notes** : garde les visionnages dont la note est l'une des notes cochées (ou) — comme les
+ *   réactions, mais en *ou* : cocher 4 et 7 montre les 4 et les 7. Un visionnage sans note est
+ *   écarté dès qu'une note est cochée (décision du propriétaire du 25 septembre 2026).
  * - **Réactions** : garde les visionnages qui portent **toutes** les réactions cochées (et, pas
  *   ou) — cocher de plus en plus resserre la liste, jamais l'inverse.
  * - **Tri**, toujours stable (une égalité garde l'ordre d'arrivée du back) : par `finished_at`
@@ -60,13 +61,13 @@ private val DIACRITIQUES = Regex("\\p{M}+")
  */
 fun appliquerFiltres(items: List<JournalItem>, filtres: FiltresFilms): List<JournalItem> {
     val texte = normaliser(filtres.texte)
-    val noteMin = filtres.noteMin
+    val notes = filtres.notes
     val gardes = items.filter { item ->
         val rating = item.entry.rating
         val texteOk = texte.isEmpty() ||
             normaliser(item.media.title).contains(texte) ||
             normaliser(item.media.director.orEmpty()).contains(texte)
-        val noteOk = noteMin == null || (rating != null && rating >= noteMin)
+        val noteOk = notes.isEmpty() || (rating != null && rating in notes)
         texteOk && noteOk && item.carnet.reactions.containsAll(filtres.reactions)
     }
     return when (filtres.tri) {
@@ -99,12 +100,13 @@ fun libellePuceDate(filtres: FiltresFilms): String =
     if (filtres.tri == TriFilms.DATE_ASC) "Date, anciens d’abord" else "Date, récents d’abord"
 
 /**
- * La puce Note, qui porte à la fois le tri par note et la note minimale (décision du propriétaire
- * du 24 septembre 2026) : « Note », « Note, tri », « Note · ≥ 8 » ou « Note, tri · ≥ 8 ».
+ * La puce Note, qui porte à la fois le tri par note et les notes cochées (décisions du
+ * propriétaire des 24 et 25 septembre 2026) : « Note », « Note, tri », « Note · 2 » ou
+ * « Note, tri · 2 » avec deux notes cochées — jumelle de la puce Réaction.
  */
 fun libellePuceNote(filtres: FiltresFilms): String {
     val tri = if (filtres.tri == TriFilms.NOTE_DESC) "Note, tri" else "Note"
-    return filtres.noteMin?.let { "$tri · ≥ $it" } ?: tri
+    return if (filtres.notes.isEmpty()) tri else "$tri · ${filtres.notes.size}"
 }
 
 /** La puce Réaction : « Réaction », ou « Réaction · 2 » avec deux réactions cochées. */

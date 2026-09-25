@@ -46,12 +46,27 @@ class FiltresFilmsViewModelTest {
         assertEquals(TriFilms.NOTE_DESC, vm.filtres.value.tri)
     }
 
+    // Cocher, cocher une autre, décocher la première : plusieurs notes à la fois. Mutation :
+    // remplacer au lieu d'ajouter, ou un `+` sans retrait, casse cette assertion.
     @Test
-    fun `setNoteMin pose puis retire la note minimale`() {
-        vm.setNoteMin(8)
-        assertEquals(8, vm.filtres.value.noteMin)
-        vm.setNoteMin(null)
-        assertEquals(null, vm.filtres.value.noteMin)
+    fun `basculerNote coche puis decoche`() {
+        vm.basculerNote(4)
+        vm.basculerNote(7)
+        assertEquals(setOf(4, 7), vm.filtres.value.notes)
+        vm.basculerNote(4)
+        assertEquals(setOf(7), vm.filtres.value.notes)
+    }
+
+    // L'« Effacer » de la feuille Note décoche toutes les notes, et seulement elles. Mutation :
+    // tout remettre à zéro casse cette assertion.
+    @Test
+    fun `effacerNotes decoche toutes les notes sans toucher au reste`() {
+        vm.setTri(TriFilms.NOTE_DESC)
+        vm.basculerNote(4)
+        vm.basculerNote(7)
+        vm.basculerReaction("adore")
+        vm.effacerNotes()
+        assertEquals(FiltresFilms(tri = TriFilms.NOTE_DESC, reactions = setOf("adore")), vm.filtres.value)
     }
 
     // Cocher, cocher une autre, décocher la première. Mutation : un `+` sans retrait casse cette
@@ -65,13 +80,24 @@ class FiltresFilmsViewModelTest {
         assertEquals(setOf("nul"), vm.filtres.value.reactions)
     }
 
+    // L'« Effacer » de la feuille Réaction décoche toutes les réactions, et seulement elles.
+    // Mutation : tout remettre à zéro casse cette assertion.
+    @Test
+    fun `effacerReactions decoche toutes les reactions sans toucher au reste`() {
+        vm.basculerNote(8)
+        vm.basculerReaction("adore")
+        vm.basculerReaction("nul")
+        vm.effacerReactions()
+        assertEquals(FiltresFilms(notes = setOf(8)), vm.filtres.value)
+    }
+
     // « Effacer » remet tout à zéro, les quatre champs à la fois. Mutation : oublier l'un d'eux
     // casse cette assertion.
     @Test
     fun `effacer remet tous les filtres a zero`() {
         vm.setTexte("leon")
         vm.setTri(TriFilms.NOTE_DESC)
-        vm.setNoteMin(6)
+        vm.basculerNote(6)
         vm.basculerReaction("adore")
         vm.effacer()
         assertEquals(FiltresFilms(), vm.filtres.value)
