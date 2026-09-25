@@ -52,9 +52,11 @@ import fr.mediatheque.journal.api.dto.FilmSuivi
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.SearchResult
 import fr.mediatheque.journal.ui.Cover
+import fr.mediatheque.journal.ui.lisereOr
 import fr.mediatheque.journal.ui.TamponPerdu
 import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.showBriefly
+import fr.mediatheque.journal.ui.theme.FiletOr
 import fr.mediatheque.journal.ui.theme.IconeTabler
 
 /**
@@ -156,6 +158,8 @@ fun FicheSuiviScreen(
                     IconeTabler("trash", "Ne plus suivre")
                 }
             }
+            // Le filet or de Mes films et des Suivis, 8 dp sous le nom (`FiletOr` porte ce haut).
+            FiletOr()
 
             // Seulement sur une saga (brief « les films de saga ajoutés à la main »,
             // 15 septembre 2026) : une collection TMDB n'est pas toujours complète,
@@ -330,9 +334,10 @@ private fun LigneFilm(film: FilmSuivi, aVoir: Boolean, onClick: () -> Unit, onLo
             modifier = Modifier.width(36.dp),
         )
         Box {
-            Cover(film.cover_url, film.title, 30.dp, 45.dp)
+            // 40 × 60 liserée d'or à 22 %, comme l'affiche « Ensuite » de la carte du cycle.
+            Cover(film.cover_url, film.title, 40.dp, 60.dp, modifier = Modifier.lisereOr())
             if (film.introuvable) {
-                TamponPerdu(taille = 26.dp, modifier = Modifier.align(Alignment.Center), echelle = echelleTampon.value)
+                TamponPerdu(taille = 35.dp, modifier = Modifier.align(Alignment.Center), echelle = echelleTampon.value)
             }
         }
         Text(film.title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))

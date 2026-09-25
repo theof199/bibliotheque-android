@@ -182,6 +182,7 @@ fun SuivisScreen(
                             entite = entite,
                             etatFilmographie = etat.filmographies[entite.tmdbId] ?: EtatFilmographie.EnAttente,
                             aujourdHui = aujourdHui,
+                            masquerIntrouvables = ui.masquerIntrouvables,
                             bouclee = false,
                             onClick = { onOuvrir(ui.source, entite.tmdbId) },
                             modifier = Modifier.animateItem(),
@@ -202,6 +203,7 @@ fun SuivisScreen(
                                 entite = entite,
                                 etatFilmographie = etat.filmographies[entite.tmdbId] ?: EtatFilmographie.EnAttente,
                                 aujourdHui = aujourdHui,
+                                masquerIntrouvables = ui.masquerIntrouvables,
                                 bouclee = true,
                                 onClick = { onOuvrir(ui.source, entite.tmdbId) },
                                 modifier = Modifier.animateItem(),
@@ -220,11 +222,15 @@ private fun SuiviState.dejaLue(): Boolean = !loading || entites.isNotEmpty()
 /**
  * Une carte par rétrospective ou par cycle (canvas de Léon, 25 septembre 2026) : fond
  * `surfaceContainer`, coins 16.
- * - Ligne 1 : le portrait liseré (52 dp, rétrospectives seulement — un cycle attend sa bande en
- *   livraison 2), le nom, la sous-ligne (`sousLigneCarte`), à droite « 4/12 ».
- * - Ligne 2 : la barre or (`BarreProgressionOr`).
+ * - Ligne 1 : le portrait liseré (52 dp, rétrospectives seulement), le nom, la sous-ligne
+ *   (`sousLigneCarte`), à droite « 4/12 ».
+ * - Ligne 2 : la barre or (`BarreProgressionOr`) d'une rétrospective, la bande de ses films
+ *   (`BandeCycle`) d'un cycle. Le compte d'un cycle suit sa bande (`compteBande`) : sans ses
+ *   introuvables quand « Masquer les introuvables » est actif, pour que « 3/6 » dise ce qui est
+ *   dessiné — la sous-ligne reprend les mêmes nombres.
  * - Ligne 3 : « ENSUITE » et le prochain film à voir, son affiche liserée d'or à 22 %.
- * Bouclée (section du bas) : à 85 %, le compte en or, pas de ligne 3, le sceau sur le portrait.
+ * Bouclée (section du bas) : à 85 %, le compte en or, pas de ligne 3, le sceau sur le portrait
+ * (une rétrospective ; un cycle bouclé n'a pas de sceau, sa bande toute cochée le dit).
  * Filmographie `EnAttente`/`Indisponible` : le nom, puis « … » / « indisponible » (`libelleLigne`)
  * à la place du reste.
  */
@@ -234,14 +240,19 @@ private fun CarteSuivi(
     entite: EntiteSuivie,
     etatFilmographie: EtatFilmographie,
     aujourdHui: LocalDate,
+    masquerIntrouvables: Boolean,
     bouclee: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val forme = RoundedCornerShape(16.dp)
     val films = (etatFilmographie as? EtatFilmographie.Pret)?.films
-    val vus = films?.let(::filmsVus) ?: 0
-    val total = films?.size ?: 0
+    val cycle = source == SourceSuivi.SAGAS
+    val (vus, total) = when {
+        films == null -> 0 to 0
+        cycle -> compteBande(films, masquerIntrouvables)
+        else -> filmsVus(films) to films.size
+    }
     Column(
         modifier
             .fillMaxWidth()
@@ -279,7 +290,11 @@ private fun CarteSuivi(
             )
             return@Column
         }
-        BarreProgressionOr(vus, total)
+        if (cycle) {
+            BandeCycle(remember(films, masquerIntrouvables) { disposerBande(films, masquerIntrouvables) })
+        } else {
+            BarreProgressionOr(vus, total)
+        }
         if (!bouclee) {
             prochainAVoir(films)?.let { prochain ->
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {

@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.Dp
  * (`ui/theme/Ornements.kt`) pour le reste de l'habillage.
  *
  * `taille` : ce tampon n'a pas de taille propre, il se pose sur l'affiche qu'on lui indique, quelle
- * que soit sa taille dans l'appli — la fiche d'un suivi (30 × 45 dp) comme la filmographie d'un
+ * que soit sa taille dans l'appli — la fiche d'un suivi (40 × 60 dp) comme la filmographie d'un
  * réalisateur, en plus grand. `modifier` ne sert plus qu'au positionnement (`Modifier.align(...)`).
  */
 @Composable
