@@ -45,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import fr.mediatheque.journal.R
 import fr.mediatheque.journal.ui.theme.animationsReduites
 
 /** La hauteur de la route d'une section, carton exclu — le repère 650 dp de Léon. */
@@ -130,7 +131,15 @@ fun SectionMonde(
         progression.animateTo(1f, tween(dureeEntree(monde.decennie), easing = LinearEasing))
         onEntreeJouee()
     }
-    val entreeCarton = etatEntreeCarton(dejaEntre, visible, reduit, progression.value)
+    // Le saccadé voulu des quatre mondes du muet (§G, livraison 5) : la progression tenue par pas
+    // de 16 images par seconde plutôt que de glisser en continu comme 1930 → 2020 — posée ici,
+    // juste avant `etatEntreeCarton`, comme prévu par la livraison 3 (`progressionQuantifiee`).
+    val progressionPourEntree = if (monde.decennie in 1890..1920) {
+        progressionQuantifiee(progression.value, pasSeizeImagesParSeconde(dureeEntree(monde.decennie)))
+    } else {
+        progression.value
+    }
+    val entreeCarton = etatEntreeCarton(dejaEntre, visible, reduit, progressionPourEntree)
     val active = ambianceActive(visible, reduit)
     // Relue par l'image (§G suite, 2000 : la grille de pixels pendant l'entrée) — nulle hors
     // `EnCours`, comme `progressionEntree` de `CartonTitre.kt`.
@@ -167,6 +176,18 @@ fun SectionMonde(
             // Tout en bas de la pile (§H) : derrière la route, jamais sur les pavillons ni le
             // texte. Nulle pour 1890 et 1900, qui n'ont pas d'image.
             monde.image?.let { image -> ImageDeFond(image, monde, active, progressionEntreeImage, k) }
+
+            // L'ombre d'Orlok (§G, 1920, livraison 5) : silhouette statique par-dessus l'image,
+            // comme l'affiche de 1910 — toujours visible, pas pilotée par `active` ni par l'entrée.
+            if (monde.decennie == 1920) {
+                Image(
+                    painter = painterResource(R.drawable.voyage_orlok),
+                    contentDescription = null,
+                    alpha = 0.88f,
+                    colorFilter = ColorFilter.tint(Color.Black),
+                    modifier = Modifier.offset(x = 140.dp * k, y = 236.dp).size(250.dp * k, 266.dp),
+                )
+            }
 
             // Entre l'image et la route (§B, livraison 3) : l'ambiance en boucle du monde, muette
             // hors écran et sans animations réduites (`ambianceActive`).
@@ -213,12 +234,18 @@ fun SectionMonde(
  * 1970 (2,4 s), le grésillement néon de 1980 (1,6 s), la claque de 1990 (0,7 s — l'éclat blanc à
  * 55-64 % de l'entrée s'y cale tel quel), le décodage de 2000 (1,1 s), le spinner puis le titre de
  * 2010 (2,4 s de rotation + 0,2 s de disparition + 0,4 s de fondu du titre, superposés en fin de
- * course = 2,8 s de bout en bout) et l'allumage de 2020 (1,2 s). 900 ms par défaut pour les mondes
- * sans entrée dessinée encore (1890 → 1920, livraison 5) : la valeur ne se voit pas tant que
- * `CartonTitre` ne dessine rien de plus pour `EnCours` — seule la date à laquelle le magasin se
- * marque en dépend un peu.
+ * course = 2,8 s de bout en bout) et l'allumage de 2020 (1,2 s). 1890 (1 s de tressaut, le temps
+ * que la manivelle tourne en 0,5 s), 1900 (1 s, 16 pas — le clignotement du truc à arrêt), 1910
+ * (0,6 s d'iris + 0,7 s de délai + 0,9 s d'intertitre tapé = 1,6 s) et 1920 (≈ 2,2 s : le mot
+ * « L'expressionnisme » tracé lettre par lettre à 0,14 s le segment, §G) reprennent les durées du
+ * delta plutôt que le défaut — c'est sur elles que `progressionQuantifiee` (16 i/s, §G) est posée
+ * ci-dessous, dans `SectionMonde`.
  */
 private fun dureeEntree(decennie: Int): Int = when (decennie) {
+    1890 -> 1_000
+    1900 -> 1_000
+    1910 -> 1_600
+    1920 -> 2_200
     1930 -> 900
     1940 -> 1_100
     1950 -> 1_000

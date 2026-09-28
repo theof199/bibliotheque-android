@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
@@ -54,10 +55,20 @@ import fr.mediatheque.journal.ui.theme.Fraunces
  * Livraison 4 (28 septembre 2026, §G suite) : 1960 → 2020 gagnent leur ambiance. Certaines
  * dessinent aussi un texte (« Fin », « PLAY », l'enseigne de salle, le menu DVD) — `Box` plutôt
  * que le `Canvas` seul de 1930-1950, ces mondes-là ayant du texte à afficher en plus des tracés.
+ *
+ * Livraison 5 (28 septembre 2026, §G) : 1890 → 1910 ferment le muet — chaque sous-effet quantifié
+ * à son propre nombre de paliers via `progressionQuantifiee` (le saccadé voulu par le delta,
+ * §G) plutôt que d'animer en continu comme 1930 → 2020. 1920 gagne les ombres qui penchent (un
+ * vrai cisaillement via `nativeCanvas.skew`, pas une rotation approximée) et le réverbère qui se
+ * balance ; l'ombre d'Orlok elle-même est statique (§G, « Image »), posée par `SectionMonde.kt`.
  */
 @Composable
 fun AmbianceDeMonde(monde: Monde, active: Boolean, k: Float, modifier: Modifier = Modifier) {
     when (monde.decennie) {
+        1890 -> AmbianceDesOrigines(active, k, modifier)
+        1900 -> AmbianceDeLaFeerie(active, k, modifier)
+        1910 -> AmbianceDuMuet(active, modifier)
+        1920 -> AmbianceDeLExpressionnisme(active, k, monde.accent, modifier)
         1930 -> AmbianceDuParlant(active, k, monde.accent, modifier)
         1940 -> AmbianceDuNoir(active, k, monde.accent, modifier)
         1950 -> AmbianceDuTechnicolor(active, modifier)
@@ -68,6 +79,188 @@ fun AmbianceDeMonde(monde: Monde, active: Boolean, k: Float, modifier: Modifier 
         2000 -> AmbianceDuNumerique(active, k, monde.accent, modifier)
         2010 -> AmbianceDuStreaming(active, k, monde.accent, modifier)
         2020 -> AmbianceDAujourdhui(active, k, modifier)
+    }
+}
+
+/** 1890 (§G) : le motif de scintillement du voile radial chaud, déterministe (graine fixe par palier). */
+private val SCINTILLEMENT_1890 = FloatArray(21) { kotlin.random.Random(it).nextInt(55, 100) / 100f }
+
+/**
+ * 1890, « les origines » (§G) : pas d'image, la flamme scintille directement sur le fond de la
+ * section (retour téléphone du 28 septembre 2026 — 1890 n'a rien d'autre à décorer). Voile radial
+ * chaud qui scintille (21 paliers, 1,3 s, boucle), rayure verticale claire qui traverse une fois
+ * toutes les 20 s (320 paliers) et silhouette du train de La Ciotat qui traverse en 36 s
+ * (576 paliers) — dessinée (pas de SVG commité pour ce détail) plutôt qu'importée.
+ */
+@Composable
+private fun AmbianceDesOrigines(active: Boolean, k: Float, modifier: Modifier) {
+    if (!active) return
+    val transition = rememberInfiniteTransition(label = "ambiance-1890")
+    val scintillement by transition.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1_300, easing = LinearEasing)),
+        label = "scintillement",
+    )
+    val rayure by transition.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(20_000, easing = LinearEasing)),
+        label = "rayure",
+    )
+    val train by transition.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(36_000, easing = LinearEasing)),
+        label = "train",
+    )
+    Canvas(modifier) {
+        val palierScintillement = (progressionQuantifiee(scintillement, 1f / 21) * 21).toInt().coerceIn(0, 20)
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(Color(0xFFFFDCA0).copy(alpha = 0.16f * SCINTILLEMENT_1890[palierScintillement]), Color.Transparent),
+            ),
+            radius = size.minDimension * 0.6f,
+            center = Offset(size.width / 2f, size.height / 2f),
+        )
+        val rayureT = progressionQuantifiee(rayure, 1f / 320)
+        drawRect(
+            Color(0xFFFFF6E0).copy(alpha = 0.28f + 0.32f * rayureT),
+            topLeft = Offset(rayureT * size.width, 0f),
+            size = Size(1.dp.toPx(), size.height),
+        )
+        val trainT = progressionQuantifiee(train, 1f / 576)
+        val largeurTrain = 90.dp.toPx() * k
+        translate(left = size.width - trainT * (size.width + largeurTrain), top = 560.dp.toPx()) {
+            val silhouette = Path().apply {
+                moveTo(0f, 24.dp.toPx())
+                lineTo(largeurTrain * 0.15f, 4.dp.toPx())
+                lineTo(largeurTrain * 0.85f, 4.dp.toPx())
+                lineTo(largeurTrain, 24.dp.toPx())
+                close()
+            }
+            drawPath(silhouette, Color.Black.copy(alpha = 0.45f))
+            drawCircle(Color.Black.copy(alpha = 0.45f), radius = 5.dp.toPx(), center = Offset(largeurTrain * 0.25f, 26.dp.toPx()))
+            drawCircle(Color.Black.copy(alpha = 0.45f), radius = 5.dp.toPx(), center = Offset(largeurTrain * 0.75f, 26.dp.toPx()))
+        }
+    }
+}
+
+/**
+ * 1900, « la féerie » (§G) : les ampoules de la marquise foraine se chassent (six paliers,
+ * décalées d'une ampoule à l'autre — approximation d'une guirlande, distincte de la vraie
+ * `Marquise.kt`, générique à tout le voyage) ; les teintes coloriées à la main dérivent sur le
+ * fond (trois radiaux rose/bleu/vert, aller-retour en 40 s).
+ */
+@Composable
+private fun AmbianceDeLaFeerie(active: Boolean, k: Float, modifier: Modifier) {
+    if (!active) return
+    val transition = rememberInfiniteTransition(label = "ambiance-1900")
+    val chasse by transition.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1_200, easing = LinearEasing)),
+        label = "chasse",
+    )
+    val derive by transition.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(40_000, easing = LinearEasing), repeatMode = RepeatMode.Reverse),
+        label = "derive",
+    )
+    Canvas(modifier) {
+        val palier = (progressionQuantifiee(chasse, 1f / 6) * 6).toInt().coerceIn(0, 5)
+        val nombreAmpoules = 9
+        val pas = size.width / (nombreAmpoules + 1)
+        repeat(nombreAmpoules) { i ->
+            val allumee = (i + palier) % 3 == 0
+            drawCircle(
+                Color(0xFFFFE7A0).copy(alpha = if (allumee) 0.9f else 0.25f),
+                radius = 2.5.dp.toPx(),
+                center = Offset(pas * (i + 1), 60.dp.toPx()),
+            )
+        }
+        listOf(Color(0xFFFF7FC2) to 0.15f, Color(0xFF5FA8FF) to 0.5f, Color(0xFF6FE08A) to 0.85f).forEach { (couleur, fraction) ->
+            drawCircle(
+                brush = Brush.radialGradient(colors = listOf(couleur.copy(alpha = 0.3f), Color.Transparent)),
+                radius = 90.dp.toPx() * k,
+                center = Offset((derive * size.width + size.width * fraction) % size.width, 380.dp.toPx()),
+            )
+        }
+    }
+}
+
+/**
+ * 1910, « le muet » (§G) : le rouleau de piano défile vers le haut au bord droit de la route —
+ * bande de 14 dp, motif de trous répété, en boucle sur 3 s. Pas de nombre de paliers donné par le
+ * delta pour ce défilement (contrairement à 1890/1900) : laissé continu plutôt que quantifié.
+ */
+@Composable
+private fun AmbianceDuMuet(active: Boolean, modifier: Modifier) {
+    if (!active) return
+    val transition = rememberInfiniteTransition(label = "ambiance-1910")
+    val defilement by transition.animateFloat(
+        initialValue = 0f, targetValue = -40f,
+        animationSpec = infiniteRepeatable(tween(3_000, easing = LinearEasing)),
+        label = "rouleau",
+    )
+    Canvas(modifier) {
+        val largeurBande = 14.dp.toPx()
+        val left = size.width - largeurBande
+        drawRect(Color(0xFFD8C49A).copy(alpha = 0.35f), topLeft = Offset(left, 0f), size = Size(largeurBande, size.height))
+        val pasTrou = 16.dp.toPx()
+        var y = defilement.dp.toPx().mod(pasTrou)
+        while (y < size.height) {
+            drawCircle(Color.Black.copy(alpha = 0.35f), radius = 2.dp.toPx(), center = Offset(left + largeurBande / 2f, y))
+            y += pasTrou
+        }
+    }
+}
+
+/**
+ * 1920, « l'expressionnisme » (§G) : les ombres penchent — un vrai cisaillement (`skewX`, via
+ * `nativeCanvas.skew`, l'origine ramenée en bas de la section comme le demande le delta) plutôt
+ * qu'une rotation approximée — sur quelques bandes sombres obliques ; le réverbère se balance
+ * (rotation, origine en bas du mât) et promène sa lumière (un halo qui suit la tête du mât).
+ * L'ombre d'Orlok elle-même est statique (§G, « Image »), posée par `SectionMonde.kt`.
+ */
+@Composable
+private fun AmbianceDeLExpressionnisme(active: Boolean, k: Float, accent: Color, modifier: Modifier) {
+    if (!active) return
+    val transition = rememberInfiniteTransition(label = "ambiance-1920")
+    val inclinaison by transition.animateFloat(
+        initialValue = -3f, targetValue = 3f,
+        animationSpec = infiniteRepeatable(tween(8_000, easing = LinearEasing), repeatMode = RepeatMode.Reverse),
+        label = "ombres",
+    )
+    val balancement by transition.animateFloat(
+        initialValue = -7f, targetValue = 7f,
+        animationSpec = infiniteRepeatable(tween(3_000, easing = LinearEasing), repeatMode = RepeatMode.Reverse),
+        label = "reverbere",
+    )
+    Canvas(modifier) {
+        val palierOmbres = (progressionQuantifiee((inclinaison + 3f) / 6f, 1f / 128) * 6f - 3f)
+        val sx = kotlin.math.tan(Math.toRadians(palierOmbres.toDouble())).toFloat()
+        val nativeCanvas = drawContext.canvas.nativeCanvas
+        val sauvegarde = nativeCanvas.save()
+        nativeCanvas.translate(0f, size.height)
+        nativeCanvas.skew(sx, 0f)
+        nativeCanvas.translate(0f, -size.height)
+        var x = 40.dp.toPx() * k
+        while (x < size.width) {
+            drawRect(Color.Black.copy(alpha = 0.28f), topLeft = Offset(x, 100.dp.toPx()), size = Size(18.dp.toPx(), 500.dp.toPx()))
+            x += 130.dp.toPx() * k
+        }
+        nativeCanvas.restoreToCount(sauvegarde)
+
+        val palierReverbere = (progressionQuantifiee((balancement + 7f) / 14f, 1f / 48) * 14f - 7f)
+        val basDuMat = Offset(340.dp.toPx() * k, 600.dp.toPx())
+        rotate(palierReverbere, pivot = basDuMat) {
+            val hauteurMat = 90.dp.toPx()
+            val tete = basDuMat - Offset(0f, hauteurMat)
+            drawLine(Color(0xFF3A3A3A), basDuMat, tete, strokeWidth = 2.dp.toPx())
+            drawCircle(
+                brush = Brush.radialGradient(colors = listOf(accent.copy(alpha = 0.35f), Color.Transparent)),
+                radius = 46.dp.toPx(),
+                center = tete,
+            )
+            drawCircle(accent.copy(alpha = 0.8f), radius = 3.dp.toPx(), center = tete)
+        }
     }
 }
 

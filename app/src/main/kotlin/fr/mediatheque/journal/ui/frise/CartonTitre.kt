@@ -19,11 +19,13 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -33,10 +35,12 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import fr.mediatheque.journal.ui.theme.Fraunces
 import fr.mediatheque.journal.ui.theme.Limelight
 
 /**
@@ -66,6 +70,13 @@ import fr.mediatheque.journal.ui.theme.Limelight
  * `modifierEntreeTitre` porte les transformations du titre lui-même (saut, zoom, grésillement,
  * claque, décodage, fondu) pendant qu'`entreeDeCarton` garde le dessin par-dessus (éclat de 1990,
  * spinner de 2010). Toutes fluides (24 i/s), comme 1930-1950.
+ *
+ * Livraison 5 (28 septembre 2026, §G) : 1890 (le titre tressaute, `modifierEntreeTitre` — la
+ * manivelle qui tourne, `entreeDeCarton`), 1900 (le clignotement du truc à arrêt, la lune de
+ * Méliès) et 1910 (l'iris qui s'ouvre sur tout le carton, puis l'intertitre tapé sous le titre)
+ * ferment le muet — `progression` leur arrive déjà tenue par pas de 16 images par seconde
+ * (`progressionQuantifiee`, posée en amont par `SectionMonde.kt`), le saccadé voulu par le delta.
+ * 1920 (le titre dessiné à la main) suit dans un commit séparé (§G, « traits brisés »).
  */
 @Composable
 fun CartonTitre(monde: Monde, entree: EtatEntree, modifier: Modifier = Modifier) {
@@ -101,12 +112,30 @@ fun CartonTitre(monde: Monde, entree: EtatEntree, modifier: Modifier = Modifier)
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             TitreCarton(monde, decennie, progressionEntree)
-            Text(
-                "${monde.decennie} · ${monde.sousTitre}".uppercase(),
-                style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 2.sp, fontSize = 10.sp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
+            // 1910 (§G) : l'intertitre tapé — Fraunces italique 14 sp accent plutôt que la légende
+            // habituelle, révélée en largeur pendant l'entrée (`intertitreTape1910`) ; `Jouee` (ou
+            // hors entrée) l'affiche déjà pleine, comme les autres mondes.
+            if (decennie == 1910) {
+                Text(
+                    "${monde.decennie} · ${monde.sousTitre}".uppercase(),
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontFamily = Fraunces,
+                        fontStyle = FontStyle.Italic,
+                        letterSpacing = 2.sp,
+                        fontSize = 14.sp,
+                    ),
+                    color = monde.accent,
+                    textAlign = TextAlign.Center,
+                    modifier = if (progressionEntree != null) Modifier.intertitreTape1910(progressionEntree) else Modifier,
+                )
+            } else {
+                Text(
+                    "${monde.decennie} · ${monde.sousTitre}".uppercase(),
+                    style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 2.sp, fontSize = 10.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+            }
         }
     }
 }
@@ -176,6 +205,18 @@ private fun TitreCarton(monde: Monde, decennie: Int, progressionEntree: Float?) 
  * dessinée.
  */
 private fun modifierEntreeTitre(decennie: Int, progression: Float): Modifier = when (decennie) {
+    // 1890 : le titre tressaute à la manivelle (§G) — translateY par pas irréguliers plutôt
+    // qu'une liste à intervalle constant, comme le décrit le delta (« pas irréguliers »).
+    1890 -> {
+        val palier = (progression * POSITIONS_TRESSAUT_1890.size).toInt().coerceIn(0, POSITIONS_TRESSAUT_1890.size - 1)
+        Modifier.offset(y = POSITIONS_TRESSAUT_1890[palier].dp)
+    }
+    // 1900 : « le truc à arrêt » (§G) — le titre s'efface puis reparaît, légèrement décalé au
+    // départ, le décalage se résorbant à (0,0) en même temps que l'opacité revient.
+    1900 -> {
+        val alpha = if (progression < 0.5f) 1f - 2f * progression else 2f * (progression - 0.5f)
+        Modifier.alpha(alpha.coerceIn(0f, 1f)).offset(x = ((1f - progression) * -10f).dp)
+    }
     // 1960 : « trois sauts » (§G) — quatre positions tenues, `steps(1)` : la lettre saute d'un
     // point à l'autre plutôt que de glisser, la première tenue étant aussi l'apparition.
     1960 -> {
@@ -216,6 +257,9 @@ private fun modifierEntreeTitre(decennie: Int, progression: Float): Modifier = w
     else -> Modifier
 }
 
+/** 1890 (§G) : le tressaut à la manivelle, en pas irréguliers plutôt qu'à intervalle constant. */
+private val POSITIONS_TRESSAUT_1890 = listOf(0f, -3f, -1f, -2f, 0f, -3f, -1f, 0f)
+
 private val POSITIONS_SAUT_1960 = listOf(Offset(-30f, 0f), Offset(18f, -4f), Offset(-6f, 2f), Offset(0f, 0f))
 private val EasingZoomLent1970 = CubicBezierEasing(0.2f, 0.6f, 0.2f, 1f)
 private val ALPHAS_NEON_1980 = floatArrayOf(0f, 1f, 0.2f, 1f, 0.4f, 1f, 0.7f, 1f)
@@ -240,6 +284,19 @@ private fun texteLettresAllumees(nom: String, progression: Float, accent: Color)
         val seuil = index / nom.length.toFloat()
         withStyle(SpanStyle(color = if (progression > seuil) accent else eteinte)) { append(lettre.toString()) }
     }
+}
+
+/**
+ * 1910 (§G) : l'intertitre tapé — la ligne « 1910 · LES GRANDS RÉCITS » sous le titre, révélée en
+ * largeur (17 paliers) après un délai de 0,7 s (le temps que l'iris finisse de s'ouvrir,
+ * `irisCarton1910`), sur les 0,9 s restants des 1,6 s de l'entrée. `clipRect`, comme
+ * `ondeSonoreCarton` (1930) : Compose n'anime pas de vrai « dashoffset » de police.
+ */
+private fun Modifier.intertitreTape1910(progression: Float): Modifier = drawWithContent {
+    val debutTape = 0.7f / 1.6f
+    val avance = ((progression - debutTape) / (1f - debutTape)).coerceIn(0f, 1f)
+    val paliers = progressionQuantifiee(avance, 1f / 17)
+    clipRect(right = size.width * paliers) { this@drawWithContent.drawContent() }
 }
 
 private val FondCarton = Color(0xFF0A0704)
@@ -278,11 +335,66 @@ private fun DrawScope.decorationsDeCarton(decennie: Int, accent: Color) {
  */
 private fun DrawScope.entreeDeCarton(decennie: Int, progression: Float, accent: Color) {
     when (decennie) {
+        1890 -> manivelleEntree1890(progression, accent)
+        1900 -> luneDeMelies1900(accent)
+        1910 -> irisCarton1910(progression)
         1930 -> ondeSonoreCarton(progression, accent)
         1940 -> storeVenitienCarton(progression)
         1990 -> eclatBlancCarton(progression)
         2010 -> spinnerCarton(progression, accent)
     }
+}
+
+/**
+ * 1890 (§G) : la manivelle qui tourne en haut à droite du carton pendant que le titre tressaute
+ * (`modifierEntreeTitre`) — 720° en 0,5 s (la moitié des 1 s de l'entrée totale), huit paliers
+ * tenus. Un trait pour le bras et un petit cercle pour la poignée, plutôt qu'une icône dédiée —
+ * pas de nouvelle ressource pour un détail aussi petit.
+ */
+private fun DrawScope.manivelleEntree1890(progression: Float, accent: Color) {
+    val avance = (progression / 0.5f).coerceIn(0f, 1f)
+    val palier = (avance * 8).toInt().coerceIn(0, 7)
+    val rotation = palier / 8f * 720f
+    val centre = Offset(size.width - 16.dp.toPx(), 16.dp.toPx())
+    val poignee = Offset(size.width - 16.dp.toPx() + 8.dp.toPx(), 16.dp.toPx())
+    rotate(rotation, pivot = centre) {
+        drawLine(accent, centre, poignee, strokeWidth = 1.5.dp.toPx())
+        drawCircle(accent, radius = 2.dp.toPx(), center = poignee)
+    }
+}
+
+/**
+ * 1900 (§G) : la lune de Méliès posée sur le carton pendant l'entrée — un disque, deux yeux, et
+ * la fusée plantée dans l'œil droit (« Le Voyage dans la Lune », 1902), en traits plutôt qu'une
+ * icône dédiée, comme 1890.
+ */
+private fun DrawScope.luneDeMelies1900(accent: Color) {
+    val centre = Offset(size.width - 26.dp.toPx(), 18.dp.toPx())
+    val oeilDroit = centre + Offset(3.dp.toPx(), -2.dp.toPx())
+    drawCircle(accent.copy(alpha = 0.85f), radius = 10.dp.toPx(), center = centre)
+    drawCircle(Color.Black, radius = 1.6.dp.toPx(), center = centre + Offset(-3.dp.toPx(), -2.dp.toPx()))
+    drawCircle(Color.Black, radius = 1.6.dp.toPx(), center = oeilDroit)
+    drawLine(Color.Black, oeilDroit, oeilDroit + Offset(4.dp.toPx(), -3.dp.toPx()), strokeWidth = 1.dp.toPx())
+}
+
+/**
+ * 1910 (§G) : l'iris qui s'ouvre sur tout le carton — un cache noir percé d'un disque grandissant
+ * (`Path` en règle pair-impair) plutôt qu'un `BlendMode.Clear`, qui exigerait d'isoler ce
+ * `drawWithContent` dans son propre calque hors écran (fait pour l'image, §H, pas ici). Le rayon
+ * final vaut 80 % de la demi-largeur du carton (§G, « 0 → 80 % »), atteint en 0,6 s des 1,6 s de
+ * l'entrée.
+ */
+private fun DrawScope.irisCarton1910(progression: Float) {
+    val fractionIris = 0.6f / 1.6f
+    if (progression >= fractionIris) return
+    val avance = progression / fractionIris
+    val rayon = avance * size.minDimension / 2f * 0.8f
+    val cache = Path().apply {
+        addRect(Rect(Offset.Zero, size))
+        addOval(Rect(center = center, radius = rayon))
+        fillType = PathFillType.EvenOdd
+    }
+    drawPath(cache, Color.Black)
 }
 
 /**

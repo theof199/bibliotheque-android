@@ -257,6 +257,18 @@ fun progressionQuantifiee(t: Float, pas: Float): Float {
     return kotlin.math.floor(t / pas) * pas
 }
 
+/**
+ * Le pas de `progressionQuantifiee` pour tenir 16 images par seconde (62,5 ms) sur une entrée de
+ * `dureeMs` millisecondes (livraison 5, §G, 1890 → 1920) : un carton de 900 ms tient dans 16 pas
+ * (900/62,5 = 14,4, arrondi par `progressionQuantifiee` elle-même), un de 1 600 ms dans 25,6 —
+ * `dureeMs` nul ou négatif (jamais censé arriver) rend un pas nul, `progressionQuantifiee` renvoie
+ * alors `t` telle quelle plutôt que de diviser par zéro.
+ */
+fun pasSeizeImagesParSeconde(dureeMs: Int): Float {
+    if (dureeMs <= 0) return 0f
+    return 62.5f / dureeMs
+}
+
 /** L'état de l'entrée d'un carton-titre (§D) : jamais jouée, en train de se jouer, ou déjà jouée — persistée par `MondesVisitesStore`. */
 sealed interface EtatEntree {
     data object Jamais : EtatEntree

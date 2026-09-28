@@ -288,6 +288,22 @@ class VoyageCarteTest {
         assertEquals(0.42f, progressionQuantifiee(0.42f, pas = 0f), 0.0001f)
     }
 
+    // Le pas 16 i/s (§G, livraison 5, 1890 → 1920) : 62,5 ms rapportés à la durée totale de
+    // l'entrée. Mutation : une autre fréquence (24 i/s, par exemple) romprait le saccadé voulu.
+    @Test
+    fun `pasSeizeImagesParSeconde rapporte 62,5 ms a la duree de l'entree`() {
+        assertEquals(0.0625f, pasSeizeImagesParSeconde(1_000), 0.0001f)
+        assertEquals(0.0390625f, pasSeizeImagesParSeconde(1_600), 0.0000001f)
+    }
+
+    // Sans durée valable (jamais censé arriver), aucun pas — `progressionQuantifiee` reçoit 0 et
+    // rend `t` telle quelle plutôt que de diviser par zéro.
+    @Test
+    fun `pasSeizeImagesParSeconde rend 0 sans duree positive`() {
+        assertEquals(0f, pasSeizeImagesParSeconde(0), 0.0001f)
+        assertEquals(0f, pasSeizeImagesParSeconde(-500), 0.0001f)
+    }
+
     // L'entrée d'un carton (§D) : déjà jouée si sa décennie est dans le magasin, jamais jouée
     // sinon — `EnCours` est un état transitoire que la lecture seule du magasin ne peut pas
     // retrouver. Mutation : inverser les deux branches rejouerait l'entrée à chaque visite.
