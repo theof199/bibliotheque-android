@@ -330,6 +330,21 @@ class AnneeViewModel(
         charger()
     }
 
+    /**
+     * Rattrape `statutVoyage` dès que `annee_en_cours` de la carte est connu (lot 1 du brief du
+     * 28 septembre 2026, « le voyage se sent progresser » : « séance et ligne de maturité
+     * absentes sur l'année en cours ») — seule source qui sache distinguer « ouverte »
+     * d'« en cours », ce que la propre fiche de l'année (`GET /me/voyage/annees/{annee}`,
+     * `statutVoyageApresReponse`) ne peut jamais dire pour un statut encore nul. Appelée par
+     * `FriseRoutes.kt` à chaque fois que `FriseViewModel.ui.voyage.anneeEnCours` change (et dès
+     * qu'il est chargé) : une instance construite avec un instantané nul (recherche, ou visite
+     * directe depuis une filmographie) se corrige ainsi dès la première fois qu'elle rejoint
+     * l'écran de l'année, sans attendre un redémarrage de l'application.
+     */
+    fun appliquerAnneeEnCours(anneeEnCours: Int) {
+        _ui.update { it.copy(statutVoyage = statutVoyageDepuisAnneeEnCours(it.annee, anneeEnCours)) }
+    }
+
     private fun charger() {
         pollJob?.cancel()
         pollJob = viewModelScope.launch {

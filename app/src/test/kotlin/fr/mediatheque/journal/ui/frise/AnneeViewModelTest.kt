@@ -249,6 +249,37 @@ class AnneeViewModelTest {
         )
     }
 
+    // `appliquerAnneeEnCours` (lot 1 du brief du 28 septembre 2026, « le voyage se sent
+    // progresser » : « séance et ligne de maturité absentes sur l'année en cours »). Avant ce
+    // correctif, une fiche construite avec un instantané nul (`ui/search/SearchRoute.kt`, ou une
+    // visite directe depuis une filmographie) restait bloquée sans statut pour toujours : sa
+    // propre relecture (`statutVoyageApresReponse`) ne sait jamais promouvoir `null` en
+    // `EN_COURS`, seulement `VERROUILLEE` en `EN_COURS`.
+    @Test
+    fun `appliquerAnneeEnCours rattrape un statut reste nul`() {
+        val vm = AnneeViewModel(api, 1898, null) {}
+        // Mutation : voir le test juste en dessous — sans l'appel à `appliquerAnneeEnCours`, ce
+        // statut resterait nul indéfiniment, quel que soit ce que la fiche relit par ailleurs.
+        assertNull(vm.ui.value.statutVoyage)
+
+        vm.appliquerAnneeEnCours(1898)
+
+        assertEquals(StatutAnneeVoyage.EN_COURS, vm.ui.value.statutVoyage)
+    }
+
+    @Test
+    fun `appliquerAnneeEnCours rattrape aussi vers ouverte ou verrouillee`() {
+        // Mutation : rendre toujours `EN_COURS` (ignorer la comparaison à `anneeEnCours`) ferait
+        // échouer les deux assertions suivantes.
+        val avant = AnneeViewModel(api, 1897, null) {}
+        avant.appliquerAnneeEnCours(1898)
+        assertEquals(StatutAnneeVoyage.OUVERTE, avant.ui.value.statutVoyage)
+
+        val apres = AnneeViewModel(api, 1899, null) {}
+        apres.appliquerAnneeEnCours(1898)
+        assertEquals(StatutAnneeVoyage.VERROUILLEE, apres.ui.value.statutVoyage)
+    }
+
     // Correctif du 25 septembre 2026 (« le verdict de maturité se relit ») : rouvrir une année
     // relit toujours le back, même déjà prête. Avant ce correctif, `relire()` rendait la main
     // tout de suite sur une année `PRETE` (`if (_ui.value.etat == EtatAnnee.PRETE) return`) et un

@@ -26,6 +26,30 @@ fun statutAnneeVoyage(brut: String?): StatutAnneeVoyage? = when (brut) {
 }
 
 /**
+ * Le statut d'une année déduit seulement de `annee_en_cours` (lot 1 du brief du 28 septembre
+ * 2026, « le voyage se sent progresser ») — jumeau exact de la formule du back
+ * (`calculerCarte`, `apps/api/src/routes/voyage.ts` : `annee < anneeEnCours ? 'ouverte' :
+ * annee === anneeEnCours ? 'en_cours' : 'verrouillee'`).
+ *
+ * Cause du bug « séance et ligne de maturité absentes sur l'année en cours » : une fiche
+ * d'année (`AnneeViewModel`) ne connaît son statut que par deux voies — l'instantané de la
+ * carte à sa création (`snapshot`), ou la propre relecture de sa fiche
+ * (`GET /me/voyage/annees/{annee}`, `statutVoyageApresReponse`), qui ne sait jamais distinguer
+ * « ouverte » d'« en cours » et ne peut donc jamais promouvoir un statut nul en `EN_COURS`.
+ * Une instance construite avec un instantané nul (`ui/search/SearchRoute.kt` en construit une
+ * ainsi, dès la première visite d'une année qui se trouve être l'année en cours du Voyage — pas
+ * forcément par la carte) reste alors bloquée sans statut pour toujours, même une fois
+ * `GET /me/voyage` chargé par ailleurs. Cette fonction rattrape la fiche dès que la carte connaît
+ * `annee_en_cours` (`AnneeViewModel.appliquerAnneeEnCours`, appelée par `FriseRoutes.kt` à chaque
+ * fois que ce nombre change). Fonction pure, testée en JVM.
+ */
+fun statutVoyageDepuisAnneeEnCours(annee: Int, anneeEnCours: Int): StatutAnneeVoyage = when {
+    annee < anneeEnCours -> StatutAnneeVoyage.OUVERTE
+    annee == anneeEnCours -> StatutAnneeVoyage.EN_COURS
+    else -> StatutAnneeVoyage.VERROUILLEE
+}
+
+/**
  * Le ticket qu'on n'a pas encore montré (brief du 21 septembre 2026, « le ticket ») : ce que le
  * calque de `Root.kt` affiche — `emis_le` n'a pas sa place ici, rien ne s'en sert à l'écran.
  */

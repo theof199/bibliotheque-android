@@ -32,6 +32,29 @@ class VoyageEtatsTest {
         assertNull(statutAnneeVoyage("autre chose"))
     }
 
+    // `statutVoyageDepuisAnneeEnCours` (lot 1 du brief du 28 septembre 2026, « le voyage se sent
+    // progresser ») : jumeau exact de la formule du back (`calculerCarte`), qui sait — à la
+    // différence de `statutVoyageApresReponse` — toujours promouvoir un statut nul en `EN_COURS`.
+    @Test
+    fun `statutVoyageDepuisAnneeEnCours rend en_cours sur l'annee en cours elle-meme`() {
+        // Mutation : comparer par `<=` au lieu de `<` sur la borne du dessous ferait passer
+        // l'année en cours elle-même pour `OUVERTE` plutôt qu'`EN_COURS`.
+        assertEquals(StatutAnneeVoyage.EN_COURS, statutVoyageDepuisAnneeEnCours(1898, 1898))
+    }
+
+    @Test
+    fun `statutVoyageDepuisAnneeEnCours rend ouverte avant l'annee en cours`() {
+        // Mutation : inverser `<` en `>` ferait passer une année déjà franchie pour verrouillée.
+        assertEquals(StatutAnneeVoyage.OUVERTE, statutVoyageDepuisAnneeEnCours(1897, 1898))
+    }
+
+    @Test
+    fun `statutVoyageDepuisAnneeEnCours rend verrouillee apres l'annee en cours`() {
+        // Mutation : retirer la branche `else` (ou la confondre avec `OUVERTE`) laisserait une
+        // année future passer pour ouverte, alors que rien ne s'y est encore ouvert.
+        assertEquals(StatutAnneeVoyage.VERROUILLEE, statutVoyageDepuisAnneeEnCours(1899, 1898))
+    }
+
     @Test
     fun `toVoyageUi indexe les annees et lit l'annee en cours`() {
         val reponse = VoyageResponse(

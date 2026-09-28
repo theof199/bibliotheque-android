@@ -65,6 +65,18 @@ fun PorteeEcrans.routeAnnee(screen: Screen.Annee) {
     LaunchedEffect(friseUiPourAnnee.enregistrements) {
         if (friseUiPourAnnee.enregistrements > 0) anneeVm.relireApresEnregistrement()
     }
+    // Le rattrapage du statut (lot 1 du brief du 28 septembre 2026, « le voyage se sent
+    // progresser » : « séance et ligne de maturité absentes sur l'année en cours ») : dès que
+    // la carte connaît `annee_en_cours` (chargée ou changée depuis), la fiche recale son propre
+    // `statutVoyage` — sans quoi une instance construite avec un instantané nul (recherche,
+    // visite directe depuis une filmographie) restait bloquée sans statut pour toujours, la
+    // relecture de sa seule fiche (`GET /me/voyage/annees/{annee}`) ne sachant jamais promouvoir
+    // un statut nul en `EN_COURS` (`statutVoyageApresReponse`). Non gardé tant que la carte n'a
+    // pas fini de charger (`configure` faux par défaut) : un `anneeEnCours` encore à sa valeur de
+    // départ verrouillerait à tort une année pas encore chargée.
+    LaunchedEffect(friseUiPourAnnee.voyage.configure, friseUiPourAnnee.voyage.anneeEnCours) {
+        if (friseUiPourAnnee.voyage.configure) anneeVm.appliquerAnneeEnCours(friseUiPourAnnee.voyage.anneeEnCours)
+    }
     // Le verdict de maturité (brief du 25 septembre 2026, « le verdict de maturité
     // se relit ») : ne guette que si le film qui vient d'être journalisé est bien
     // celui de l'année en cours (`doitRelireApresCreation`, jumeau de la relecture
