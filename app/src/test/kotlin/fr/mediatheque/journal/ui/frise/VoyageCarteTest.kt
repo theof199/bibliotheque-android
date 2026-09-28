@@ -215,24 +215,6 @@ class VoyageCarteTest {
         assertNull(detecterNouveauTampon(null, tampons))
     }
 
-    // Le carton-titre d'un monde (geste 22 du complément du 23 septembre 2026 à l'habillage) : un
-    // vrai changement de monde en défilant, entre deux valeurs connues. Mutation : rendre `ancien`
-    // au lieu de `nouveau` présenterait le monde qu'on quitte plutôt que celui qu'on vient d'entrer.
-    @Test
-    fun `mondeEntre rend le nouveau monde quand il differe de l'ancien`() {
-        assertEquals(1900, mondeEntre(ancien = 1890, nouveau = 1900))
-    }
-
-    // Rien au tout premier défilement (l'un des deux encore inconnu), et rien si le monde visible
-    // n'a pas changé. Mutation : ignorer l'un des deux gardes rejouerait le carton-titre au premier
-    // défilement, ou en boucle tant qu'on reste dans le même monde.
-    @Test
-    fun `mondeEntre ne rend rien sans monde connu des deux cotes ou sans changement`() {
-        assertNull(mondeEntre(ancien = null, nouveau = 1900))
-        assertNull(mondeEntre(ancien = 1890, nouveau = null))
-        assertNull(mondeEntre(ancien = 1890, nouveau = 1890))
-    }
-
     // Le tri du portefeuille (décision 3 du brief du 21 septembre 2026, « le ticket ») : les non
     // utilisés d'abord (par année), les compostés ensuite (par date d'utilisation). Mutation :
     // inverser les deux groupes, ou trier les compostés par année plutôt que par date, ferait
@@ -252,5 +234,121 @@ class VoyageCarteTest {
     @Test
     fun `trierPortefeuille sur une liste vide reste vide`() {
         assertTrue(trierPortefeuille(emptyList()).isEmpty())
+    }
+
+    // --- Le Voyage, pavillon par pavillon (delta de Léon du 25 septembre 2026) -----------------
+
+    // Les dix places sont fixes, dans l'ordre de la route (§C). Mutation : intervertir deux places
+    // ferait poser un photogramme au mauvais tournant.
+    @Test
+    fun `emplacement rend les dix places de la route, dans l'ordre`() {
+        assertEquals(10, EMPLACEMENTS_PHOTOGRAMMES.size)
+        assertEquals(EmplacementPhotogramme(47f, 96f), emplacement(0))
+        assertEquals(EmplacementPhotogramme(147f, 456f), emplacement(9))
+    }
+
+    // Le millésime se pose dessous par défaut, à gauche aux virages à droite (rangs 3 et 8), à
+    // droite au virage à gauche (rang 6), au-dessus sur la rangée du milieu (rangs 4 et 5).
+    // Mutation : confondre A_GAUCHE et A_DROITE ferait chevaucher le millésime et la route.
+    @Test
+    fun `positionMillesime suit le virage de chaque place`() {
+        assertEquals(PositionMillesime.DESSOUS, positionMillesime(0))
+        assertEquals(PositionMillesime.A_GAUCHE, positionMillesime(3))
+        assertEquals(PositionMillesime.DESSUS, positionMillesime(4))
+        assertEquals(PositionMillesime.DESSUS, positionMillesime(5))
+        assertEquals(PositionMillesime.A_DROITE, positionMillesime(6))
+        assertEquals(PositionMillesime.DESSOUS, positionMillesime(7))
+        assertEquals(PositionMillesime.A_GAUCHE, positionMillesime(8))
+        assertEquals(PositionMillesime.DESSOUS, positionMillesime(9))
+    }
+
+    // L'étendue du HUD (§A) : la décennie pleine, sauf la décennie en cours qui s'arrête au jour —
+    // jumelle de la règle qui limite le nombre de places de la route. Mutation : ignorer
+    // `anneeActuelle` afficherait « 2020 → 2029 » avant que la décennie ne soit terminée.
+    @Test
+    fun `etendueHud montre la decennie pleine, ou tronquee au jour pour la decennie en cours`() {
+        assertEquals("1930 → 1939", etendueHud(1930, anneeActuelle = 2026))
+        assertEquals("2020 → 2026", etendueHud(2020, anneeActuelle = 2026))
+    }
+
+    // La progression quantifiée (§D) : arrondie vers le bas au pas, jamais au plus proche.
+    // Mutation : arrondir plutôt qu'arrondir vers le bas ferait avancer le carton en avance sur
+    // son pas d'image.
+    @Test
+    fun `progressionQuantifiee arrondit vers le bas, au pas donne`() {
+        assertEquals(0f, progressionQuantifiee(0.05f, pas = 0.0625f), 0.0001f)
+        assertEquals(0.0625f, progressionQuantifiee(0.09f, pas = 0.0625f), 0.0001f)
+        assertEquals(0.125f, progressionQuantifiee(0.125f, pas = 0.0625f), 0.0001f)
+    }
+
+    // Sans pas valable (jamais censé arriver), la progression n'est pas quantifiée.
+    @Test
+    fun `progressionQuantifiee rend t telle quelle sans pas positif`() {
+        assertEquals(0.42f, progressionQuantifiee(0.42f, pas = 0f), 0.0001f)
+    }
+
+    // L'entrée d'un carton (§D) : déjà jouée si sa décennie est dans le magasin, jamais jouée
+    // sinon — `EnCours` est un état transitoire que la lecture seule du magasin ne peut pas
+    // retrouver. Mutation : inverser les deux branches rejouerait l'entrée à chaque visite.
+    @Test
+    fun `statutDuCarton lit Jouee ou Jamais depuis le magasin`() {
+        assertEquals(EtatEntree.Jouee, statutDuCarton(setOf(1890, 1900), decennie = 1890))
+        assertEquals(EtatEntree.Jamais, statutDuCarton(setOf(1890), decennie = 1900))
+        assertEquals(EtatEntree.Jamais, statutDuCarton(emptySet(), decennie = 1890))
+    }
+
+    // La carte en sections (§A, §B) : une section par monde, ses années dans l'ordre, et le
+    // premier monde s'arrête à `anneeActuelle` plutôt qu'à la fin de sa décennie. Mutation :
+    // partir de `mondeDe(depart).decennie` sans le `maxOf` couperait les années 1890 avant 1895.
+    @Test
+    fun `sectionsDuVoyage met la carte a plat, du depart a l'annee actuelle`() {
+        val voyage = VoyageUi(depart = 1895, anneeEnCours = 1897)
+        val ui = FriseUi(voyage = voyage)
+
+        val sections = sectionsDuVoyage(ui, anneeActuelle = 1897)
+
+        assertEquals(1, sections.size)
+        assertEquals(1890, sections.single().monde.decennie)
+        assertEquals(listOf(1895, 1896, 1897), sections.single().annees.map { it.annee })
+        assertEquals(listOf(0, 1, 2), sections.single().annees.map { it.rang })
+    }
+
+    // Plusieurs mondes, chacun avec ses dix années au plus, jusqu'à `anneeActuelle` qui coupe le
+    // dernier avant sa fin. Mutation : `derniereDecennie` mal calculée laisserait une décennie de
+    // trop, ou la couperait trop tôt.
+    @Test
+    fun `sectionsDuVoyage couvre plusieurs mondes et tronque le dernier a aujourd'hui`() {
+        val voyage = VoyageUi(depart = 1895, anneeEnCours = 1901)
+        val ui = FriseUi(voyage = voyage)
+
+        val sections = sectionsDuVoyage(ui, anneeActuelle = 1902)
+
+        assertEquals(listOf(1890, 1900), sections.map { it.monde.decennie })
+        assertEquals((1895..1899).toList(), sections[0].annees.map { it.annee })
+        assertEquals((1900..1902).toList(), sections[1].annees.map { it.annee })
+    }
+
+    // La marquise d'une section est bouclée exactement quand `ui.passeport` porte sa décennie —
+    // jamais calculée depuis les statuts par année (le back seul tranche). Mutation : dériver
+    // `bouclee` autrement ferait allumer une marquise que le back n'a pas encore accordée.
+    @Test
+    fun `sectionsDuVoyage boucle la marquise exactement quand le passeport porte la decennie`() {
+        val voyage = VoyageUi(depart = 1895, anneeEnCours = 1901, tampons = listOf(TamponVoyage(1890, "2026-09-01T00:00:00.000Z")))
+        val ui = FriseUi(voyage = voyage, passeport = tamponsPasseport(voyage, emptyList()))
+
+        val sections = sectionsDuVoyage(ui, anneeActuelle = 1902)
+
+        assertTrue(sections.first { it.monde.decennie == 1890 }.bouclee)
+        assertTrue(!sections.first { it.monde.decennie == 1900 }.bouclee)
+    }
+
+    // Sans année future : le Voyage ne commence pas avant `depart`, et rien avant `anneeActuelle`
+    // n'est un cas d'erreur — la carte est juste vide si le Voyage n'a pas encore commencé.
+    @Test
+    fun `sectionsDuVoyage est vide si anneeActuelle precede le depart`() {
+        val voyage = VoyageUi(depart = 1895, anneeEnCours = 1895)
+        val ui = FriseUi(voyage = voyage)
+
+        assertTrue(sectionsDuVoyage(ui, anneeActuelle = 1894).isEmpty())
     }
 }

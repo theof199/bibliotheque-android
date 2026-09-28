@@ -12,14 +12,19 @@ import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.unit.Dp
 import kotlin.math.atan2
 import kotlin.math.hypot
-import kotlin.random.Random
 
 /**
- * Le dessin du Voyage (brief du 16 septembre 2026, phase 2) : la pellicule qui serpente, les
- * motifs de fond d'un monde, la marquise d'une décennie et les trois glyphes de festival. Le
- * podium d'une année (21 septembre 2026) reprend cette bande, droite plutôt que serpentine
- * (`bandeDePellicule`). Le ticket (21 septembre 2026, « le ticket ») reprend les perforations pour
- * ses propres bords (`bordsPerfores`), et compose un billet utilisé (`barrerTicket`).
+ * Le dessin du Voyage (brief du 16 septembre 2026, phase 2) : la pellicule qui serpente, la
+ * marquise d'une décennie et les trois glyphes de festival. Le podium d'une année (21 septembre
+ * 2026) reprend cette bande, droite plutôt que serpentine (`bandeDePellicule`). Le ticket
+ * (21 septembre 2026, « le ticket ») reprend les perforations pour ses propres bords
+ * (`bordsPerfores`), et compose un billet utilisé (`barrerTicket`).
+ *
+ * Le motif de fond générique d'un monde (l'ancien `motifDeMonde`) est retiré depuis le delta de
+ * Léon du 25 septembre 2026 (« pavillon par pavillon ») : `Mondes.kt` ne porte plus l'énumération
+ * qui le pilotait. La pellicule serpentine elle-même et la façade de marquise pleine largeur
+ * restent pour l'instant : l'écran qui les dessine encore (`VoyageScreen.kt`) n'est réécrit qu'à
+ * la livraison suivante du delta.
  *
  * Tout est vectoriel et dessiné au `Canvas` — aucune image bitmap, aucune ressource de plus. Les
  * fonctions sont des extensions de `DrawScope` : elles ne connaissent ni l'état de l'écran, ni les
@@ -131,63 +136,6 @@ private fun tangenteQuadratique(t: Float, p0: Offset, c: Offset, p1: Offset): Of
         2f * u * (c.x - p0.x) + 2f * t * (p1.x - c.x),
         2f * u * (c.y - p0.y) + 2f * t * (p1.y - c.y),
     )
-}
-
-/**
- * Le motif de fond d'un monde, par-dessus sa couleur (brief, item 3). **Version simple assumée** :
- * six motifs génériques, quelques lignes ou points à très faible opacité — un décor, jamais un
- * élément qu'on lit.
- *
- * `graine` fixe le hasard des motifs pointillés : à graine égale, le même semis à chaque frame —
- * un `Random` sans graine ferait scintiller le fond à chaque recomposition.
- */
-fun DrawScope.motifDeMonde(motif: MotifMonde, accent: Color, graine: Int) {
-    val encre = accent.copy(alpha = 0.10f)
-    when (motif) {
-        MotifMonde.CERCLE -> {
-            val centre = Offset(size.width / 2f, size.height / 2f)
-            listOf(0.42f, 0.58f).forEach { facteur ->
-                drawCircle(encre, radius = size.minDimension * facteur, center = centre, style = Stroke(width = 1.5f))
-            }
-        }
-        MotifMonde.ETOILES -> {
-            val hasard = Random(graine)
-            repeat(14) {
-                val x = hasard.nextFloat() * size.width
-                val y = hasard.nextFloat() * size.height
-                drawCircle(accent.copy(alpha = 0.22f), radius = hasard.nextFloat() * 1.6f + 0.6f, center = Offset(x, y))
-            }
-        }
-        MotifMonde.DIAGONALES -> {
-            var x = -size.height
-            while (x < size.width) {
-                drawLine(encre, Offset(x, size.height), Offset(x + size.height, 0f), strokeWidth = 1.5f)
-                x += 26f
-            }
-        }
-        MotifMonde.RAYURES -> {
-            var x = 6f
-            while (x < size.width) {
-                drawLine(encre, Offset(x, 0f), Offset(x, size.height), strokeWidth = 1f)
-                x += 18f
-            }
-        }
-        MotifMonde.GRAIN -> {
-            val hasard = Random(graine)
-            repeat(70) {
-                val x = hasard.nextFloat() * size.width
-                val y = hasard.nextFloat() * size.height
-                drawCircle(accent.copy(alpha = 0.07f), radius = 1f, center = Offset(x, y))
-            }
-        }
-        MotifMonde.BANDES -> {
-            var y = 10f
-            while (y < size.height) {
-                drawLine(encre, Offset(0f, y), Offset(size.width, y), strokeWidth = 1f)
-                y += 22f
-            }
-        }
-    }
 }
 
 /** La feuille de la Palme, sur une grille de 16 × 16 — la nervure comprise. */

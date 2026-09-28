@@ -1,11 +1,13 @@
 package fr.mediatheque.journal.ui.frise
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import fr.mediatheque.journal.ui.theme.PapierJauni
 
 /**
  * Les mondes du Voyage (brief du 16 septembre 2026, phase 2 « la carte ») : une décennie, un
- * monde — un fond, un nom, un sous-titre, une couleur d'accent, un motif et un titre de voyageur.
+ * monde — un fond, un nom, un sous-titre, une couleur d'accent et un titre de voyageur.
  *
  * **Liste fixe, décision de design, kitsch assumé** : elle ne se dérive de rien et ne se charge
  * de nulle part. Les quatorze entrées couvrent 1890 → 2020 ; au-delà, `mondeDe` retombe sur la
@@ -19,14 +21,36 @@ import fr.mediatheque.journal.ui.theme.PapierJauni
  * L'accent d'un monde ne change **pas la police** : Manrope est la seule du dépôt (design §3).
  * Un monde se signe par sa couleur d'accent, la casse et l'espacement de son titre, et une
  * lettrine — jamais par une famille nouvelle.
+ *
+ * Delta de Léon du 25 septembre 2026 (« pavillon par pavillon », §C, §E, §F) : le motif de fond
+ * générique (`MotifMonde`) part avec la pellicule serpentine — chaque monde gagne à la place un
+ * `slogan` de marquise, un `format` de photogramme et une opacité de `grain`. Livraison 1 : le
+ * grain n'est pas encore dessiné (pas d'ambiance avant la livraison 3), la donnée est posée pour
+ * ne pas retoucher `Mondes.kt` à chaque livraison qui la consomme.
  */
 
 /**
- * Le motif de fond d'une bande de monde. **Simplification assumée** (permise par le brief) :
- * six motifs génériques réutilisés d'un monde à l'autre plutôt que quatorze motifs sur mesure —
- * quelques lignes, points ou étoiles au `Canvas`, jamais une image bitmap.
+ * Le traitement visuel d'un photogramme (§C du delta) : chaque monde porte le sien, du sépia des
+ * origines au « aujourd'hui » de 2020. Livraison 1 : sert à dessiner les décorations statiques du
+ * format (bande son, bande de tracking, barre de progression) — les filtres de couleur d'une
+ * image de fond (`ColorMatrix`) arrivent avec les images, livraison 2.
  */
-enum class MotifMonde { CERCLE, ETOILES, DIAGONALES, RAYURES, GRAIN, BANDES }
+enum class TraitementImage {
+    SEPIA, SEPIA_COLORIE, ARGENT, NOIR_ET_BLANC_DUR, BANDE_SON, BANDE_SON_CONTRASTE, SATURE,
+    NB_GRANULEUX, CHAUD_DELAVE, VHS, ACIER, NUMERIQUE, STREAMING, AUJOURDHUI,
+}
+
+/**
+ * Le format d'un photogramme (§C) : sa taille, l'arrondi de ses coins, la couleur de bord de son
+ * état « ouverte » (nulle : la couleur par défaut du thème, `secondary`), et son traitement.
+ */
+data class FormatPhotogramme(
+    val largeur: Dp,
+    val hauteur: Dp,
+    val rayon: Dp = 3.dp,
+    val bord: Color? = null,
+    val traitement: TraitementImage,
+)
 
 data class Monde(
     val decennie: Int,
@@ -34,26 +58,86 @@ data class Monde(
     val sousTitre: String,
     val fond: Color,
     val accent: Color,
-    val motif: MotifMonde,
     /** Le titre gagné en bouclant la décennie, en lettres lumineuses sur la marquise (brief, item 4). */
     val titreVoyageur: String,
+    /** Le slogan de la marquise (§E) — nul pour 1890, qui n'en porte aucun. */
+    val slogan: String?,
+    val format: FormatPhotogramme,
+    /** L'opacité du grain (§F) — 0 dès 1980, le grain de pellicule n'ayant plus sa place. */
+    val grain: Float,
 )
 
 val MONDES: List<Monde> = listOf(
-    Monde(1890, "Les origines", "la manivelle", Color(0xFF2A2118), Color(0xFFD9B382), MotifMonde.CERCLE, "Spectateur des origines"),
-    Monde(1900, "La féerie", "Méliès et les forains", Color(0xFF1C1C22), Color(0xFFE7D8A8), MotifMonde.ETOILES, "Compagnon de Méliès"),
-    Monde(1910, "Le muet", "les grands récits", Color(0xFF201A14), Color(0xFFD8C49A), MotifMonde.BANDES, "Témoin du muet"),
-    Monde(1920, "L’expressionnisme", "ombres obliques", Color(0xFF111114), Color(0xFFBFC7D1), MotifMonde.DIAGONALES, "Enfant de l’expressionnisme"),
-    Monde(1930, "Le parlant", "Hollywood se met à causer", Color(0xFF16171C), Color(0xFFE3C77B), MotifMonde.BANDES, "Témoin du parlant"),
-    Monde(1940, "Le noir", "argentique et imperméables", Color(0xFF0F1012), Color(0xFFA9B0B8), MotifMonde.GRAIN, "Détective du noir"),
-    Monde(1950, "Le Technicolor", "large et saturé", Color(0xFF1B1026), Color(0xFFF2A03D), MotifMonde.BANDES, "Enfant du Technicolor"),
-    Monde(1960, "Les nouvelles vagues", "caméra à l’épaule", Color(0xFF0E1A2B), Color(0xFF7FB3D5), MotifMonde.DIAGONALES, "Vaguiste"),
-    Monde(1970, "Le Nouvel Hollywood", "grain et pellicule rayée", Color(0xFF1A1208), Color(0xFFD98E36), MotifMonde.RAYURES, "Nouvel Hollywoodien"),
-    Monde(1980, "Le néon", "VHS et synthés", Color(0xFF120A22), Color(0xFFFF4FD8), MotifMonde.RAYURES, "Néon kid"),
-    Monde(1990, "Le blockbuster", "générique en lettres d’acier", Color(0xFF14181C), Color(0xFFB8C4CE), MotifMonde.BANDES, "Blockbusteur"),
-    Monde(2000, "Le numérique", "propre et net", Color(0xFF0B1218), Color(0xFF56C4E0), MotifMonde.GRAIN, "Numérique"),
-    Monde(2010, "Le streaming", "tout, tout de suite", Color(0xFF101014), Color(0xFFE5534B), MotifMonde.RAYURES, "Streameur"),
-    Monde(2020, "Aujourd’hui", "le voyage continue", Color(0xFF0A0A0A), Color(0xFFFF6B57), MotifMonde.CERCLE, "Contemporain"),
+    Monde(
+        1890, "Les origines", "la manivelle", Color(0xFF2A2118), Color(0xFFD9B382), "Spectateur des origines",
+        slogan = null, grain = 0.09f,
+        format = FormatPhotogramme(56.dp, 44.dp, rayon = 4.dp, traitement = TraitementImage.SEPIA),
+    ),
+    Monde(
+        1900, "La féerie", "Méliès et les forains", Color(0xFF1C1C22), Color(0xFFE7D8A8), "Compagnon de Méliès",
+        slogan = "Méliès et les forains", grain = 0.09f,
+        format = FormatPhotogramme(56.dp, 44.dp, traitement = TraitementImage.SEPIA_COLORIE),
+    ),
+    Monde(
+        1910, "Le muet", "les grands récits", Color(0xFF201A14), Color(0xFFD8C49A), "Témoin du muet",
+        slogan = "Les grands récits", grain = 0.09f,
+        format = FormatPhotogramme(56.dp, 44.dp, rayon = 2.dp, traitement = TraitementImage.ARGENT),
+    ),
+    Monde(
+        1920, "L’expressionnisme", "ombres obliques", Color(0xFF111114), Color(0xFFBFC7D1), "Enfant de l’expressionnisme",
+        slogan = "Ombres obliques", grain = 0.09f,
+        format = FormatPhotogramme(56.dp, 44.dp, traitement = TraitementImage.NOIR_ET_BLANC_DUR),
+    ),
+    Monde(
+        1930, "Le parlant", "Hollywood se met à causer", Color(0xFF16171C), Color(0xFFE3C77B), "Témoin du parlant",
+        slogan = "100 % parlant · chantant", grain = 0.07f,
+        format = FormatPhotogramme(56.dp, 41.dp, traitement = TraitementImage.BANDE_SON),
+    ),
+    Monde(
+        1940, "Le noir", "argentique et imperméables", Color(0xFF0F1012), Color(0xFFA9B0B8), "Détective du noir",
+        slogan = "Séance de minuit", grain = 0.07f,
+        format = FormatPhotogramme(56.dp, 41.dp, traitement = TraitementImage.BANDE_SON_CONTRASTE),
+    ),
+    Monde(
+        1950, "Le Technicolor", "large et saturé", Color(0xFF1B1026), Color(0xFFF2A03D), "Enfant du Technicolor",
+        slogan = "En CinemaScope · Technicolor", grain = 0.07f,
+        format = FormatPhotogramme(68.dp, 29.dp, bord = Color(0xFFF2A03D), traitement = TraitementImage.SATURE),
+    ),
+    Monde(
+        1960, "Les nouvelles vagues", "caméra à l’épaule", Color(0xFF0E1A2B), Color(0xFF7FB3D5), "Vaguiste",
+        slogan = "Caméra à l'épaule", grain = 0.11f,
+        format = FormatPhotogramme(60.dp, 36.dp, bord = Color(0xFF7FB3D5), traitement = TraitementImage.NB_GRANULEUX),
+    ),
+    Monde(
+        1970, "Le Nouvel Hollywood", "grain et pellicule rayée", Color(0xFF1A1208), Color(0xFFD98E36), "Nouvel Hollywoodien",
+        slogan = "Grain et pellicule rayée", grain = 0.13f,
+        format = FormatPhotogramme(62.dp, 34.dp, bord = Color(0xFFD98E36), traitement = TraitementImage.CHAUD_DELAVE),
+    ),
+    Monde(
+        1980, "Le néon", "VHS et synthés", Color(0xFF120A22), Color(0xFFFF4FD8), "Néon kid",
+        slogan = "VHS et synthés", grain = 0f,
+        format = FormatPhotogramme(56.dp, 42.dp, rayon = 2.dp, bord = Color(0xFFFF4FD8), traitement = TraitementImage.VHS),
+    ),
+    Monde(
+        1990, "Le blockbuster", "générique en lettres d’acier", Color(0xFF14181C), Color(0xFFB8C4CE), "Blockbusteur",
+        slogan = "Générique en lettres d'acier", grain = 0f,
+        format = FormatPhotogramme(62.dp, 34.dp, bord = Color(0xFFB8C4CE), traitement = TraitementImage.ACIER),
+    ),
+    Monde(
+        2000, "Le numérique", "propre et net", Color(0xFF0B1218), Color(0xFF56C4E0), "Numérique",
+        slogan = "Propre et net", grain = 0f,
+        format = FormatPhotogramme(64.dp, 36.dp, rayon = 3.dp, bord = Color(0xFF56C4E0), traitement = TraitementImage.NUMERIQUE),
+    ),
+    Monde(
+        2010, "Le streaming", "tout, tout de suite", Color(0xFF101014), Color(0xFFE5534B), "Streameur",
+        slogan = "Tout, tout de suite", grain = 0f,
+        format = FormatPhotogramme(64.dp, 36.dp, rayon = 4.dp, bord = Color(0xFFE5534B), traitement = TraitementImage.STREAMING),
+    ),
+    Monde(
+        2020, "Aujourd’hui", "le voyage continue", Color(0xFF0A0A0A), Color(0xFFFF6B57), "Contemporain",
+        slogan = "Le voyage continue", grain = 0f,
+        format = FormatPhotogramme(64.dp, 36.dp, rayon = 4.dp, traitement = TraitementImage.AUJOURDHUI),
+    ),
 )
 
 /**

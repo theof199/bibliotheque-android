@@ -1,6 +1,8 @@
 package fr.mediatheque.journal.ui.frise
 
+import androidx.compose.ui.graphics.Color
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -65,5 +67,48 @@ class MondesTest {
     fun `chapitreDe nomme le chapitre et son monde`() {
         assertEquals("Chapitre I · Les origines", chapitreDe(1895))
         assertEquals("Chapitre II · La féerie", chapitreDe(1902))
+    }
+
+    // Delta de Léon du 25 septembre 2026 (« pavillon par pavillon », §C, §E, §F) : chaque monde
+    // porte désormais un format de photogramme, un slogan de marquise et une opacité de grain.
+    // Mutation : mélanger deux décennies (le format de 1980 posé sur 1990, par exemple) ferait
+    // passer ce test malgré un mauvais monde — chaque assertion cible sa décennie par nom.
+    @Test
+    fun `chaque monde porte son format, son slogan et son grain`() {
+        val annees1890 = MONDES.first { it.decennie == 1890 }
+        assertEquals(null, annees1890.slogan)
+        assertEquals(0.09f, annees1890.grain)
+        assertEquals(TraitementImage.SEPIA, annees1890.format.traitement)
+
+        val annees1930 = MONDES.first { it.decennie == 1930 }
+        assertEquals("100 % parlant · chantant", annees1930.slogan)
+        assertEquals(0.07f, annees1930.grain)
+        assertEquals(TraitementImage.BANDE_SON, annees1930.format.traitement)
+
+        val annees1980 = MONDES.first { it.decennie == 1980 }
+        assertEquals("VHS et synthés", annees1980.slogan)
+        assertEquals(0f, annees1980.grain)
+        assertEquals(Color(0xFFFF4FD8), annees1980.format.bord)
+    }
+
+    // Le grain disparaît à partir de 1980 (§F) : aucun des sept derniers mondes n'en porte plus.
+    // Mutation : oublier une décennie dans la plage ferait rester un grain fantôme après 1980.
+    @Test
+    fun `le grain disparait a partir de 1980`() {
+        MONDES.filter { it.decennie >= 1980 }.forEach { monde ->
+            assertEquals("grain de ${monde.decennie}", 0f, monde.grain)
+        }
+        MONDES.filter { it.decennie < 1980 }.forEach { monde ->
+            assertTrue("grain de ${monde.decennie}", monde.grain > 0f)
+        }
+    }
+
+    // Les quatorze slogans sont distincts, sauf 1890 qui n'en a aucun (§E) — pas deux mondes qui
+    // partagent la même phrase de marquise.
+    @Test
+    fun `les slogans sont distincts, sauf l'absence de celui de 1890`() {
+        val slogans = MONDES.mapNotNull { it.slogan }
+        assertEquals(MONDES.size - 1, slogans.size)
+        assertEquals(slogans.size, slogans.distinct().size)
     }
 }

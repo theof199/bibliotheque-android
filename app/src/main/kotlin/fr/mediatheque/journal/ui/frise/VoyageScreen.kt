@@ -150,7 +150,13 @@ fun VoyageScreen(
         derivedStateOf { cellules.getOrNull(liste.firstVisibleItemIndex)?.monde?.decennie }
     }
     LaunchedEffect(decennieVisible) {
-        val entree = mondeEntre(decenniePrecedenteVisible, decennieVisible)
+        // Stub temporaire (livraison 1 du delta de Léon du 25 septembre 2026, « pavillon par
+        // pavillon ») : `mondeEntre` est parti de `VoyageCarte.kt`, ce fichier lui-même remplacé
+        // par `SectionMonde`/`VoyageScreen` réécrits à la livraison 2 — juste de quoi garder cet
+        // écran compilable et fonctionnel entre les deux commits.
+        val ancien = decenniePrecedenteVisible
+        val nouveau = decennieVisible
+        val entree = if (ancien == null || nouveau == null || ancien == nouveau) null else nouveau
         if (entree != null && entree !in dejaPresentesMondes) {
             cartonMonde = mondeDeLaDecennie(entree)
             dejaPresentesMondes = dejaPresentesMondes + entree
@@ -409,7 +415,6 @@ private fun TitreDeMonde(monde: Monde) {
     Row(
         Modifier
             .fillMaxWidth()
-            .drawBehind { motifDeMonde(monde.motif, monde.accent, monde.decennie) }
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -468,8 +473,7 @@ private fun CelluleAnnee(cellule: Cellule.Annee, claques: Int, enMarche: Boolean
         Modifier
             .fillMaxWidth()
             .height(HAUTEUR_CELLULE)
-            .background(monde.fond)
-            .drawBehind { motifDeMonde(monde.motif, monde.accent, monde.decennie * 100 + cellule.annee) },
+            .background(monde.fond),
     ) {
         val largeur = maxWidth
         Canvas(Modifier.fillMaxSize()) {

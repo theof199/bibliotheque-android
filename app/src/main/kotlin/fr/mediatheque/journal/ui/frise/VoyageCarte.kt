@@ -175,19 +175,6 @@ fun detecterNouveauTampon(dejaVus: Set<Int>?, tampons: List<TamponVoyage>): Int?
 }
 
 /**
- * Le monde qu'on vient d'entrer en défilant la Frise (geste 22 du complément du 23 septembre 2026
- * à l'habillage) : l'ancien monde visible, le nouveau — nul si l'un des deux est encore inconnu
- * (tout premier défilement, chargement) ou si rien n'a changé. Ne dit rien de si ce monde a déjà
- * été présenté cette session : c'est `dejaPresentes` (`rememberSaveable`, `VoyageScreen`) qui le
- * garde, comparé séparément par l'appelant — jumeau de `detecterNouveauTampon` ci-dessus, qui fait
- * la même chose pour le générique de décennie plutôt que le carton-titre d'un monde.
- */
-fun mondeEntre(ancien: Int?, nouveau: Int?): Int? {
-    if (ancien == null || nouveau == null || ancien == nouveau) return null
-    return nouveau
-}
-
-/**
  * Un ticket du portefeuille (décision 3 du brief du 21 septembre 2026, « le ticket »), tel que
  * `PortefeuilleViewModel` (`ui/profile/`) le range depuis `GET /me/voyage/tickets` — `utiliseLe`
  * nul tant qu'il dort.
@@ -201,4 +188,152 @@ data class TicketPortefeuilleUi(val annee: Int, val motif: String, val utiliseLe
 fun trierPortefeuille(tickets: List<TicketPortefeuilleUi>): List<TicketPortefeuilleUi> {
     val (utilises, enAttente) = tickets.partition { it.utiliseLe != null }
     return enAttente.sortedBy { it.annee } + utilises.sortedBy { it.utiliseLe }
+}
+
+// --- Le Voyage, pavillon par pavillon (delta de Léon du 25 septembre 2026) ---------------------
+
+/**
+ * Un des dix emplacements fixes de photogrammes d'un monde (§C du delta) : le coin haut-gauche
+ * d'une case de référence 56 × 44, dans le repère 390 dp de large de la section (`SectionMonde.kt`
+ * lit `x` en fraction de 390, `y` en dp tel quel — le repère détaillé dans le plan, « Conception »).
+ * Un format plus petit ou plus grand que la référence se centre dessus plutôt que de partir du
+ * même coin.
+ */
+data class EmplacementPhotogramme(val x: Float, val y: Float)
+
+/** La case de référence sur laquelle un format plus petit ou plus grand se centre (§C). */
+val CASE_REFERENCE_LARGEUR = 56f
+val CASE_REFERENCE_HAUTEUR = 44f
+
+/** Les dix places de la route, dans l'ordre où on les rencontre en descendant (§C). */
+val EMPLACEMENTS_PHOTOGRAMMES: List<EmplacementPhotogramme> = listOf(
+    EmplacementPhotogramme(47f, 96f),
+    EmplacementPhotogramme(117f, 96f),
+    EmplacementPhotogramme(187f, 96f),
+    EmplacementPhotogramme(262f, 156f),
+    EmplacementPhotogramme(157f, 216f),
+    EmplacementPhotogramme(87f, 216f),
+    EmplacementPhotogramme(42f, 276f),
+    EmplacementPhotogramme(122f, 336f),
+    EmplacementPhotogramme(262f, 396f),
+    EmplacementPhotogramme(147f, 456f),
+)
+
+/** L'emplacement d'un rang donné — un rang hors bornes (jamais censé arriver, dix places au plus par monde) reste dans la liste. */
+fun emplacement(rang: Int): EmplacementPhotogramme = EMPLACEMENTS_PHOTOGRAMMES[rang.coerceIn(0, EMPLACEMENTS_PHOTOGRAMMES.lastIndex)]
+
+/** Où se pose le millésime autour d'une case, selon sa place sur la route (§C). */
+enum class PositionMillesime { DESSOUS, A_GAUCHE, A_DROITE, DESSUS }
+
+/**
+ * Les rangs 3 et 8 sont les virages à droite de la route ((262,156) et (262,396)) : le millésime
+ * se pose à gauche de la case. Le rang 6 est le seul virage à gauche ((42,276)) : à droite. Les
+ * rangs 4 et 5 sont la rangée du milieu ((157,216) et (87,216)) : au-dessus. Les autres, sur une
+ * rangée droite, le portent dessous.
+ */
+fun positionMillesime(rang: Int): PositionMillesime = when (rang) {
+    3, 8 -> PositionMillesime.A_GAUCHE
+    6 -> PositionMillesime.A_DROITE
+    4, 5 -> PositionMillesime.DESSUS
+    else -> PositionMillesime.DESSOUS
+}
+
+/**
+ * L'étendue du HUD (§A du delta) : « 1930 → 1939 ». La décennie en cours (celle qui n'est pas
+ * encore terminée) s'arrête à `anneeActuelle` (le millésime du jour, pas l'année en cours du
+ * Voyage) plutôt qu'à sa borne pleine — jumelle de la règle qui limite le nombre de places de la
+ * route (une décennie a moins de dix années tant qu'elle n'est pas finie).
+ */
+fun etendueHud(decennie: Int, anneeActuelle: Int): String = "$decennie → ${minOf(decennie + 9, anneeActuelle)}"
+
+/**
+ * Quantifie une progression `t` par pas de `pas` (16 images par seconde jusqu'en 1920, §D : un pas
+ * de 62,5 ms), toujours arrondie vers le bas — l'entrée du carton reste tenue sur son image
+ * jusqu'au prochain pas plutôt que de glisser en continu. `pas` nul ou négatif (jamais censé
+ * arriver) rend `t` telle quelle plutôt que de diviser par zéro.
+ */
+fun progressionQuantifiee(t: Float, pas: Float): Float {
+    if (pas <= 0f) return t
+    return kotlin.math.floor(t / pas) * pas
+}
+
+/** L'état de l'entrée d'un carton-titre (§D) : jamais jouée, en train de se jouer, ou déjà jouée — persistée par `MondesVisitesStore`. */
+sealed interface EtatEntree {
+    data object Jamais : EtatEntree
+    data class EnCours(val progression: Float) : EtatEntree
+    data object Jouee : EtatEntree
+}
+
+/**
+ * L'état de l'entrée d'un carton, d'après ce que le magasin des mondes visités connaît déjà —
+ * `EnCours` n'est jamais rendu ici : c'est un état transitoire que l'écran construit lui-même
+ * pendant que l'animation joue (livraisons suivantes), pas quelque chose qu'une lecture du
+ * magasin peut retrouver après coup.
+ */
+fun statutDuCarton(dejaEntres: Set<Int>, decennie: Int): EtatEntree =
+    if (decennie in dejaEntres) EtatEntree.Jouee else EtatEntree.Jamais
+
+/** Une année du Voyage, mise à plat pour sa section — jumelle de l'ancienne `Cellule.Annee`, sortie de l'écran. */
+data class AnneeDuVoyage(
+    val annee: Int,
+    val statut: StatutAnneeVoyage?,
+    val affiche: String?,
+    /** Nulle sans aucun film vu (`AnneeVoyage.recompense`, étape 5, « les récompenses »). */
+    val recompense: Recompense?,
+    val profondeur: Int,
+    val groupe: AnneeFrise,
+    /** La place de l'année parmi les dix de son monde — index dans `EMPLACEMENTS_PHOTOGRAMMES`. */
+    val rang: Int,
+)
+
+/** Une section du Voyage : un monde, ses années, et l'état de sa marquise. */
+data class SectionMonde(
+    val monde: Monde,
+    val annees: List<AnneeDuVoyage>,
+    val bouclee: Boolean,
+    val rayon: DecennieFrise,
+)
+
+/**
+ * La carte du Voyage, mise à plat en sections plutôt qu'en cellules (delta de Léon, §A, §B) —
+ * l'ancienne `construireCarte`, privée et non testée dans `VoyageScreen.kt`, sortie de l'écran et
+ * testée ici.
+ *
+ * Le Voyage commence à `depart` (1895) quoi que le journal contienne de plus ancien : un film de
+ * 1888 se range dans les origines sans ouvrir d'année avant le départ. Les années postérieures à
+ * `anneeActuelle` (aujourd'hui) n'existent pas non plus — rien à tourner dans le futur.
+ */
+fun sectionsDuVoyage(ui: FriseUi, anneeActuelle: Int): List<SectionMonde> {
+    val depart = ui.voyage.depart
+    if (anneeActuelle < depart) return emptyList()
+
+    val premiereDecennie = mondeDe(depart).decennie
+    val derniereDecennie = mondeDe(anneeActuelle).decennie
+
+    return (premiereDecennie..derniereDecennie step 10).map { decennie ->
+        val monde = mondeDeLaDecennie(decennie)
+        val annees = (maxOf(decennie, depart)..minOf(decennie + 9, anneeActuelle))
+            .mapIndexed { rang, annee ->
+                val fragment = ui.voyage.parAnnee[annee]
+                val groupe = ui.annees.firstOrNull { it.annee == annee } ?: AnneeFrise(annee, emptyList(), emptyList())
+                AnneeDuVoyage(
+                    annee = annee,
+                    statut = statutAnneeVoyage(fragment?.statut),
+                    affiche = afficheAnnee(fragment?.affiche_url, groupe.vus.firstNotNullOfOrNull { it.media.cover_url }),
+                    recompense = recompenseDe(fragment?.recompense),
+                    profondeur = fragment?.profondeur ?: groupe.vus.size,
+                    groupe = groupe,
+                    rang = rang,
+                )
+            }
+        SectionMonde(
+            monde = monde,
+            annees = annees,
+            // Allumée dès que `ui.passeport` (le tampon envoyé par `GET /me/voyage`) porte cette
+            // décennie — étape 5, « les récompenses ».
+            bouclee = ui.passeport.any { it.decennie == decennie },
+            rayon = ui.decennies.firstOrNull { it.decennie == decennie }
+                ?: DecennieFrise(decennie, 0, 0, emptyList(), (decennie until decennie + 10).map { AnneeDecennie(it, 0, 0) }),
+        )
+    }
 }
