@@ -71,12 +71,11 @@ private val HAUTEUR_ROUTE = 650.dp
  * visitée, le carton part directement à l'état final ; animations réduites, pareil, sans jouer
  * l'entrée. `AmbianceDeMonde` (nouveau) rejoint la pile entre l'image et la route (§B) — sa boucle
  * ne tourne que tant que la section reste visible (`ambianceActive`, pure elle aussi), jamais hors
- * écran ni animations réduites. Ce commit-ci pose la machine seule : `CartonTitre` continue de
- * dessiner le même carton fini quel que soit `entree`, `AmbianceDeMonde` ne dessine encore rien —
- * le commit suivant leur ajoute 1930, 1940 et 1950 (§G), sans retoucher la machine ci-dessus ;
- * 1960 → 2020 (livraison 4) et 1890 → 1920 en 16 i/s (livraison 5, via `progressionQuantifiee`
- * posée sur `progression` avant `etatEntreeCarton`) n'auront eux non plus qu'à ajouter leurs
- * propres branches à `CartonTitre` et `AmbianceDeMonde`.
+ * écran ni animations réduites. Seuls 1930, 1940 et 1950 ont une entrée et une ambiance pour
+ * l'instant (§G) ; les autres mondes traversent la même machine sans qu'elle ne dessine rien de
+ * plus qu'avant — 1960 → 2020 (livraison 4) et 1890 → 1920 en 16 i/s (livraison 5, via
+ * `progressionQuantifiee` posée sur `progression` avant `etatEntreeCarton`) n'auront qu'à ajouter
+ * leurs propres branches à `CartonTitre` et `AmbianceDeMonde`.
  */
 @Composable
 fun SectionMonde(
@@ -164,13 +163,19 @@ fun SectionMonde(
 }
 
 /**
- * La durée de l'entrée d'un carton (§G) : 900 ms, le temps qu'aucun monde n'ait encore la sienne
- * propre — commit suivant, 1930 (0,9 s, l'onde sonore), 1940 (1,1 s, le store qui balaie) et 1950
- * (1 s, les trois plaques qui se recalent) reprennent chacun l'ordre de grandeur de sa description
- * (§G) ; les autres mondes garderont 900 ms par défaut, sans que ça ne se voie tant que
- * `CartonTitre` ne dessine rien de plus pour `EnCours`.
+ * La durée de l'entrée d'un carton, par monde (§G, livraison 3) : reprend l'ordre de grandeur de
+ * chaque description — l'onde sonore de 1930 (0,9 s), le store qui balaie 1940 (1,1 s), les trois
+ * plaques qui se recalent en 1950 (1 s). 900 ms par défaut pour les mondes sans entrée dessinée
+ * encore (1890 → 1920, 1960 → 2020) : la valeur ne se voit pas tant que `CartonTitre` ne dessine
+ * rien de plus pour `EnCours` — seule la date à laquelle le magasin se marque en dépend un peu, et
+ * 900 ms reste raisonnable en attendant les livraisons 4 et 5.
  */
-private fun dureeEntree(decennie: Int): Int = 900
+private fun dureeEntree(decennie: Int): Int = when (decennie) {
+    1930 -> 900
+    1940 -> 1_100
+    1950 -> 1_000
+    else -> 900
+}
 
 @Composable
 private fun PavillonAnnee(
