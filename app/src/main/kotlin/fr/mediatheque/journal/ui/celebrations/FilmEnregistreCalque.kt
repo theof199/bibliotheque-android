@@ -44,13 +44,21 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * L'instant de l'impact (brief des animations Lottie du 23 septembre 2026, soir), lu dans
- * `assets/lottie/clap-2.json` plutôt que deviné : le calque « burst for clapper » s'y arme à la
- * frame 53 sur 145 au total (29,97 im/s, `assets/lottie/LICENCES.md`) — 53 / 29,97 ≈ 1 768 ms,
- * proche du repli à 40 % de la durée que le brief prévoyait sans cette lecture (≈ 1 935 ms), mais
- * effectivement lu dans l'animation.
+ * L'instant de l'impact, lu dans `assets/lottie/clap-2.json` (29,97 im/s,
+ * `assets/lottie/LICENCES.md`) : ce n'est pas l'armement du calque « burst for clapper »
+ * (frame 53, ≈ 1 768 ms) qui compte, mais l'instant où le clap se referme vraiment — le calque
+ * « clap top » pivote de 0° (fermé, frame 0-42) à 22° (ouvert, frame 58-81) puis retombe à 0°
+ * (frame 94-102, un léger dépassement à −2° avant de se stabiliser). La courbe de vitesse posée
+ * sur ces deux dernières clés (calculée par interpolation de Bézier cubique sur leurs poignées, à
+ * la main) fait passer la rotation par 0° à la frame ≈ 91, soit ≈ 3 036 ms.
+ *
+ * Correctif du 28 septembre 2026 (lot 1, « le voyage se sent progresser » : « le clap du calque
+ * d'un film enregistré doit claquer vraiment ») : à l'ancien instant (frame 53), le clap est
+ * encore en train de s'ouvrir — l'éclair, la secousse et l'haptique arrivaient bien avant que les
+ * deux planches ne se touchent à l'écran, ce qui se voyait comme un clap qui ne claque pas
+ * vraiment.
  */
-private const val INSTANT_IMPACT_MS = 1_768L
+private const val INSTANT_IMPACT_MS = 3_036L
 
 /**
  * La célébration d'un film enregistré (complément du 23 septembre 2026 à l'habillage « papier et
