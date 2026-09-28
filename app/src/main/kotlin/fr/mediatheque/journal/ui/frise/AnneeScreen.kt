@@ -497,7 +497,7 @@ private fun Cartouche(millesime: Int, ui: AnneeUi, monde: Monde, onLireOuverture
     // 2026, geste 12) : échelle Y 0,12 → 1, 600 ms, la courbe du brief (0.2, 0.8, 0.2, 1). Une
     // fois par écran — `LaunchedEffect(Unit)` ne rejoue pas à une simple recomposition (la
     // relecture de la progression, par exemple), et `Cartouche` n'est recomposée depuis zéro que
-    // si `AnneeScreen` l'est, ce que la pile préserve à un retour (design §7).
+    // si `AnneeScreen` l'est, ce que la pile préserve à un retour.
     val deploiement = remember { Animatable(0.12f) }
     LaunchedEffect(Unit) {
         deploiement.animateTo(1f, tween(600, easing = CubicBezierEasing(0.2f, 0.8f, 0.2f, 1f)))

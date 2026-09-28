@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Le clap, volet OUVERT au repos (-30 deg). Transcrit du SVG du brief du
-     10 septembre 2026 (docs/design.md §10) ; le repos est passe de -14 a
+     10 septembre 2026 ; le repos est passe de -14 a
      -30 le meme jour, sur demande du proprietaire ("un clap plus actif").
      Les rx=3 et rx=2 des rectangles sont rendus par des arcs (A) plutot que
      des coins droits : a 46 et 12 de large la difference reste visible a la

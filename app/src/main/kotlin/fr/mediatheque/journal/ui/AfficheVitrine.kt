@@ -68,7 +68,7 @@ fun AfficheVitrine(
 
 /**
  * La pastille de note, reprise de la grille d'avant la vitre (22 → 24 dp, 25 septembre 2026).
- * Design §8 : elle dit « Note {n} sur 10 », pas le chiffre nu que `Text` donnerait seul à TalkBack.
+ * Accessibilité : elle dit « Note {n} sur 10 », pas le chiffre nu que `Text` donnerait seul à TalkBack.
  */
 @Composable
 private fun PastilleNote(note: Int, modifier: Modifier = Modifier) {

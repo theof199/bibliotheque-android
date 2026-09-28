@@ -4,7 +4,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Shapes
 import androidx.compose.ui.unit.dp
 
-// docs/design.md §4, retouché par l'habillage « papier et pellicule » du 23 septembre 2026 : les
+// L'habillage « papier et pellicule » du 23 septembre 2026 : les
 // coins nets de la maquette (2-4 px) sont arrondis sur demande du propriétaire — `small` pour les
 // affiches, `medium` pour les champs, les boutons et les blocs de message, `large` pour les
 // cartouches et calques de célébration. Les pastilles et les réactions restent rondes

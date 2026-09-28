@@ -55,8 +55,8 @@ fun FondHeros(url: String?, hauteur: Dp, modifier: Modifier = Modifier, fond: Co
             modifier = Modifier.matchParentSize(),
         )
         // L'assombrissement, uniforme, puis le dégradé qui fond dans le reste de la page — les
-        // deux ensemble évitent qu'un bord net trahisse le montage (design §2 : les erreurs de
-        // contraste se voient d'abord sur un fond qui bouge).
+        // deux ensemble évitent qu'un bord net trahisse le montage : les erreurs de
+        // contraste se voient d'abord sur un fond qui bouge.
         Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.45f)))
         Box(
             Modifier.matchParentSize().background(

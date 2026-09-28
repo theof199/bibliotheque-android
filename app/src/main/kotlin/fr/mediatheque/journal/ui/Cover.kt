@@ -103,8 +103,8 @@ val FiltreDesature: ColorFilter = ColorFilter.colorMatrix(ColorMatrix().apply { 
 /**
  * Décision 2 de la tâche 5 : un `contentDescription` toujours posé, jaquette
  * ou non — le brief le laissait vide sans jaquette, corrigé ici avec le titre
- * (design §8 : « une affiche dit “Affiche de {titre}” »), pour que l'initiale
- * de remplacement se lise aussi au lecteur d'écran.
+ * (« Affiche de {titre} », l'accessibilité de base tenue par le design),
+ * pour que l'initiale de remplacement se lise aussi au lecteur d'écran.
  *
  * `colorFilter` (brief du 21 septembre 2026, l'étagère d'une salle du Voyage) : nul partout
  * ailleurs, il teinte l'affiche d'un film pas encore vu en sépia sans dupliquer ce composant.
@@ -146,7 +146,7 @@ fun Cover(
             contentDescription = description,
             contentScale = ContentScale.Crop,
             colorFilter = colorFilter,
-            // Rien *pendant* le chargement (design §7, geste 9 du peaufinage du 23 septembre 2026
+            // Rien *pendant* le chargement (geste 9 du peaufinage du 23 septembre 2026
             // corrige ce commentaire qui disait le contraire de ce que fait `crossfade` ci-dessus) :
             // le repli à l'initiale reste le geste de l'absence de jaquette, pas celui d'une attente
             // (revue de la vague finale, mineur 9) — aucun indicateur, aucun repli n'apparaît tant

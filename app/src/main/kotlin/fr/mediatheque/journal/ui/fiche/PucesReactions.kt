@@ -30,7 +30,7 @@ import fr.mediatheque.journal.ui.theme.ReactionTexte
  * fiche se redessine toujours pareil. `en_salle` comprise : la fiche n'a pas de ticket pour la dire
  * autrement.
  *
- * Le lecteur d'écran lit la phrase, jamais l'emoji (design §8). Rien du tout sans réaction : pas
+ * Le lecteur d'écran lit la phrase, jamais l'emoji. Rien du tout sans réaction : pas
  * de rangée vide qui réserverait sa place.
  */
 @OptIn(ExperimentalLayoutApi::class)

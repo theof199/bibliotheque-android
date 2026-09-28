@@ -85,7 +85,7 @@ fun LoginScreen(vm: LoginViewModel) {
         }
         // Décision 1 : « Réessayer » ne s'affiche que si l'erreur du back l'autorise (panne réseau),
         // jamais pour un pseudo ou mot de passe refusé — et jamais non plus tant que le `429` bloque
-        // encore le bouton principal (design §5), sans quoi les deux boutons se contrediraient.
+        // encore le bouton principal, sans quoi les deux boutons se contrediraient.
         ui.error?.let { ErrorBlock(it, retryable = ui.retryable && !blocked, onRetry = vm::submit) }
     }
 }

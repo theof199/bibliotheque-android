@@ -18,7 +18,7 @@ import fr.mediatheque.journal.R
  * C'est le drawable de l'icône lui-même (`ic_launcher_animated.xml`, qui anime le groupe « volet »
  * de `ic_launcher_foreground.xml` par `animator/ic_launcher_volet_claque.xml`) : aucune géométrie
  * recopiée, aucun `pathData` en double à garder synchronisé — la même règle que l'écran de
- * démarrage (design §10). D'où l'`AndroidView` plutôt qu'un `Canvas` : Compose ne sait pas, sans
+ * démarrage. D'où l'`AndroidView` plutôt qu'un `Canvas` : Compose ne sait pas, sans
  * dépendance ajoutée, jouer un `AnimatedVectorDrawable`, et les versions du dépôt se montent
  * exprès, jamais au fil de l'eau (README, « Les versions »).
  *

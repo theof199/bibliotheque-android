@@ -22,7 +22,7 @@ import kotlinx.coroutines.delay
  * `rememberPorteCascade` pose la porte, une fois, au sommet de l'écran (`HomeScreen`,
  * `AnneeScreen`, `RealisateurScreen`) : elle reste ouverte le temps que la cascade initiale se
  * déclenche, puis se referme et le reste pour toute la vie de cette composition d'écran — la même
- * composition que `rememberSaveableStateHolder` (design §7) garde vivante quand un autre écran se
+ * composition que `rememberSaveableStateHolder` garde vivante quand un autre écran se
  * pousse par-dessus, donc jamais rejouée à un retour.
  *
  * `EntreeEnCascade` capture l'état de la porte **une seule fois**, à la première composition de

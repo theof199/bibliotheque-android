@@ -2,7 +2,7 @@ package fr.mediatheque.journal.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Papier et pellicule (peaufinage du 23 septembre 2026, docs/design.md §2) : la sobriété du fond
+// Papier et pellicule (peaufinage du 23 septembre 2026, docs/design.md) : la sobriété du fond
 // noir pur cède à une palette chaude, papier jauni et pellicule argentique. Une constante par
 // ligne, et rien d'autre.
 val Fond = Color(0xFF151009)

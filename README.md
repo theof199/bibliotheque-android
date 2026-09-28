@@ -252,7 +252,7 @@ au back.
 
 Le Voyage (brief du 16 septembre 2026, phase 1 « le moteur », puis phase 2 « la carte ») :
 traverser l'histoire du cinéma année par année, depuis 1895 — l'onglet « Frise » en est la carte,
-une pellicule qui serpente de monde en monde (`docs/design.md` §2 et §5). Le récit d'une année et le carton « Et pendant ce temps… » d'un film
+une pellicule qui serpente de monde en monde (`docs/design.md`). Le récit d'une année et le carton « Et pendant ce temps… » d'un film
 sont écrits par Claude, **côté back** — rien de tout ça ne vit dans l'appli. `ANTHROPIC_API_KEY` et
 `CHRONIQUES_MODEL` (`claude-opus-5` par défaut) sont des réglages de l'instance biblio-back
 (`.env`, `docs/self-hosting.md` de ce dépôt-là) ; sans clé, `GET /me/voyage`, `GET
@@ -313,7 +313,7 @@ liste de contrôle à jouer, pas un journal de ce qui a déjà été vérifié.
 - [ ] « Mes films », la puce « Note » : « Trier » par Note, puis cocher 7 et 9 — la puce dit « Note, tri · 2 », seuls les 7 et les 9 restent, les mieux notés d'abord, et la liste repart en haut ; « Effacer » décoche les notes sans toucher au tri ; « Réaction » avec deux réactions cochées dit « Réaction · 2 ».
 - [ ] « Mes films », le glissement : glisser une ligne vers la gauche découvre « Corriger » (or) et « Supprimer » (ambre), avec une petite vibration à l'ouverture ; en ouvrir une autre referme la première, défiler aussi ; « Corriger » ouvre le formulaire, « Supprimer » demande « Supprimer ce visionnage ? » puis retire la ligne ; « Tes séances » d'« Au ciné » porte la même ligne et glisse de la même façon.
 - [ ] Se déconnecter depuis le profil : l'écran de connexion. Tuer l'application et la rouvrir : toujours l'écran de connexion.
-- [ ] Taille de police système au maximum sur l'accueil, le profil et « Mes films » : rien n'est coupé, les deux nombres restent lisibles, les réactions d'une ligne passent à la ligne (design §11).
+- [ ] Taille de police système au maximum sur l'accueil, le profil et « Mes films » : rien n'est coupé, les deux nombres restent lisibles, les réactions d'une ligne passent à la ligne (`docs/design.md`, vérification).
 - [ ] La version `debug` installée s'appelle « Journal (dev) » sur l'écran d'accueil (paquet `fr.mediatheque.journal.debug`).
 - [ ] La version `release` (`bin/install release`) installée à côté s'appelle « Journal » (paquet `fr.mediatheque.journal`) : les deux applications cohabitent, aucune n'efface l'autre.
 - [ ] Profil, ligne « SensCritique » : « Non connecté ». La toucher ouvre l'écran de connexion ; un mauvais mot de passe dit « Identifiants refusés. » sous le bouton.

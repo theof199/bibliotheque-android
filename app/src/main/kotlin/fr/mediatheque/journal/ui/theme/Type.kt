@@ -12,7 +12,7 @@ import fr.mediatheque.journal.R
 /**
  * Manrope, en fichiers statiques (`res/font/`) : pas de police
  * téléchargeable, le téléphone n'a pas à dépendre des services Google pour
- * afficher un titre (docs/design.md §3).
+ * afficher un titre (docs/design.md).
  */
 val Manrope = FontFamily(
     Font(R.font.manrope_regular, FontWeight.Normal),
@@ -23,7 +23,7 @@ val Manrope = FontFamily(
 
 /**
  * Fraunces (SIL OFL, `undercasetype/Fraunces`, `fonts/ttf/Fraunces144pt-*`), embarquée comme
- * Manrope — l'habillage « papier et pellicule » du 23 septembre 2026 (docs/design.md §3) : les
+ * Manrope — l'habillage « papier et pellicule » du 23 septembre 2026 : les
  * titres d'écran passent en serif d'affiche, le corps reste Manrope.
  */
 val Fraunces = FontFamily(
@@ -50,7 +50,7 @@ private fun style(size: Int, lineHeight: Int, weight: FontWeight, famille: FontF
     lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None),
 )
 
-// docs/design.md §3 — six styles, et l'application n'en utilise aucun autre. `displaySmall`,
+// Six styles, et l'application n'en utilise aucun autre. `displaySmall`,
 // `titleLarge` et `titleMedium` passent en Fraunces (23 septembre 2026) : le reste du corps garde
 // Manrope, jamais les deux mélangés dans un même style.
 val JournalTypography = Typography(

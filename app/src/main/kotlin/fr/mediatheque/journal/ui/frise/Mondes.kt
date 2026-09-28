@@ -17,9 +17,9 @@ import fr.mediatheque.journal.ui.theme.PapierJauni
  *
  * Trois couleurs de fond viennent du brief mot pour mot (1890 sépia `#2A2118`, 1900 `#1C1C22`,
  * 1960 `#0E1A2B`) ; les onze autres sont choisies dans le même registre — sombres, l'appli
- * restant noire (design §1).
+ * restant sombre.
  *
- * L'accent d'un monde ne change **pas la police** : Manrope est la seule du dépôt (design §3).
+ * L'accent d'un monde ne change **pas la police** : Manrope est la seule du dépôt.
  * Un monde se signe par sa couleur d'accent, la casse et l'espacement de son titre, et une
  * lettrine — jamais par une famille nouvelle.
  *

@@ -30,7 +30,7 @@ fun anneeEtDuree(annee: Int?, dureeMin: Int?): String? =
 
 /**
  * « Années 1990 · Le blockbuster » : l'étiquette d'une fiche hors Voyage, nouvelle avec la
- * reprise. Le nom vient du monde de la décennie (`mondeDe`, la table §2 du design) ; le nombre,
+ * reprise. Le nom vient du monde de la décennie (`mondeDe`, la table des mondes du design) ; le nombre,
  * lui, vient de l'année elle-même et pas de `Monde.decennie` — un film de 2031 rejoint le dernier
  * monde (« Aujourd’hui ») mais reste un film des années 2030, et un film de 1888 un film des
  * années 1880. Nulle sans année : pas d'étiquette plutôt qu'une décennie inventée.

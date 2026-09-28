@@ -86,7 +86,7 @@ private fun Modifier.fonduDeBas(fond: Color): Modifier = drawWithContent {
 /**
  * Le repli sans affiche, jumeau de l'initiale privée de `Cover` à une autre échelle : `Cover` en
  * fixe la taille en `Dp`, le héros prend toute la largeur. La description reste « Affiche de
- * {titre} » (design §8), pour que le lecteur d'écran lise la même chose avec ou sans image.
+ * {titre} », pour que le lecteur d'écran lise la même chose avec ou sans image.
  */
 @Composable
 private fun InitialeHero(titre: String, modifier: Modifier) {

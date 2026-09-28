@@ -132,7 +132,7 @@ fun HomeScreen(
     // avant ses deux secondes, comme le faisait `LaunchedEffect(message)` avant elle.
     LaunchedEffect(Unit) {
         nav.messages.collect { message ->
-            // Deux secondes (design §6), pas la durée Material par défaut : `showBriefly`
+            // Deux secondes, pas la durée Material par défaut : `showBriefly`
             // (décision 3 de la tâche 5) referme elle-même la snackbar après le délai.
             snackbar.showBriefly(message)
         }

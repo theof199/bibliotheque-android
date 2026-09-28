@@ -213,7 +213,7 @@ fun FormScreen(
                 Text("Note", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 // Une seule rangée compacte de dix pastilles (point 7 de la revue du 24 septembre
                 // 2026, qui remplace les deux rangées de cinq d'avant elle) : le propriétaire a
-                // validé ce resserrement en connaissance du design §4 (dix cercles de 48 dp ne
+                // validé ce resserrement en connaissance des tailles du design (dix cercles de 48 dp ne
                 // tiennent pas sur 360 dp, dix de 28 dp sont plus durs à viser).
                 //
                 // Correctif du 28 septembre 2026 (les dix notes débordaient du formulaire, sur le
@@ -259,7 +259,7 @@ fun FormScreen(
                             onClick = { vm.toggleReaction(key) },
                             label = { Text(Reactions.label(key), style = MaterialTheme.typography.bodyMedium) },
                             shape = CircleShape,
-                            // 40 dp de haut (design §4), et une cible tactile de 48 dp par-dessus
+                            // 40 dp de haut, et une cible tactile de 48 dp par-dessus
                             // (décision 4 de la tâche 6) : les deux valeurs ne se confondent pas, la
                             // seconde ne fait qu'agrandir la zone de toucher autour de la première.
                             // L'idiome Material va dans ce sens : `minimumInteractiveComponentSize()`
@@ -311,7 +311,7 @@ fun FormScreen(
                     BoutonLeFilm(carton, titreConnu = title)
                 }
                 // Marge du bas égale à la hauteur du bouton d'action (point 7 de la revue du
-                // 24 septembre 2026, 52 dp comme lui, design §4) : avant cette revue, un simple
+                // 24 septembre 2026, 52 dp comme lui) : avant cette revue, un simple
                 // `Spacer(8.dp)` laissait le bouton recouvrir la dernière ligne de réactions
                 // (constat de la revue, capture 07).
                 Spacer(Modifier.height(52.dp))
@@ -338,7 +338,7 @@ fun FormScreen(
                         modifier = Modifier.align(Alignment.CenterHorizontally),
                         // En rouge d'erreur (point 7), avec le dialogue de confirmation déjà en
                         // place ci-dessous : le seul troisième site de `colorScheme.error` de
-                        // l'application, avec les deux champs refusés que le design §2 citait —
+                        // l'application, avec les deux champs refusés du formulaire —
                         // supprimer une entrée de journal est bien un geste qui mérite ce ton.
                         colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
                     ) { Text("Supprimer") }

@@ -166,7 +166,7 @@ sealed interface Screen {
 
     /**
      * L'import Letterboxd (brief du 16 septembre 2026), empilée depuis le profil dès qu'un fichier
-     * est choisi. Un seul écran pour les deux états du design (§5, §6) : « Import en cours… » tant
+     * est choisi. Un seul écran pour les deux états : « Import en cours… » tant
      * que `LetterboxdImportViewModel.ui` ne porte ni rapport ni erreur, le rapport ou le message
      * d'erreur ensuite — la même instance de `ViewModel`, indexée sur l'Activité (`Root.kt`, clé
      * `"letterboxd-import"`), pas de donnée portée ici : le retour système pendant l'attente dépile
@@ -452,7 +452,7 @@ private fun Lampe(lampe: Animatable<Float, AnimationVector1D>, largeurBarre: Dp)
 
 /**
  * Une pile, et c'est tout. Pas de bibliothèque de navigation : six écrans, un
- * seul chemin, et `Crossfade` pour le fondu du design §7.
+ * seul chemin, et `Crossfade` pour le fondu entre écrans.
  */
 class Navigator {
     var stack by mutableStateOf<List<Screen>>(listOf(Screen.Home))
@@ -605,7 +605,7 @@ fun sensDeTransition(ancienne: List<Screen>, nouvelle: List<Screen>): SensTransi
     }
 
 /**
- * Deux secondes (design §6), jamais la durée par défaut de Material : l'API
+ * Deux secondes, jamais la durée par défaut de Material : l'API
  * `SnackbarHostState.showSnackbar` n'a pas de paramètre de durée libre, donc
  * une snackbar indéfinie qu'on referme nous-mêmes après le délai (décision 3
  * de la tâche 5). Centralisé ici, un seul endroit, pour que la tâche 6

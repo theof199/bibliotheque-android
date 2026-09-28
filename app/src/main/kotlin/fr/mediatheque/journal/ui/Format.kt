@@ -48,7 +48,7 @@ fun formatRelatif(iso: String, aujourdHui: LocalDate): String {
     }
 }
 
-/** « Hayao Miyazaki, 2001 » — design §3. */
+/** « Hayao Miyazaki, 2001 ». */
 fun subtitle(director: String?, year: Int?): String =
     listOfNotNull(director?.takeIf { it.isNotBlank() }, year?.toString()).joinToString(", ")
 

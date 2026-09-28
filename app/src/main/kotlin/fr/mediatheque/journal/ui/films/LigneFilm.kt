@@ -173,7 +173,7 @@ fun LigneFilm(
 @Composable
 private fun ContenuLigne(item: JournalItem, coverModifier: Modifier) {
     val secondaire = MaterialTheme.colorScheme.onSurfaceVariant
-    // Le thème n'a que six styles (design §3) : 13/18 et 12/16 sont des `copy()` locaux de
+    // Le thème n'a que six styles : 13/18 et 12/16 sont des `copy()` locaux de
     // `bodyMedium`, voulus ; les faire entrer dans la typographie du thème viendra plus tard.
     val style13 = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 18.sp)
     val style12 = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, lineHeight = 16.sp)
@@ -229,7 +229,7 @@ private fun ActionLigne(libelle: String, icone: String, couleur: Color, fond: Co
             .fillMaxHeight()
             .background(fond)
             .clickable(enabled = actif, role = Role.Button, onClick = onClick)
-            // Désactivée : l'opacité standard de Material (38 %, design §6).
+            // Désactivée : l'opacité standard de Material (38 %).
             .alpha(if (actif) 1f else 0.38f),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,

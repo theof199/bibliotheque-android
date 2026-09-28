@@ -41,8 +41,8 @@ object Reactions {
     fun emoji(key: String): String = byKey[key]?.emoji ?: key
 
     /**
-     * La phrase seule, sans l'emoji — le `contentDescription` d'une réaction
-     * (design §8 : « une réaction porte sa phrase, jamais son emoji seul »).
+     * La phrase seule, sans l'emoji — le `contentDescription` d'une réaction :
+     * elle porte sa phrase, jamais son emoji seul (accessibilité de base du design).
      */
     fun phrase(key: String): String = byKey[key]?.phrase ?: key
 

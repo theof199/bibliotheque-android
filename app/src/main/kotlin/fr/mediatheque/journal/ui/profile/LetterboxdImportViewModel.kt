@@ -31,7 +31,7 @@ private const val ZIP_ILLISIBLE_MESSAGE = "Ce fichier n’a pas pu être lu."
  * Indexé sur l'Activité (`Root.kt`, clé `"letterboxd-import"`) : `Screen.RapportImport` ne porte
  * aucune donnée, elle relit cette instance. Le retour système pendant l'attente dépile l'écran
  * sans annuler la coroutine — `viewModelScope` survit à la navigation, seule l'attente *visible*
- * s'arrête, la requête continue derrière (design §6).
+ * s'arrête, la requête continue derrière.
  *
  * Les lignes du CSV envoyé sont gardées (`lignes`), indexées par leur numéro : `prefillFor` les
  * relit pour pré-remplir le formulaire d'un candidat choisi dans le rapport, avec la date et la

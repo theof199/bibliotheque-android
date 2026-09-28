@@ -141,8 +141,8 @@ fun ProfileScreen(
             }
             // Le reste défile en un seul bloc (jumeau de `FormScreen`) : à la taille de police
             // maximale, les deux chiffres et la liste s'étirent, et sans ce `verticalScroll` le
-            // bouton « Se déconnecter » et la mention TMDB sortaient de l'écran (design §8,
-            // revue du tour de correction 1).
+            // bouton « Se déconnecter » et la mention TMDB sortaient de l'écran
+            // (revue du tour de correction 1).
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
                 Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Text(user.pseudo, style = MaterialTheme.typography.titleMedium)

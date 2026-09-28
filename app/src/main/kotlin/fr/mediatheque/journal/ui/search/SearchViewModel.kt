@@ -31,7 +31,7 @@ data class SearchUi(
 /**
  * Une frappe, 300 ms de silence, une requête ; une nouvelle frappe annule la
  * requête en vol (`collectLatest`). Les résultats précédents restent affichés
- * jusqu'aux nouveaux — design §6.
+ * jusqu'aux nouveaux.
  */
 @OptIn(FlowPreview::class)
 class SearchViewModel(

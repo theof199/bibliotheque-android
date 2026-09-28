@@ -36,7 +36,7 @@ data class ChercherSuiviUi(
  * Une frappe, 400 ms de silence, une requête (brief du 15 septembre 2026 ; la
  * recherche de films en attend 300, elle) ; une nouvelle frappe annule la
  * requête en vol (`collectLatest`). Les résultats précédents restent
- * affichés jusqu'aux nouveaux — design §6.
+ * affichés jusqu'aux nouveaux.
  *
  * Indépendant de `SuivisViewModel` (jumeau de l'ancien
  * `ChercherRealisateurViewModel`) : il ne fait que chercher, sur la source

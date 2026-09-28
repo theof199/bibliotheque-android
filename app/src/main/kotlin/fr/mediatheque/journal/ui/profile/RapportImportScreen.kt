@@ -31,8 +31,8 @@ import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.theme.IconeTabler
 
 /**
- * L'import Letterboxd (brief du 16 septembre 2026) : un seul écran pour les deux états du
- * design (§5) — « Import en cours… » tant que `ui` ne porte ni rapport ni erreur, puis le
+ * L'import Letterboxd (brief du 16 septembre 2026) : un seul écran pour les deux états
+ * — « Import en cours… » tant que `ui` ne porte ni rapport ni erreur, puis le
  * rapport ou le message d'erreur (ZIP illisible, en-têtes fausses, panne réseau…), rendu comme
  * partout ailleurs (`ErrorBlock`).
  *

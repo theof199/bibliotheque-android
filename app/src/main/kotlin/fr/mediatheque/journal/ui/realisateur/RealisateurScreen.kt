@@ -327,7 +327,7 @@ private fun GrilleFilmographie(
 
 /**
  * L'en-tête d'une décennie (25 septembre 2026) : « 1990 » en gras, puis le nom de son monde en
- * capitales espacées (« LE BLOCKBUSTER », `Monde.nom`, design §2), les deux dans l'accent du monde de
+ * capitales espacées (« LE BLOCKBUSTER », `Monde.nom`), les deux dans l'accent du monde de
  * **cette** décennie ; à droite « 2 sur 4 » (`compteDecennie`, sur les films que la grille dessine) ;
  * dessous, un filet de 2 dp dans l'accent, pleine largeur. « Année inconnue » garde l'accent de la
  * page et n'a pas de nom de monde.

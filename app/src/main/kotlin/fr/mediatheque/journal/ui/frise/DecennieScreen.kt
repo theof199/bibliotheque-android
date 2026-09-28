@@ -120,7 +120,7 @@ fun DecennieScreen(
                 lignes.forEach { ligne ->
                     // « Grisées si l'année n'a rien » (le constat, point 2 du chantier d'origine),
                     // et désormais aussi si le Voyage la déclare verrouillée : opacité désactivée
-                    // du design (§6, 38 %), jamais retirée de la liste — une ligne vide ou
+                    // du design (38 %), jamais retirée de la liste — une ligne vide ou
                     // verrouillée ouvre simplement l'écran correspondant.
                     val rien = ligne.vus == 0 && decennie.annees.first { it.annee == ligne.annee }.aVoir == 0
                     val verrouillee = statutVoyage(ligne.annee, voyage) == StatutAnneeVoyage.VERROUILLEE

@@ -41,7 +41,7 @@ private val JournalColors = darkColorScheme(
     secondaryContainer = ReactionFond,
     onSecondaryContainer = ReactionTexte,
     error = Ambre,
-    // Le design (§2) ne liste pas ces cinq jetons, laissés au défaut Material — un violet ou un
+    // Le design ne liste pas ces cinq jetons, laissés au défaut Material — un violet ou un
     // gris clair qui jure sur le fond noir. Un `TextField` rempli lit `surfaceContainerHighest`,
     // un `Snackbar` lit `inverseSurface`/`inverseOnSurface`/`inversePrimary`, un
     // `HorizontalDivider` lit `outlineVariant` : on les pose depuis la palette déjà retenue, sans
@@ -55,7 +55,7 @@ private val JournalColors = darkColorScheme(
 
 /**
  * Sombre uniquement, palette fixe : pas de `dynamicDarkColorScheme`, pas de
- * branche claire, pas d'`isSystemInDarkTheme()`. C'est le §1 du design.
+ * branche claire, pas d'`isSystemInDarkTheme()`. Un principe tenu du design (docs/design.md).
  */
 @Composable
 fun JournalTheme(content: @Composable () -> Unit) {

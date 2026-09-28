@@ -340,7 +340,7 @@ private fun CompteCarte(vus: Int, total: Int, bouclee: Boolean) {
  * La photo d'une personne, ou l'affiche d'une saga : ronde, ou l'initiale sur
  * la même pastille quand TMDB n'en a pas. Jumeau de `Cover` (`ui/Cover.kt`)
  * pour les affiches rectangulaires — un `contentDescription` toujours posé,
- * photo ou non (design §8) ; rien *pendant* le chargement (aucun indicateur,
+ * photo ou non ; rien *pendant* le chargement (aucun indicateur,
  * aucun repli tant que la requête est en vol — le commentaire d'ici disait
  * « rien pendant le chargement » sans plus de précision, corrigé par le geste
  * 9 du peaufinage du 23 septembre 2026, qui ajoute le fondu ci-dessous),
