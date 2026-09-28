@@ -13,6 +13,15 @@ import android.content.Context
  * mais rien ne s'y déclenche encore — le carton reste rendu dans son état final (`EtatEntree
  * .Jouee`) quoi que le magasin en dise ; c'est la livraison 3 qui branchera l'animation d'entrée
  * dessus.
+ *
+ * Livraison 3 (28 septembre 2026) : l'entrée se branche enfin sur le magasin (`SectionMonde.kt`,
+ * `etatEntreeCarton` de `VoyageCarte.kt`) — mais la livraison 1 marquait déjà chaque monde dès sa
+ * seule visibilité, sans jamais jouer d'entrée. En gardant la clé `decennies`, tous les mondes
+ * déjà visités se liraient `Jouee` dès le premier lancement après cette mise à jour, et le
+ * propriétaire ne verrait alors aucune des entrées qui viennent d'être écrites. D'où la clé
+ * versionnée `decennies_v2` : un magasin neuf, une fois — les anciennes lignes restent orphelines
+ * dans les préférences, jamais relues, sans migration (comme `RecentSearchesStore`, qui n'en fait
+ * pas non plus entre ses versions).
  */
 interface MondesVisitesStore {
     fun lire(): Set<Int>
@@ -40,6 +49,7 @@ class PreferencesMondesVisitesStore(context: Context) : MondesVisitesStore {
     }
 
     private companion object {
-        const val KEY = "decennies"
+        // Livraison 3, 28 septembre 2026 : "decennies" -> "decennies_v2" — voir la note plus haut.
+        const val KEY = "decennies_v2"
     }
 }

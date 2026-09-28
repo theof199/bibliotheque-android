@@ -55,6 +55,12 @@ import java.time.LocalDate
  * qu'une section entre dans le viewport — pour que la livraison 3 n'ait qu'à brancher l'animation
  * dessus, sans reprendre la détection de visibilité.
  *
+ * Livraison 3 (28 septembre 2026, §D, §G) : `decenniesVisibles` (déjà posé en livraison 1) ne
+ * marque plus le magasin lui-même — il ne fait plus que dire à chaque `SectionMonde` si elle est
+ * `visible`, avec `dejaEntre` (sa décennie est déjà dans `mondesVisites`) ; c'est `SectionMonde`
+ * qui joue l'entrée une fois avant d'appeler `onEntreeJouee` (= `onMondeVisite`), pour que le
+ * magasin se marque après l'entrée, pas avant.
+ *
  * L'écran ne charge rien lui-même : `FriseViewModel` tient déjà le journal, le Plex et
  * `GET /me/voyage` pour l'accueil comme pour ici (`Root.kt`, clé « frise »).
  */
@@ -85,18 +91,14 @@ fun VoyageScreen(
     }
     val anneeEnCours = ui.voyage.anneeEnCours
 
-    // Le magasin des mondes visités (§D du delta) : une section marque sa décennie dès qu'elle
-    // entre dans le viewport, une fois pour toutes — `statutDuCarton` (pure, testée) dit si c'est
-    // la première fois ; `onMondeVisite` (câblé par `FriseRoutes.routeFrise`) écrit le magasin et
-    // fait suivre `mondesVisites` à ce composable au prochain passage.
+    // Le magasin des mondes visités (§D du delta) : une section devient `visible` dès qu'elle
+    // entre dans le viewport ; c'est `SectionMonde` qui décide, désormais (livraison 3,
+    // `etatEntreeCarton`), de jouer l'entrée avant d'appeler `onMondeVisite` — plus dès la
+    // visibilité elle-même, pour que le carton ait le temps de jouer son entrée avant d'être
+    // marqué « déjà vu ».
     val decenniesVisibles by remember(sections) {
         derivedStateOf {
             liste.layoutInfo.visibleItemsInfo.mapNotNull { info -> (info.key as? String)?.removePrefix("section-")?.toIntOrNull() }
-        }
-    }
-    LaunchedEffect(decenniesVisibles) {
-        decenniesVisibles.forEach { decennie ->
-            if (statutDuCarton(mondesVisites, decennie) is EtatEntree.Jamais) onMondeVisite(decennie)
         }
     }
 
@@ -178,12 +180,13 @@ fun VoyageScreen(
             ) {
                 LazyColumn(state = liste, modifier = Modifier.fillMaxSize()) {
                     items(sections, key = { section -> "section-${section.monde.decennie}" }) { section ->
+                        val decennie = section.monde.decennie
                         SectionMonde(
                             section = section,
                             anneeEnCours = anneeEnCours,
-                            // Toujours jouée en livraison 1 (aucune entrée animée avant la
-                            // livraison 3 du delta) — voir la documentation de l'écran plus haut.
-                            entreeCarton = EtatEntree.Jouee,
+                            visible = decennie in decenniesVisibles,
+                            dejaEntre = decennie in mondesVisites,
+                            onEntreeJouee = { onMondeVisite(decennie) },
                             claques = claques,
                             decennieAllumee = decennieAllumee,
                             onOpenAnnee = onOpenAnnee,

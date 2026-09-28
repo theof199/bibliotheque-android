@@ -1,5 +1,8 @@
 package fr.mediatheque.journal.ui.frise
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -16,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
@@ -35,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import fr.mediatheque.journal.ui.theme.animationsReduites
 
 /** La hauteur de la route d'une section, carton exclu — le repère 650 dp de Léon. */
 private val HAUTEUR_ROUTE = 650.dp
@@ -57,12 +62,29 @@ private val HAUTEUR_ROUTE = 650.dp
  * demande §H — et le grain (`monde.grain`) tout en haut, sous forme d'une tuile de bruit tuilée
  * plutôt qu'une image commitée de plus. Toujours pas d'ambiance ni d'entrée jouée (livraisons 3
  * à 5) : le carton reste statique, à l'état `Jouee`.
+ *
+ * Livraison 3 (28 septembre 2026, §D, §G) : l'entrée du carton se branche enfin sur le magasin des
+ * mondes visités — `visible` (la section est dans le viewport, posé par `VoyageScreen.kt` depuis
+ * `LazyListState.layoutInfo`) et `dejaEntre` (sa décennie est déjà dans le magasin) pilotent
+ * `etatEntreeCarton` (`VoyageCarte.kt`, pure) : première visite, l'entrée joue une fois
+ * (`Animatable` 0 → 1, `dureeEntree` par monde) puis `onEntreeJouee` écrit le magasin ; déjà
+ * visitée, le carton part directement à l'état final ; animations réduites, pareil, sans jouer
+ * l'entrée. `AmbianceDeMonde` (nouveau) rejoint la pile entre l'image et la route (§B) — sa boucle
+ * ne tourne que tant que la section reste visible (`ambianceActive`, pure elle aussi), jamais hors
+ * écran ni animations réduites. Ce commit-ci pose la machine seule : `CartonTitre` continue de
+ * dessiner le même carton fini quel que soit `entree`, `AmbianceDeMonde` ne dessine encore rien —
+ * le commit suivant leur ajoute 1930, 1940 et 1950 (§G), sans retoucher la machine ci-dessus ;
+ * 1960 → 2020 (livraison 4) et 1890 → 1920 en 16 i/s (livraison 5, via `progressionQuantifiee`
+ * posée sur `progression` avant `etatEntreeCarton`) n'auront eux non plus qu'à ajouter leurs
+ * propres branches à `CartonTitre` et `AmbianceDeMonde`.
  */
 @Composable
 fun SectionMonde(
     section: SectionDuVoyage,
     anneeEnCours: Int,
-    entreeCarton: EtatEntree,
+    visible: Boolean,
+    dejaEntre: Boolean,
+    onEntreeJouee: () -> Unit,
     claques: Int,
     decennieAllumee: Int,
     onOpenAnnee: (AnneeFrise) -> Unit,
@@ -71,6 +93,23 @@ fun SectionMonde(
 ) {
     val monde = section.monde
     val corail = MaterialTheme.colorScheme.primary
+
+    // Le réglage système ne change pas pendant qu'on regarde l'écran (`Mouvement.kt`) : un seul
+    // `remember`, relu à la composition suivante — jumeau de `Cover.kt`/`FeuilleDeLecture.kt`.
+    val reduit = remember { animationsReduites() }
+    val progression = remember { Animatable(0f) }
+    LaunchedEffect(monde.decennie, visible, dejaEntre, reduit) {
+        if (dejaEntre || !visible) return@LaunchedEffect
+        if (reduit) {
+            onEntreeJouee()
+            return@LaunchedEffect
+        }
+        progression.snapTo(0f)
+        progression.animateTo(1f, tween(dureeEntree(monde.decennie), easing = LinearEasing))
+        onEntreeJouee()
+    }
+    val entreeCarton = etatEntreeCarton(dejaEntre, visible, reduit, progression.value)
+    val active = ambianceActive(visible, reduit)
 
     Column(modifier.fillMaxWidth()) {
         CartonTitre(monde, entreeCarton)
@@ -85,6 +124,10 @@ fun SectionMonde(
             // Tout en bas de la pile (§H) : derrière la route, jamais sur les pavillons ni le
             // texte. Nulle pour 1890 et 1900, qui n'ont pas d'image.
             monde.image?.let { image -> ImageDeFond(image, k) }
+
+            // Entre l'image et la route (§B, livraison 3) : l'ambiance en boucle du monde, muette
+            // hors écran et sans animations réduites (`ambianceActive`).
+            AmbianceDeMonde(monde, active, k, Modifier.fillMaxSize())
 
             // Le chemin de la route n'est analysé qu'une fois par largeur d'écran (revue du
             // 28 septembre 2026, retouche de la livraison 1) — pas à chaque frame dessinée.
@@ -119,6 +162,15 @@ fun SectionMonde(
         }
     }
 }
+
+/**
+ * La durée de l'entrée d'un carton (§G) : 900 ms, le temps qu'aucun monde n'ait encore la sienne
+ * propre — commit suivant, 1930 (0,9 s, l'onde sonore), 1940 (1,1 s, le store qui balaie) et 1950
+ * (1 s, les trois plaques qui se recalent) reprennent chacun l'ordre de grandeur de sa description
+ * (§G) ; les autres mondes garderont 900 ms par défaut, sans que ça ne se voie tant que
+ * `CartonTitre` ne dessine rien de plus pour `EnCours`.
+ */
+private fun dureeEntree(decennie: Int): Int = 900
 
 @Composable
 private fun PavillonAnnee(

@@ -4,6 +4,7 @@ import fr.mediatheque.journal.FakeJournalApi
 import fr.mediatheque.journal.api.dto.AnneeVoyage
 import fr.mediatheque.journal.api.dto.TamponVoyage
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -295,6 +296,52 @@ class VoyageCarteTest {
         assertEquals(EtatEntree.Jouee, statutDuCarton(setOf(1890, 1900), decennie = 1890))
         assertEquals(EtatEntree.Jamais, statutDuCarton(setOf(1890), decennie = 1900))
         assertEquals(EtatEntree.Jamais, statutDuCarton(emptySet(), decennie = 1890))
+    }
+
+    // La machine de l'entrée (§D, livraison 3) : déjà jouée gagne toujours, avant même la
+    // visibilité ou les animations réduites. Mutation : tester `visible` avant `dejaEntre`
+    // rejouerait l'entrée d'un monde déjà marqué qui redevient visible.
+    @Test
+    fun `etatEntreeCarton ne rejoue jamais un monde deja marque`() {
+        assertEquals(EtatEntree.Jouee, etatEntreeCarton(dejaEntre = true, visible = true, reduit = false, progression = 0f))
+        assertEquals(EtatEntree.Jouee, etatEntreeCarton(dejaEntre = true, visible = false, reduit = true, progression = 0f))
+    }
+
+    // Hors écran, rien ne joue (§ « active suit la visibilité ») : ni l'entrée, ni sa progression.
+    // Mutation : rendre `EnCours` hors visibilité ferait jouer une entrée jamais vue.
+    @Test
+    fun `etatEntreeCarton n'anime rien hors ecran`() {
+        assertEquals(EtatEntree.Jamais, etatEntreeCarton(dejaEntre = false, visible = false, reduit = false, progression = 0.4f))
+        assertEquals(EtatEntree.Jamais, etatEntreeCarton(dejaEntre = false, visible = false, reduit = true, progression = 1f))
+    }
+
+    // Animations réduites : direct à l'état final dès la visibilité, sans passer par `EnCours`.
+    // Mutation : oublier cette branche jouerait l'entrée en douceur malgré le réglage système.
+    @Test
+    fun `etatEntreeCarton saute a l'etat final quand les animations sont reduites`() {
+        assertEquals(EtatEntree.Jouee, etatEntreeCarton(dejaEntre = false, visible = true, reduit = true, progression = 0f))
+    }
+
+    // Sinon, l'état suit la progression fournie par l'appelant — `EnCours` tant qu'elle n'a pas
+    // atteint 1, `Jouee` une fois arrivée (au-delà aussi, une progression ne redescend jamais).
+    @Test
+    fun `etatEntreeCarton suit la progression jusqu'a Jouee`() {
+        assertEquals(EtatEntree.EnCours(0f), etatEntreeCarton(dejaEntre = false, visible = true, reduit = false, progression = 0f))
+        assertEquals(EtatEntree.EnCours(0.42f), etatEntreeCarton(dejaEntre = false, visible = true, reduit = false, progression = 0.42f))
+        assertEquals(EtatEntree.Jouee, etatEntreeCarton(dejaEntre = false, visible = true, reduit = false, progression = 1f))
+        assertEquals(EtatEntree.Jouee, etatEntreeCarton(dejaEntre = false, visible = true, reduit = false, progression = 1.2f))
+    }
+
+    // L'ambiance d'un monde (§G, livraison 3) : seulement section visible et animations non
+    // réduites — les deux conditions comptent, chacune suffit à l'arrêter. Mutation : un `||` à la
+    // place du `&&` laisserait tourner une ambiance hors écran dès que les animations sont
+    // réduites, ou l'inverse.
+    @Test
+    fun `ambianceActive suit la visibilite et respecte les animations reduites`() {
+        assertTrue(ambianceActive(visible = true, reduit = false))
+        assertFalse(ambianceActive(visible = false, reduit = false))
+        assertFalse(ambianceActive(visible = true, reduit = true))
+        assertFalse(ambianceActive(visible = false, reduit = true))
     }
 
     // La carte en sections (§A, §B) : une section par monde, ses années dans l'ordre, et le

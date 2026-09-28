@@ -273,6 +273,34 @@ sealed interface EtatEntree {
 fun statutDuCarton(dejaEntres: Set<Int>, decennie: Int): EtatEntree =
     if (decennie in dejaEntres) EtatEntree.Jouee else EtatEntree.Jamais
 
+/**
+ * La machine de l'entrée d'un carton-titre, image par image (livraison 3 du delta, §D et §G) :
+ * la seule pièce que 1960 → 2020 (livraison 4) et 1890 → 1920 en 16 i/s (livraison 5, via
+ * `progressionQuantifiee` posée en amont sur `progression`) auront à réutiliser telle quelle, en
+ * n'ajoutant que leurs propres données et composables par monde. Pure, sans Compose — c'est
+ * `SectionMonde.kt` qui fait avancer `progression` (0 → 1) pendant que l'entrée joue.
+ *
+ * L'ordre des règles compte : `dejaEntre` gagne toujours (jamais rejouée, quoi qu'il arrive) ;
+ * sinon hors écran rien ne joue (`Jamais`, § « active suit la visibilité ») ; sinon les animations
+ * réduites sautent direct à l'état final dès que le monde est visible (§ animations réduites) ;
+ * sinon l'état suit la progression fournie, `Jouee` une fois qu'elle atteint 1.
+ */
+fun etatEntreeCarton(dejaEntre: Boolean, visible: Boolean, reduit: Boolean, progression: Float): EtatEntree = when {
+    dejaEntre -> EtatEntree.Jouee
+    !visible -> EtatEntree.Jamais
+    reduit -> EtatEntree.Jouee
+    progression >= 1f -> EtatEntree.Jouee
+    else -> EtatEntree.EnCours(progression.coerceIn(0f, 1f))
+}
+
+/**
+ * L'ambiance d'un monde (§G, livraison 3) ne tourne que section visible à l'écran, jamais hors
+ * champ, jamais non plus quand les animations sont réduites — `AmbianceDeMonde.kt` ne lance sa
+ * `rememberInfiniteTransition` que si cette fonction rend vrai, jumelle du `if (defilement)` de
+ * `Perforations` (`theme/Ornements.kt`). Pure, testée en JVM.
+ */
+fun ambianceActive(visible: Boolean, reduit: Boolean): Boolean = visible && !reduit
+
 /** Une année du Voyage, mise à plat pour sa section — jumelle de l'ancienne `Cellule.Annee`, sortie de l'écran. */
 data class AnneeDuVoyage(
     val annee: Int,
