@@ -677,13 +677,29 @@ private fun Cartouche(millesime: Int, ui: AnneeUi, monde: Monde, onLireOuverture
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(millesime.toString(), style = MaterialTheme.typography.titleLarge, color = TextePapier)
                 // Le glyphe à côté du millésime (décision 2 du brief du 21 septembre 2026, « les
-                // récompenses ») — nul sans aucun film vu.
+                // récompenses ») — nul sans aucun film vu. Grand, en or, animé à sa première
+                // apparition (lot 2 du brief du 28 septembre 2026, « des récompenses qui en
+                // jettent ») — avant, un petit glyphe couleur papier, guère plus voyant que le
+                // millésime à côté duquel il se posait.
                 ui.recompense?.let { recompense ->
+                    val reduit = remember { animationsReduites() }
+                    // Rejoué à chaque nouvelle récompense (Ours → Lion → Palme), jamais à une
+                    // simple recomposition : `remember(recompense)` recrée l'`Animatable` (donc
+                    // rejoue son `LaunchedEffect(recompense)`) seulement quand la valeur change.
+                    val echelle = remember(recompense) { Animatable(if (reduit) 1f else 0.3f) }
+                    LaunchedEffect(recompense) {
+                        if (!reduit) echelle.animateTo(1f, tween(450, easing = FastOutSlowInEasing))
+                    }
                     Embleme(
                         Emblemes.typeDe(recompense),
-                        taille = 16.dp,
-                        modifier = Modifier.clearAndSetSemantics { contentDescription = recompense.singulier },
-                        encre = TextePapier,
+                        taille = 40.dp,
+                        modifier = Modifier
+                            .clearAndSetSemantics { contentDescription = recompense.singulier }
+                            .graphicsLayer {
+                                scaleX = echelle.value
+                                scaleY = echelle.value
+                            },
+                        encre = Or,
                         fond = PapierJauni,
                     )
                 }

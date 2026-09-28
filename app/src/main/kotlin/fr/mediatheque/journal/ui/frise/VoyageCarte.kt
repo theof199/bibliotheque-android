@@ -1,5 +1,6 @@
 package fr.mediatheque.journal.ui.frise
 
+import fr.mediatheque.journal.api.dto.AnneeVoyage
 import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.TamponVoyage
 
@@ -47,6 +48,17 @@ fun recompenseDe(brut: String?): Recompense? = when (brut) {
     "palme" -> Recompense.PALME
     else -> null
 }
+
+/**
+ * Les récompenses qui comptent pour le HUD de la carte (lot 2 du brief du 28 septembre 2026,
+ * « des récompenses qui en jettent ») : seules les années jusqu'à l'année en cours, jamais une
+ * année postérieure — un film vu en avance sur une année pas encore atteinte (« *N* vus en
+ * avance », visible sur la carte) peut lui valoir l'Ours dès trois films (`OURS_FILMS_MIN`,
+ * back), mais cette récompense-là ne doit pas gonfler le compte affiché avant que le Voyage n'y
+ * soit vraiment arrivé. Fonction pure, testée en JVM.
+ */
+fun recompensesJusquaAnneeEnCours(annees: Collection<AnneeVoyage>, anneeEnCours: Int): List<Recompense> =
+    annees.filter { it.annee <= anneeEnCours }.mapNotNull { recompenseDe(it.recompense) }
 
 /** « 3 Palmes · 1 Lion » : le compte du HUD, dans l'ordre Palme, Lion, Ours, sans les zéros — vide tant que rien n'est décerné. */
 fun phraseRecompenses(recompenses: List<Recompense>): String {

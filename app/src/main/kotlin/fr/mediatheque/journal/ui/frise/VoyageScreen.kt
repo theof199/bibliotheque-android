@@ -222,8 +222,11 @@ private fun Hud(voyage: VoyageUi, anneeActuelle: Int) {
     // années d'un coup (rattrapage) le compte tout aussi bien, seul le trajet visuel change.
     val visiteesAnimees by animateIntAsState(targetValue = visitees, label = "visitees")
     // Vide tant qu'aucune année n'a de récompense : c'est `phraseRecompenses` elle-même qui rend
-    // "" alors, sans qu'il faille un `if` de plus ici (étape 5, « les récompenses »).
-    val recompenses = phraseRecompenses(voyage.parAnnee.values.mapNotNull { recompenseDe(it.recompense) })
+    // "" alors, sans qu'il faille un `if` de plus ici (étape 5, « les récompenses »). Limité aux
+    // années jusqu'à l'année en cours (lot 2 du brief du 28 septembre 2026, « des récompenses qui
+    // en jettent ») : un film vu en avance sur une année pas encore atteinte ne doit pas gonfler
+    // ce compte avant l'heure — `recompensesJusquaAnneeEnCours` est pure, testée en JVM.
+    val recompenses = phraseRecompenses(recompensesJusquaAnneeEnCours(voyage.parAnnee.values, voyage.anneeEnCours))
     // L'étendue de la décennie en cours (§A du delta de Léon) : « 1930 → 1939 · » devant le compte
     // d'années visitées.
     val etendue = etendueHud(mondeDe(voyage.anneeEnCours).decennie, anneeActuelle)

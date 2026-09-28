@@ -45,6 +45,27 @@ class VoyageCarteTest {
         assertEquals("", phraseRecompenses(emptyList()))
     }
 
+    private fun anneeCarte(annee: Int, recompense: String?) =
+        AnneeVoyage(annee = annee, statut = "ouverte", recompense = recompense)
+
+    // `recompensesJusquaAnneeEnCours` (lot 2 du brief du 28 septembre 2026, « des récompenses qui
+    // en jettent ») : un film vu en avance peut valoir l'Ours à une année pas encore atteinte
+    // (« *N* vus en avance » sur la carte) — cette récompense-là ne doit pas gonfler le compte du
+    // HUD avant que le Voyage n'y soit vraiment arrivé.
+    @Test
+    fun `recompensesJusquaAnneeEnCours ecarte les annees posterieures a l'annee en cours`() {
+        // Mutation : comparer par `<` au lieu de `<=` écarterait à tort l'année en cours
+        // elle-même, qui peut déjà porter une récompense.
+        val annees = listOf(anneeCarte(1897, "lion"), anneeCarte(1898, "ours"), anneeCarte(1900, "ours"))
+        assertEquals(listOf(Recompense.LION, Recompense.OURS), recompensesJusquaAnneeEnCours(annees, anneeEnCours = 1898))
+    }
+
+    @Test
+    fun `recompensesJusquaAnneeEnCours ignore les annees sans recompense`() {
+        val annees = listOf(anneeCarte(1895, null), anneeCarte(1896, "palme"))
+        assertEquals(listOf(Recompense.PALME), recompensesJusquaAnneeEnCours(annees, anneeEnCours = 1898))
+    }
+
     // Le photogramme de la carte (brief du 21 septembre 2026, « le podium ») : l'affiche du n°1 du
     // podium prime sur le dernier film vu, jamais l'inverse. Mutation : inverser l'ordre du `?:`
     // ferait retomber sur le dernier vu même quand un podium est posé.
