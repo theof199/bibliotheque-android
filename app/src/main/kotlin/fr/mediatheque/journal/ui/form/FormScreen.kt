@@ -104,7 +104,7 @@ fun FormScreen(
     var confirmDelete by remember { mutableStateOf(false) }
     val editing = vm.mode is FormMode.Edit
     // Retour haptique (peaufinage du 23 septembre 2026, geste 10) : partagé par le bouton
-    // d'enregistrement ci-dessous et par `RatingDot` plus bas dans ce fichier.
+    // d'enregistrement ci-dessous et par la rangée de notes (`PastilleDeNote` plus bas).
     val haptique = LocalHapticFeedback.current
 
     // La note qui s'allume (geste 16 du complément du 23 septembre 2026 à l'habillage) : quand la
@@ -217,14 +217,14 @@ fun FormScreen(
                 // tiennent pas sur 360 dp, dix de 28 dp sont plus durs à viser).
                 //
                 // Correctif du 28 septembre 2026 (les dix notes débordaient du formulaire, sur le
-                // téléphone) : `RatingDot` (plus bas) grandit sa cible tactile à 48 dp par
-                // `minimumInteractiveComponentSize()`, qui agrandit la MISE EN PAGE du composable,
-                // pas seulement la zone de détection du toucher — dix pastilles à 48 dp de large
-                // chacune font donc 480 dp, quoi que `taille` vaille par ailleurs. Ici, la cible
-                // tactile est la cellule (`Modifier.weight(1f).height(48.dp)`, dix cellules égales
-                // qui se partagent exactement la largeur du formulaire), pas le cercle : le clic,
-                // les sémantiques et le haptique vivent sur la cellule, `PastilleDeNote` ne fait
-                // plus que dessiner le cercle de 30 dp, centré dedans.
+                // téléphone) : `minimumInteractiveComponentSize()` (l'ancienne pastille interactive,
+                // `RatingDot`, retirée le même jour) agrandit la MISE EN PAGE du composable qui la
+                // porte, pas seulement la zone de détection du toucher — dix pastilles à 48 dp de
+                // large chacune font donc 480 dp, quoi que leur cercle visible vaille par ailleurs.
+                // Ici, la cible tactile est la cellule (`Modifier.weight(1f).height(48.dp)`, dix
+                // cellules égales qui se partagent exactement la largeur du formulaire), pas le
+                // cercle : le clic, les sémantiques et le haptique vivent sur la cellule,
+                // `PastilleDeNote` ne fait que dessiner le cercle de 30 dp, centré dedans.
                 Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                     for (n in 1..10) {
                         Box(
@@ -383,46 +383,14 @@ fun FormScreen(
 }
 
 /**
- * Une pastille de note, complète (cercle et cible tactile) : un cercle, corail quand elle est
- * choisie — design §4, §7. `taille` vaut 48 dp par défaut, sa propre cible tactile par
- * `minimumInteractiveComponentSize()`.
- *
- * Correctif du 28 septembre 2026 (les dix notes débordaient du formulaire) : ce composant ne sert
- * plus à la rangée compacte de dix pastilles — `minimumInteractiveComponentSize()` agrandit la
- * MISE EN PAGE, pas seulement le toucher, si bien que dix pastilles à `taille = 30.dp` prenaient
- * quand même 480 dp de large. La rangée compacte construit maintenant sa propre cible tactile,
- * la cellule (`PastilleDeNote`, juste dessous, purement visuelle). `RatingDot` reste tel quel
- * pour un futur appelant qui voudrait une pastille autonome à sa taille naturelle de 48 dp —
- * aucun appelant ne le fait aujourd'hui (`grep RatingDot(` ne trouve plus que sa propre
- * signature).
- */
-@Composable
-private fun RatingDot(n: Int, selected: Boolean, echelle: Float = 1f, taille: Dp = 48.dp, onClick: () -> Unit) {
-    val fond by animateColorAsState(
-        if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
-        animationSpec = tween(150), label = "note",
-    )
-    val texte = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-    // Retour haptique (peaufinage du 23 septembre 2026, geste 10) : poser une note est un des
-    // gestes de la palette Compose, `SegmentTick` — au tap comme au retrait.
-    val haptique = LocalHapticFeedback.current
-    Box(
-        Modifier
-            .minimumInteractiveComponentSize()
-            .size(taille)
-            .scale(echelle)
-            .background(fond, CircleShape)
-            .clickable(onClick = { haptique.performHapticFeedback(HapticFeedbackType.SegmentTick); onClick() })
-            .semantics { contentDescription = "Note $n sur 10"; this.selected = selected },
-        contentAlignment = Alignment.Center,
-    ) { Text("$n", style = MaterialTheme.typography.labelLarge, color = texte) }
-}
-
-/**
  * Le cercle d'une pastille de note, sans cible tactile ni sémantiques — celles-ci vivent sur la
- * cellule qui l'entoure dans la rangée compacte (correctif du 28 septembre 2026, ci-dessus).
- * `echelle` porte le même rebond que `RatingDot` (geste 16 du complément du 23 septembre 2026 à
- * l'habillage), jumeau visuel sans le `Box` interactif.
+ * cellule qui l'entoure dans la rangée compacte (correctif du 28 septembre 2026 : l'ancienne
+ * pastille autonome, `RatingDot`, agrandissait sa propre mise en page à 48 dp par
+ * `minimumInteractiveComponentSize()` — dix pastilles en faisaient donc 480 dp de large, quoi que
+ * leur cercle visible vaille par ailleurs ; retirée le même jour, sans appelant restant une fois
+ * la cible tactile déplacée sur la cellule). `echelle` porte le même rebond qu'avant (geste 16 du
+ * complément du 23 septembre 2026 à l'habillage) — un cercle qui grossit puis revient, sans le
+ * `Box` interactif qui l'entourait.
  */
 @Composable
 private fun PastilleDeNote(n: Int, selected: Boolean, echelle: Float = 1f, taille: Dp = 30.dp) {
