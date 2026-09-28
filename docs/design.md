@@ -20,13 +20,13 @@ Thème et grain de fond : `ui/theme/Theme.kt`. Cadres, filets et perforations : 
 
 **Les polices**, en fichiers statiques (`res/font/`), jamais téléchargées : Manrope pour le corps
 de texte, Fraunces pour les titres d'écran et les chiffres, Limelight pour les célébrations et les
-cartons-titres. Un rôle chacune, jamais mélangées sur un même texte. Styles : `ui/theme/Type.kt`.
+cartons-titres. Styles : `ui/theme/Type.kt`.
 
 **Les icônes** viennent de [Tabler Icons](https://tabler.io/icons) (MIT), trait 1,75, teintées à
-l'usage (`ui/theme/IconeTabler.kt`) — jamais une icône Material. Chaîne de génération : `bin/icones`
+l'usage (`ui/theme/IconeTabler.kt`). Chaîne de génération : `bin/icones`
 (README, « Les icônes »).
 
-**Les images et animations.** Des emblèmes dessinés par le propriétaire (webp,
+**Les images et animations.** Des emblèmes fournis par le propriétaire (webp,
 `res/drawable-nodpi/`, `ui/Emblemes.kt`) et des animations Lottie sous licence libre
 (`assets/lottie/`, chargées par `ui/theme/Animations.kt`) habillent les célébrations. README,
 « Les emblèmes » et « Les animations », disent comment en ajouter.
