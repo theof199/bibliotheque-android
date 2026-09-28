@@ -6,6 +6,8 @@ import fr.mediatheque.journal.api.ApiClient
 import fr.mediatheque.journal.api.JournalApi
 import fr.mediatheque.journal.api.PreferencesSessionStore
 import fr.mediatheque.journal.api.SessionCookieJar
+import fr.mediatheque.journal.frise.MondesVisitesStore
+import fr.mediatheque.journal.frise.PreferencesMondesVisitesStore
 import fr.mediatheque.journal.search.PreferencesRecentSearchesStore
 import fr.mediatheque.journal.search.RecentSearchesStore
 import fr.mediatheque.journal.senscritique.GraphQlSensCritiqueAuthClient
@@ -28,6 +30,9 @@ class AppContainer(context: Context) {
 
     /** Les dix dernières recherches (point 6 de la revue du 24 septembre 2026) : locales, jamais envoyées au back. */
     val recentSearches: RecentSearchesStore = PreferencesRecentSearchesStore(context)
+
+    /** Les mondes du Voyage déjà visités (delta de Léon du 25 septembre 2026, « pavillon par pavillon », §D). */
+    val mondesVisites: MondesVisitesStore = PreferencesMondesVisitesStore(context)
 
     // SensCritique (brief du 14 septembre 2026) : le client Ktor existant, réutilisé avec un
     // client sans cookie jar (`CookieJar.NO_COOKIES`) — jamais celui de la médiathèque, dont le

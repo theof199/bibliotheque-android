@@ -5,6 +5,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import fr.mediatheque.journal.ui.AfficheVolante
 import fr.mediatheque.journal.ui.PorteeEcrans
@@ -19,8 +22,18 @@ fun PorteeEcrans.routeFrise() {
     // sans ce rechargement à chaque entrée, la Frise resterait celle de la
     // première visite après l'ajout d'un visionnage depuis l'un de ses écrans.
     LaunchedEffect(Unit) { frise.refresh() }
+    // Le magasin des mondes visités (delta de Léon du 25 septembre 2026, « pavillon par
+    // pavillon », §D) : lu une fois à l'entrée sur l'écran, tenu ici plutôt que dans
+    // `VoyageScreen` lui-même — jumeau de la façon dont `nav`/`session` sont déjà hoistés dans
+    // `PorteeEcrans` plutôt que recréés par chaque écran.
+    var mondesVisites by remember { mutableStateOf(container.mondesVisites.lire()) }
     VoyageScreen(
         frise,
+        mondesVisites = mondesVisites,
+        onMondeVisite = { decennie ->
+            container.mondesVisites.marquer(decennie)
+            mondesVisites = mondesVisites + decennie
+        },
         onOpenAnnee = { af ->
             nav.push(Screen.Annee(af, af.annee?.let { frise.ui.value.voyage.parAnnee[it] }))
         },

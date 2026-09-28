@@ -26,7 +26,6 @@ class AnimationsTest {
         "confetti-1", // AnneeDansLaBoiteCalque.kt (la pluie)
         "bobine-1", // Ornements.kt, BobineIndicateur
         "ticket-1", // TicketVoyage.kt, TicketCalque
-        "projecteur-1", // CartonTitreMonde.kt
     )
 
     private val dossierAssets = File("src/main/assets/lottie")
@@ -39,7 +38,7 @@ class AnimationsTest {
         }
     }
 
-    // Mutation : retirer la clé `layers` (ou la vider) d'un des six JSON fait rougir cette
+    // Mutation : retirer la clé `layers` (ou la vider) d'un des cinq JSON fait rougir cette
     // assertion sur ce seul fichier, sans toucher à la précédente qui ne regarde que la présence
     // du fichier lui-même.
     @Test

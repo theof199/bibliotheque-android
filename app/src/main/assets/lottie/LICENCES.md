@@ -1,8 +1,13 @@
 # Licences des animations Lottie
 
-Six animations récoltées sous licence libre (choisies par le propriétaire le 23 septembre 2026,
+Cinq animations récoltées sous licence libre (choisies par le propriétaire le 23 septembre 2026,
 soir, parmi onze essayées — voir `docs/superpowers/specs` de `biblio-back` pour le détail du
 chantier). Une par fichier, source directe et auteur tels que retrouvés à la récolte.
+
+L'animation du projecteur qui précédait le carton-titre plein écran d'un monde est retirée depuis
+le delta de Léon du 25 septembre 2026 (« pavillon par pavillon », livraison 1) : ce carton plein
+écran est parti avec elle, remplacé par le carton-titre de chaque section de la route
+(`ui/frise/CartonTitre.kt`), sans projecteur.
 
 ## `clap-2.json` — le clap qui claque, avec éclat
 
@@ -42,13 +47,6 @@ chantier). Une par fichier, source directe et auteur tels que retrouvés à la r
 - **Source :** `https://assets2.lottiefiles.com/datafiles/Sxq01TJtKeEc8by/data.json`
 - **Fiche d'origine :** `lottiefiles.com/1726-tickets`
 - **Auteur :** Kosti Marko
-- **Licence :** Lottie Simple License
-
-## `projecteur-1.json` — l'entrée d'un monde
-
-- **Source :** `https://assets9.lottiefiles.com/packages/lf20_je5ueZ.json`
-- **Fiche d'origine :** `lottiefiles.com/11378-projector`
-- **Auteur :** Philippe Braun
 - **Licence :** Lottie Simple License
 
 ---

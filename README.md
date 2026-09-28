@@ -205,9 +205,9 @@ Déposer le fichier suffit : aucun code ne change, `Embleme` le sert dès la pro
 ## Les animations
 
 Les célébrations (l'enregistrement d'un film, une année dans la boîte, tirer pour rafraîchir, le
-ticket poinçonné, l'entrée d'un monde dans la Frise) jouent des animations Lottie récoltées sous
-licence libre (choisies par le propriétaire le 23 septembre 2026, soir, parmi onze essayées). Les
-six retenues vivent dans `app/src/main/assets/lottie/`, jamais téléchargées — la même règle que les
+ticket poinçonné) jouent des animations Lottie récoltées sous licence libre (choisies par le
+propriétaire le 23 septembre 2026, soir, parmi onze essayées). Les cinq retenues vivent dans
+`app/src/main/assets/lottie/`, jamais téléchargées — la même règle que les
 polices (« Les versions », ci-dessus) — chargées par le composable `Animation`
 (`ui/theme/Animations.kt`, `LottieCompositionSpec.Asset`) ou, pour la bobine de
 tirer-pour-rafraîchir qui pilote sa propre progression, directement par `LottieAnimation`
