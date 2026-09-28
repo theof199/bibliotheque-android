@@ -391,6 +391,15 @@ class AnneeViewModel(
     private val _sallesBouclees = Channel<String>(Channel.BUFFERED)
     val sallesBouclees: Flow<String> = _sallesBouclees.receiveAsFlow()
 
+    /**
+     * Ce qui vient de bouger dans la progression de l'année (lot 2 du brief du 28 septembre 2026,
+     * « l'avant/après ») — un événement à un coup, jumeau de `sallesBouclees` : `AnneeScreen` y
+     * réagit par l'animation des pastilles touchées et le « +1 » qui vole, jamais rejouée à une
+     * simple recomposition ou à un retour sur l'écran.
+     */
+    private val _progressionBougee = Channel<List<DeltaPastille>>(Channel.BUFFERED)
+    val progressionBougee: Flow<List<DeltaPastille>> = _progressionBougee.receiveAsFlow()
+
     private var pollJob: Job? = null
     private val salleJobs = mutableMapOf<String, Job>()
     private var salleDemandeJob: Job? = null
@@ -674,7 +683,26 @@ class AnneeViewModel(
                         _sallesBouclees.trySend(salle.id)
                     }
                 }
-                _ui.update { it.copy(salles = nouvellesSalles) }
+                // L'avant/après (lot 2, « l'avant/après ») : capturé avant l'écriture de `_ui`,
+                // comparé à ce que la réponse vient de rendre — `deltasProgression` est pure,
+                // testée dans `AnneeViewModelTest`. `profondeur`/`progression`/`recompense`
+                // n'étaient jusqu'ici jamais rafraîchis par cette relecture (seules les salles
+                // l'étaient) : sans ce rafraîchissement, aucune pastille n'aurait jamais eu de
+                // nouvelle valeur à défiler vers.
+                val profondeurAvant = _ui.value.profondeur
+                val progressionAvant = _ui.value.progression
+                val profondeurApres = reponse.profondeur ?: profondeurAvant
+                val progressionApres = reponse.progression?.versUi()
+                _ui.update {
+                    it.copy(
+                        salles = nouvellesSalles,
+                        profondeur = profondeurApres,
+                        progression = progressionApres ?: it.progression,
+                        recompense = recompenseDe(reponse.recompense),
+                    )
+                }
+                val deltas = deltasProgression(profondeurAvant, profondeurApres, progressionAvant, progressionApres)
+                if (deltas.isNotEmpty()) _progressionBougee.trySend(deltas)
             }
         }
     }
