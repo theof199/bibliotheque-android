@@ -222,6 +222,19 @@ val EMPLACEMENTS_PHOTOGRAMMES: List<EmplacementPhotogramme> = listOf(
 /** L'emplacement d'un rang donné — un rang hors bornes (jamais censé arriver, dix places au plus par monde) reste dans la liste. */
 fun emplacement(rang: Int): EmplacementPhotogramme = EMPLACEMENTS_PHOTOGRAMMES[rang.coerceIn(0, EMPLACEMENTS_PHOTOGRAMMES.lastIndex)]
 
+/**
+ * Le centre d'une case, à l'échelle de l'écran (lot 1 du brief du 28 septembre 2026, « le voyage
+ * se sent progresser », correctif « le cône de lumière suit la case de l'année en cours ») —
+ * jumeau exact du calcul que `PavillonAnnee` (`SectionMonde.kt`) fait pour centrer un
+ * photogramme, réutilisé pour ancrer le cône de lumière (`coneDeLumiere`, `RouteDuVoyage.kt`) sur
+ * la vraie case de l'année en cours plutôt qu'à des coordonnées fixes, qui éclairaient une boucle
+ * vide de la route. Fonction pure, testée en JVM.
+ */
+fun centreCase(rang: Int, k: Float): EmplacementPhotogramme {
+    val place = emplacement(rang)
+    return EmplacementPhotogramme((place.x + CASE_REFERENCE_LARGEUR / 2f) * k, place.y + CASE_REFERENCE_HAUTEUR / 2f)
+}
+
 /** Où se pose le millésime autour d'une case, selon sa place sur la route (§C). */
 enum class PositionMillesime { DESSOUS, A_GAUCHE, A_DROITE, DESSUS }
 

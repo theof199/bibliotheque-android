@@ -248,6 +248,18 @@ class VoyageCarteTest {
         assertEquals(EmplacementPhotogramme(147f, 456f), emplacement(9))
     }
 
+    // `centreCase` (correctif du 28 septembre 2026, « le voyage se sent progresser », « le cône de
+    // lumière suit la case de l'année en cours ») : le centre de la case de référence 56 × 44,
+    // à l'échelle de l'écran — jumeau exact de ce que `PavillonAnnee` calcule pour centrer un
+    // photogramme, réutilisé pour ancrer le cône de lumière. Mutation : centrer sur le coin
+    // (`place.x`/`place.y` bruts) plutôt que sur le milieu de la case décalerait le cône d'une
+    // demi-case.
+    @Test
+    fun `centreCase centre sur le milieu de la case, l'abscisse seule a l'echelle`() {
+        assertEquals(EmplacementPhotogramme(290f, 178f), centreCase(3, k = 1f))
+        assertEquals(EmplacementPhotogramme(580f, 178f), centreCase(3, k = 2f))
+    }
+
     // Le millésime se pose dessous par défaut, à gauche aux virages à droite (rangs 3 et 8), à
     // droite au virage à gauche (rang 6), au-dessus sur la rangée du milieu (rangs 4 et 5).
     // Mutation : confondre A_GAUCHE et A_DROITE ferait chevaucher le millésime et la route.

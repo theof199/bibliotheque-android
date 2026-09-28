@@ -198,9 +198,30 @@ fun SectionMonde(
             val cheminRoute = rememberCheminRoute(k)
             Canvas(Modifier.fillMaxSize()) { dessinerRoute(cheminRoute, magnetique = monde.decennie == 1980) }
 
-            val anneeEnCoursIci = section.annees.any { it.annee == anneeEnCours && it.statut == StatutAnneeVoyage.EN_COURS }
-            if (anneeEnCoursIci) {
-                Canvas(Modifier.fillMaxSize()) { coneDeLumiere(k, corail) }
+            // L'année en cours de cette section, s'il y en a une (correctif du 28 septembre 2026,
+            // « le voyage se sent progresser ») : sert à la fois au cône de lumière (sa case
+            // exacte, `rang`, par `centreCase`) et à la marquise (`enCours`, lot 1, « chaque
+            // marquise se dit décennie en cours ») — un seul calcul, jamais deux qui pourraient
+            // diverger.
+            val anneeEnCoursDeLaSection = section.annees.firstOrNull { it.annee == anneeEnCours && it.statut == StatutAnneeVoyage.EN_COURS }
+            if (anneeEnCoursDeLaSection != null) {
+                // La respiration douce du cône (lot 1 du brief du 28 septembre 2026) : un aller-
+                // retour d'alpha lent, coupé (fixe à pleine intensité) si les animations sont
+                // réduites — jumelle de la lampe corail de `AmbianceDAujourdhui` (`AmbianceDeMonde.kt`).
+                val respirationCone = if (reduit) {
+                    1f
+                } else {
+                    val transitionCone = rememberInfiniteTransition(label = "cone-respiration")
+                    val valeur by transitionCone.animateFloat(
+                        initialValue = 0.6f,
+                        targetValue = 1f,
+                        animationSpec = infiniteRepeatable(tween(2_200, easing = LinearEasing), repeatMode = androidx.compose.animation.core.RepeatMode.Reverse),
+                        label = "respiration",
+                    )
+                    valeur
+                }
+                val centre = centreCase(anneeEnCoursDeLaSection.rang, k)
+                Canvas(Modifier.fillMaxSize()) { coneDeLumiere(k, corail, centre.x, centre.y, respirationCone) }
             }
 
             section.annees.forEach { annee ->
@@ -214,6 +235,10 @@ fun SectionMonde(
                 // Le compte d'ampoules allumées (§E) : une par année récompensée de la section,
                 // neuf au plus — la décennie bouclée en allume neuf sur neuf d'un coup.
                 recompensesCount = section.annees.count { it.recompense != null },
+                // Lot 1 du brief du 28 septembre 2026, « chaque marquise se dit décennie en
+                // cours » : seule la vraie décennie en cours (celle qui porte l'année en cours)
+                // se le dit — les autres, ni bouclées ni en cours, sont « à venir ».
+                enCours = anneeEnCoursDeLaSection != null,
                 onClick = { onOpenDecennie(section.rayon) },
                 modifier = Modifier.offset(x = 150.dp * k, y = 560.dp),
             )
@@ -268,11 +293,12 @@ private fun PavillonAnnee(
     onOpenAnnee: (AnneeFrise) -> Unit,
 ) {
     val format = monde.format
-    val place = emplacement(annee.rang)
     // Le centre de la case de référence 56 × 44 : un format plus petit ou plus grand s'y centre
-    // (§C) plutôt que de partir du même coin.
-    val centreX = (place.x + CASE_REFERENCE_LARGEUR / 2f).dp * k
-    val centreY = place.y.dp + (CASE_REFERENCE_HAUTEUR / 2f).dp
+    // (§C) plutôt que de partir du même coin — `centreCase` (`VoyageCarte.kt`), jumeau exact du
+    // point que vise le cône de lumière de l'année en cours (`coneDeLumiere`).
+    val centre = centreCase(annee.rang, k)
+    val centreX = centre.x.dp
+    val centreY = centre.y.dp
 
     val etat = when (annee.statut) {
         StatutAnneeVoyage.OUVERTE -> EtatPhotogramme.Ouverte(annee.affiche, annee.profondeur, annee.recompense)
@@ -290,7 +316,7 @@ private fun PavillonAnnee(
             .clickable { onOpenAnnee(annee.groupe) },
     )
 
-    Millesime(annee.annee, positionMillesime(annee.rang), place, k, enCours = annee.statut == StatutAnneeVoyage.EN_COURS)
+    Millesime(annee.annee, positionMillesime(annee.rang), emplacement(annee.rang), k, enCours = annee.statut == StatutAnneeVoyage.EN_COURS)
 
     if (annee.statut == StatutAnneeVoyage.EN_COURS) {
         ClapAvatar(

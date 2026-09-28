@@ -69,14 +69,22 @@ fun DrawScope.dessinerRoute(chemin: Path, magnetique: Boolean) {
 
 /**
  * Le cône de lumière de l'année en cours (§B) : un triangle en dégradé linéaire, une flaque en
- * dégradé radial — posé entre la route et les photogrammes, sans animation en livraison 1 (aucune
- * ambiance avant la livraison 3 du delta).
+ * dégradé radial — posé entre la route et les photogrammes.
+ *
+ * Ancré sur `centreX`/`centreY` (correctif du 28 septembre 2026, « le voyage se sent
+ * progresser » : le cône était dessiné à des coordonnées fixes, qui n'éclairaient jamais la case
+ * de l'année en cours mais une boucle vide de la route). `centreCase(rang, k)` (`VoyageCarte.kt`)
+ * donne ce point, le même que celui qui centre le photogramme lui-même (`PavillonAnnee`,
+ * `SectionMonde.kt`) — la forme du cône (sa pointe, sa base, sa flaque) garde exactement les
+ * mêmes proportions qu'avant, translatée depuis l'ancienne flaque fixe (290, 444) vers ce point.
+ * `respiration` (0 à 1) module l'alpha de l'ensemble — la respiration douce demandée par le brief,
+ * posée par l'appelant (`SectionMonde.kt`) et coupée à 1 fixe si les animations sont réduites.
  */
-fun DrawScope.coneDeLumiere(k: Float, corail: Color) {
+fun DrawScope.coneDeLumiere(k: Float, corail: Color, centreX: Float, centreY: Float, respiration: Float = 1f) {
     scale(density, density, pivot = Offset.Zero) {
-        val sommet = Offset(382f * k, 326f)
-        val basGauche = Offset(240f * k, 448f)
-        val basDroit = Offset(344f * k, 448f)
+        val sommet = Offset(centreX + 92f * k, centreY - 118f)
+        val basGauche = Offset(centreX - 50f * k, centreY + 4f)
+        val basDroit = Offset(centreX + 54f * k, centreY + 4f)
         val chemin = androidx.compose.ui.graphics.Path().apply {
             moveTo(sommet.x, sommet.y)
             lineTo(basGauche.x, basGauche.y)
@@ -90,8 +98,9 @@ fun DrawScope.coneDeLumiere(k: Float, corail: Color) {
                 start = sommet,
                 end = basGauche,
             ),
+            alpha = respiration,
         )
-        val centreFlaque = Offset(290f * k, 444f)
+        val centreFlaque = Offset(centreX, centreY)
         val rx = 56f * k
         val ry = 14f
         drawOval(
@@ -102,6 +111,7 @@ fun DrawScope.coneDeLumiere(k: Float, corail: Color) {
             ),
             topLeft = Offset(centreFlaque.x - rx, centreFlaque.y - ry),
             size = androidx.compose.ui.geometry.Size(rx * 2f, ry * 2f),
+            alpha = respiration,
         )
     }
 }

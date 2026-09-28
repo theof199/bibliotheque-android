@@ -35,6 +35,36 @@ import fr.mediatheque.journal.ui.theme.Limelight
 private val CouleurNeon = Color(0xFFFF4FD8)
 
 /**
+ * Ce que dit une marquise (lot 1 du brief du 28 septembre 2026, « le voyage se sent progresser » :
+ * « chaque marquise se dit décennie en cours ») — bouclée (son titre de voyageur), la vraie
+ * décennie en cours (« décennie en cours »), ou toute autre (« à venir »). Avant ce correctif,
+ * `Marquise` disait « décennie en cours » dès qu'elle n'était pas bouclée, y compris pour une
+ * décennie entièrement dans le futur (2020 alors que l'année en cours est encore 1898) : chaque
+ * marquise de la carte se prétendait « en cours », sauf celle qui l'était vraiment une fois
+ * bouclée. Fonction pure, testée en JVM.
+ */
+fun libelleMarquise(bouclee: Boolean, enCours: Boolean, titreVoyageur: String): String = when {
+    bouclee -> titreVoyageur
+    enCours -> "décennie en cours"
+    else -> "à venir"
+}
+
+/**
+ * Le sous-titre affiché de la marquise, jumeau de `libelleMarquise` ci-dessus pour la vitrine
+ * elle-même plutôt que pour son accessibilité : le slogan de la décennie (`Mondes.kt`) prime
+ * quand il existe — une simple tagline, jamais une prétention à être « en cours » — sauf pour
+ * 1890, qui n'en porte aucun (`monde.slogan` nul) et dont le repli disait jusqu'ici « en cours de
+ * tournage » même après que l'année en cours l'a quittée sans la boucler. Fonction pure, testée
+ * en JVM.
+ */
+fun sousTitreMarquise(bouclee: Boolean, enCours: Boolean, titreVoyageur: String, slogan: String?): String = when {
+    bouclee -> titreVoyageur
+    slogan != null -> slogan
+    enCours -> "en cours de tournage"
+    else -> "à tourner"
+}
+
+/**
  * La marquise d'un monde (delta de Léon du 25 septembre 2026, « pavillon par pavillon », §E) :
  * 210 dp de large, posée au pied de la route, alignée à droite. Retouche de l'ancienne marquise
  * (pleine largeur) plutôt que sa réécriture complète — les neuf ampoules et l'allumage en 1,5 s à
@@ -46,9 +76,13 @@ private val CouleurNeon = Color(0xFFFF4FD8)
  * moment). 1890 (peinte, sans ampoules, « en cours de tournage » en italique), 1920 (penchée −2°),
  * 1980 (néon rose : bord, titre, ampoules, halo) et 2020 (neuf ampoules toujours allumées) posent
  * leurs variantes de §E.
+ *
+ * `enCours` (correctif du 28 septembre 2026, « chaque marquise se dit décennie en cours ») : vrai
+ * seulement pour la section qui porte l'année en cours du Voyage (`SectionMonde.kt`) — sert à
+ * `libelleMarquise`/`sousTitreMarquise` pour qu'aucune autre décennie ne se prétende « en cours ».
  */
 @Composable
-fun Marquise(monde: Monde, bouclee: Boolean, anime: Boolean, recompensesCount: Int, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun Marquise(monde: Monde, bouclee: Boolean, anime: Boolean, recompensesCount: Int, enCours: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val decennie = monde.decennie
     // La cible d'allumage (retouche du 28 septembre 2026) : neuf sur neuf pour une décennie
     // bouclée ou pour 2020 (toujours allumée, §E) ; sinon une ampoule par année récompensée de la
@@ -86,7 +120,7 @@ fun Marquise(monde: Monde, bouclee: Boolean, anime: Boolean, recompensesCount: I
             .border(1.dp, bordCouleur, MaterialTheme.shapes.small)
             .clickable(onClick = onClick)
             .padding(vertical = 12.dp, horizontal = 10.dp)
-            .semantics { contentDescription = "Années ${monde.decennie}, ${if (bouclee) monde.titreVoyageur else "décennie en cours"}" },
+            .semantics { contentDescription = "Années ${monde.decennie}, ${libelleMarquise(bouclee, enCours, monde.titreVoyageur)}" },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
@@ -109,7 +143,7 @@ fun Marquise(monde: Monde, bouclee: Boolean, anime: Boolean, recompensesCount: I
             textAlign = TextAlign.Center,
         )
         Text(
-            (if (bouclee) monde.titreVoyageur else monde.slogan ?: "en cours de tournage").uppercase(),
+            sousTitreMarquise(bouclee, enCours, monde.titreVoyageur, monde.slogan).uppercase(),
             style = MaterialTheme.typography.labelSmall.copy(
                 letterSpacing = 1.6.sp,
                 fontStyle = if (decennie == 1890) FontStyle.Italic else FontStyle.Normal,
