@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -61,9 +62,10 @@ import fr.mediatheque.journal.ui.theme.Limelight
  * l'instant — 1960 → 2020 (livraison 4) et 1890 → 1920 en 16 i/s (livraison 5) n'auront qu'à
  * ajouter leur propre branche à `TitreCarton` et `entreeDeCarton` ci-dessous.
  *
- * Livraison 4, premier commit (28 septembre 2026, §G suite) : 1960, 1970 et 1980 gagnent leur
- * entrée — `modifierEntreeTitre` porte les transformations du titre lui-même (saut, zoom,
- * grésillement), toutes fluides (24 i/s) comme 1930-1950. 1990 → 2020 suivent au commit suivant.
+ * Livraison 4 (28 septembre 2026, §G suite) : les sept mondes 1960 → 2020 gagnent leur entrée —
+ * `modifierEntreeTitre` porte les transformations du titre lui-même (saut, zoom, grésillement,
+ * claque, décodage, fondu) pendant qu'`entreeDeCarton` garde le dessin par-dessus (éclat de 1990,
+ * spinner de 2010). Toutes fluides (24 i/s), comme 1930-1950.
  */
 @Composable
 fun CartonTitre(monde: Monde, entree: EtatEntree, modifier: Modifier = Modifier) {
@@ -192,12 +194,41 @@ private fun modifierEntreeTitre(decennie: Int, progression: Float): Modifier = w
     }
     // 1980 : le néon grésille — huit valeurs tenues (§G, `steps(1)`).
     1980 -> Modifier.alpha(ALPHAS_NEON_1980[(progression * ALPHAS_NEON_1980.size).toInt().coerceIn(0, ALPHAS_NEON_1980.size - 1)])
+    // 1990 : la claque — même principe que 1970, courbe et amplitude différentes.
+    1990 -> {
+        val avance = EasingClaque1990.transform(progression)
+        Modifier.graphicsLayer {
+            scaleX = 1.7f - 0.7f * avance
+            scaleY = scaleX
+            alpha = avance
+        }
+    }
+    // 2000 : le titre se décode — flou et alpha en six paliers tenus (§G, `steps(1)`).
+    2000 -> {
+        val niveau = (progression * 6).toInt().coerceIn(0, 5) / 5f
+        Modifier.blur(((1f - niveau) * 6f).dp).alpha(0.3f + 0.7f * niveau)
+    }
+    // 2010 : le titre n'apparaît qu'après le spinner (`spinnerCarton`, `entreeDeCarton` plus bas) —
+    // les fractions supposent `dureeEntree(2010)` à 2,8 s (`SectionMonde.kt`).
+    2010 -> Modifier.alpha(alphaTitreStreaming2010(progression))
+    // 2020 : le titre s'allume, ease-out simple (§G).
+    2020 -> Modifier.alpha(1f - (1f - progression) * (1f - progression))
     else -> Modifier
 }
 
 private val POSITIONS_SAUT_1960 = listOf(Offset(-30f, 0f), Offset(18f, -4f), Offset(-6f, 2f), Offset(0f, 0f))
 private val EasingZoomLent1970 = CubicBezierEasing(0.2f, 0.6f, 0.2f, 1f)
 private val ALPHAS_NEON_1980 = floatArrayOf(0f, 1f, 0.2f, 1f, 0.4f, 1f, 0.7f, 1f)
+private val EasingClaque1990 = CubicBezierEasing(0.1f, 0.9f, 0.2f, 1f)
+
+/** Fraction de l'entrée de 2010 à laquelle le spinner a fini ses trois tours (§G) : 2,4 s / 2,8 s. */
+private const val FRACTION_SPINNER_FIN_2010 = 2_400f / 2_800f
+
+private fun alphaTitreStreaming2010(progression: Float): Float {
+    if (progression <= FRACTION_SPINNER_FIN_2010) return 0f
+    val t = ((progression - FRACTION_SPINNER_FIN_2010) / (1f - FRACTION_SPINNER_FIN_2010)).coerceIn(0f, 1f)
+    return 1f - (1f - t) * (1f - t)
+}
 
 /**
  * 1930 (§G) : chaque lettre passe de `#4A4335` (éteinte) à l'accent du monde, décalée d'une lettre
@@ -249,6 +280,8 @@ private fun DrawScope.entreeDeCarton(decennie: Int, progression: Float, accent: 
     when (decennie) {
         1930 -> ondeSonoreCarton(progression, accent)
         1940 -> storeVenitienCarton(progression)
+        1990 -> eclatBlancCarton(progression)
+        2010 -> spinnerCarton(progression, accent)
     }
 }
 
@@ -292,6 +325,49 @@ private fun DrawScope.storeVenitienCarton(progression: Float) {
             drawRect(Color.Black.copy(alpha = 0.85f), topLeft = Offset(decalageX, y), size = Size(90.dp.toPx(), 9.dp.toPx()))
             y += pas
         }
+    }
+}
+
+/**
+ * 1990 (§G) : « éclat blanc plein carton » à 55-64 % de l'entrée — un aplat couvrant tout le
+ * carton, tenu (`steps`) plutôt qu'un fondu, en même temps que la claque du titre s'achève.
+ */
+private fun DrawScope.eclatBlancCarton(progression: Float) {
+    if (progression in 0.55f..0.64f) {
+        drawRect(Color.White.copy(alpha = 0.9f))
+    }
+}
+
+/** Fraction de l'entrée de 2010 à laquelle le spinner a fini de disparaître (§G) : 2,6 s / 2,8 s. */
+private const val FRACTION_DISPARITION_FIN_2010 = 2_600f / 2_800f
+
+/**
+ * 2010 (§G) : le spinner de chargement — anneau à 25 % d'alpha et quart plein — tourne trois fois
+ * en haut du carton en 2,4 s (`FRACTION_SPINNER_FIN_2010`) puis s'efface en 0,2 s de plus ; le
+ * titre ne reprend qu'ensuite (`alphaTitreStreaming2010`).
+ */
+private fun DrawScope.spinnerCarton(progression: Float, accent: Color) {
+    val alphaSpinner = when {
+        progression < FRACTION_SPINNER_FIN_2010 -> 1f
+        progression < FRACTION_DISPARITION_FIN_2010 ->
+            1f - (progression - FRACTION_SPINNER_FIN_2010) / (FRACTION_DISPARITION_FIN_2010 - FRACTION_SPINNER_FIN_2010)
+        else -> 0f
+    }
+    if (alphaSpinner <= 0f) return
+    val rotation = (progression / FRACTION_SPINNER_FIN_2010) * 1_080f
+    val centre = Offset(size.width / 2f, 14.dp.toPx())
+    val rayon = 12.dp.toPx()
+    rotate(rotation, pivot = centre) {
+        drawCircle(accent.copy(alpha = 0.25f * alphaSpinner), radius = rayon, center = centre, style = Stroke(width = 2.dp.toPx()))
+        drawArc(
+            color = accent.copy(alpha = alphaSpinner),
+            startAngle = -90f,
+            sweepAngle = 90f,
+            useCenter = false,
+            topLeft = centre - Offset(rayon, rayon),
+            size = Size(rayon * 2, rayon * 2),
+            style = Stroke(width = 2.dp.toPx()),
+        )
     }
 }
 

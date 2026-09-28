@@ -166,10 +166,13 @@ fun SectionMonde(
  * La durée de l'entrée d'un carton, par monde (§G, livraisons 3 et 4) : reprend la durée totale
  * donnée par chaque description — l'onde sonore de 1930 (0,9 s), le store qui balaie 1940 (1,1 s),
  * les trois plaques qui se recalent en 1950 (1 s), les trois sauts de 1960 (1,2 s), le zoom lent de
- * 1970 (2,4 s), le grésillement néon de 1980 (1,6 s). 900 ms par défaut pour les mondes sans entrée
- * dessinée encore (1890 → 1920, 1990 → 2020) : la valeur ne se voit pas tant que `CartonTitre` ne
- * dessine rien de plus pour `EnCours` — seule la date à laquelle le magasin se marque en dépend un
- * peu.
+ * 1970 (2,4 s), le grésillement néon de 1980 (1,6 s), la claque de 1990 (0,7 s — l'éclat blanc à
+ * 55-64 % de l'entrée s'y cale tel quel), le décodage de 2000 (1,1 s), le spinner puis le titre de
+ * 2010 (2,4 s de rotation + 0,2 s de disparition + 0,4 s de fondu du titre, superposés en fin de
+ * course = 2,8 s de bout en bout) et l'allumage de 2020 (1,2 s). 900 ms par défaut pour les mondes
+ * sans entrée dessinée encore (1890 → 1920, livraison 5) : la valeur ne se voit pas tant que
+ * `CartonTitre` ne dessine rien de plus pour `EnCours` — seule la date à laquelle le magasin se
+ * marque en dépend un peu.
  */
 private fun dureeEntree(decennie: Int): Int = when (decennie) {
     1930 -> 900
@@ -178,6 +181,10 @@ private fun dureeEntree(decennie: Int): Int = when (decennie) {
     1960 -> 1_200
     1970 -> 2_400
     1980 -> 1_600
+    1990 -> 700
+    2000 -> 1_100
+    2010 -> 2_800
+    2020 -> 1_200
     else -> 900
 }
 

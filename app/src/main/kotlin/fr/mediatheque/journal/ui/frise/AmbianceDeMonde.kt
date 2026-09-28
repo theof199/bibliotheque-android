@@ -4,17 +4,20 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -48,10 +51,9 @@ import fr.mediatheque.journal.ui.theme.Fraunces
  * 1890 → 1920 (livraison 5) n'auront qu'à ajouter leur propre branche ici, `k` et `active` déjà en
  * place — rien d'autre à reprendre dans `SectionMonde.kt`.
  *
- * Livraison 4, premier commit (28 septembre 2026, §G suite) : 1960, 1970 et 1980 gagnent leur
- * ambiance. Certaines dessinent aussi un texte (« Fin », « PLAY ») — `Box` plutôt que le `Canvas`
- * seul de 1930-1950, ces mondes-là ayant du texte à afficher en plus des tracés. 1990 → 2020
- * suivent au commit suivant.
+ * Livraison 4 (28 septembre 2026, §G suite) : 1960 → 2020 gagnent leur ambiance. Certaines
+ * dessinent aussi un texte (« Fin », « PLAY », l'enseigne de salle, le menu DVD) — `Box` plutôt
+ * que le `Canvas` seul de 1930-1950, ces mondes-là ayant du texte à afficher en plus des tracés.
  */
 @Composable
 fun AmbianceDeMonde(monde: Monde, active: Boolean, k: Float, modifier: Modifier = Modifier) {
@@ -62,6 +64,10 @@ fun AmbianceDeMonde(monde: Monde, active: Boolean, k: Float, modifier: Modifier 
         1960 -> AmbianceDesNouvellesVagues(active, k, monde.accent, modifier)
         1970 -> AmbianceDuNouvelHollywood(active, k, monde.accent, modifier)
         1980 -> AmbianceDuNeon(active, k, monde.accent, modifier)
+        1990 -> AmbianceDuBlockbuster(active, k, modifier)
+        2000 -> AmbianceDuNumerique(active, k, monde.accent, modifier)
+        2010 -> AmbianceDuStreaming(active, k, monde.accent, modifier)
+        2020 -> AmbianceDAujourdhui(active, k, modifier)
     }
 }
 
@@ -269,6 +275,162 @@ private fun AmbianceDuNeon(active: Boolean, k: Float, accent: Color, modifier: M
             fontSize = 13.sp,
             color = accent.copy(alpha = if (clignote < 0.5f) 1f else 0f),
             modifier = Modifier.align(Alignment.TopEnd).offset(x = -24.dp * k, y = 262.dp),
+        )
+    }
+}
+
+/**
+ * 1990, « le blockbuster » (§G) : le balayage de lumière est posé « sur le carton » par le delta —
+ * hors de portée d'`AmbianceDeMonde`, qui ne dessine jamais sur le carton (celui-ci joue sa propre
+ * entrée, `CartonTitre.kt`, §D). Approximé sur l'image (250-550 dp, §H) à la place ; le dégradé à
+ * 100° est approximé par une rotation de 10°, proche de l'horizontale demandée. Déviation à
+ * signaler.
+ */
+@Composable
+private fun AmbianceDuBlockbuster(active: Boolean, k: Float, modifier: Modifier) {
+    if (!active) return
+    val transition = rememberInfiniteTransition(label = "ambiance-1990")
+    val avanceBalayage by transition.animateFloat(
+        initialValue = -1f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            keyframes {
+                durationMillis = 6_000
+                -1f at 0
+                1f at 3_600 using LinearEasing
+                1f at 6_000
+            },
+        ),
+        label = "balayage",
+    )
+    Box(modifier) {
+        Canvas(Modifier.fillMaxSize()) {
+            val largeur = 80.dp.toPx() * k
+            val x = 195.dp.toPx() * k + avanceBalayage * (size.width / 2f + largeur)
+            rotate(10f, pivot = Offset(x, 400.dp.toPx())) {
+                drawRect(
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(Color.Transparent, Color.White.copy(alpha = 0.35f), Color.Transparent),
+                    ),
+                    topLeft = Offset(x - largeur / 2f, 250.dp.toPx()),
+                    size = Size(largeur, 300.dp.toPx()),
+                )
+            }
+        }
+        Text(
+            "SALLE 7 · 20H30 · THX",
+            fontFamily = FontFamily.Monospace,
+            fontSize = 12.sp,
+            letterSpacing = 3.6.sp,
+            color = Color.White.copy(alpha = 0.35f),
+            modifier = Modifier.align(Alignment.TopCenter).offset(y = 480.dp),
+        )
+    }
+}
+
+/**
+ * 2000, « le numérique » (§G) : le menu DVD clignote (alpha .6/.25 toutes les 1,5 s), la barre de
+ * chargement glisse en boucle sous la marquise.
+ */
+@Composable
+private fun AmbianceDuNumerique(active: Boolean, k: Float, accent: Color, modifier: Modifier) {
+    if (!active) return
+    val transition = rememberInfiniteTransition(label = "ambiance-2000")
+    val clignoteMenu by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1_500, easing = LinearEasing)),
+        label = "menu",
+    )
+    val avanceBarre by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(4_000, easing = LinearEasing)),
+        label = "barre",
+    )
+    Box(modifier) {
+        Canvas(Modifier.fillMaxSize()) {
+            val largeurPiste = 210.dp.toPx() * k
+            val hauteurPiste = 3.dp.toPx()
+            val left = 24.dp.toPx() * k
+            val top = 536.dp.toPx()
+            drawRect(Color(0xFF1E293B), topLeft = Offset(left, top), size = Size(largeurPiste, hauteurPiste))
+            val largeurSegment = largeurPiste * 0.4f
+            val xRelative = (-0.4f + avanceBarre * 1.4f) * largeurPiste
+            drawRect(accent, topLeft = Offset(left + xRelative, top), size = Size(largeurSegment, hauteurPiste))
+        }
+        Text(
+            "▸ LIRE LE FILM   SCÈNES BONUS",
+            fontFamily = FontFamily.Monospace,
+            fontSize = 10.sp,
+            letterSpacing = 2.sp,
+            color = accent.copy(alpha = if (clignoteMenu < 0.5f) 0.6f else 0.25f),
+            modifier = Modifier.offset(x = 24.dp * k, y = 500.dp),
+        )
+    }
+}
+
+/**
+ * 2010, « le streaming » (§G) : la rangée de vignettes défile de droite à gauche, contenu doublé
+ * (une seconde rangée décalée d'une largeur totale, 450 dp) pour boucler sans coupure.
+ */
+@Composable
+private fun AmbianceDuStreaming(active: Boolean, k: Float, accent: Color, modifier: Modifier) {
+    if (!active) return
+    val transition = rememberInfiniteTransition(label = "ambiance-2010")
+    val defilement by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = -450f,
+        animationSpec = infiniteRepeatable(tween(28_000, easing = LinearEasing)),
+        label = "vignettes",
+    )
+    Canvas(modifier) {
+        val largeur = 64.dp.toPx() * k
+        val hauteur = 36.dp.toPx()
+        val gap = 8.dp.toPx() * k
+        val pas = largeur + gap
+        val top = 500.dp.toPx()
+        val dx = defilement.dp.toPx() * k
+        listOf(0f, 450.dp.toPx() * k).forEach { decalageRangee ->
+            var x = dx + decalageRangee
+            while (x < size.width) {
+                if (x + largeur > 0f) {
+                    drawRoundRect(
+                        accent.copy(alpha = 0.45f),
+                        topLeft = Offset(x, top),
+                        size = Size(largeur, hauteur),
+                        cornerRadius = CornerRadius(4.dp.toPx()),
+                    )
+                }
+                x += pas
+            }
+        }
+    }
+}
+
+/**
+ * 2020, « aujourd'hui » (§G) : la lampe corail respire — un dégradé radial dont l'alpha va et vient,
+ * centré sur la flaque de lumière de la route (290, 444).
+ */
+@Composable
+private fun AmbianceDAujourdhui(active: Boolean, k: Float, modifier: Modifier) {
+    if (!active) return
+    val corail = MaterialTheme.colorScheme.primary
+    val transition = rememberInfiniteTransition(label = "ambiance-2020")
+    val respiration by transition.animateFloat(
+        initialValue = 0.5f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(4_000, easing = LinearEasing), repeatMode = RepeatMode.Reverse),
+        label = "lampe",
+    )
+    Canvas(modifier) {
+        val centre = Offset(290.dp.toPx() * k, 444.dp.toPx())
+        val rayon = 140.dp.toPx() * k
+        drawCircle(
+            brush = Brush.radialGradient(colors = listOf(corail.copy(alpha = 0.18f), Color.Transparent), center = centre, radius = rayon),
+            radius = rayon,
+            center = centre,
+            alpha = respiration,
         )
     }
 }
