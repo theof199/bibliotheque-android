@@ -696,6 +696,15 @@ transition entre écrans. Un nouveau changement en pleine glissade repart de la 
 ci-dessus). Avant, la pilule de Material s'allumait sous l'onglet ouvert, sur place, sans
 trajet d'un onglet à l'autre.
 
+**Depuis le 28 septembre 2026** (correctif « la barre du bas reste fixe », retour du propriétaire :
+« la barre en bas bouge en même temps que l'écran, ça fait un effet bizarre »), **la barre
+elle-même est une seule instance, posée par `Root.kt` au-dessus de l'`AnimatedContent`** au lieu
+d'être recomposée à chaque écran : elle ne fond plus et ne glisse plus avec le contenu à un
+changement d'onglet, seule la lampe continue de glisser (ci-dessus) ; entre un écran qui la porte
+et un écran qui ne la porte pas (`bottomBarTab`), elle glisse verticalement plutôt que d'apparaître
+ou disparaître net (`EspaceBarreDuBas` réserve sa place dans le `Scaffold` de chaque écran, qui ne
+la dessine plus lui-même).
+
 ### La fiche · trois visages (25 septembre 2026)
 
 Aucun geste neuf. **Le vol de l'affiche trouve sa cible dans `AfficheHero`** sur les trois

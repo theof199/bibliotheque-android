@@ -10,9 +10,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import fr.mediatheque.journal.ui.AfficheVolante
+import fr.mediatheque.journal.ui.EspaceBarreDuBas
 import fr.mediatheque.journal.ui.PorteeEcrans
 import fr.mediatheque.journal.ui.Screen
-import fr.mediatheque.journal.ui.barreDuBas
 import fr.mediatheque.journal.ui.form.CartonViewModel
 
 /** `Screen.Frise` : la carte du Voyage, année par année depuis 1895. */
@@ -39,7 +39,9 @@ fun PorteeEcrans.routeFrise() {
         },
         onOpenDecennie = { nav.push(Screen.Decennie(it)) },
         onOpenGenerique = { nav.push(Screen.Generique(it)) },
-        bottomBar = { barreDuBas(Screen.Frise) },
+        // La barre est unique, posée par `Root.kt` (correctif du 28 septembre 2026) : ce
+        // `Scaffold` ne réserve plus que sa place.
+        bottomBar = { EspaceBarreDuBas() },
     )
 }
 

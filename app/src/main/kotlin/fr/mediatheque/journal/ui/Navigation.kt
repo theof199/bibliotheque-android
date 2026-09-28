@@ -210,6 +210,16 @@ fun Screen.bottomBarTab(): BottomTab? = when (this) {
 }
 
 /**
+ * L'écran dont la barre du bas garde l'enseigne allumée et le libellé sélectionné (correctif du
+ * 28 septembre 2026, « la barre du bas reste fixe ») : le nouvel écran s'il porte la barre, sinon
+ * celui qu'on affichait déjà — jamais un écran sans barre, sans quoi la barre unique de `Root.kt`
+ * perdrait son enseigne en or au moment même où elle commence à glisser hors de l'écran
+ * (`JournalBottomBar`, ci-dessous). Fonction pure, testée en JVM (`NavigationTest.kt`).
+ */
+fun dernierEcranAvecBarre(precedent: Screen, courant: Screen): Screen =
+    if (courant.bottomBarTab() != null) courant else precedent
+
+/**
  * La barre du bas · les cinq enseignes (25 septembre 2026) : cinq objets du même cinéma — un
  * pavillon pour l'accueil, une route pour le Voyage, un fauteuil de metteur en scène pour Suivis,
  * le ticket d'« Au ciné », un fauteuil de spectateur pour le profil — sur un fond
@@ -218,9 +228,9 @@ fun Screen.bottomBarTab(): BottomTab? = when (this) {
  * restent en `onSurfaceVariant`, 500. Pas de pilule : une lampe (`Lampe`) posée sur le rail
  * au-dessus de l'enseigne ouverte, qui glisse vers la nouvelle au changement d'onglet et saute
  * quand le téléphone a coupé les animations (`animationsReduites`, `Mouvement.kt`). Sa position,
- * `lampe`, vient d'au-dessus (`PorteeEcrans.lampeBarre`, hoistée dans `Root.kt`) : c'est la
- * colonne de l'enseigne allumée, en `Float` (0 pour l'accueil … 4 pour le profil, le rang de
- * `BottomTab`), et c'est cette barre-ci qui l'anime vers son onglet.
+ * `lampe`, vient d'au-dessus (un `Animatable` hoisté dans `Root.kt`) : c'est la colonne de
+ * l'enseigne allumée, en `Float` (0 pour l'accueil … 4 pour le profil, le rang de `BottomTab`), et
+ * c'est cette barre-ci qui l'anime vers son onglet.
  *
  * Une rangée maison plutôt que les `NavigationBarItem` de Material : leur pilule ne se retire pas
  * proprement, et la lampe a besoin de la position de chaque enseigne — cinq colonnes égales, la
@@ -228,10 +238,21 @@ fun Screen.bottomBarTab(): BottomTab? = when (this) {
  *
  * Visible sur l'accueil, le Voyage, Suivis, « Au ciné », « Mes films » et le profil, cachée partout
  * ailleurs (`bottomBarTab`). Toucher l'écran où l'on est déjà ne fait rien ; depuis « Mes films »,
- * « Profil » est surlignée mais reste touchable et ramène au profil (`FilmsRoute.kt` lui passe un
- * `pop`). Hauteur 64 dp, libellés toujours visibles.
+ * « Profil » est surlignée mais reste touchable et ramène au profil. Hauteur 64 dp, libellés
+ * toujours visibles.
+ *
+ * **Une seule instance, posée par `Root.kt` au-dessus de l'`AnimatedContent`** (correctif du
+ * 28 septembre 2026, « la barre du bas reste fixe ») : `current` y vaut `dernierEcranAvecBarre`
+ * (ci-dessus), le dernier écran à avoir porté la barre, pas `nav.current` en direct — sans quoi la
+ * barre perdrait son enseigne en or au moment où elle glisse hors d'un écran qui ne la porte pas.
+ * `EspaceBarreDuBas`, plus bas, réserve sa place dans le `Scaffold` de chaque écran, qui ne la
+ * dessine donc plus lui-même.
  *
  * Avant :
+ * - jusqu'au 28 septembre 2026, une instance neuve par écran, composée dans l'`AnimatedContent`
+ *   de `Root.kt` (`PorteeEcrans.barreDuBas`, un site d'appel par écran) : la barre entière fondait
+ *   ou glissait avec le contenu à chaque changement d'onglet, la lampe étant la seule partie
+ *   hoistée hors de la transition (`PorteeEcrans.lampeBarre`) ;
  * - le 14 septembre 2026, trois entrées Material sans libellé sous 56 dp, en remplacement de
  *   l'`IconButton` profil de l'accueil, jugé inaccessible ;
  * - le 15 septembre 2026, « Frise » puis « Réalisateurs », renommée « Suivis » le même jour quand
@@ -252,15 +273,11 @@ fun JournalBottomBar(
     lampe: Animatable<Float, AnimationVector1D>,
 ) {
     val selected = current.bottomBarTab()
-    // La barre du bas · les cinq enseignes (25 septembre 2026) : chaque écran compose sa propre
-    // barre dans l'`AnimatedContent` de `Root.kt`, si bien qu'au changement d'onglet c'est une
-    // barre neuve qui entre ; une valeur animée locale (`animateDpAsState`, le premier jet) y
-    // naissait déjà à sa cible, et la lampe ne glissait jamais. La valeur vit donc au-dessus de
-    // l'`AnimatedContent`, partagée : la barre qui entre l'anime depuis la colonne de celle qui
-    // sort, et les deux la lisent pendant la transition — la lampe glisse sous le fondu. Seule la
-    // barre qui entre relance l'effet : celle qui sort garde son `selected`, sa clé ne change pas.
-    // Un nouvel `animateTo` interrompt celui en cours (changement d'onglet en pleine glissade) et
-    // repart de la position atteinte.
+    // La lampe glisse vers la nouvelle enseigne à chaque changement d'onglet (`selected`) : une
+    // seule instance de cette barre existe désormais (correctif du 28 septembre 2026, ci-dessus),
+    // donc un seul `LaunchedEffect(selected)`, relancé exactement quand `selected` change de
+    // valeur. Un nouvel `animateTo` interrompt celui en cours (changement d'onglet en pleine
+    // glissade) et repart de la position atteinte.
     if (selected != null) {
         LaunchedEffect(selected) {
             val cible = selected.ordinal.toFloat()
@@ -275,9 +292,7 @@ fun JournalBottomBar(
     // 1.4.0 : `NavigationBarTokens.ContainerColor`) : la barre garde son fond, nommé ici en clair
     // maintenant qu'elle ne passe plus par les composants de Material.
     Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
-        BoxWithConstraints(
-            Modifier.fillMaxWidth().windowInsetsPadding(NavigationBarDefaults.windowInsets).height(64.dp),
-        ) {
+        BoxWithConstraints(Modifier.tailleBarreDuBas()) {
             Row(Modifier.fillMaxSize().selectableGroup()) {
                 Enseigne(
                     icone = "building-pavilion",
@@ -328,6 +343,30 @@ fun JournalBottomBar(
             }
         }
     }
+}
+
+/**
+ * Le dimensionnement de `JournalBottomBar` : 64 dp plus l'inset système du bas
+ * (`NavigationBarDefaults.windowInsets`). Partagé avec `EspaceBarreDuBas`, ci-dessous, pour que
+ * la place qu'un `Scaffold` réserve dans son `innerPadding` reste exactement celle que la barre
+ * unique de `Root.kt` occupe réellement à l'écran.
+ */
+@Composable
+private fun Modifier.tailleBarreDuBas(): Modifier =
+    fillMaxWidth().windowInsetsPadding(NavigationBarDefaults.windowInsets).height(64.dp)
+
+/**
+ * Réserve la place de la barre du bas dans le `Scaffold` de chaque écran qui la porte, sans la
+ * dessiner (correctif du 28 septembre 2026, « la barre du bas reste fixe ») : la barre elle-même
+ * est désormais unique, posée une fois par-dessus l'`AnimatedContent` de `Root.kt`, pour ne plus
+ * fondre ni glisser avec le contenu à chaque changement d'onglet — seule sa lampe continue de
+ * glisser vers la nouvelle enseigne. Même dimensionnement que `JournalBottomBar`
+ * (`tailleBarreDuBas`) : l'`innerPadding` que chaque `Scaffold` calcule pour son contenu, et la
+ * position du bouton flottant de l'accueil au-dessus, ne changent donc pas.
+ */
+@Composable
+fun EspaceBarreDuBas() {
+    Box(Modifier.tailleBarreDuBas())
 }
 
 /**

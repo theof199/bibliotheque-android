@@ -2,6 +2,7 @@ package fr.mediatheque.journal.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.Animatable
@@ -9,7 +10,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -203,10 +206,20 @@ fun Root(container: AppContainer) {
             val reactionsFavorites = remember(friseUiPourReactions.annees) {
                 Reactions.reactionsFavorites(friseUiPourReactions.annees.flatMap { it.vus }.flatMap { it.carnet.reactions })
             }
-            // La lampe de la barre du bas (la barre du bas · les cinq enseignes, 25 septembre 2026),
-            // partagée par la barre de l'écran qui sort et celle qui entre (`PorteeEcrans.lampeBarre`) ;
-            // 0 : l'accueil, le fond de la pile.
+            // La lampe de la barre du bas (la barre du bas · les cinq enseignes, 25 septembre 2026) :
+            // sa colonne, en `Float` (0 : l'accueil, le fond de la pile). Hoistée ici comme les
+            // `ViewModel` plus haut pour survivre à la barre unique posée plus bas (correctif du
+            // 28 septembre 2026, « la barre du bas reste fixe ») — cette barre-ci s'anime elle-même
+            // vers la colonne de l'enseigne ouverte (`JournalBottomBar`, `Navigation.kt`).
             val lampeBarre = remember { Animatable(0f) }
+            // La barre du bas reste fixe (correctif du 28 septembre 2026) : une seule instance,
+            // posée plus bas hors de l'`AnimatedContent`. `dernierEcranAvecBarre` garde le dernier
+            // écran à l'avoir portée pendant qu'elle glisse hors d'un écran qui ne l'a pas — sans
+            // quoi elle perdrait son enseigne en or au moment même où elle commence à sortir, jumeau
+            // de `dernierTicket` (`TicketHote.kt`) pour la même raison. Fonction pure testée en JVM
+            // (`dernierEcranAvecBarre`, `Navigation.kt`).
+            var dernierEcranAvecBarre by remember { mutableStateOf(nav.current) }
+            LaunchedEffect(nav.current) { dernierEcranAvecBarre = dernierEcranAvecBarre(dernierEcranAvecBarre, nav.current) }
             // Le défilement survit au retour (peaufinage du 23 septembre 2026) : `stateHolder`,
             // hoisté ici comme `nav` plus haut, garde l'état sauvegardable (`rememberLazyListState`
             // et consorts) de chaque entrée de la pile pendant qu'elle est disposée par
@@ -239,6 +252,11 @@ fun Root(container: AppContainer) {
             // fait l'inverse, `home()` (pile vidée, `SensTransition.Remplace`) garde le fondu seul
             // du réglage précédent. `sensDeTransition` (`Navigation.kt`) est une fonction pure,
             // testée en JVM, qui ne regarde que la taille de la pile avant et après.
+            //
+            // La barre du bas reste fixe (correctif du 28 septembre 2026) : un `Box` explicite,
+            // pas seulement la superposition implicite de `SharedTransitionLayout`, pour aligner la
+            // barre unique posée plus bas en bas de l'écran (`Modifier.align`).
+            Box(Modifier.fillMaxSize()) {
             AnimatedContent(
                 targetState = nav.stack,
                 label = "ecran",
@@ -260,7 +278,7 @@ fun Root(container: AppContainer) {
                 val portee = PorteeEcrans(
                     container, nav, session, s.user, search, senscritique, frise, suivis,
                     realisateurResolveur, letterboxd, reactionsFavorites, anneeAVerifierVerdictState,
-                    lampeBarre, sharedTransitionScope, this,
+                    sharedTransitionScope, this,
                 )
                 val screen = pile.last()
                 stateHolder.SaveableStateProvider(saveableKey(pile.lastIndex, screen)) {
@@ -305,6 +323,33 @@ fun Root(container: AppContainer) {
                     carton = cartonHome,
                     onFermer = { filmEnregistre = null },
                 )
+            }
+            // La barre du bas · les cinq enseignes (25 septembre 2026 ; correctif du 28 septembre
+            // 2026, « la barre du bas reste fixe ») : une seule instance, posée ici hors de
+            // l'`AnimatedContent` ci-dessus — elle ne fond ni ne glisse plus avec le contenu à
+            // chaque changement d'onglet, seule sa lampe continue de glisser vers la nouvelle
+            // enseigne (`lampeBarre`). Entre un écran qui la porte et un écran qui ne la porte pas
+            // (`bottomBarTab`, `Navigation.kt`), elle glisse verticalement plutôt que de sauter.
+            AnimatedVisibility(
+                visible = nav.current.bottomBarTab() != null,
+                modifier = Modifier.align(Alignment.BottomCenter),
+                enter = slideInVertically(tween(150)) { hauteur -> hauteur },
+                exit = slideOutVertically(tween(150)) { hauteur -> hauteur },
+            ) {
+                JournalBottomBar(
+                    current = dernierEcranAvecBarre,
+                    onHome = { nav.home() },
+                    onFrise = { nav.push(Screen.Frise) },
+                    onSuivis = { nav.push(Screen.Suivis) },
+                    onCinema = { nav.push(Screen.Cinema) },
+                    // « Mes films » ne s'empile que depuis le profil (`Screen.Profile`, jamais
+                    // l'accueil) : « Profil » y est surlignée mais ramène au profil par un `pop`,
+                    // pas un `push` — jumeau de ce que `FilmsRoute.kt` passait à `barreDuBas` avant
+                    // le correctif du 28 septembre 2026.
+                    onProfile = { if (nav.current == Screen.Films) nav.pop() else nav.push(Screen.Profile) },
+                    lampe = lampeBarre,
+                )
+            }
             }
             }
         }

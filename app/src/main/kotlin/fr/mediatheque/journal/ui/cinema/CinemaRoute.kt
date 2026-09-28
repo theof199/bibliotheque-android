@@ -6,9 +6,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.lifecycle.viewmodel.compose.viewModel
+import fr.mediatheque.journal.ui.EspaceBarreDuBas
 import fr.mediatheque.journal.ui.PorteeEcrans
 import fr.mediatheque.journal.ui.Screen
-import fr.mediatheque.journal.ui.barreDuBas
 
 /** `Screen.Cinema` : « Au ciné », mes séances et les sorties en salle (brief du 14 septembre 2026). */
 @Composable
@@ -33,6 +33,8 @@ fun PorteeEcrans.routeCinema() {
         // 2026) ; le glissement « Corriger » de la ligne va toujours droit au formulaire.
         onOpenSeance = { nav.push(Screen.FicheEntree(it)) },
         onCorrigerSeance = { nav.push(Screen.Edit(it)) },
-        bottomBar = { barreDuBas(Screen.Cinema) },
+        // La barre est unique, posée par `Root.kt` (correctif du 28 septembre 2026) : ce
+        // `Scaffold` ne réserve plus que sa place.
+        bottomBar = { EspaceBarreDuBas() },
     )
 }

@@ -4,9 +4,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.viewmodel.compose.viewModel
+import fr.mediatheque.journal.ui.EspaceBarreDuBas
 import fr.mediatheque.journal.ui.PorteeEcrans
 import fr.mediatheque.journal.ui.Screen
-import fr.mediatheque.journal.ui.barreDuBas
 import fr.mediatheque.journal.ui.search.SearchScreen
 import fr.mediatheque.journal.ui.search.SearchViewModel
 
@@ -37,7 +37,9 @@ fun PorteeEcrans.routeSuivis() {
                 nav.push(Screen.FicheSuivi(source, tmdbId))
             }
         },
-        bottomBar = { barreDuBas(Screen.Suivis) },
+        // La barre est unique, posée par `Root.kt` (correctif du 28 septembre 2026) : ce
+        // `Scaffold` ne réserve plus que sa place.
+        bottomBar = { EspaceBarreDuBas() },
     )
 }
 

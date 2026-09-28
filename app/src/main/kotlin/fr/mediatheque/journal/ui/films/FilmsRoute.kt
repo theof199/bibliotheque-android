@@ -5,9 +5,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.viewmodel.compose.viewModel
+import fr.mediatheque.journal.ui.EspaceBarreDuBas
 import fr.mediatheque.journal.ui.PorteeEcrans
 import fr.mediatheque.journal.ui.Screen
-import fr.mediatheque.journal.ui.barreDuBas
 import fr.mediatheque.journal.ui.profile.ProfileViewModel
 
 /** `Screen.Films` : « Mes films », la liste du journal, empilée depuis le profil seulement. */
@@ -47,8 +47,10 @@ fun PorteeEcrans.routeFilms() {
         // L'affiche partagée (geste 8) : jumeau de l'accueil, même paire.
         sharedTransitionScope = sharedTransitionScope,
         animatedVisibilityScope = animatedVisibilityScope,
-        // « Profil » est surlignée ici mais ramène au profil par un `pop`, pas
-        // un `push` : cet écran ne s'empile que depuis lui.
-        bottomBar = { barreDuBas(Screen.Films, onProfile = nav::pop) },
+        // La barre est unique, posée par `Root.kt` (correctif du 28 septembre 2026) : ce
+        // `Scaffold` ne réserve plus que sa place. « Profil » y est surlignée mais ramène au
+        // profil par un `pop`, pas un `push` (`Root.kt`, `onProfile`) : cet écran ne s'empile
+        // que depuis lui.
+        bottomBar = { EspaceBarreDuBas() },
     )
 }

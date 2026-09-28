@@ -3,9 +3,6 @@ package fr.mediatheque.journal.ui
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.AnimationVector1D
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -54,13 +51,6 @@ class PorteeEcrans(
      */
     val reactionsFavorites: List<String>,
     anneeAVerifierVerdictState: MutableState<Int?>,
-    /**
-     * La lampe de la barre du bas (la barre du bas · les cinq enseignes, 25 septembre 2026) : la
-     * colonne de l'enseigne allumée, hoistée dans `Root.kt` hors de l'`AnimatedContent` pour que
-     * la barre de l'écran qui sort et celle de l'écran qui entre lisent la même valeur — sans quoi
-     * la barre neuve naîtrait avec sa lampe déjà en place (`JournalBottomBar`, `Navigation.kt`).
-     */
-    val lampeBarre: Animatable<Float, AnimationVector1D>,
     val sharedTransitionScope: SharedTransitionScope,
     val animatedVisibilityScope: AnimatedVisibilityScope,
 ) {
@@ -73,24 +63,4 @@ class PorteeEcrans(
      * et remise à `null` par `routeAnnee`.
      */
     var anneeAVerifierVerdict: Int? by anneeAVerifierVerdictState
-}
-
-/**
- * La barre du bas câblée sur la pile, un seul endroit pour les six écrans qui la portent (accueil,
- * Frise, Suivis, « Au ciné », profil, « Mes films ») plutôt que six copies du même bloc.
- *
- * `onProfile` : « Profil » est surlignée sur « Mes films » mais y ramène au profil par un `pop`,
- * pas un `push` — cet écran ne s'empile que depuis lui (`FilmsRoute.kt` passe `nav::pop`).
- */
-@Composable
-fun PorteeEcrans.barreDuBas(screen: Screen, onProfile: () -> Unit = { nav.push(Screen.Profile) }) {
-    JournalBottomBar(
-        screen,
-        onHome = { nav.home() },
-        onFrise = { nav.push(Screen.Frise) },
-        onSuivis = { nav.push(Screen.Suivis) },
-        onCinema = { nav.push(Screen.Cinema) },
-        onProfile = onProfile,
-        lampe = lampeBarre,
-    )
 }

@@ -6,9 +6,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
+import fr.mediatheque.journal.ui.EspaceBarreDuBas
 import fr.mediatheque.journal.ui.PorteeEcrans
 import fr.mediatheque.journal.ui.Screen
-import fr.mediatheque.journal.ui.barreDuBas
 import fr.mediatheque.journal.ui.films.FilmsViewModel
 import fr.mediatheque.journal.ui.frise.AnneeFrise
 import fr.mediatheque.journal.ui.frise.toSearchResult
@@ -82,6 +82,8 @@ fun PorteeEcrans.routeHome() {
         onOpenEnsuite = { nav.push(Screen.Form(it.toSearchResult())) },
         onOpenEnsuiteRealisateur = { nav.push(Screen.Form(it.formulaire())) },
         onOpenEnsuiteSaga = { nav.push(Screen.Form(it.formulaire())) },
-        bottomBar = { barreDuBas(Screen.Home) },
+        // La barre elle-même est unique, posée par `Root.kt` (correctif du 28 septembre 2026, « la
+        // barre du bas reste fixe ») : ce `Scaffold` ne réserve plus que sa place.
+        bottomBar = { EspaceBarreDuBas() },
     )
 }

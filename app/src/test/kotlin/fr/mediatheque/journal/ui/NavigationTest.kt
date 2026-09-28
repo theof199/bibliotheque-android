@@ -200,4 +200,16 @@ class NavigationTest {
         )
         assertEquals(SensTransition.Remplace, sensDeTransition(listOf(Screen.Home), listOf(Screen.Home)))
     }
+
+    // La barre du bas reste fixe (correctif du 28 septembre 2026) : l'écran que la barre unique de
+    // `Root.kt` continue de montrer sélectionné pendant qu'elle glisse hors de l'écran vers un
+    // écran qui ne la porte pas — jamais un écran sans barre, sans quoi la barre perdrait son
+    // enseigne en or dès l'instant où elle commence à sortir. Mutation : retourner toujours
+    // `courant` fait tomber la seconde assertion (Search n'a pas de barre) ; retourner toujours
+    // `precedent` fait tomber la première (Frise en a une).
+    @Test
+    fun `dernierEcranAvecBarre retient le courant s il porte la barre, sinon garde le precedent`() {
+        assertEquals(Screen.Frise, dernierEcranAvecBarre(Screen.Home, Screen.Frise))
+        assertEquals(Screen.Frise, dernierEcranAvecBarre(Screen.Frise, Screen.Search))
+    }
 }

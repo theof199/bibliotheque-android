@@ -5,9 +5,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
+import fr.mediatheque.journal.ui.EspaceBarreDuBas
 import fr.mediatheque.journal.ui.PorteeEcrans
 import fr.mediatheque.journal.ui.Screen
-import fr.mediatheque.journal.ui.barreDuBas
 import fr.mediatheque.journal.ui.suivis.SourceSuivi
 
 /** `Screen.Profile` : le pseudo, les deux chiffres, et les cartes Bilan, Passeport, Portefeuille, Dépenses. */
@@ -70,7 +70,9 @@ fun PorteeEcrans.routeProfile() {
         // que le calque, puis `frise.refresh()` met la carte à jour — la même
         // mécanique que `onPodiumChange`/`onTicketChange` d'`AnneeScreen`.
         onUtiliserTicket = { annee -> portefeuille.utiliser(annee) { frise.refresh() } },
-        bottomBar = { barreDuBas(Screen.Profile) },
+        // La barre est unique, posée par `Root.kt` (correctif du 28 septembre 2026) : ce
+        // `Scaffold` ne réserve plus que sa place.
+        bottomBar = { EspaceBarreDuBas() },
     )
 }
 
