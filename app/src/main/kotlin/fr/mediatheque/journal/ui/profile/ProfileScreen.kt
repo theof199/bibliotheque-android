@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -56,6 +57,7 @@ import fr.mediatheque.journal.api.dto.JournalItem
 import fr.mediatheque.journal.api.dto.User
 import fr.mediatheque.journal.ui.ErrorBlock
 import fr.mediatheque.journal.ui.EtatVide
+import fr.mediatheque.journal.ui.frise.CREDITS_IMAGES
 import fr.mediatheque.journal.ui.frise.LigneTicketPortefeuille
 import fr.mediatheque.journal.ui.frise.TamponDecennie
 import fr.mediatheque.journal.ui.frise.TamponPasseport
@@ -457,8 +459,9 @@ private fun DepensesCard(mois: List<DepenseMoisUi>?) {
 
 /**
  * « Coulisses » (point 14 de la revue du 24 septembre 2026) : une section repliée par défaut, en
- * bas du profil, qui ne porte que les Dépenses pour l'instant — le seul détail de coût de l'appli,
- * qui n'a pas à s'imposer au même niveau que le reste (Bilan, Passeport, Portefeuille).
+ * bas du profil, qui porte les Dépenses — le seul détail de coût de l'appli, qui n'a pas à
+ * s'imposer au même niveau que le reste (Bilan, Passeport, Portefeuille) — et, depuis la
+ * livraison 2 du Voyage (§I du delta de Léon, 28 septembre 2026), les crédits des images de fond.
  * `chevron-right` tourné à 90° une fois dépliée : aucune icône « chevron-down » dans le catalogue
  * Tabler de l'appli (`icones/tabler.txt`), la rotation évite d'en ajouter une pour ce seul geste.
  */
@@ -481,8 +484,48 @@ private fun CoulissesSection(mois: List<DepenseMoisUi>?) {
         if (depliee) {
             Column(Modifier.padding(top = 8.dp)) {
                 DepensesCard(mois)
+                CreditsImagesEntree()
             }
         }
+    }
+}
+
+/**
+ * « Crédits » sous les Dépenses (§I du delta de Léon, livraison 2, 28 septembre 2026) : une
+ * ligne qui ouvre la liste des images de fond du Voyage, la même donnée que `LICENCES-IMAGES.md`
+ * à la racine (`CREDITS_IMAGES`, `ui/frise/CreditsImages.kt`) — fichier, page Commons, auteur et
+ * licence, pour qu'un CC BY-SA reste attribuable depuis l'appli, pas seulement depuis le dépôt.
+ */
+@Composable
+private fun CreditsImagesEntree() {
+    var ouverte by rememberSaveable { mutableStateOf(false) }
+    ListItem(
+        headlineContent = { Text("Crédits", style = MaterialTheme.typography.titleMedium) },
+        supportingContent = { Text("Images du Voyage · Wikimedia Commons") },
+        trailingContent = { IconeTabler("chevron-right", null) },
+        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+        modifier = Modifier.clickable { ouverte = true },
+    )
+    if (ouverte) {
+        AlertDialog(
+            onDismissRequest = { ouverte = false },
+            title = { Text("Images du Voyage") },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    CREDITS_IMAGES.forEach { credit ->
+                        Column {
+                            Text(credit.auteur, style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                "${credit.decennie} · ${credit.licence}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { ouverte = false }) { Text("Fermer") } },
+        )
     }
 }
 

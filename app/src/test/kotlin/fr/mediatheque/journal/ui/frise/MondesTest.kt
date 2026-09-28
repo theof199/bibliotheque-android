@@ -166,4 +166,47 @@ class MondesTest {
         val v = matriceDe(TraitementImage.SATURE)!!.values
         assertTrue(kotlin.math.abs(v[0] - v[5]) > 0.01f || kotlin.math.abs(v[1] - v[6]) > 0.01f)
     }
+
+    // Livraison 2 du delta de Léon (§H, 28 septembre 2026) : douze mondes sur quatorze portent une
+    // image de fond, seuls 1890 et 1900 n'en ont aucune. Mutation : oublier une décennie dans la
+    // plage 1910-2020 laisserait un fond manquant sans que rien ne le signale.
+    @Test
+    fun `chaque monde a une image sauf 1890 et 1900`() {
+        MONDES.filter { it.decennie == 1890 || it.decennie == 1900 }.forEach { monde ->
+            assertNull("image de ${monde.decennie}", monde.image)
+        }
+        MONDES.filter { it.decennie != 1890 && it.decennie != 1900 }.forEach { monde ->
+            assertTrue("image de ${monde.decennie}", monde.image != null)
+        }
+    }
+
+    // 1910 est la seule exception de §H : une affiche verticale, pas le cadrage Standard des onze
+    // autres images.
+    @Test
+    fun `1910 porte le cadrage Affiche, les autres le cadrage Standard`() {
+        val annees1910 = MONDES.first { it.decennie == 1910 }
+        assertEquals(CadrageImage.Affiche, annees1910.image?.cadrage)
+
+        MONDES.filter { it.image != null && it.decennie != 1910 }.forEach { monde ->
+            assertEquals("cadrage de ${monde.decennie}", CadrageImage.Standard, monde.image?.cadrage)
+        }
+    }
+
+    // `ImageDeMonde.matrice()` sans aucun filtre renseigné doit rester l'identité — sinon une image
+    // qui ne demande ni grayscale, ni sepia, ni saturate, ni contraste, ni luminosité changée finirait
+    // quand même teintée.
+    @Test
+    fun `matrice d'une image sans filtre est l'identite`() {
+        val image = ImageDeMonde(0, CadrageImage.Standard, alpha = 1f)
+        assertEquals(ColorMatrix().values.toList(), image.matrice().values.toList())
+    }
+
+    // La matrice d'une image en grayscale complet a la même signature de désaturation que les
+    // traitements noir et blanc de `matriceDe`, ci-dessus.
+    @Test
+    fun `matrice d'une image grayscale desature completement`() {
+        val v = ImageDeMonde(0, CadrageImage.Standard, alpha = 1f, grayscale = 1f).matrice().values
+        assertEquals(v[0], v[5], 0.001f)
+        assertEquals(v[0], v[10], 0.001f)
+    }
 }

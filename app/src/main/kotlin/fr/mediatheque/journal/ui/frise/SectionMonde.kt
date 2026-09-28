@@ -1,6 +1,7 @@
 package fr.mediatheque.journal.ui.frise
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -15,8 +16,21 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.ShaderBrush
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -37,6 +51,12 @@ private val HAUTEUR_ROUTE = 650.dp
  * 3 pour l'ambiance) — seulement la route, les dix pavillons dans leurs trois états (avec leurs
  * traitements de couleur statiques, §C), le cône de lumière statique de l'année en cours, le
  * carton (ses cadres par décennie, statiques) et la marquise.
+ *
+ * Livraison 2 (28 septembre 2026, §H, §F) : `ImageDeFond` (nulle pour 1890 et 1900) rejoint tout
+ * en bas de la pile, derrière la route — jamais posée sur les pavillons ni le texte, comme le
+ * demande §H — et le grain (`monde.grain`) tout en haut, sous forme d'une tuile de bruit tuilée
+ * plutôt qu'une image commitée de plus. Toujours pas d'ambiance ni d'entrée jouée (livraisons 3
+ * à 5) : le carton reste statique, à l'état `Jouee`.
  */
 @Composable
 fun SectionMonde(
@@ -61,6 +81,11 @@ fun SectionMonde(
                 .background(monde.fond),
         ) {
             val k = maxWidth / 390.dp
+
+            // Tout en bas de la pile (§H) : derrière la route, jamais sur les pavillons ni le
+            // texte. Nulle pour 1890 et 1900, qui n'ont pas d'image.
+            monde.image?.let { image -> ImageDeFond(image, k) }
+
             // Le chemin de la route n'est analysé qu'une fois par largeur d'écran (revue du
             // 28 septembre 2026, retouche de la livraison 1) — pas à chaque frame dessinée.
             val cheminRoute = rememberCheminRoute(k)
@@ -85,6 +110,12 @@ fun SectionMonde(
                 onClick = { onOpenDecennie(section.rayon) },
                 modifier = Modifier.offset(x = 150.dp * k, y = 560.dp),
             )
+
+            // Tout en haut de la pile (§F) : le grain, sur toute la section — discret, jamais sur
+            // le carton (posé hors de cette `BoxWithConstraints`, `Column` plus haut).
+            if (monde.grain > 0f) {
+                Box(Modifier.fillMaxSize().grain(monde.grain))
+            }
         }
     }
 }
@@ -163,5 +194,79 @@ private fun Millesime(annee: Int, position: PositionMillesime, emplacement: Empl
             Modifier.offset(x = left, y = top - 26.dp).width(CASE_REFERENCE_LARGEUR.dp * k),
             contentAlignment = Alignment.TopCenter,
         ) { Text(annee.toString(), style = style, color = couleur) }
+    }
+}
+
+/**
+ * L'image de fond d'un monde (§H, livraison 2) : le WebP de `bin/images`, recadré « cover » à son
+ * cadrage (`ImageDeMonde.cadrage`, déjà recadré au bon ratio par le script — l'ancrage ici ne fait
+ * plus que documenter l'intention), ses filtres colorimétriques (`ImageDeMonde.matrice()`) et son
+ * masque vertical (transparent aux deux bords, opaque de 14 % à 82 % — §H, pour qu'elle se fonde
+ * dans `monde.fond` plutôt que de finir en bandeau net). Décorative, comme la route sous elle :
+ * `contentDescription = null`.
+ */
+@Composable
+private fun ImageDeFond(image: ImageDeMonde, k: Float, modifier: Modifier = Modifier) {
+    val cadrage = image.cadrage
+    Image(
+        painter = painterResource(image.res),
+        contentDescription = null,
+        contentScale = ContentScale.Crop,
+        alignment = BiasAlignment(cadrage.ancrageX * 2f - 1f, cadrage.ancrageY * 2f - 1f),
+        alpha = image.alpha,
+        colorFilter = ColorFilter.colorMatrix(image.matrice()),
+        modifier = modifier
+            .offset(x = cadrage.x * k, y = cadrage.y)
+            .size(cadrage.largeur * k, cadrage.hauteur)
+            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+            .masqueVertical(),
+    )
+}
+
+/**
+ * Le fondu haut et bas de l'image de fond (§H) : un vrai masque d'alpha (`BlendMode.DstIn` sur une
+ * composition hors écran, comme le trou du poinçon de `TicketVoyage.kt`), pas un dégradé vers
+ * `monde.fond` — l'image se fond dans ce qu'il y a derrière elle quel que soit son alpha propre.
+ */
+private fun Modifier.masqueVertical(): Modifier = drawWithContent {
+    drawContent()
+    drawRect(
+        brush = Brush.verticalGradient(
+            0f to Color.Transparent,
+            0.14f to Color.Black,
+            0.82f to Color.Black,
+            1f to Color.Transparent,
+        ),
+        blendMode = BlendMode.DstIn,
+    )
+}
+
+/**
+ * La tuile de grain (§F, livraison 2) : un bruit gris uniforme, tuilé sur toute la section par un
+ * `BitmapShader` en mode répété plutôt que redessiné à chaque frame — la fractale à deux octaves
+ * du delta de Léon reste une approximation assumée, comme les sépias de `Mondes.kt`. `remember`
+ * la recalcule à chaque recomposition de la section (elle en sort et y rentre en défilant), mais
+ * une tuile de 48 px ne coûte qu'un tableau de 2304 entiers : sans commande dessinée par frame,
+ * le coût reste négligeable à côté d'une image commitée de plus.
+ */
+private const val TAILLE_TUILE_GRAIN = 48
+
+private fun tuileDeGrain(): android.graphics.Bitmap {
+    val graine = kotlin.random.Random(0)
+    val pixels = IntArray(TAILLE_TUILE_GRAIN * TAILLE_TUILE_GRAIN) {
+        val v = graine.nextInt(256)
+        android.graphics.Color.argb(255, v, v, v)
+    }
+    return android.graphics.Bitmap.createBitmap(pixels, TAILLE_TUILE_GRAIN, TAILLE_TUILE_GRAIN, android.graphics.Bitmap.Config.ARGB_8888)
+}
+
+private fun Modifier.grain(alpha: Float): Modifier = composed {
+    val brush = remember {
+        val shader = android.graphics.BitmapShader(tuileDeGrain(), android.graphics.Shader.TileMode.REPEAT, android.graphics.Shader.TileMode.REPEAT)
+        ShaderBrush(shader)
+    }
+    drawWithContent {
+        drawContent()
+        drawRect(brush = brush, alpha = alpha, blendMode = BlendMode.Screen)
     }
 }
