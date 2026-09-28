@@ -1,7 +1,9 @@
 package fr.mediatheque.journal.ui.frise
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorMatrix
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -110,5 +112,58 @@ class MondesTest {
         val slogans = MONDES.mapNotNull { it.slogan }
         assertEquals(MONDES.size - 1, slogans.size)
         assertEquals(slogans.size, slogans.distinct().size)
+    }
+
+    // Retouche du 28 septembre 2026 (§C du delta) : `matriceDe` — nulle pour les mondes récents,
+    // sépia identité pour SEPIA, désaturée pour les traitements noir et blanc. Mutation : rendre
+    // une matrice non nulle pour NUMERIQUE/STREAMING/AUJOURDHUI laisserait un filtre sur des
+    // jaquettes qui doivent rester « propres et nettes ».
+    @Test
+    fun `matriceDe est nulle pour les mondes recents`() {
+        assertNull(matriceDe(TraitementImage.NUMERIQUE))
+        assertNull(matriceDe(TraitementImage.STREAMING))
+        assertNull(matriceDe(TraitementImage.AUJOURDHUI))
+    }
+
+    // La matrice sépia à pleine intensité est celle des origines (1890), la référence de
+    // `matriceSepia` — comparée valeur à valeur, `ColorMatrix` n'étant pas une `data class`.
+    @Test
+    fun `matriceDe rend le sepia classique pour SEPIA`() {
+        val attendue = ColorMatrix(
+            floatArrayOf(
+                0.393f, 0.769f, 0.189f, 0f, 0f,
+                0.349f, 0.686f, 0.168f, 0f, 0f,
+                0.272f, 0.534f, 0.131f, 0f, 0f,
+                0f, 0f, 0f, 1f, 0f,
+            ),
+        )
+        val matrice = matriceDe(TraitementImage.SEPIA)
+        assertEquals(attendue.values.toList(), matrice?.values?.toList())
+    }
+
+    // Les traitements noir et blanc désaturent complètement : la signature d'une saturation à 0
+    // dans une `ColorMatrix` est que les trois lignes rouge/vert/bleu portent les mêmes
+    // coefficients sur les colonnes rouge/vert/bleu (chaque canal de sortie devient la même
+    // moyenne pondérée des trois entrées) — indépendant des poids de luminance exacts choisis par
+    // l'implémentation de `setToSaturation`.
+    @Test
+    fun `matriceDe desature completement les traitements noir et blanc`() {
+        listOf(TraitementImage.NOIR_ET_BLANC_DUR, TraitementImage.NB_GRANULEUX, TraitementImage.BANDE_SON_CONTRASTE).forEach { traitement ->
+            val v = matriceDe(traitement)!!.values
+            assertEquals("$traitement, colonne rouge", v[0], v[5], 0.001f)
+            assertEquals("$traitement, colonne rouge", v[0], v[10], 0.001f)
+            assertEquals("$traitement, colonne verte", v[1], v[6], 0.001f)
+            assertEquals("$traitement, colonne verte", v[1], v[11], 0.001f)
+            assertEquals("$traitement, colonne bleue", v[2], v[7], 0.001f)
+            assertEquals("$traitement, colonne bleue", v[2], v[12], 0.001f)
+        }
+    }
+
+    // Sans traitement noir et blanc, la matrice n'a pas cette signature — un garde-fou contre un
+    // `matriceSaturation(0f)` posé partout par erreur.
+    @Test
+    fun `matriceDe ne desature pas SATURE`() {
+        val v = matriceDe(TraitementImage.SATURE)!!.values
+        assertTrue(kotlin.math.abs(v[0] - v[5]) > 0.01f || kotlin.math.abs(v[1] - v[6]) > 0.01f)
     }
 }

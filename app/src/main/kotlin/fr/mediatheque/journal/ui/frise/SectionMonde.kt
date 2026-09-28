@@ -17,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -33,12 +34,13 @@ private val HAUTEUR_ROUTE = 650.dp
  * restent telles quelles, la section gardant toujours la même hauteur.
  *
  * Livraison 1 : ni image de fond, ni ambiance, ni grain (aucun avant la livraison 2 pour l'image,
- * 3 pour l'ambiance) — seulement la route, les dix pavillons dans leurs trois états, le cône de
- * lumière statique de l'année en cours, le carton et la marquise.
+ * 3 pour l'ambiance) — seulement la route, les dix pavillons dans leurs trois états (avec leurs
+ * traitements de couleur statiques, §C), le cône de lumière statique de l'année en cours, le
+ * carton (ses cadres par décennie, statiques) et la marquise.
  */
 @Composable
 fun SectionMonde(
-    section: SectionMonde,
+    section: SectionDuVoyage,
     anneeEnCours: Int,
     entreeCarton: EtatEntree,
     claques: Int,
@@ -59,7 +61,10 @@ fun SectionMonde(
                 .background(monde.fond),
         ) {
             val k = maxWidth / 390.dp
-            Canvas(Modifier.fillMaxSize()) { routeDuVoyage(k, magnetique = monde.decennie == 1980) }
+            // Le chemin de la route n'est analysé qu'une fois par largeur d'écran (revue du
+            // 28 septembre 2026, retouche de la livraison 1) — pas à chaque frame dessinée.
+            val cheminRoute = rememberCheminRoute(k)
+            Canvas(Modifier.fillMaxSize()) { dessinerRoute(cheminRoute, magnetique = monde.decennie == 1980) }
 
             val anneeEnCoursIci = section.annees.any { it.annee == anneeEnCours && it.statut == StatutAnneeVoyage.EN_COURS }
             if (anneeEnCoursIci) {
@@ -74,6 +79,9 @@ fun SectionMonde(
                 monde = monde,
                 bouclee = section.bouclee,
                 anime = monde.decennie == decennieAllumee,
+                // Le compte d'ampoules allumées (§E) : une par année récompensée de la section,
+                // neuf au plus — la décennie bouclée en allume neuf sur neuf d'un coup.
+                recompensesCount = section.annees.count { it.recompense != null },
                 onClick = { onOpenDecennie(section.rayon) },
                 modifier = Modifier.offset(x = 150.dp * k, y = 560.dp),
             )
@@ -112,7 +120,7 @@ private fun PavillonAnnee(
             .clickable { onOpenAnnee(annee.groupe) },
     )
 
-    Millesime(annee.annee, positionMillesime(annee.rang), place, k)
+    Millesime(annee.annee, positionMillesime(annee.rang), place, k, enCours = annee.statut == StatutAnneeVoyage.EN_COURS)
 
     if (annee.statut == StatutAnneeVoyage.EN_COURS) {
         ClapAvatar(
@@ -124,13 +132,20 @@ private fun PavillonAnnee(
     }
 }
 
-/** Le millésime d'une année, autour de sa case (§C) — sa position dépend du virage de la route à cet endroit. */
+/**
+ * Le millésime d'une année, autour de sa case (§C) — sa position dépend du virage de la route à
+ * cet endroit ; celui de l'année en cours est `primary` et gras (§C, retouche du 28 septembre
+ * 2026).
+ */
 @Composable
-private fun Millesime(annee: Int, position: PositionMillesime, emplacement: EmplacementPhotogramme, k: Float) {
+private fun Millesime(annee: Int, position: PositionMillesime, emplacement: EmplacementPhotogramme, k: Float, enCours: Boolean) {
     val left = emplacement.x.dp * k
     val top = emplacement.y.dp
-    val style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp)
-    val couleur = MaterialTheme.colorScheme.onSurfaceVariant
+    val style = MaterialTheme.typography.labelMedium.copy(
+        fontSize = 11.sp,
+        fontWeight = if (enCours) FontWeight.Bold else FontWeight.Normal,
+    )
+    val couleur = if (enCours) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
     when (position) {
         PositionMillesime.DESSOUS -> Box(
             Modifier.offset(x = left, y = top + 56.dp).width(CASE_REFERENCE_LARGEUR.dp * k),

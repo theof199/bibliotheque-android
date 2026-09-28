@@ -1,5 +1,6 @@
 package fr.mediatheque.journal.ui.frise
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -17,13 +18,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.Canvas
 import fr.mediatheque.journal.ui.Cover
 import fr.mediatheque.journal.ui.theme.Fraunces
 
@@ -35,6 +43,11 @@ import fr.mediatheque.journal.ui.theme.Fraunces
  * cours du Voyage), `Verrouillee` (pas encore atteinte). Un quatrième état, `Affiche`, est prévu
  * par le plan pour `AnneeScreen`/`DecennieScreen` (livraison 6) — non ajouté ici : ni écran ni
  * appelant ne le construirait encore, une branche morte de plus dans ce `when`.
+ *
+ * Retouche du 28 septembre 2026 (revue de la livraison 1) : le traitement de couleur du monde
+ * (`matriceDe`, `Mondes.kt`) est posé sur la jaquette, les trois états portent tout leur habillage
+ * (fond, bord, halo, étiquette) **dans** la case plutôt que dessous, et 1890/1900/1920 gagnent
+ * leurs décorations statiques (vignette, rayure, voiles, ombre oblique).
  */
 sealed interface EtatPhotogramme {
     /** Une année déjà visitée : son affiche (ou le dernier film vu, `afficheAnnee`), sa profondeur, sa récompense. */
@@ -49,6 +62,8 @@ sealed interface EtatPhotogramme {
 
 private val CouleurPointille = Color(0xFF6B5A3E)
 private val CouleurATourner = Color(0xFF8A7A57)
+private val FondEnCours = Color(0xFF1A1410)
+private val FondVerrouillee = Color(0xFF0F0C08)
 
 @Composable
 fun Photogramme(format: FormatPhotogramme, etat: EtatPhotogramme, annee: Int, monde: Monde, modifier: Modifier = Modifier) {
@@ -62,45 +77,88 @@ fun Photogramme(format: FormatPhotogramme, etat: EtatPhotogramme, annee: Int, mo
         is EtatPhotogramme.Verrouillee -> if (etat.enAvance > 0) "$annee, ${etat.enAvance} vu${if (etat.enAvance > 1) "s" else ""} en avance" else "$annee, à tourner"
     }
 
+    val affiche = when (etat) {
+        is EtatPhotogramme.Ouverte -> etat.affiche
+        is EtatPhotogramme.EnCours -> etat.affiche
+        is EtatPhotogramme.Verrouillee -> null
+    }
+    val filtreCouleur = matriceDe(format.traitement)?.let { ColorFilter.colorMatrix(it) }
+
     Column(modifier.semantics { contentDescription = description }, horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             Modifier
+                // Le halo de l'année en cours (§C, « shadow 0 0 22 dp primary 55 % ») : posé avant
+                // le `clip` pour ne pas être rogné par lui, nul (donc invisible) hors `EnCours`.
+                .shadow(
+                    elevation = if (etat is EtatPhotogramme.EnCours) 22.dp else 0.dp,
+                    shape = shape,
+                    ambientColor = corail.copy(alpha = 0.55f),
+                    spotColor = corail.copy(alpha = 0.55f),
+                )
                 .size(format.largeur, format.hauteur)
                 .clip(shape)
-                .background(Color.Black, shape)
+                .background(
+                    when (etat) {
+                        is EtatPhotogramme.Ouverte -> Color.Black
+                        is EtatPhotogramme.EnCours -> FondEnCours
+                        is EtatPhotogramme.Verrouillee -> FondVerrouillee
+                    },
+                    shape,
+                )
                 .let {
                     when (etat) {
                         is EtatPhotogramme.Ouverte -> it.border(1.5.dp, format.bord ?: or, shape)
-                        is EtatPhotogramme.EnCours -> it.background(corail.copy(alpha = 0.14f), shape).border(2.dp, corail, shape)
+                        is EtatPhotogramme.EnCours -> it.border(1.5.dp, corail, shape)
                         is EtatPhotogramme.Verrouillee -> it.dashedBorder(CouleurPointille, cornerRadius = format.rayon, strokeWidth = 1.5.dp)
                     }
+                }
+                // Les décorations statiques d'un monde (1890 vignette + rayure, 1900 voiles,
+                // 1920 ombre oblique, §G) : dessinées après le contenu, jamais animées.
+                .drawWithContent {
+                    drawContent()
+                    decorationsDeMonde(monde.decennie)
                 },
             contentAlignment = Alignment.Center,
         ) {
-            val affiche = when (etat) {
-                is EtatPhotogramme.Ouverte -> etat.affiche
-                is EtatPhotogramme.EnCours -> etat.affiche
-                is EtatPhotogramme.Verrouillee -> null
-            }
             if (affiche != null) {
-                Cover(affiche, "$annee", format.largeur, format.hauteur)
-            } else {
+                Cover(affiche, "$annee", format.largeur, format.hauteur, colorFilter = filtreCouleur)
+            } else if (etat is EtatPhotogramme.Ouverte) {
                 Text(
                     annee.toString(),
                     style = MaterialTheme.typography.bodyMedium.copy(fontFamily = Fraunces),
-                    color = if (etat is EtatPhotogramme.Verrouillee) MaterialTheme.colorScheme.onSurfaceVariant else monde.accent,
+                    color = monde.accent,
                 )
             }
 
             // Les décorations statiques du format (§C) : la bande son des mondes 1930/1940, la
-            // bande de tracking du VHS de 1980 — jamais un filtre de couleur (réservé à l'image de
-            // fond, livraison 2), seulement ce que le format lui-même dessine sur le photogramme.
+            // bande de tracking du VHS de 1980.
             when (format.traitement) {
                 TraitementImage.BANDE_SON, TraitementImage.BANDE_SON_CONTRASTE -> BandeSon(Modifier.align(Alignment.CenterStart))
                 TraitementImage.VHS -> BandeTracking(Modifier.align(Alignment.BottomCenter))
                 else -> Unit
             }
 
+            // L'état, tout entier dans la case (retouche du 28 septembre 2026) : « Tu es ici »
+            // pour l'année en cours, « à tourner »/« N vu(s) en avance » pour une année
+            // verrouillée — jamais dessous, où ça chevauchait le millésime.
+            when (etat) {
+                is EtatPhotogramme.EnCours -> Text(
+                    "Tu es ici",
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                    color = corail,
+                    textAlign = TextAlign.Center,
+                )
+                is EtatPhotogramme.Verrouillee -> Text(
+                    if (etat.enAvance > 0) "${etat.enAvance} vu${if (etat.enAvance > 1) "s" else ""} en avance" else "à tourner",
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                    color = CouleurATourner,
+                    textAlign = TextAlign.Center,
+                )
+                is EtatPhotogramme.Ouverte -> Unit
+            }
+
+            // La pastille « N films » (§C) : ne reste que pour une année ouverte, la seule
+            // information que la case ne porte pas déjà par son état.
             if (etat is EtatPhotogramme.Ouverte) {
                 Box(
                     Modifier
@@ -113,27 +171,50 @@ fun Photogramme(format: FormatPhotogramme, etat: EtatPhotogramme, annee: Int, mo
                 }
             }
         }
-
-        val sous = when (etat) {
-            is EtatPhotogramme.EnCours -> "Tu es ici"
-            is EtatPhotogramme.Ouverte -> etiquetteProfondeur(etat.profondeur)
-            is EtatPhotogramme.Verrouillee -> if (etat.enAvance > 0) "${etat.enAvance} vu${if (etat.enAvance > 1) "s" else ""} en avance" else "à tourner"
-        }
-        Text(
-            sous,
-            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-            color = when (etat) {
-                is EtatPhotogramme.EnCours -> corail
-                is EtatPhotogramme.Verrouillee -> CouleurATourner
-                else -> MaterialTheme.colorScheme.onSurfaceVariant
-            },
-            textAlign = TextAlign.Center,
-        )
     }
 }
 
 /** « 12 films », « 1 film », « 0 film » : la profondeur d'une année ouverte. */
 private fun etiquetteProfondeur(profondeur: Int): String = "$profondeur ${if (profondeur == 1) "film" else "films"}"
+
+/**
+ * Les décorations statiques d'un monde sur son photogramme (§G, retouche du 28 septembre 2026) :
+ * 1890 (vignette lourde + une rayure claire), 1900 (voiles rose haut-gauche / bleu bas-droite),
+ * 1920 (ombre oblique). Aucune autre décennie n'en porte en livraison 1 — les entrées animées de
+ * §G restent pour la livraison 3.
+ */
+private fun DrawScope.decorationsDeMonde(decennie: Int) {
+    when (decennie) {
+        1890 -> {
+            drawRect(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.6f)),
+                    center = Offset(size.width / 2f, size.height / 2f),
+                    radius = size.maxDimension * 0.8f,
+                ),
+            )
+            drawLine(
+                Color.White.copy(alpha = 0.3f),
+                Offset(size.width * 0.2f, 0f),
+                Offset(size.width * 0.32f, size.height),
+                strokeWidth = 1f,
+            )
+        }
+        1900 -> {
+            drawCircle(Color(0xFFF3B6C6).copy(alpha = 0.22f), radius = size.minDimension * 0.6f, center = Offset(0f, 0f))
+            drawCircle(Color(0xFF9FC9E8).copy(alpha = 0.22f), radius = size.minDimension * 0.6f, center = Offset(size.width, size.height))
+        }
+        1920 -> {
+            drawRect(
+                brush = Brush.linearGradient(
+                    colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.4f)),
+                    start = Offset(0f, 0f),
+                    end = Offset(size.width, size.height),
+                ),
+            )
+        }
+    }
+}
 
 /** La bande son du parlant (§C, 1930/1940) : 7 dp à gauche, rayures horizontales séparées d'un filet d'accent. */
 @Composable
@@ -146,8 +227,8 @@ private fun BandeSon(modifier: Modifier = Modifier) {
         var i = 0
         while (y < size.height) {
             val h = hauteurs[i % hauteurs.size] * periode / 2f
-            drawRect(Color(0xFFECE2CC).copy(alpha = 0.8f), topLeft = androidx.compose.ui.geometry.Offset(0f, y), size = androidx.compose.ui.geometry.Size(size.width, h))
-            drawRect(accent.copy(alpha = 0.8f), topLeft = androidx.compose.ui.geometry.Offset(0f, y + h), size = androidx.compose.ui.geometry.Size(size.width, 1f))
+            drawRect(Color(0xFFECE2CC).copy(alpha = 0.8f), topLeft = Offset(0f, y), size = Size(size.width, h))
+            drawRect(accent.copy(alpha = 0.8f), topLeft = Offset(0f, y + h), size = Size(size.width, 1f))
             y += h + 1f
             i += 1
         }
@@ -161,7 +242,7 @@ private fun BandeTracking(modifier: Modifier = Modifier) {
         val blanc = Color.White.copy(alpha = 0.7f)
         var x = 0f
         while (x < size.width) {
-            drawLine(blanc, androidx.compose.ui.geometry.Offset(x, size.height / 2f), androidx.compose.ui.geometry.Offset(x + 3f, size.height / 2f), strokeWidth = size.height, cap = androidx.compose.ui.graphics.StrokeCap.Butt)
+            drawLine(blanc, Offset(x, size.height / 2f), Offset(x + 3f, size.height / 2f), strokeWidth = size.height, cap = StrokeCap.Butt)
             x += 10f
         }
     }

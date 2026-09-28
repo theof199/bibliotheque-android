@@ -286,8 +286,12 @@ data class AnneeDuVoyage(
     val rang: Int,
 )
 
-/** Une section du Voyage : un monde, ses années, et l'état de sa marquise. */
-data class SectionMonde(
+/**
+ * Une section du Voyage : un monde, ses années, et l'état de sa marquise. Nommée `SectionDuVoyage`
+ * plutôt que `SectionMonde` (revue du 28 septembre 2026, retouche de la livraison 1) : le
+ * composable qui la dessine, dans le même paquet, porte déjà ce nom-là (`SectionMonde.kt`).
+ */
+data class SectionDuVoyage(
     val monde: Monde,
     val annees: List<AnneeDuVoyage>,
     val bouclee: Boolean,
@@ -303,7 +307,7 @@ data class SectionMonde(
  * 1888 se range dans les origines sans ouvrir d'année avant le départ. Les années postérieures à
  * `anneeActuelle` (aujourd'hui) n'existent pas non plus — rien à tourner dans le futur.
  */
-fun sectionsDuVoyage(ui: FriseUi, anneeActuelle: Int): List<SectionMonde> {
+fun sectionsDuVoyage(ui: FriseUi, anneeActuelle: Int): List<SectionDuVoyage> {
     val depart = ui.voyage.depart
     if (anneeActuelle < depart) return emptyList()
 
@@ -326,7 +330,7 @@ fun sectionsDuVoyage(ui: FriseUi, anneeActuelle: Int): List<SectionMonde> {
                     rang = rang,
                 )
             }
-        SectionMonde(
+        SectionDuVoyage(
             monde = monde,
             annees = annees,
             // Allumée dès que `ui.passeport` (le tampon envoyé par `GET /me/voyage`) porte cette

@@ -31,9 +31,10 @@ import fr.mediatheque.journal.ui.theme.PapierJauni
 
 /**
  * Le traitement visuel d'un photogramme (§C du delta) : chaque monde porte le sien, du sépia des
- * origines au « aujourd'hui » de 2020. Livraison 1 : sert à dessiner les décorations statiques du
- * format (bande son, bande de tracking, barre de progression) — les filtres de couleur d'une
- * image de fond (`ColorMatrix`) arrivent avec les images, livraison 2.
+ * origines au « aujourd'hui » de 2020 — `matriceDe` en tire la `ColorMatrix` posée sur la
+ * jaquette (`Photogramme.kt`), et les décorations statiques du format (bande son, bande de
+ * tracking) s'y ajoutent. Les filtres d'une image de fond arrivent avec les images, livraison 2 —
+ * `matriceDe` leur servira aussi, sans retouche.
  */
 enum class TraitementImage {
     SEPIA, SEPIA_COLORIE, ARGENT, NOIR_ET_BLANC_DUR, BANDE_SON, BANDE_SON_CONTRASTE, SATURE,
@@ -194,4 +195,83 @@ fun Monde.couleurPodium(place: Int): Color = when (place) {
     1 -> accent
     2 -> PapierJauni
     else -> TeinteSepia
+}
+
+// --- Les traitements de couleur d'un photogramme (§C du delta, retouche du 28 septembre 2026) --
+
+/**
+ * Sature à 0 la désature complètement (noir et blanc) ; `setToSaturation` est l'extension déjà
+ * posée dans le dépôt (`ui/Cover.kt`, `FiltreDesature`).
+ */
+private fun matriceSaturation(saturation: Float): androidx.compose.ui.graphics.ColorMatrix =
+    androidx.compose.ui.graphics.ColorMatrix().apply { setToSaturation(saturation) }
+
+/** Contraste multiplicatif autour du gris moyen (échelle 0–255 des `ColorMatrix`, comme `setToSaturation`). */
+private fun matriceContraste(contraste: Float): androidx.compose.ui.graphics.ColorMatrix {
+    val decalage = (1f - contraste) * 127.5f
+    return androidx.compose.ui.graphics.ColorMatrix(
+        floatArrayOf(
+            contraste, 0f, 0f, 0f, decalage,
+            0f, contraste, 0f, 0f, decalage,
+            0f, 0f, contraste, 0f, decalage,
+            0f, 0f, 0f, 1f, 0f,
+        ),
+    )
+}
+
+/** Luminosité additive (échelle 0–255). */
+private fun matriceLuminosite(delta: Float): androidx.compose.ui.graphics.ColorMatrix =
+    androidx.compose.ui.graphics.ColorMatrix(
+        floatArrayOf(
+            1f, 0f, 0f, 0f, delta,
+            0f, 1f, 0f, 0f, delta,
+            0f, 0f, 1f, 0f, delta,
+            0f, 0f, 0f, 1f, 0f,
+        ),
+    )
+
+/** La matrice sépia classique, pleine intensité. */
+private val MATRICE_SEPIA_PLEINE = androidx.compose.ui.graphics.ColorMatrix(
+    floatArrayOf(
+        0.393f, 0.769f, 0.189f, 0f, 0f,
+        0.349f, 0.686f, 0.168f, 0f, 0f,
+        0.272f, 0.534f, 0.131f, 0f, 0f,
+        0f, 0f, 0f, 1f, 0f,
+    ),
+)
+
+/** Un sépia d'intensité réglable : interpolation linéaire entre l'identité et le sépia plein — une approximation visuelle assumée, jamais colorimétrique. */
+private fun matriceSepia(intensite: Float): androidx.compose.ui.graphics.ColorMatrix {
+    if (intensite >= 1f) return MATRICE_SEPIA_PLEINE
+    val identite = androidx.compose.ui.graphics.ColorMatrix()
+    val valeurs = FloatArray(20) { i -> identite.values[i] + (MATRICE_SEPIA_PLEINE.values[i] - identite.values[i]) * intensite }
+    return androidx.compose.ui.graphics.ColorMatrix(valeurs)
+}
+
+/** `base` puis `ensuite` (l'ordre de lecture) : `ensuite` s'applique au résultat de `base`, jamais l'inverse. */
+private fun combiner(base: androidx.compose.ui.graphics.ColorMatrix, ensuite: androidx.compose.ui.graphics.ColorMatrix): androidx.compose.ui.graphics.ColorMatrix {
+    val resultat = androidx.compose.ui.graphics.ColorMatrix(base.values.copyOf())
+    resultat.timesAssign(ensuite)
+    return resultat
+}
+
+/**
+ * La `ColorMatrix` d'un traitement (§C du delta, retouche du 28 septembre 2026) : posée sur la
+ * jaquette d'un photogramme (`Photogramme.kt`) via `ColorFilter.colorMatrix`. Nulle pour les
+ * mondes récents (2000 et après) — l'image y reste telle quelle, « propre et net ». Fonction pure,
+ * testée en JVM (`MondesTest`) : pas de dépendance Android, `ColorMatrix` n'étant que des nombres.
+ */
+fun matriceDe(traitement: TraitementImage): androidx.compose.ui.graphics.ColorMatrix? = when (traitement) {
+    TraitementImage.SEPIA -> matriceSepia(1f)
+    TraitementImage.SEPIA_COLORIE -> matriceSepia(1f)
+    TraitementImage.ARGENT -> combiner(matriceSaturation(0f), matriceLuminosite(18f))
+    TraitementImage.NOIR_ET_BLANC_DUR -> combiner(matriceSaturation(0f), matriceContraste(1.35f))
+    TraitementImage.BANDE_SON -> matriceSaturation(0.2f)
+    TraitementImage.BANDE_SON_CONTRASTE -> combiner(matriceSaturation(0f), matriceContraste(1.25f))
+    TraitementImage.SATURE -> matriceSaturation(1.4f)
+    TraitementImage.NB_GRANULEUX -> matriceSaturation(0f)
+    TraitementImage.CHAUD_DELAVE -> combiner(matriceSepia(0.45f), matriceSaturation(1.3f))
+    TraitementImage.VHS -> matriceSaturation(1.2f)
+    TraitementImage.ACIER -> matriceSaturation(0.7f)
+    TraitementImage.NUMERIQUE, TraitementImage.STREAMING, TraitementImage.AUJOURDHUI -> null
 }

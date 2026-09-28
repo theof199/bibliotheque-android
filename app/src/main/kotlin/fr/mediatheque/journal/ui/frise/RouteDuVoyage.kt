@@ -1,8 +1,11 @@
 package fr.mediatheque.journal.ui.frise
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -33,12 +36,19 @@ private fun cheminRoute(k: Float): String {
 }
 
 /**
+ * Le chemin de la route, analysé une fois par largeur d'écran (revue du 28 septembre 2026,
+ * retouche de la livraison 1) — `remember(k)` évite de refaire l'analyse SVG à chaque frame
+ * dessinée par `Canvas` ; `k` ne change qu'à une rotation d'écran ou un changement d'appareil.
+ */
+@Composable
+fun rememberCheminRoute(k: Float): Path = remember(k) { PathParser().parsePathString(cheminRoute(k)).toPath() }
+
+/**
  * `magnetique` (le monde 1980, « bande magnétique ») resserre le pointillé (2/4 au lieu de 5/9)
  * et l'assourdit (.35 d'alpha au lieu de .6) — la route se lit alors comme une bande VHS plutôt
  * que comme une route de studio.
  */
-fun DrawScope.routeDuVoyage(k: Float, magnetique: Boolean) {
-    val chemin = PathParser().parsePathString(cheminRoute(k)).toPath()
+fun DrawScope.dessinerRoute(chemin: Path, magnetique: Boolean) {
     scale(density, density, pivot = Offset.Zero) {
         drawPath(chemin, Color(0xFF0F0C08), style = Stroke(width = 64f))
         drawPath(
