@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
@@ -76,7 +77,9 @@ import fr.mediatheque.journal.ui.theme.Limelight
  * Méliès) et 1910 (l'iris qui s'ouvre sur tout le carton, puis l'intertitre tapé sous le titre)
  * ferment le muet — `progression` leur arrive déjà tenue par pas de 16 images par seconde
  * (`progressionQuantifiee`, posée en amont par `SectionMonde.kt`), le saccadé voulu par le delta.
- * 1920 (le titre dessiné à la main) suit dans un commit séparé (§G, « traits brisés »).
+ * 1920, dans un commit séparé : le vrai `Text` Limelight reste invisible tant que l'entrée joue
+ * (`modifierEntreeTitre`), `titreTraceALaMain1920` (`entreeDeCarton`) trace le titre à sa place en
+ * traits brisés — seule exception au Limelight (§G, §D).
  */
 @Composable
 fun CartonTitre(monde: Monde, entree: EtatEntree, modifier: Modifier = Modifier) {
@@ -106,7 +109,7 @@ fun CartonTitre(monde: Monde, entree: EtatEntree, modifier: Modifier = Modifier)
             .drawWithContent {
                 drawContent()
                 decorationsDeCarton(decennie, bordCouleur)
-                if (progressionEntree != null) entreeDeCarton(decennie, progressionEntree, monde.accent)
+                if (progressionEntree != null) entreeDeCarton(decennie, progressionEntree, monde.accent, monde.nom)
             },
         contentAlignment = Alignment.Center,
     ) {
@@ -217,6 +220,11 @@ private fun modifierEntreeTitre(decennie: Int, progression: Float): Modifier = w
         val alpha = if (progression < 0.5f) 1f - 2f * progression else 2f * (progression - 0.5f)
         Modifier.alpha(alpha.coerceIn(0f, 1f)).offset(x = ((1f - progression) * -10f).dp)
     }
+    // 1920 : le titre se dessine à la main (§G, livraison 5, commit séparé) — le vrai `Text`
+    // Limelight reste invisible tant que l'entrée joue, `titreTraceALaMain1920` (`entreeDeCarton`)
+    // le trace à sa place ; `Jouee` (ou la lecture seule du magasin) le rend normalement, seule
+    // exception au Limelight pendant l'entrée elle-même (§G).
+    1920 -> Modifier.alpha(0f)
     // 1960 : « trois sauts » (§G) — quatre positions tenues, `steps(1)` : la lettre saute d'un
     // point à l'autre plutôt que de glisser, la première tenue étant aussi l'apparition.
     1960 -> {
@@ -331,13 +339,15 @@ private fun DrawScope.decorationsDeCarton(decennie: Int, accent: Color) {
 /**
  * L'entrée d'un carton, dessinée par-dessus tout le reste tant qu'elle joue (§G, livraison 3) —
  * `CartonTitre` n'appelle cette fonction que si `entree` est `EnCours` (`progression` non nulle
- * dans l'appelant). Rien pour les mondes sans entrée dessinée encore.
+ * dans l'appelant). Rien pour les mondes sans entrée dessinée encore. `texte` ne sert qu'à 1920
+ * (le titre tracé à la main a besoin du mot lui-même, pas seulement de la couleur).
  */
-private fun DrawScope.entreeDeCarton(decennie: Int, progression: Float, accent: Color) {
+private fun DrawScope.entreeDeCarton(decennie: Int, progression: Float, accent: Color, texte: String) {
     when (decennie) {
         1890 -> manivelleEntree1890(progression, accent)
         1900 -> luneDeMelies1900(accent)
         1910 -> irisCarton1910(progression)
+        1920 -> titreTraceALaMain1920(progression, texte, accent)
         1930 -> ondeSonoreCarton(progression, accent)
         1940 -> storeVenitienCarton(progression)
         1990 -> eclatBlancCarton(progression)
@@ -395,6 +405,36 @@ private fun DrawScope.irisCarton1910(progression: Float) {
         fillType = PathFillType.EvenOdd
     }
     drawPath(cache, Color.Black)
+}
+
+/**
+ * 1920 (§G) : le titre se dessine à la main en traits brisés — seule exception au Limelight
+ * (§D). Une polyligne en zigzag (trois pas par lettre, « enchaînés », chaque lettre décalée d'une
+ * graine fixe pour trembler comme une main plutôt que de suivre un vrai bruit par frame) plutôt
+ * que les glyphes exacts du mot : `DrawScope` ne mesure pas de police sans `TextMeasurer`, hors de
+ * portée pour ce détail. Révélée par un `clipRect` qui avance avec `progression` (déjà tenue par
+ * pas de 16 images par seconde, `SectionMonde.kt`) — même principe que l'onde sonore de 1930.
+ */
+private fun DrawScope.titreTraceALaMain1920(progression: Float, texte: String, accent: Color) {
+    val gauche = 16.dp.toPx()
+    val largeurUtile = size.width - 2 * gauche
+    val hauteurCentre = size.height * 0.42f
+    val lettres = texte.length.coerceAtLeast(1)
+    val pasLettre = largeurUtile / lettres
+    val chemin = Path()
+    var x = gauche
+    chemin.moveTo(x, hauteurCentre)
+    repeat(lettres) { indexLettre ->
+        val graine = kotlin.random.Random(indexLettre)
+        repeat(3) {
+            x += pasLettre / 3f
+            val y = hauteurCentre + graine.nextInt(-6, 7).dp.toPx()
+            chemin.lineTo(x, y)
+        }
+    }
+    clipRect(right = size.width * progression) {
+        drawPath(chemin, accent, style = Stroke(width = 2.2.dp.toPx(), cap = StrokeCap.Square))
+    }
 }
 
 /**
