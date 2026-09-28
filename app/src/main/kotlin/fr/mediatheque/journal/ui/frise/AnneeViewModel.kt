@@ -154,6 +154,91 @@ fun pastillesProgression(profondeur: Int, progression: ProgressionUi?): List<Str
 }
 
 /**
+ * Le seuil de profondeur qui donne l'Ours (jumeau d'`OURS_FILMS_MIN`,
+ * `packages/shared/src/voyage.ts` côté back, revue du Voyage du 28 septembre 2026) : trois films
+ * vus de l'année, même sans ouverture — un seul film, même vu en avance, ne suffit plus.
+ */
+private const val OURS_FILMS_MIN = 3
+
+/** La pastille qu'un delta d'avant/après touche (lot 2, « l'avant/après »). */
+enum class CiblePastille { FILMS, ESSENTIELS, SALLES }
+
+/** Un gain entre deux lectures de la progression d'une année — jamais une perte : la progression du Voyage ne recule pas. */
+data class DeltaPastille(val cible: CiblePastille, val delta: Int)
+
+/**
+ * Ce qui a bougé entre deux lectures de la progression d'une année (lot 2 du brief du
+ * 28 septembre 2026, « l'avant/après ») : au retour d'un enregistrement, les pastilles de
+ * progression touchées défilent de l'ancienne valeur à la nouvelle et un « +1 » vole vers
+ * chacune — cette fonction dit lesquelles ont bougé, et de combien, jamais celles qui n'ont pas
+ * changé (une salle ou un essentiel qui se dévoile sans film neuf, par exemple). `avant`/`apres`
+ * nuls (progression pas encore chargée) ne comptent pour rien. Fonction pure, testée en JVM.
+ */
+fun deltasProgression(profondeurAvant: Int, profondeurApres: Int, avant: ProgressionUi?, apres: ProgressionUi?): List<DeltaPastille> {
+    val deltas = mutableListOf<DeltaPastille>()
+    if (profondeurApres > profondeurAvant) deltas += DeltaPastille(CiblePastille.FILMS, profondeurApres - profondeurAvant)
+    if (avant != null && apres != null) {
+        if (apres.essentielsVus > avant.essentielsVus) deltas += DeltaPastille(CiblePastille.ESSENTIELS, apres.essentielsVus - avant.essentielsVus)
+        if (apres.sallesCompletes > avant.sallesCompletes) deltas += DeltaPastille(CiblePastille.SALLES, apres.sallesCompletes - avant.sallesCompletes)
+    }
+    return deltas
+}
+
+/**
+ * Un palier franchi par un gain de progression (lot 2, « haptique graduée » : un tic à chaque
+ * unité, une confirmation au palier) — l'Ours (`OURS_FILMS_MIN`, trois films), le Lion (tous les
+ * essentiels) ou la Palme (deux salles complètes), selon la pastille qui vient d'atteindre
+ * `valeur`. Fonction pure, testée en JVM.
+ */
+fun estPalierProgression(cible: CiblePastille, valeur: Int, progression: ProgressionUi?): Boolean = when (cible) {
+    CiblePastille.FILMS -> valeur == OURS_FILMS_MIN
+    CiblePastille.ESSENTIELS -> progression != null && progression.essentielsTotal > 0 && valeur == progression.essentielsTotal
+    CiblePastille.SALLES -> valeur == 2
+}
+
+/**
+ * Le bandeau « Prochain pas » en tête de la fiche de l'année en cours (lot 2 du brief du
+ * 28 septembre 2026, « le voyage se sent progresser »), par exemple : « Lion : encore 3
+ * essentiels · Palme : 2 salles de plus · Ticket : au Lion, ou plus tôt si le jury le décide ».
+ *
+ * Chaque étape se calcule indépendamment de la profondeur ou de la progression, jamais de
+ * `recompense` seule pour son propre compte à rebours — `recompense` ne sert qu'à savoir si
+ * l'étape est déjà acquise (elle ne se répète alors pas dans le bandeau) : `essentiels_vus`
+ * (`ProgressionUi`, back `recompenseEtProgressionDeLAnnee`) ne compte que les essentiels
+ * strictement vus, jamais les introuvables, qui comptent pourtant pour le Lion — sans ce garde-
+ * fou, un essentiel introuvable ferait dire à tort « encore 1 essentiel » alors que le Lion est
+ * déjà acquis.
+ *
+ * Le ticket, lui, ne se décide jamais par une règle fixe mais par le jugement du chroniqueur (le
+ * « jury » de la phrase) : la ligne ne promet donc pas de compte, seulement que le Lion en est le
+ * jalon le plus sûr, sans exclure un jugement plus précoce. Elle disparaît dès qu'un ticket existe
+ * pour cette année (`ligneBasAnnee`, juste en dessous dans la fiche, en dit alors le sort).
+ *
+ * Rien à montrer une fois la Palme acquise et le ticket déjà émis : liste vide. Fonction pure,
+ * testée en JVM.
+ */
+fun prochainPas(profondeur: Int, progression: ProgressionUi?, recompense: Recompense?, ticket: TicketAnneeUi?): List<String> {
+    if (progression == null) return emptyList()
+    val etapes = mutableListOf<String>()
+    if (recompense == null) {
+        val reste = (OURS_FILMS_MIN - profondeur).coerceAtLeast(0)
+        if (reste > 0) etapes += "Ours : encore $reste film${if (reste > 1) "s" else ""}"
+    }
+    if (recompense != Recompense.LION && recompense != Recompense.PALME) {
+        val reste = (progression.essentielsTotal - progression.essentielsVus).coerceAtLeast(0)
+        if (reste > 0) etapes += "Lion : encore $reste essentiel${if (reste > 1) "s" else ""}"
+    }
+    if (recompense != Recompense.PALME) {
+        val reste = (2 - progression.sallesCompletes).coerceAtLeast(0)
+        if (reste > 0) etapes += "Palme : $reste salle${if (reste > 1) "s" else ""} de plus"
+    }
+    if (ticket == null) {
+        etapes += "Ticket : au Lion, ou plus tôt si le jury le décide"
+    }
+    return etapes
+}
+
+/**
  * La ligne du bas de la fiche d'année (décision 4 du brief du 21 septembre 2026, « le ticket »),
  * à la place du bouton provisoire « Année suivante » : le ticket non utilisé prime sur le verdict
  * de maturité — fonction pure, testée en JVM.

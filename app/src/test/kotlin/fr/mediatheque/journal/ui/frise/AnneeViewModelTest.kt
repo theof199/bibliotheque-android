@@ -938,6 +938,121 @@ class AnneeViewModelTest {
         assertEquals(listOf("1 film"), pastillesProgression(1, null))
     }
 
+    // `prochainPas` (lot 2 du brief du 28 septembre 2026, « le bandeau ») : l'exemple donné par le
+    // brief lui-même, une fois l'Ours acquis — encore des essentiels pour le Lion, encore des
+    // salles pour la Palme, et le ticket qui ne promet qu'un jalon, jamais un compte.
+    @Test
+    fun `prochainPas donne l'exemple du brief une fois l'Ours acquis`() {
+        val progression = ProgressionUi(essentielsVus = 2, essentielsTotal = 5, sallesCompletes = 0, sallesAutres = 4)
+        assertEquals(
+            listOf("Lion : encore 3 essentiels", "Palme : 2 salles de plus", "Ticket : au Lion, ou plus tôt si le jury le décide"),
+            prochainPas(profondeur = 5, progression = progression, recompense = Recompense.OURS, ticket = null),
+        )
+    }
+
+    @Test
+    fun `prochainPas montre l'Ours tant qu'il n'est pas acquis, jamais une fois acquis`() {
+        // Mutation : comparer `profondeur` à autre chose que `OURS_FILMS_MIN` (3), ou ne pas
+        // court-circuiter sur `recompense != null`, ferait apparaître ou disparaître cette étape
+        // au mauvais moment.
+        // `sallesCompletes = 2` : la Palme est déjà à son compte (sans essentiel, son Lion n'y
+        // fait pourtant pas obstacle dans cette fonction — voir le test dédié plus haut), pour
+        // isoler ici la seule apparition/disparition de la ligne Ours.
+        val progression = ProgressionUi(essentielsVus = 0, essentielsTotal = 0, sallesCompletes = 2, sallesAutres = 2)
+        assertEquals(
+            listOf("Ours : encore 2 films"),
+            prochainPas(profondeur = 1, progression = progression, recompense = null, ticket = TicketAnneeUi(1899, utilise = false)),
+        )
+        assertTrue(
+            "l'Ours ne doit plus apparaître une fois acquis",
+            prochainPas(profondeur = 3, progression = progression, recompense = Recompense.OURS, ticket = TicketAnneeUi(1899, utilise = false))
+                .none { it.startsWith("Ours") },
+        )
+    }
+
+    @Test
+    fun `prochainPas ignore les essentiels introuvables deja acquis pour le Lion`() {
+        // Un essentiel introuvable compte pour le Lion (back, `compteCommeAcquis`) mais jamais pour
+        // `essentiels_vus` (« strictement vu ») : une fois le Lion acquis, la ligne ne doit pas
+        // réapparaître au prétexte que `essentiels_vus < essentiels_total`. Mutation : dériver la
+        // ligne Lion du seul delta essentiels_total - essentiels_vus (sans regarder `recompense`)
+        // ferait échouer cette assertion.
+        val progression = ProgressionUi(essentielsVus = 4, essentielsTotal = 5, sallesCompletes = 2, sallesAutres = 4)
+        assertTrue(
+            "le Lion ne doit plus apparaître une fois acquis, même avec un essentiel introuvable",
+            prochainPas(profondeur = 9, progression = progression, recompense = Recompense.LION, ticket = null)
+                .none { it.startsWith("Lion") },
+        )
+    }
+
+    @Test
+    fun `prochainPas ne montre plus le ticket une fois qu'il existe`() {
+        // Mutation : ignorer `ticket` (toujours montrer la ligne) ferait échouer cette assertion —
+        // `ligneBasAnnee`, plus bas dans la fiche, dit déjà le sort de ce ticket.
+        val progression = ProgressionUi(essentielsVus = 5, essentielsTotal = 5, sallesCompletes = 2, sallesAutres = 4)
+        assertEquals(
+            emptyList<String>(),
+            prochainPas(profondeur = 9, progression = progression, recompense = Recompense.PALME, ticket = TicketAnneeUi(1899, utilise = false)),
+        )
+    }
+
+    @Test
+    fun `prochainPas rend une liste vide sans progression chargee`() {
+        assertEquals(emptyList<String>(), prochainPas(profondeur = 0, progression = null, recompense = null, ticket = null))
+    }
+
+    // `deltasProgression` (lot 2, « l'avant/après ») : seuls les gains comptent, jamais une valeur
+    // inchangée, ni une perte (la progression du Voyage ne recule pas, mais la fonction n'a pas à
+    // le supposer pour rester sûre).
+    @Test
+    fun `deltasProgression ne rend que ce qui a vraiment augmente`() {
+        val avant = ProgressionUi(essentielsVus = 1, essentielsTotal = 5, sallesCompletes = 0, sallesAutres = 4)
+        val apres = ProgressionUi(essentielsVus = 2, essentielsTotal = 5, sallesCompletes = 1, sallesAutres = 4)
+        // Mutation : comparer par `>=` ferait apparaître un delta de zéro quand rien n'a bougé.
+        assertEquals(emptyList<DeltaPastille>(), deltasProgression(9, 9, avant, avant))
+        assertEquals(
+            listOf(DeltaPastille(CiblePastille.FILMS, 1), DeltaPastille(CiblePastille.ESSENTIELS, 1), DeltaPastille(CiblePastille.SALLES, 1)),
+            deltasProgression(9, 10, avant, apres),
+        )
+    }
+
+    // `estPalierProgression` (lot 2, « haptique graduée » : un tic à chaque unité, une
+    // confirmation au palier).
+    @Test
+    fun `estPalierProgression reconnait l'Ours a trois films, jamais avant ni apres`() {
+        // Mutation : comparer par `>=` ferait rester « au palier » à quatre films aussi.
+        assertFalse(estPalierProgression(CiblePastille.FILMS, 2, null))
+        assertTrue(estPalierProgression(CiblePastille.FILMS, 3, null))
+        assertFalse(estPalierProgression(CiblePastille.FILMS, 4, null))
+    }
+
+    @Test
+    fun `estPalierProgression reconnait le Lion a essentiels_total, jamais sans essentiel`() {
+        // Mutation : ignorer `essentielsTotal > 0` dirait « au palier » pour une année sans
+        // essentiel connu (0 sur 0), qui n'a encore rien à fêter.
+        val progression = ProgressionUi(essentielsVus = 3, essentielsTotal = 5, sallesCompletes = 0, sallesAutres = 4)
+        assertFalse(estPalierProgression(CiblePastille.ESSENTIELS, 3, progression))
+        assertTrue(estPalierProgression(CiblePastille.ESSENTIELS, 5, progression))
+        assertFalse(estPalierProgression(CiblePastille.ESSENTIELS, 5, ProgressionUi(0, 0, 0, 0)))
+    }
+
+    @Test
+    fun `estPalierProgression reconnait la Palme a deux salles completes`() {
+        assertFalse(estPalierProgression(CiblePastille.SALLES, 1, null))
+        assertTrue(estPalierProgression(CiblePastille.SALLES, 2, null))
+    }
+
+    @Test
+    fun `deltasProgression ignore la progression tant qu'elle n'est pas chargee des deux cotes`() {
+        // Mutation : lire `avant`/`apres` avec un des deux nuls (`!!`, ou un défaut à zéro) planterait
+        // ou inventerait un delta pour une progression qu'on n'a jamais vraiment comparée.
+        assertEquals(emptyList<DeltaPastille>(), deltasProgression(9, 9, null, null))
+        assertEquals(
+            listOf(DeltaPastille(CiblePastille.FILMS, 1)),
+            deltasProgression(9, 10, null, ProgressionUi(essentielsVus = 1, essentielsTotal = 5, sallesCompletes = 0, sallesAutres = 4)),
+        )
+    }
+
     // La récompense et la progression se lisent sur une année prête (étape 5, « les récompenses »)
     // — jumeau du test `relire charge l'annee...` plus haut, qui vérifie déjà `ouverture` et
     // `profondeur`. Mutation : lire `reponse.recompense`/`reponse.progression` sans passer par
