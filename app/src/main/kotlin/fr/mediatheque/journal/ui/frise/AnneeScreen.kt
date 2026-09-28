@@ -1382,28 +1382,38 @@ private fun BlocSalle(
     animatedVisibilityScope: AnimatedVisibilityScope? = null,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.clickable(onClick = onOuvrirContexte),
-        ) {
-            Text(salle.nom, style = MaterialTheme.typography.titleMedium)
-            // Le ruban « Salle bouclée » (habillage du 23 septembre 2026, geste 10), glissé depuis
-            // la gauche — une fois par salle, jamais rejoué (`vientDeSeBoucler` vient d'un `Channel`
-            // à un coup, `AnneeScreen`).
-            androidx.compose.animation.AnimatedVisibility(
-                visible = vientDeSeBoucler,
-                enter = androidx.compose.animation.slideInHorizontally(androidx.compose.animation.core.tween(300)) { largeur -> -largeur } +
-                    androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(300)),
+        Box {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.clickable(onClick = onOuvrirContexte),
             ) {
-                Box(
-                    Modifier
-                        .background(MaterialTheme.colorScheme.secondary, RoundedCornerShape(50))
-                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                Text(salle.nom, style = MaterialTheme.typography.titleMedium)
+                // Le tampon « COMPLET » (lot 2 du brief du 28 septembre 2026, « une salle bouclée
+                // devient un palier ») : posé une fois, jamais rejoué, jumeau du ruban ci-dessous.
+                if (vientDeSeBoucler) TamponSalleComplete()
+                // Le ruban « Salle bouclée » (habillage du 23 septembre 2026, geste 10), glissé depuis
+                // la gauche — une fois par salle, jamais rejoué (`vientDeSeBoucler` vient d'un `Channel`
+                // à un coup, `AnneeScreen`).
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = vientDeSeBoucler,
+                    enter = androidx.compose.animation.slideInHorizontally(androidx.compose.animation.core.tween(300)) { largeur -> -largeur } +
+                        androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(300)),
                 ) {
-                    Text("Salle bouclée", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondary)
+                    Box(
+                        Modifier
+                            .background(MaterialTheme.colorScheme.secondary, RoundedCornerShape(50))
+                            .padding(horizontal = 8.dp, vertical = 3.dp),
+                    ) {
+                        Text("Salle bouclée", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondary)
+                    }
                 }
             }
+            // Le rideau qui se ferme sur le titre (lot 2, « une salle bouclée devient un palier ») :
+            // deux pans qui se rejoignent au centre puis s'effacent, révélant le titre déjà
+            // tamponné — coupé net si les animations sont réduites (`RideauFermeture` pose alors
+            // l'état final sans jouer).
+            if (vientDeSeBoucler) RideauFermeture(monde)
         }
         if (vientDeSeBoucler) {
             // Les perforations s'allument en or l'une après l'autre, 300 ms (geste 10).
@@ -1438,6 +1448,80 @@ private fun BlocSalle(
             if (salle.films.isNotEmpty()) FiletPointilleOr()
             LigneEtagereBillet(epuisee = salle.epuisee, fourneeEnCours = salle.fourneeEnCours, onClick = onVoirPlus)
         }
+    }
+}
+
+/**
+ * Le tampon « COMPLET » à côté du nom d'une salle qui vient de se boucler (lot 2 du brief du
+ * 28 septembre 2026, « une salle bouclée devient un palier ») : un tampon encré, penché, posé
+ * d'un coup un peu trop grand puis retombant à sa taille — coupé net (posé directement à sa
+ * taille finale) si les animations sont réduites.
+ */
+@Composable
+private fun TamponSalleComplete() {
+    val reduit = remember { animationsReduites() }
+    val echelle = remember { Animatable(if (reduit) 1f else 1.8f) }
+    LaunchedEffect(Unit) {
+        if (!reduit) echelle.animateTo(1f, tween(220, easing = FastOutSlowInEasing))
+    }
+    Text(
+        "COMPLET",
+        style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 2.sp, fontWeight = FontWeight.Bold),
+        color = MaterialTheme.colorScheme.secondary,
+        modifier = Modifier
+            .graphicsLayer {
+                rotationZ = -10f
+                scaleX = echelle.value
+                scaleY = echelle.value
+            }
+            .border(1.dp, MaterialTheme.colorScheme.secondary, RoundedCornerShape(4.dp))
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+    )
+}
+
+/**
+ * Le rideau qui se ferme sur le titre d'une salle qui vient de se boucler (lot 2 du brief du
+ * 28 septembre 2026, « une salle bouclée devient un palier ») : deux pans de la couleur du monde,
+ * chacun ancré à son bord extérieur, grandissent jusqu'à se rejoindre au centre puis s'effacent
+ * ensemble, révélant le titre déjà tamponné (`TamponSalleComplete`, posé avant, sous le rideau).
+ *
+ * Coupé net si les animations sont réduites : rien ne se dessine, l'état final (le tampon seul,
+ * sans le rideau) est déjà ce que la composition sans animation montre.
+ */
+@Composable
+private fun BoxScope.RideauFermeture(monde: Monde) {
+    val reduit = remember { animationsReduites() }
+    if (reduit) return
+    val fermeture = remember { Animatable(0f) }
+    val alpha = remember { Animatable(1f) }
+    LaunchedEffect(Unit) {
+        fermeture.animateTo(1f, tween(260, easing = FastOutSlowInEasing))
+        delay(180)
+        alpha.animateTo(0f, tween(260))
+    }
+    Row(Modifier.matchParentSize()) {
+        Box(
+            Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .graphicsLayer {
+                    scaleX = fermeture.value
+                    transformOrigin = TransformOrigin(0f, 0.5f)
+                    this.alpha = alpha.value
+                }
+                .background(monde.accent.copy(alpha = 0.92f)),
+        )
+        Box(
+            Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .graphicsLayer {
+                    scaleX = fermeture.value
+                    transformOrigin = TransformOrigin(1f, 0.5f)
+                    this.alpha = alpha.value
+                }
+                .background(monde.accent.copy(alpha = 0.92f)),
+        )
     }
 }
 
