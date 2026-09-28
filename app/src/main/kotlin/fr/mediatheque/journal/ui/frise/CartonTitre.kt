@@ -1,5 +1,6 @@
 package fr.mediatheque.journal.ui.frise
 
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -14,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -26,6 +28,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -57,6 +60,10 @@ import fr.mediatheque.journal.ui.theme.Limelight
  * balaie et découvre le titre) et 1950 (les trois plaques qui se recalent) ont une entrée pour
  * l'instant — 1960 → 2020 (livraison 4) et 1890 → 1920 en 16 i/s (livraison 5) n'auront qu'à
  * ajouter leur propre branche à `TitreCarton` et `entreeDeCarton` ci-dessous.
+ *
+ * Livraison 4, premier commit (28 septembre 2026, §G suite) : 1960, 1970 et 1980 gagnent leur
+ * entrée — `modifierEntreeTitre` porte les transformations du titre lui-même (saut, zoom,
+ * grésillement), toutes fluides (24 i/s) comme 1930-1950. 1990 → 2020 suivent au commit suivant.
  */
 @Composable
 fun CartonTitre(monde: Monde, entree: EtatEntree, modifier: Modifier = Modifier) {
@@ -155,9 +162,42 @@ private fun TitreCarton(monde: Monde, decennie: Int, progressionEntree: Float?) 
                 else -> couleurFinale
             },
             textAlign = TextAlign.Center,
+            modifier = if (progressionEntree != null) modifierEntreeTitre(decennie, progressionEntree) else Modifier,
         )
     }
 }
+
+/**
+ * La transformation du titre pendant l'entrée, 1960 → 2020 (§G suite, livraison 4) — un
+ * `Modifier` plutôt qu'un dessin `DrawScope`, le titre restant un vrai `Text` (police, style
+ * dégradé de 1990 compris) tout du long. Neutre (`Modifier`) pour les mondes sans entrée de titre
+ * dessinée.
+ */
+private fun modifierEntreeTitre(decennie: Int, progression: Float): Modifier = when (decennie) {
+    // 1960 : « trois sauts » (§G) — quatre positions tenues, `steps(1)` : la lettre saute d'un
+    // point à l'autre plutôt que de glisser, la première tenue étant aussi l'apparition.
+    1960 -> {
+        val position = POSITIONS_SAUT_1960[(progression * POSITIONS_SAUT_1960.size).toInt().coerceIn(0, POSITIONS_SAUT_1960.size - 1)]
+        Modifier.offset(x = position.x.dp, y = position.y.dp).alpha(if (progression <= 0f) 0f else 1f)
+    }
+    // 1970 : zoom lent, la courbe du delta portée sur `progression` directement (celui-ci reste
+    // animé en linéaire par `SectionMonde`, comme chaque monde).
+    1970 -> {
+        val avance = EasingZoomLent1970.transform(progression)
+        Modifier.graphicsLayer {
+            scaleX = 1.25f - 0.25f * avance
+            scaleY = scaleX
+            alpha = 0.4f + 0.6f * avance
+        }
+    }
+    // 1980 : le néon grésille — huit valeurs tenues (§G, `steps(1)`).
+    1980 -> Modifier.alpha(ALPHAS_NEON_1980[(progression * ALPHAS_NEON_1980.size).toInt().coerceIn(0, ALPHAS_NEON_1980.size - 1)])
+    else -> Modifier
+}
+
+private val POSITIONS_SAUT_1960 = listOf(Offset(-30f, 0f), Offset(18f, -4f), Offset(-6f, 2f), Offset(0f, 0f))
+private val EasingZoomLent1970 = CubicBezierEasing(0.2f, 0.6f, 0.2f, 1f)
+private val ALPHAS_NEON_1980 = floatArrayOf(0f, 1f, 0.2f, 1f, 0.4f, 1f, 0.7f, 1f)
 
 /**
  * 1930 (§G) : chaque lettre passe de `#4A4335` (éteinte) à l'accent du monde, décalée d'une lettre
