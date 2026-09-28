@@ -3,6 +3,9 @@ package fr.mediatheque.journal.ui
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -12,6 +15,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,6 +32,7 @@ import coil3.compose.SubcomposeAsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import fr.mediatheque.journal.ui.theme.IconeTabler
+import fr.mediatheque.journal.ui.theme.animationsReduites
 
 /**
  * L'affiche partagée (peaufinage du 23 septembre 2026, geste 8) : le trio que `Modifier.voler`
@@ -55,12 +60,25 @@ fun afficheVolante(scope: SharedTransitionScope?, visibilite: AnimatedVisibility
  * `Cover` sert des dizaines d'affiches sans rapport avec les quatre paires du geste, et lui donner un
  * paramètre de type expérimental aurait forcé un `@OptIn` sur chacun de ses appelants. `null` rend
  * le modificateur tel quel.
+ *
+ * Correctif du 28 septembre 2026 : `boundsTransform` remplace le ressort par défaut par un `tween`
+ * de 350 ms (`FastOutSlowInEasing`), la même courbe que le reste de l'appli plutôt que le rebond du
+ * ressort — et respecte `animationsReduites()` (aucun écran n'y touchait encore pour ce vol
+ * partagé, vérifié dans `Root.kt` et `AfficheVitrine.kt`) : un `snap()` immédiat, téléphone qui a
+ * coupé les animations.
  */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun Modifier.voler(volante: AfficheVolante?): Modifier {
     if (volante == null) return this
-    return with(volante.scope) { this@voler.sharedElement(rememberSharedContentState(volante.cle), volante.visibilite) }
+    val reduites = remember { animationsReduites() }
+    return with(volante.scope) {
+        this@voler.sharedElement(
+            rememberSharedContentState(volante.cle),
+            volante.visibilite,
+            boundsTransform = { _, _ -> if (reduites) snap() else tween(350, easing = FastOutSlowInEasing) },
+        )
+    }
 }
 
 /**

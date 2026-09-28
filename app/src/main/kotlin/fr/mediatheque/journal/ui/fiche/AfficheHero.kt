@@ -10,6 +10,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -41,8 +42,15 @@ private const val DEBUT_FONDU = 0.55f
  * l'affiche 96 × 144 d'avant ; `FondHeros` reste au formulaire.
  *
  * `volante` porte le vol de l'affiche (geste 8 du peaufinage du 23 septembre 2026) : posé sur
- * l'image seule, pas sur le dégradé, pour que ce soit l'affiche qui grandisse depuis la grille et
- * que le fondu apparaisse avec la fiche.
+ * l'image seule.
+ *
+ * Correctif du 28 septembre 2026 (le fondu apparaissait en retard, une fois le vol terminé,
+ * laissant un bord net couper la page en deux pendant le vol) : `SharedTransitionLayout` sort le
+ * nœud volant de la mise en page pendant la transition pour le dessiner dans une calque au-dessus
+ * de l'écran — un `Box` frère posé à côté ne le rejoint donc qu'à l'atterrissage. Le fondu se
+ * dessine maintenant sur le nœud volant lui-même (`fonduDeBas`, juste au-dessous de `voler` dans
+ * la même chaîne de modificateurs), sur les deux branches (l'image et son repli sans URL) : il vole
+ * avec l'affiche du premier au dernier instant.
  *
  * Sans URL, le bloc `surfaceContainerHigh` à l'initiale du titre — le repli de `Cover`, à la taille
  * du héros.
@@ -52,22 +60,27 @@ private const val DEBUT_FONDU = 0.55f
 fun AfficheHero(url: String?, titre: String, fond: Color, volante: AfficheVolante?, modifier: Modifier = Modifier) {
     Box(modifier.fillMaxWidth().height(HAUTEUR_AFFICHE_HERO)) {
         if (url == null) {
-            InitialeHero(titre, Modifier.voler(volante).matchParentSize())
+            InitialeHero(titre, Modifier.voler(volante).fonduDeBas(fond).matchParentSize())
         } else {
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current).data(url).crossfade(200).build(),
                 contentDescription = "Affiche de $titre",
                 contentScale = ContentScale.Crop,
                 alignment = Alignment.TopCenter,
-                modifier = Modifier.voler(volante).matchParentSize(),
+                modifier = Modifier.voler(volante).fonduDeBas(fond).matchParentSize(),
             )
         }
-        Box(
-            Modifier.matchParentSize().background(
-                Brush.verticalGradient(0f to Color.Transparent, DEBUT_FONDU to Color.Transparent, 1f to fond),
-            ),
-        )
     }
+}
+
+/**
+ * Le fondu vers `fond` du dernier tiers de l'affiche (`DEBUT_FONDU`), posé directement sur le nœud
+ * volant (correctif du 28 septembre 2026, ci-dessus) plutôt que sur un `Box` frère — dessiné après
+ * le contenu (`drawContent()` d'abord), donc toujours par-dessus l'image ou l'initiale de repli.
+ */
+private fun Modifier.fonduDeBas(fond: Color): Modifier = drawWithContent {
+    drawContent()
+    drawRect(Brush.verticalGradient(0f to Color.Transparent, DEBUT_FONDU to Color.Transparent, 1f to fond))
 }
 
 /**
