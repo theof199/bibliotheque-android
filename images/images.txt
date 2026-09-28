@@ -1,0 +1,24 @@
+# images/images.txt — une ligne par image de fond du Voyage, lue par bin/images.
+# Les licences et crédits vivent à côté, dans sources/SOURCES.txt (recopiés dans
+# LICENCES-IMAGES.md à la racine) : ce fichier-ci ne porte que ce qu'il faut pour
+# recadrer et convertir, rien de plus.
+#
+# fichier (dans sources/) | décennie cible | cadrage (§H du delta de Léon :
+#   standard = 390 × 300 dp, cover, ancrage 50 % / 40 % ; affiche = 258 × 392 dp,
+#   cover, ancrage 50 % / 0 %, seule exception, réservée à 1910)
+#
+# 1890 et 1900 n'ont pas de ligne : ces deux mondes n'ont pas d'image de fond.
+# orlok-ombre.svg n'a pas de ligne non plus : bin/images le convertit à part, en
+# VectorDrawable, sans passer par Pillow.
+fantomas-1913.jpg | 1910 | affiche
+caligari-rue.jpg | 1920 | standard
+karloff-1935.jpg | 1930 | standard
+casablanca-1942.jpg | 1940 | standard
+dean-1955.jpg | 1950 | standard
+psycho-1960.png | 1960 | standard
+mean-streets-1973.png | 1970 | standard
+vhs-blockbuster.jpg | 1980 | standard
+multiplex-1990s.jpg | 1990 | standard
+dlp-2006.jpg | 2000 | standard
+netflix-2018.jpg | 2010 | standard
+marquee-2020.jpg | 2020 | standard

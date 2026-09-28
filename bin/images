@@ -1,0 +1,188 @@
+#!/usr/bin/env python3
+"""Construit les images de fond du Voyage depuis images/sources/, jumeau de bin/icones.
+
+Lit images/images.txt (fichier source, décennie cible, cadrage), recadre chaque source au
+format demandé (§H du delta de Léon, « pavillon par pavillon », 25 septembre 2026 : cover,
+ancrage propre à chaque cadrage) et l'écrit en WebP 800 px de large, qualité 80, dans
+app/src/main/res/drawable-nodpi/voyage_<decennie>.webp — un dossier « nodpi » plutôt qu'un
+mipmap : ces fonds ne doivent jamais être choisis par densité, une seule version sert tous
+les écrans (comme les jaquettes distantes de Coil, mais commitée : le build ne dépend jamais
+du réseau, brief historique de l'appli).
+
+orlok-ombre.svg suit un autre chemin : Pillow ne sait pas lire les SVG, il est donc converti
+à part en VectorDrawable par le même `svg2vectordrawable` que bin/icones (node, déjà installé
+dans icones/node_modules — aucune dépendance nouvelle).
+
+Écrit enfin LICENCES-IMAGES.md à la racine depuis sources/SOURCES.txt : la même donnée que
+les crédits « Coulisses » de l'appli (ui/frise/CreditsImages.kt) reprennent à la main, listée
+ici pour que quiconque hors de l'appli (une revue de licence, un mainteneur futur) la retrouve
+sans lancer l'appli.
+
+Sans Pillow sur le poste, relancer via `bin/dans python3 bin/images` (le conteneur de
+construction n'a pas Pillow par défaut ; c'est à charge de l'appelant, pas de ce script, qui ne
+sait pas dans quel environnement il tourne).
+"""
+from __future__ import annotations
+
+import subprocess
+import sys
+from pathlib import Path
+
+try:
+    from PIL import Image
+except ImportError:
+    print(
+        "bin/images : Pillow manquant sur ce poste. Relancer dans le conteneur de "
+        "construction : bin/dans python3 bin/images (voir Dockerfile.build).",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
+RACINE = Path(__file__).resolve().parent.parent
+DOSSIER_SOURCES = RACINE / "images" / "sources"
+FICHIER_LISTE = RACINE / "images" / "images.txt"
+FICHIER_SOURCES_TXT = DOSSIER_SOURCES / "SOURCES.txt"
+DOSSIER_NODPI = RACINE / "app" / "src" / "main" / "res" / "drawable-nodpi"
+DOSSIER_DRAWABLE = RACINE / "app" / "src" / "main" / "res" / "drawable"
+FICHIER_LICENCES = RACINE / "LICENCES-IMAGES.md"
+FICHIER_SVG2VD = RACINE / "icones" / "node_modules" / "svg2vectordrawable"
+LARGEUR_SORTIE = 800
+QUALITE_WEBP = 80
+
+# Les deux cadrages de §H — largeur/hauteur ne servent qu'à en tirer le ratio ; c'est
+# l'ancrage qui dit où le rectangle se place dans la source une fois ce ratio choisi.
+CADRAGES = {
+    "standard": {"ratio": 390 / 300, "ancrage_x": 0.5, "ancrage_y": 0.4},
+    "affiche": {"ratio": 258 / 392, "ancrage_x": 0.5, "ancrage_y": 0.0},
+}
+
+
+def lire_lignes(chemin: Path) -> list[str]:
+    return [
+        ligne.strip()
+        for ligne in chemin.read_text(encoding="utf-8").splitlines()
+        if ligne.strip() and not ligne.strip().startswith("#")
+    ]
+
+
+def boite_de_recadrage(largeur: int, hauteur: int, ratio_cible: float, ancrage_x: float, ancrage_y: float) -> tuple[int, int, int, int]:
+    """Le rectangle « cover » (le plus grand qui tienne au ratio cible) positionné par
+    l'ancrage dans l'espace qui reste une fois ce rectangle choisi — la même règle que
+    `object-fit: cover` / `object-position` en CSS, à la main : Pillow n'a rien d'équivalent.
+    """
+    ratio_source = largeur / hauteur
+    if ratio_source > ratio_cible:
+        # La source est plus large que la cible : on rogne les côtés, la hauteur reste entière.
+        crop_h = hauteur
+        crop_w = round(crop_h * ratio_cible)
+        x = round((largeur - crop_w) * ancrage_x)
+        y = 0
+    else:
+        # La source est plus haute (ou déjà au ratio) : on rogne haut et bas.
+        crop_w = largeur
+        crop_h = round(crop_w / ratio_cible)
+        x = 0
+        y = round((hauteur - crop_h) * ancrage_y)
+    return (x, y, x + crop_w, y + crop_h)
+
+
+def convertir_image(nom_source: str, decennie: str, cadrage: str) -> None:
+    parametres = CADRAGES[cadrage]
+    chemin_source = DOSSIER_SOURCES / nom_source
+    with Image.open(chemin_source) as image:
+        image = image.convert("RGB")
+        boite = boite_de_recadrage(image.width, image.height, parametres["ratio"], parametres["ancrage_x"], parametres["ancrage_y"])
+        recadree = image.crop(boite)
+        hauteur_sortie = round(LARGEUR_SORTIE / parametres["ratio"])
+        redimensionnee = recadree.resize((LARGEUR_SORTIE, hauteur_sortie), Image.LANCZOS)
+        cible = DOSSIER_NODPI / f"voyage_{decennie}.webp"
+        redimensionnee.save(cible, "WEBP", quality=QUALITE_WEBP)
+        print(f"écrit : {cible.relative_to(RACINE)} (depuis {nom_source}, cadrage {cadrage})")
+
+
+def convertir_orlok() -> None:
+    """Le seul SVG du lot : silhouette déjà remplie (`fill:#000000`), aucune retouche de
+    trait à lui appliquer avant conversion — contrairement aux icônes Tabler de bin/icones,
+    qui sont des contours sans couleur propre.
+    """
+    chemin_svg = DOSSIER_SOURCES / "orlok-ombre.svg"
+    if not chemin_svg.exists():
+        return
+    script_node = (
+        "const s2v = require(process.argv[1]);"
+        "const fs = require('fs');"
+        "const svg = fs.readFileSync(process.argv[2], 'utf8');"
+        "s2v(svg, {xmlTag: true, floatPrecision: 2})"
+        ".then(xml => fs.writeFileSync(process.argv[3], xml))"
+        ".catch(e => { console.error(e); process.exit(1); });"
+    )
+    cible = DOSSIER_DRAWABLE / "voyage_orlok.xml"
+    DOSSIER_DRAWABLE.mkdir(parents=True, exist_ok=True)
+    resultat = subprocess.run(
+        ["node", "-e", script_node, str(FICHIER_SVG2VD), str(chemin_svg), str(cible)],
+        cwd=RACINE,
+    )
+    if resultat.returncode != 0:
+        print("bin/images : la conversion de orlok-ombre.svg a échoué (node/svg2vectordrawable).", file=sys.stderr)
+        sys.exit(1)
+    entete = "<!-- Genere par bin/images depuis images/sources/orlok-ombre.svg. Ne pas editer a la main. -->\n"
+    contenu = cible.read_text(encoding="utf-8")
+    # L'entête est ajoutée après la déclaration XML, comme bin/icones le fait pour les tabler_*.
+    if not contenu.startswith("<?xml"):
+        cible.write_text(entete + contenu, encoding="utf-8")
+    else:
+        premiere_ligne, reste = contenu.split("\n", 1)
+        cible.write_text(premiere_ligne + "\n" + entete + reste, encoding="utf-8")
+    print(f"écrit : {cible.relative_to(RACINE)} (depuis orlok-ombre.svg)")
+
+
+def ecrire_licences() -> None:
+    lignes_sources = lire_lignes(FICHIER_SOURCES_TXT)
+    entrees = []
+    for ligne in lignes_sources:
+        colonnes = [c.strip() for c in ligne.split("|")]
+        if len(colonnes) != 5:
+            continue
+        fichier, decennie, page, auteur, licence = colonnes
+        entrees.append((fichier, decennie, page, auteur, licence))
+
+    lignes_md = [
+        "# Licences des images du Voyage",
+        "",
+        "*Fichier réécrit par `bin/images` à chaque exécution : ne pas l'éditer à la main, éditer "
+        "`images/sources/SOURCES.txt` puis relancer le script.*",
+        "",
+        "Images du Voyage : Wikimedia Commons, crédits dans Coulisses (`ui/frise/CreditsImages.kt`, "
+        "l'appli, section « Crédits »).",
+        "",
+        "| Fichier | Décennie | Page Commons | Auteur | Licence |",
+        "|---|---|---|---|---|",
+    ]
+    for fichier, decennie, page, auteur, licence in entrees:
+        lien = f"[page]({page})" if page.startswith("http") else page
+        lignes_md.append(f"| `{fichier}` | {decennie} | {lien} | {auteur} | {licence} |")
+    lignes_md.append("")
+
+    FICHIER_LICENCES.write_text("\n".join(lignes_md), encoding="utf-8")
+    print(f"écrit : {FICHIER_LICENCES.relative_to(RACINE)} ({len(entrees)} images)")
+
+
+def main() -> None:
+    DOSSIER_NODPI.mkdir(parents=True, exist_ok=True)
+    for ligne in lire_lignes(FICHIER_LISTE):
+        colonnes = [c.strip() for c in ligne.split("|")]
+        if len(colonnes) != 3:
+            print(f"bin/images : ligne malformée dans images.txt : {ligne!r}", file=sys.stderr)
+            sys.exit(1)
+        nom_source, decennie, cadrage = colonnes
+        if cadrage not in CADRAGES:
+            print(f"bin/images : cadrage inconnu {cadrage!r} pour {nom_source}", file=sys.stderr)
+            sys.exit(1)
+        convertir_image(nom_source, decennie, cadrage)
+
+    convertir_orlok()
+    ecrire_licences()
+
+
+if __name__ == "__main__":
+    main()
