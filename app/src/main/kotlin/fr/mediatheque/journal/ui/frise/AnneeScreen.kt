@@ -21,10 +21,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -56,6 +58,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -108,9 +111,12 @@ import fr.mediatheque.journal.ui.showBriefly
 import fr.mediatheque.journal.ui.theme.CadreOrne
 import fr.mediatheque.journal.ui.theme.CadrePapier
 import fr.mediatheque.journal.ui.theme.IconeTabler
+import fr.mediatheque.journal.ui.theme.Or
 import fr.mediatheque.journal.ui.theme.PapierJauni
 import fr.mediatheque.journal.ui.theme.Perforations
 import fr.mediatheque.journal.ui.theme.TextePapier
+import fr.mediatheque.journal.ui.theme.animationsReduites
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -287,15 +293,9 @@ fun AnneeScreen(
                             // 2026) : films, essentiels, salles complètes — remplace la ligne « *N*
                             // films » suivie d'une seconde ligne « *N* essentiels sur *M* · … »,
                             // moins lisible sur le fond héros. `pastillesProgression` (fonction pure
-                            // testée) décide lesquelles existent.
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                modifier = Modifier.padding(top = 4.dp),
-                            ) {
-                                pastillesProgression(ui.profondeur, ui.progression).forEach { texte ->
-                                    PastilleStat(texte)
-                                }
-                            }
+                            // testée) décide lesquelles existent. Animées au retour d'un
+                            // enregistrement (lot 2 du brief du 28 septembre 2026, « l'avant/après »).
+                            BlocPastillesAnimees(vm, ui, modifier = Modifier.padding(top = 4.dp))
                             // Le sous-titre en capitales espacées (geste 5) : « LA FÉERIE, MÉLIÈS… ».
                             Text(
                                 "${monde.nom} · ${monde.sousTitre}".uppercase(),
@@ -314,6 +314,17 @@ fun AnneeScreen(
                         onLireOuverture = { feuilleOuverte = true },
                         onOuvrirGenerique = onOuvrirGenerique,
                     )
+                }
+
+                // Le bandeau « Prochain pas » (lot 2 du brief du 28 septembre 2026, « le voyage se
+                // sent progresser ») : en tête de la fiche, seulement sur l'année en cours et une
+                // fois sa progression connue — `prochainPas` (fonction pure testée) dit ce qui
+                // reste pour chaque récompense, et pour le ticket.
+                if (ui.statutVoyage == StatutAnneeVoyage.EN_COURS && ui.etat == EtatAnnee.PRETE) {
+                    val etapes = prochainPas(ui.profondeur, ui.progression, ui.recompense, ui.ticket)
+                    if (etapes.isNotEmpty()) {
+                        item { BandeauProchainPas(etapes) }
+                    }
                 }
 
                 if (ui.etat == EtatAnnee.PRETE) {
@@ -476,6 +487,154 @@ private fun PastilleStat(texte: String) {
     ) {
         Text(texte, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
     }
+}
+
+/**
+ * Le bandeau « Prochain pas » (lot 2 du brief du 28 septembre 2026, « le voyage se sent
+ * progresser ») : une ligne par étape restante (`prochainPas`, fonction pure testée), séparées
+ * par un point médian — « Lion : encore 3 essentiels · Palme : 2 salles de plus · Ticket : au
+ * Lion, ou plus tôt si le jury le décide ».
+ */
+@Composable
+private fun BandeauProchainPas(etapes: List<String>) {
+    Text(
+        etapes.joinToString(" · "),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(10.dp))
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+    )
+}
+
+/**
+ * Les pastilles de progression (films, essentiels, salles complètes), animées au retour d'un
+ * enregistrement (lot 2 du brief du 28 septembre 2026, « l'avant/après ») : `vm.progressionBougee`
+ * (`AnneeViewModel`, un `Channel` à un coup, jumeau de `sallesBouclees`) dit quelle pastille a
+ * bougé et de combien (`DeltaPastille`, fonction pure `deltasProgression`) — le compteur touché
+ * défile un à un jusqu'à sa nouvelle valeur, un « +1 » vole au-dessus, et une haptique graduée
+ * marque chaque unité, plus fort au palier (`estPalierProgression`). Coupé net (posé d'un coup, un
+ * seul « +1 » puis rien) si les animations sont réduites — seule l'éventuelle confirmation de
+ * palier reste, pour ne pas rendre le geste totalement muet.
+ *
+ * La première composition ne défile jamais depuis zéro : `profondeurAffichee`/`essentielsAffiches`/
+ * `sallesAffichees` partent de la valeur déjà connue de `ui`, seul un `progressionBougee` reçu
+ * *après* les anime.
+ */
+@Composable
+private fun BlocPastillesAnimees(vm: AnneeViewModel, ui: AnneeUi, modifier: Modifier = Modifier) {
+    val reduit = remember { animationsReduites() }
+    val haptique = LocalHapticFeedback.current
+    var profondeurAffichee by remember { mutableIntStateOf(ui.profondeur) }
+    var essentielsAffiches by remember { mutableIntStateOf(ui.progression?.essentielsVus ?: 0) }
+    var sallesAffichees by remember { mutableIntStateOf(ui.progression?.sallesCompletes ?: 0) }
+    var plusUnCible by remember { mutableStateOf<CiblePastille?>(null) }
+
+    // La progression arrive parfois après la première composition (chargement encore en cours) :
+    // on la pose alors sans l'animer, tant qu'aucune animation n'est déjà en train de la faire
+    // défiler elle-même.
+    LaunchedEffect(ui.progression) {
+        if (ui.progression != null && plusUnCible == null) {
+            essentielsAffiches = ui.progression.essentielsVus
+            sallesAffichees = ui.progression.sallesCompletes
+        }
+    }
+    LaunchedEffect(ui.profondeur) {
+        if (plusUnCible == null) profondeurAffichee = ui.profondeur
+    }
+
+    LaunchedEffect(vm) {
+        vm.progressionBougee.collect { deltas ->
+            deltas.forEach { delta ->
+                val etat = vm.ui.value
+                val cibleValeur = when (delta.cible) {
+                    CiblePastille.FILMS -> etat.profondeur
+                    CiblePastille.ESSENTIELS -> etat.progression?.essentielsVus ?: essentielsAffiches
+                    CiblePastille.SALLES -> etat.progression?.sallesCompletes ?: sallesAffichees
+                }
+                fun valeurActuelle() = when (delta.cible) {
+                    CiblePastille.FILMS -> profondeurAffichee
+                    CiblePastille.ESSENTIELS -> essentielsAffiches
+                    CiblePastille.SALLES -> sallesAffichees
+                }
+                fun poser(valeur: Int) {
+                    when (delta.cible) {
+                        CiblePastille.FILMS -> profondeurAffichee = valeur
+                        CiblePastille.ESSENTIELS -> essentielsAffiches = valeur
+                        CiblePastille.SALLES -> sallesAffichees = valeur
+                    }
+                }
+                if (reduit) {
+                    // Animations réduites : l'état final se pose d'un coup, sans le « +1 » qui
+                    // vole (une pure animation, sans état propre à poser) — seule la confirmation
+                    // haptique d'un palier franchi reste, un événement discret plutôt qu'un
+                    // mouvement.
+                    poser(cibleValeur)
+                    if (estPalierProgression(delta.cible, cibleValeur, etat.progression)) {
+                        haptique.performHapticFeedback(HapticFeedbackType.Confirm)
+                    }
+                } else {
+                    plusUnCible = delta.cible
+                    while (valeurActuelle() < cibleValeur) {
+                        val suivant = valeurActuelle() + 1
+                        poser(suivant)
+                        if (suivant >= cibleValeur && estPalierProgression(delta.cible, suivant, etat.progression)) {
+                            haptique.performHapticFeedback(HapticFeedbackType.Confirm)
+                        } else {
+                            haptique.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                        }
+                        delay(140)
+                    }
+                    delay(650)
+                    plusUnCible = null
+                }
+            }
+        }
+    }
+
+    val progressionAffichee = ui.progression?.copy(essentielsVus = essentielsAffiches, sallesCompletes = sallesAffichees)
+    // Le même ordre que `pastillesProgression` (fonction pure testée) : films toujours en tête,
+    // puis soit « Aucun essentiel encore » seule, soit essentiels puis salles — jamais recalculé
+    // à la main ailleurs, pour ne jamais diverger de ce que le texte affiche vraiment.
+    val cibles: List<CiblePastille?> = when {
+        progressionAffichee == null -> listOf(CiblePastille.FILMS)
+        progressionAffichee.essentielsTotal == 0 -> listOf(CiblePastille.FILMS, null)
+        else -> listOf(CiblePastille.FILMS, CiblePastille.ESSENTIELS, CiblePastille.SALLES)
+    }
+    val textes = pastillesProgression(profondeurAffichee, progressionAffichee)
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = modifier) {
+        textes.forEachIndexed { index, texte ->
+            Box {
+                PastilleStat(texte)
+                if (cibles.getOrNull(index) != null && cibles.getOrNull(index) == plusUnCible) {
+                    PlusUnFlottant()
+                }
+            }
+        }
+    }
+}
+
+/** Le « +1 » qui vole vers la pastille touchée (lot 2, « l'avant/après ») : monte et s'efface. */
+@Composable
+private fun BoxScope.PlusUnFlottant() {
+    val decalage = remember { Animatable(4f) }
+    val alpha = remember { Animatable(1f) }
+    LaunchedEffect(Unit) {
+        launch { decalage.animateTo(-16f, tween(600, easing = FastOutSlowInEasing)) }
+        alpha.animateTo(0f, tween(600))
+    }
+    Text(
+        "+1",
+        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+        color = MaterialTheme.colorScheme.secondary,
+        modifier = Modifier
+            .align(Alignment.TopEnd)
+            .graphicsLayer {
+                translationY = decalage.value
+                this.alpha = alpha.value
+            },
+    )
 }
 
 /**
