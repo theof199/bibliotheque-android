@@ -1,6 +1,8 @@
 package fr.mediatheque.journal.ui.frise
 
 import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -8,11 +10,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import fr.mediatheque.journal.ui.AfficheVolante
 import fr.mediatheque.journal.ui.EspaceBarreDuBas
 import fr.mediatheque.journal.ui.PorteeEcrans
 import fr.mediatheque.journal.ui.Screen
+import fr.mediatheque.journal.ui.celebrations.AnneeDansLaBoiteCalque
 import fr.mediatheque.journal.ui.form.CartonViewModel
 
 /** `Screen.Frise` : la carte du Voyage, année par année depuis 1895. */
@@ -93,33 +97,54 @@ fun PorteeEcrans.routeAnnee(screen: Screen.Annee) {
             anneeVm.guetterVerdict()
         }
     }
-    AnneeScreen(
-        screen.annee,
-        anneeVm,
-        realisateurResolveur = realisateurResolveur,
-        onBack = nav::pop,
-        // L'affiche partagée (geste 8) : la salle du Voyage est un des deux
-        // bouts de la paire vers `Screen.FicheVoyage` plus bas — même clé.
-        sharedTransitionScope = sharedTransitionScope,
-        animatedVisibilityScope = animatedVisibilityScope,
-        onOpenFilm = { salleId, filmId -> nav.push(Screen.FicheVoyage(screen.annee.annee ?: 0, salleId, filmId)) },
-        // Le ticket (brief du 21 septembre 2026) : encaisser le ticket de la
-        // ligne du bas avance l'année en cours côté back sans toucher
-        // `/me/voyage`, on relit donc la carte nous-mêmes pour qu'elle soit à
-        // jour au prochain passage dessus — jumeau du podium juste en dessous.
-        onTicketChange = { frise.refresh() },
-        // Idem pour le podium (brief du 21 septembre 2026) : `frise.refresh()`
-        // relit `affiche_url`, seule chose que la carte en tire.
-        onPodiumChange = { frise.refresh() },
-        // « Je l'ai vu » sur la carte de soirée (décision 2 du brief du
-        // 21 septembre 2026, « la séance ») : le même formulaire pré-rempli que
-        // partout ailleurs dans le Voyage.
-        onOpenForm = { nav.push(Screen.Form(it)) },
-        // « Prendre » (décision 2) : `frise.refresh()` relit `seance_prise`, que
-        // la ligne « Ce soir » de l'accueil porte.
-        onSeanceChange = { frise.refresh() },
-        onOuvrirRealisateur = { id -> nav.push(Screen.Realisateur(id)) },
-    )
+    // La fête d'un ticket utilisé (lot 1 du brief du 28 septembre 2026 : « un ticket utilisé
+    // depuis la fiche d'année doit être fêté là, pas seulement au retour sur la carte ») :
+    // `AnneeDansLaBoiteCalque` (`ui/celebrations/`) est entièrement autonome — aucune donnée
+    // propre à la carte, seulement `FriseViewModel` — donc rejouable ici telle quelle. Avant ce
+    // correctif, seul `VoyageScreen.kt` la posait, collectant `frise.avancees` : posée sur un
+    // `Channel`, elle n'atteignait alors l'écran qu'au prochain passage sur la Frise, jamais
+    // pendant qu'on regardait encore la fiche de l'année qu'on vient de quitter.
+    var celebrationAnnee by remember { mutableStateOf<FrontiereAvancee?>(null) }
+    LaunchedEffect(Unit) {
+        frise.avancees.collect { avancee -> celebrationAnnee = avancee }
+    }
+    Box(Modifier.fillMaxSize()) {
+        AnneeScreen(
+            screen.annee,
+            anneeVm,
+            realisateurResolveur = realisateurResolveur,
+            onBack = nav::pop,
+            // L'affiche partagée (geste 8) : la salle du Voyage est un des deux
+            // bouts de la paire vers `Screen.FicheVoyage` plus bas — même clé.
+            sharedTransitionScope = sharedTransitionScope,
+            animatedVisibilityScope = animatedVisibilityScope,
+            onOpenFilm = { salleId, filmId -> nav.push(Screen.FicheVoyage(screen.annee.annee ?: 0, salleId, filmId)) },
+            // Le ticket (brief du 21 septembre 2026) : encaisser le ticket de la
+            // ligne du bas avance l'année en cours côté back sans toucher
+            // `/me/voyage`, on relit donc la carte nous-mêmes pour qu'elle soit à
+            // jour au prochain passage dessus — jumeau du podium juste en dessous.
+            onTicketChange = { frise.refresh() },
+            // Idem pour le podium (brief du 21 septembre 2026) : `frise.refresh()`
+            // relit `affiche_url`, seule chose que la carte en tire.
+            onPodiumChange = { frise.refresh() },
+            // « Je l'ai vu » sur la carte de soirée (décision 2 du brief du
+            // 21 septembre 2026, « la séance ») : le même formulaire pré-rempli que
+            // partout ailleurs dans le Voyage.
+            onOpenForm = { nav.push(Screen.Form(it)) },
+            // « Prendre » (décision 2) : `frise.refresh()` relit `seance_prise`, que
+            // la ligne « Ce soir » de l'accueil porte.
+            onSeanceChange = { frise.refresh() },
+            onOuvrirRealisateur = { id -> nav.push(Screen.Realisateur(id)) },
+        )
+        celebrationAnnee?.let { avancee ->
+            AnneeDansLaBoiteCalque(
+                avancee = avancee,
+                recompense = recompenseDe(friseUiPourAnnee.voyage.parAnnee[avancee.anneeBouclee]?.recompense),
+                onTermine = { celebrationAnnee = null },
+                chargerGenerique = { frise.chargerGeneriqueAnnee(avancee.anneeBouclee) },
+            )
+        }
+    }
 }
 
 /** `Screen.FicheVoyage` : la fiche d'un film d'une salle, lue sur le même `AnneeViewModel` que l'année. */
