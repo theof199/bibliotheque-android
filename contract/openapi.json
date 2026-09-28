@@ -30437,7 +30437,7 @@
         "tags": [
           "réalisateurs"
         ],
-        "description": "Le paramètre est le `tmdb_id` d’un **film**, et non d’une personne : celui rendu par `GET /me/realisateurs/{tmdbId}/films`.\n\n**Idempotent.** Marquer un film déjà marqué ne crée pas de seconde ligne et répond `204` comme la première fois — l’unicité `(membre, film)` en base le garantit de toute façon.\n\nLa marque est strictement personnelle : elle ne modifie que `GET /me/realisateurs/{tmdbId}/films` **pour moi**, jamais pour un autre membre. Invalide aussi le cache de `GET /me/voyage` : un film marqué introuvable peut compléter une salle du Voyage (Lion, Palme).",
+        "description": "Le paramètre est le `tmdb_id` d’un **film**, et non d’une personne : celui rendu par `GET /me/realisateurs/{tmdbId}/films`.\n\n**Idempotent.** Marquer un film déjà marqué ne crée pas de seconde ligne et répond `204` comme la première fois — l’unicité `(membre, film)` en base le garantit de toute façon.\n\nLa marque est strictement personnelle : elle ne modifie que `GET /me/realisateurs/{tmdbId}/films` **pour moi**, jamais pour un autre membre. Invalide aussi le cache de `GET /me/voyage` : un film marqué introuvable peut compléter une salle du Voyage (Lion, Palme) — et, si c’est « Les essentiels » de mon année en cours qui se complète, accorde d’office le ticket vers l’année suivante, sans appel au chroniqueur (revue du Voyage, 28 septembre 2026).",
         "parameters": [
           {
             "schema": {
@@ -41986,7 +41986,7 @@
         "tags": [
           "voyage"
         ],
-        "description": "`annee_en_cours` sépare les trois statuts : `ouverte` avant elle (je peux toujours y revenir creuser), `en_cours` sur elle, `verrouillee` après (rien ne s’y ouvre encore).\n\n`visitee` dit si une ouverture existe déjà pour cette année, quel que soit son statut. `profondeur` compte les films de mon journal sortis cette année-là, y compris ceux vus avant d’y arriver ; un programme compte un, jamais ses bobines séparément. `affiche_url` est l’affiche du n°1 de mon podium cette année-là, nulle si la marche est vide.\n\n`recompense` vaut `ours` (profondeur ≥ 1, même sans ouverture), `lion` (« Les essentiels » entièrement vus ou introuvables) ou `palme` (`lion`, et au moins deux autres salles, à au moins un film, complètes au même sens) — `null` sinon.\n\n`tampons` porte le passeport : une ligne par décennie bouclée (`decennie` croissant, `boucle_le`), où chacune de ses années a un `ours` et où le ticket de la première année de la décennie suivante est `utilise_le`.\n\n`seance_prise` porte la dernière séance que j’ai prise (`POST /me/voyage/seances/{id}/prendre`), tant que son long n’est pas encore vu — `null` dès qu’il l’est, ou si aucune séance n’est prise.\n\nRéponse mise en cache 60 s par membre, invalidée par une écriture au journal (`/me/journal`), une marque « introuvable » (`PUT`/`DELETE /me/introuvables/{tmdbId}`), l’ouverture d’une année, une fournée, une écriture au podium et toute écriture sur une séance.",
+        "description": "`annee_en_cours` sépare les trois statuts : `ouverte` avant elle (je peux toujours y revenir creuser), `en_cours` sur elle, `verrouillee` après (rien ne s’y ouvre encore).\n\n`visitee` dit si une ouverture existe déjà pour cette année, quel que soit son statut. `profondeur` compte les films de mon journal sortis cette année-là, y compris ceux vus avant d’y arriver ; un programme compte un, jamais ses bobines séparément. `affiche_url` est l’affiche du n°1 de mon podium cette année-là, nulle si la marche est vide.\n\n`recompense` vaut `ours` (profondeur ≥ 3, même sans ouverture — un seul film vu, même en avance, ne suffit plus depuis le 28 septembre 2026), `lion` (« Les essentiels » entièrement vus ou introuvables, accordé alors sans appel au chroniqueur) ou `palme` (`lion`, et au moins deux autres salles, à au moins un film, complètes au même sens) — `null` sinon.\n\n`progression` porte `essentiels_vus`/`essentiels_total`/`salles_completes`/`salles_autres`, même forme que sur la fiche (`GET /me/voyage/annees/{annee}`) — `null` pour une année verrouillée ou pas encore ouverte (`visitee: false`).\n\n`tampons` porte le passeport : une ligne par décennie bouclée (`decennie` croissant, `boucle_le`), où chacune de ses années a un `ours` et où le ticket de la première année de la décennie suivante est `utilise_le`.\n\n`seance_prise` porte la dernière séance que j’ai prise (`POST /me/voyage/seances/{id}/prendre`), tant que son long n’est pas encore vu — `null` dès qu’il l’est, ou si aucune séance n’est prise.\n\nRéponse mise en cache 60 s par membre, invalidée par une écriture au journal (`/me/journal`), une marque « introuvable » (`PUT`/`DELETE /me/introuvables/{tmdbId}`), l’ouverture d’une année, une fournée, une écriture au podium et toute écriture sur une séance.",
         "responses": {
           "200": {
             "description": "Ma progression dans le Voyage",
@@ -42078,6 +42078,50 @@
                               }
                             ],
                             "description": "Ours, Lion ou Palme — une année sans ouverture ne peut avoir que l’Ours"
+                          },
+                          "progression": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "essentiels_vus": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991,
+                                    "description": "Essentiels strictement vus — un introuvable n’y compte pas, même s’il compte pour le Lion"
+                                  },
+                                  "essentiels_total": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "salles_completes": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991,
+                                    "description": "Parmi salles_autres, celles entièrement vues ou introuvables"
+                                  },
+                                  "salles_autres": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991,
+                                    "description": "Salles hors essentiels, à au moins un film — une salle vide ne compte pas"
+                                  }
+                                },
+                                "required": [
+                                  "essentiels_vus",
+                                  "essentiels_total",
+                                  "salles_completes",
+                                  "salles_autres"
+                                ],
+                                "additionalProperties": false,
+                                "description": "Ma progression vers le Lion et la Palme, pour cette année"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Même forme que `progression` sur la fiche (`GET /me/voyage/annees/{annee}`) — nulle pour une année verrouillée ou pas encore ouverte (`visitee: false`)"
                           }
                         },
                         "required": [
@@ -42087,7 +42131,8 @@
                           "profondeur",
                           "affiche_url",
                           "fond_url",
-                          "recompense"
+                          "recompense",
+                          "progression"
                         ],
                         "additionalProperties": false,
                         "description": "Une année, telle qu’elle apparaît sur la carte"
@@ -42256,7 +42301,13 @@
                           "profondeur": 6,
                           "affiche_url": null,
                           "fond_url": null,
-                          "recompense": "ours"
+                          "recompense": "ours",
+                          "progression": {
+                            "essentiels_vus": 2,
+                            "essentiels_total": 3,
+                            "salles_completes": 1,
+                            "salles_autres": 2
+                          }
                         },
                         {
                           "annee": 1941,
@@ -42265,7 +42316,13 @@
                           "profondeur": 4,
                           "affiche_url": "https://image.tmdb.org/t/p/w500/sav0jxhqiH0bPr2vZFU0Kjt2nZL.jpg",
                           "fond_url": "https://image.tmdb.org/t/p/w1280/sav0jxhqiH0bPr2vZFU0Kjt2nZL.jpg",
-                          "recompense": "lion"
+                          "recompense": "lion",
+                          "progression": {
+                            "essentiels_vus": 1,
+                            "essentiels_total": 2,
+                            "salles_completes": 1,
+                            "salles_autres": 3
+                          }
                         },
                         {
                           "annee": 1942,
@@ -42274,7 +42331,8 @@
                           "profondeur": 0,
                           "affiche_url": null,
                           "fond_url": null,
-                          "recompense": null
+                          "recompense": null,
+                          "progression": null
                         }
                       ],
                       "ticket_a_montrer": {
