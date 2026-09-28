@@ -66,10 +66,16 @@ data class FormatPhotogramme(
  * `x`/`y` la position dans la section ; `ancrageX`/`ancrageY` l'ancrage du recadrage « cover »
  * (0,5/0,4 : centré, légèrement remonté ; 0,5/0 : centré, calé en haut — une affiche montre son
  * titre, pas ses pieds).
+ *
+ * Retouche du 28 septembre 2026 (retour téléphone du propriétaire, livraison 5) : `Standard` passe
+ * de 390 à 358 dp de large, centrée (16 dp de marge de chaque côté, comme le carton-titre lui-même,
+ * `CartonTitre.kt`) plutôt que collée aux deux bords de la section — avec le fondu sur les quatre
+ * bords ajouté à `SectionMonde.masqueQuatreBords`, une image qui touchait encore les bords aurait
+ * perdu trop de son sujet dans le fondu horizontal ; la marge garde le sujet dans la zone opaque.
  */
 sealed class CadrageImage(val largeur: Dp, val hauteur: Dp, val x: Dp, val y: Dp, val ancrageX: Float, val ancrageY: Float) {
-    /** 390 × 300 dp à top 250, ancrage 50 % / 40 % (§H) — le cadrage de onze des douze images. */
-    data object Standard : CadrageImage(390.dp, 300.dp, 0.dp, 250.dp, ancrageX = 0.5f, ancrageY = 0.4f)
+    /** 358 × 300 dp à top 250, centrée, ancrage 50 % / 40 % (§H, retouché) — le cadrage de onze des douze images. */
+    data object Standard : CadrageImage(358.dp, 300.dp, 16.dp, 250.dp, ancrageX = 0.5f, ancrageY = 0.4f)
 
     /** L'affiche de 1910, seule exception de §H : 258 × 392 dp à (66,128), ancrage 50 % / 0 %. */
     data object Affiche : CadrageImage(258.dp, 392.dp, 66.dp, 128.dp, ancrageX = 0.5f, ancrageY = 0f)

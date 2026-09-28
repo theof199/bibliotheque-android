@@ -2,6 +2,9 @@ package fr.mediatheque.journal.ui.frise
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -20,12 +23,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
@@ -43,6 +49,13 @@ import fr.mediatheque.journal.ui.theme.animationsReduites
 
 /** La hauteur de la route d'une section, carton exclu — le repère 650 dp de Léon. */
 private val HAUTEUR_ROUTE = 650.dp
+
+/**
+ * La hauteur de la bande de transition entre deux décennies (retouche du 28 septembre 2026,
+ * retour téléphone du propriétaire) : un dégradé du fond du monde précédent vers celui-ci, pour
+ * que chaque carton ait de l'air au-dessus plutôt que d'être collé à la fin de la route d'avant.
+ */
+private val HAUTEUR_BANDE_TRANSITION = 48.dp
 
 /**
  * Une section du Voyage : le carton-titre d'un monde, sa route et ses dix pavillons, sa marquise
@@ -76,6 +89,13 @@ private val HAUTEUR_ROUTE = 650.dp
  * plus qu'avant — 1960 → 2020 (livraison 4) et 1890 → 1920 en 16 i/s (livraison 5, via
  * `progressionQuantifiee` posée sur `progression` avant `etatEntreeCarton`) n'auront qu'à ajouter
  * leurs propres branches à `CartonTitre` et `AmbianceDeMonde`.
+ *
+ * Retouche du 28 septembre 2026 (retour téléphone du propriétaire, livraison 5) : la bande de
+ * transition (`fondPrecedent`) donne de l'air à chaque carton, la route se découpe (`clipToBounds`)
+ * pour qu'aucune entrée ni ambiance ne déborde sur la section voisine, l'image de fond se fond sur
+ * ses quatre bords (`masqueQuatreBords`, plus un voile de `monde.fond`) plutôt que haut/bas
+ * seulement, et gagne enfin un crochet d'effet propre (`tremblementEpaule1960`,
+ * `grillePixels2000`) — le manque signalé par `rapport-livraison-4.md`.
  */
 @Composable
 fun SectionMonde(
@@ -88,6 +108,9 @@ fun SectionMonde(
     decennieAllumee: Int,
     onOpenAnnee: (AnneeFrise) -> Unit,
     onOpenDecennie: (DecennieFrise) -> Unit,
+    // Le fond du monde précédent (retouche du 28 septembre 2026, retour téléphone) : nul pour la
+    // toute première section — sert la bande de transition entre deux décennies ci-dessous.
+    fondPrecedent: Color? = null,
     modifier: Modifier = Modifier,
 ) {
     val monde = section.monde
@@ -109,20 +132,41 @@ fun SectionMonde(
     }
     val entreeCarton = etatEntreeCarton(dejaEntre, visible, reduit, progression.value)
     val active = ambianceActive(visible, reduit)
+    // Relue par l'image (§G suite, 2000 : la grille de pixels pendant l'entrée) — nulle hors
+    // `EnCours`, comme `progressionEntree` de `CartonTitre.kt`.
+    val progressionEntreeImage = (entreeCarton as? EtatEntree.EnCours)?.progression
 
     Column(modifier.fillMaxWidth()) {
+        // La bande de transition (retouche du 28 septembre 2026, retour téléphone du propriétaire) :
+        // 48 dp de dégradé du fond du monde précédent vers celui-ci, pour que le carton ait de
+        // l'air au-dessus plutôt que d'être collé à la fin de la décennie d'avant. Rien pour la
+        // toute première section (`fondPrecedent` nul).
+        if (fondPrecedent != null) {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(HAUTEUR_BANDE_TRANSITION)
+                    .background(Brush.verticalGradient(listOf(fondPrecedent, monde.fond))),
+            )
+        }
         CartonTitre(monde, entreeCarton)
         BoxWithConstraints(
             Modifier
                 .fillMaxWidth()
                 .height(HAUTEUR_ROUTE)
+                // Aucune entrée ni ambiance ne doit déborder de sa propre section (retouche du
+                // 28 septembre 2026) — les transformations (rotation, décalage) de `CartonTitre`
+                // et `AmbianceDeMonde` restent en dessous de cette taille, mais le découpage
+                // garantit qu'un dépassement reste invisible plutôt que de peindre sur la section
+                // voisine.
+                .clipToBounds()
                 .background(monde.fond),
         ) {
             val k = maxWidth / 390.dp
 
             // Tout en bas de la pile (§H) : derrière la route, jamais sur les pavillons ni le
             // texte. Nulle pour 1890 et 1900, qui n'ont pas d'image.
-            monde.image?.let { image -> ImageDeFond(image, k) }
+            monde.image?.let { image -> ImageDeFond(image, monde, active, progressionEntreeImage, k) }
 
             // Entre l'image et la route (§B, livraison 3) : l'ambiance en boucle du monde, muette
             // hors écran et sans animations réduites (`ambianceActive`).
@@ -269,13 +313,18 @@ private fun Millesime(annee: Int, position: PositionMillesime, emplacement: Empl
  * L'image de fond d'un monde (§H, livraison 2) : le WebP de `bin/images`, recadré « cover » à son
  * cadrage (`ImageDeMonde.cadrage`, déjà recadré au bon ratio par le script — l'ancrage ici ne fait
  * plus que documenter l'intention), ses filtres colorimétriques (`ImageDeMonde.matrice()`) et son
- * masque vertical (transparent aux deux bords, opaque de 14 % à 82 % — §H, pour qu'elle se fonde
- * dans `monde.fond` plutôt que de finir en bandeau net). Décorative, comme la route sous elle :
- * `contentDescription = null`.
+ * masque sur les quatre bords (retouche du 28 septembre 2026, ci-dessous). Décorative, comme la
+ * route sous elle : `contentDescription = null`.
+ *
+ * Retouche du 28 septembre 2026 (retour téléphone) : le crochet manquant signalé par
+ * `rapport-livraison-4.md` — une transformation propre à l'image, par monde, vient s'intercaler
+ * avant le masque (`tremblementEpaule1960`, `grillePixels2000`), pilotée par les mêmes signaux que
+ * le reste (`active`/`reduit` via `ambianceActive`, `progressionEntree` via `etatEntreeCarton`).
  */
 @Composable
-private fun ImageDeFond(image: ImageDeMonde, k: Float, modifier: Modifier = Modifier) {
+private fun ImageDeFond(image: ImageDeMonde, monde: Monde, active: Boolean, progressionEntree: Float?, k: Float, modifier: Modifier = Modifier) {
     val cadrage = image.cadrage
+    val decennie = monde.decennie
     Image(
         painter = painterResource(image.res),
         contentDescription = null,
@@ -286,18 +335,25 @@ private fun ImageDeFond(image: ImageDeMonde, k: Float, modifier: Modifier = Modi
         modifier = modifier
             .offset(x = cadrage.x * k, y = cadrage.y)
             .size(cadrage.largeur * k, cadrage.hauteur)
+            .let { if (decennie == 1960) it.tremblementEpaule1960(active) else it }
+            .let { if (decennie == 2000) it.grillePixels2000(progressionEntree) else it }
             .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-            .masqueVertical(),
+            .masqueQuatreBords(monde.fond),
     )
 }
 
 /**
- * Le fondu haut et bas de l'image de fond (§H) : un vrai masque d'alpha (`BlendMode.DstIn` sur une
- * composition hors écran, comme le trou du poinçon de `TicketVoyage.kt`), pas un dégradé vers
- * `monde.fond` — l'image se fond dans ce qu'il y a derrière elle quel que soit son alpha propre.
+ * Le fondu sur les quatre bords de l'image de fond (retouche du 28 septembre 2026, retour
+ * téléphone du propriétaire) : l'ancienne version ne fondait que haut et bas, ce qui se lisait
+ * comme un bloc-photo à bords nets sur les côtés — deux masques d'alpha en `BlendMode.DstIn`
+ * successifs (vertical puis horizontal, sur une composition hors écran, comme le trou du poinçon
+ * de `TicketVoyage.kt`) multiplient leurs fondus, adoucissant les quatre bords à la fois. Un léger
+ * voile de `fond` par-dessus l'image (avant le masque, pour qu'il s'estompe avec elle) fait lire
+ * l'ensemble comme une lueur plutôt qu'une photo posée.
  */
-private fun Modifier.masqueVertical(): Modifier = drawWithContent {
+private fun Modifier.masqueQuatreBords(fond: Color): Modifier = drawWithContent {
     drawContent()
+    drawRect(fond.copy(alpha = 0.16f))
     drawRect(
         brush = Brush.verticalGradient(
             0f to Color.Transparent,
@@ -307,6 +363,64 @@ private fun Modifier.masqueVertical(): Modifier = drawWithContent {
         ),
         blendMode = BlendMode.DstIn,
     )
+    drawRect(
+        brush = Brush.horizontalGradient(
+            0f to Color.Transparent,
+            0.14f to Color.Black,
+            0.86f to Color.Black,
+            1f to Color.Transparent,
+        ),
+        blendMode = BlendMode.DstIn,
+    )
+}
+
+/**
+ * 1960 (§G suite) : l'image tremble à l'épaule tant que l'ambiance tourne — rattrapage du crochet
+ * manquant (« Déviations du delta » de `rapport-livraison-4.md` : `AmbianceDeMonde` ne pouvait
+ * transformer que ce qu'elle dessinait elle-même, jamais `ImageDeFond`, composée indépendamment
+ * plus bas dans la pile). Approximé sur six paliers cycliques parmi les quatre positions du delta
+ * plutôt que quatre paliers exacts — à une amplitude d'1 dp, la différence ne se voit pas.
+ */
+private fun Modifier.tremblementEpaule1960(active: Boolean): Modifier = composed {
+    if (!active) return@composed this
+    val transition = rememberInfiniteTransition(label = "image-tremblement-1960")
+    val t by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1_200, easing = LinearEasing)),
+        label = "tremblement",
+    )
+    val position = POSITIONS_TREMBLEMENT_1960[(t * 6).toInt().coerceIn(0, 5) % POSITIONS_TREMBLEMENT_1960.size]
+    graphicsLayer {
+        translationX = position.x.dp.toPx()
+        translationY = position.y.dp.toPx()
+    }
+}
+
+private val POSITIONS_TREMBLEMENT_1960 = listOf(Offset(0f, 0f), Offset(1f, -1f), Offset(-1f, 1f), Offset(0f, 0f))
+
+/**
+ * 2000 (§G suite) : la grille de pixels sur l'image pendant l'entrée — tenue puis effacée
+ * (`steps(1)` du delta), calée sur la même `progressionEntree` que le décodage du titre
+ * (`modifierEntreeTitre`, `CartonTitre.kt`, 1,1 s) plutôt que sur les 1,6 s propres au delta, pour
+ * ne pas ouvrir un second chronomètre pour ce monde — rattrapage du crochet manquant de la
+ * livraison 4.
+ */
+private fun Modifier.grillePixels2000(progressionEntree: Float?): Modifier = drawWithContent {
+    drawContent()
+    if (progressionEntree == null || progressionEntree > 0.8f) return@drawWithContent
+    val couleur = Color(0xFF56C4E0).copy(alpha = 0.12f)
+    val pas = 20.dp.toPx()
+    var x = 0f
+    while (x < size.width) {
+        drawLine(couleur, Offset(x, 0f), Offset(x, size.height), strokeWidth = 1.dp.toPx())
+        x += pas
+    }
+    var y = 0f
+    while (y < size.height) {
+        drawLine(couleur, Offset(0f, y), Offset(size.width, y), strokeWidth = 1.dp.toPx())
+        y += pas
+    }
 }
 
 /**

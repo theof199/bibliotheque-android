@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -179,7 +179,7 @@ fun VoyageScreen(
                 modifier = Modifier.weight(1f),
             ) {
                 LazyColumn(state = liste, modifier = Modifier.fillMaxSize()) {
-                    items(sections, key = { section -> "section-${section.monde.decennie}" }) { section ->
+                    itemsIndexed(sections, key = { _, section -> "section-${section.monde.decennie}" }) { index, section ->
                         val decennie = section.monde.decennie
                         SectionMonde(
                             section = section,
@@ -191,6 +191,9 @@ fun VoyageScreen(
                             decennieAllumee = decennieAllumee,
                             onOpenAnnee = onOpenAnnee,
                             onOpenDecennie = onOpenDecennie,
+                            // La bande de transition (retouche du 28 septembre 2026) : le fond du
+                            // monde précédent dans la liste, nul pour la toute première section.
+                            fondPrecedent = sections.getOrNull(index - 1)?.monde?.fond,
                         )
                     }
                 }
